@@ -1,0 +1,55 @@
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.9.4
+    hooks:
+      # Automatically sync on checkout,
+      - id: uv-sync
+        files: ^server/uv.lock$
+        args: [--locked, --project, server]
+      # Ensure lock file is up-to-date
+      - id: uv-lock
+        files: ^server/pyproject.toml$
+        args: [--project, server]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.14.1
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        # args: [--unsafe-fixes]
+      # Run the formatter.
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.38.1
+    hooks:
+      - id: typos
+
+  - repo: https://codeberg.org/frnmst/md-toc
+    rev: "9.0.0"
+    hooks:
+      - id: md-toc
+        args: [-p, github, -l6]
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args:
+          - -c
+          - pyproject.toml
+          - --configPointer
+          - /tool/markdownlint
+          - --fix
