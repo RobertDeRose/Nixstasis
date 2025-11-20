@@ -1,0 +1,11 @@
+# Defaults to 0.0.0.0:7000 for FRPS
+webServer.port = 8081
+log.to = "console"
+log.level = "info"
+
+# Support for SSH proxying
+tcpmuxHTTPConnectPort = 2022
+
+# Support for Cockpit proxying
+vhostHTTPPort = 8080
+subDomainHost = "device.<domain>"
