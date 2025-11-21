@@ -1,0 +1,9 @@
+package-type: generic
+package-name: checkpoint-som-nixstasis
+package-description: Nixstasis SOM Nixstasis Client
+upload-package: true
+package-dependencies: |
+  curl
+  frp
+  jq
+  systemd

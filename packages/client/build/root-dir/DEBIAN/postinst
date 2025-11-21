@@ -1,0 +1,7 @@
+#!/bin/bash
+
+action=("enable")
+[[ -d /run/systemd/system/ ]] && action+=("--now")
+
+systemctl "${action[@]}" nixstasis-registration.service
+systemctl "${action[@]}" nixstasis-poll.path

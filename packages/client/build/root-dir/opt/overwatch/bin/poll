@@ -1,0 +1,106 @@
+#!/bin/bash
+# shellcheck disable=SC1091,SC2034,SC2155
+set -eo pipefail
+
+SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
+source "${SOURCE_DIR}/_api.sh"
+
+INSTALL_DIR="$(realpath "${SOURCE_DIR}/..")"
+CONFIG_DIR="/etc/nixstasis"
+
+NAME="atom-$(cat /sys/class/net/eth0/address | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+ID_FILE="/etc/nixstasis/id"
+
+if [ ! -e "${ID_FILE}" ]; then
+  log_fatal "Device registration file is missing, cannot poll Nixstasis"
+  exit 1
+fi
+
+ID="$(cat "${CONFIG_DIR}/id")"
+if [[ -z ${ID} ]]; then
+  log_fatal "Device registration id is missing, cannot poll Nixstasis"
+  exit 2
+fi
+
+function pub_and_get() {
+  local topic="${1}"
+  local response
+
+  {
+    sleep 1
+    mosquitto_pub -t "${topic}" -m '{"type": "get"}'
+  } &
+
+  response="$(timeout 3 mosquitto_sub -t "${topic}" -C 2 | jq 'select(.isResponse == true or .isResponse == 1)')"
+
+  [[ "${response}" ]] && echo "${response}" || echo '{}'
+}
+
+function start_frp() {
+  systemd-run --quiet --collect --service-type=simple \
+    --unit="nixstasis-access" \
+    --working-directory="${INSTALL_DIR}" \
+    --setenv=NAME="${NAME}" \
+    /usr/bin/timeout 1h "/opt/frp/bin/frpc" -c "${INSTALL_DIR}/client.toml"
+}
+
+function frp_running() { systemctl is-active nixstasis-access &> /dev/null; }
+
+function main() {
+  if ! store_info="$(pub_and_get "store/info" | jq '{
+        account: (.accountNumber // null),
+        store: (.storeNumber // null),
+        door: (.doorName // null)
+      }')"; then
+    log_warn "Unable to get store info, apollo-wirama-driver did not respond after 3 seconds"
+  fi
+
+  if ! readers="$(pub_and_get "Wirama/Devices/enabled" | jq '{
+        firmware_version: (.readers[0].expectedFwVersion // null),
+        readers: (.readers // []) | map({
+          serial_number: .serialNumber,
+          position: .displayName,
+          profile: .profile,
+          tx_band: .txBand,
+          region: .region,
+          model: .model,
+          version: (.fwVersion | sub("FW "; "")),
+          status: (if .isOnline then "online" else if .isRebooting then "rebooting" else "offline" end end),
+          inventory: (if .autoRunState == "Run" then true else false end),
+          finalized: (if .isFinalized == true then true else false end)
+        })
+      }')"; then
+    log_warn "Unable to get readers, apollo-wirama-driver did not respond after 10 seconds"
+  fi
+
+  payload="$(
+    DeviceUpdate "" "" "" \
+      "$(dpkg-query -W -f='${Version}' apollo-wirama-driver 2> /dev/null)" "" "" \
+      "$(frp_running && echo "${NAME}" || echo "")"
+  )"
+
+  payload="$(jq -n "${payload} * ${store_info} * ${readers}")"
+
+  if declare -A response="( $(poll_nixstasis "${ID}" "${payload}" | json2aa) )"; then
+    log_info "Polled Nixstasis"
+
+    if [[ ${response[remote_access_requested]} == "true" ]] && ! frp_running; then
+      log_info "Nixstasis is requesting access, starting nixstasis-access"
+      if ! start_frp; then
+        log_fatal "Failed to start Nixstasis access process"
+      fi
+    fi
+  else
+    log_fatal "Unable to connect to Nixstasis"
+  fi
+}
+
+if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
+  log_info "Starting Nixstasis polling"
+
+  while true; do
+    sleep 3
+    main
+    sleep 57
+  done
+fi
