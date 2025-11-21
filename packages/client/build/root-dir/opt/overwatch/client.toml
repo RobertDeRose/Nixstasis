@@ -1,0 +1,21 @@
+serverAddr = "nixstasis.device.<domain>"
+serverPort = 7000
+webServer.addr = "127.0.0.1"
+webServer.port = 7400
+log.to = "console"
+
+[[proxies]]
+name = "{{ .Envs.NAME }}"
+type = "http"
+subdomain = "{{ .Envs.NAME }}"
+
+[proxies.plugin]
+type = "http2https"
+localAddr = "127.0.0.1:443"
+
+[[proxies]]
+name = "{{ .Envs.NAME }}-ssh"
+type = "tcpmux"
+multiplexer = "httpconnect"
+customDomains = ["{{ .Envs.NAME }}-ssh"]
+localPort = 22
