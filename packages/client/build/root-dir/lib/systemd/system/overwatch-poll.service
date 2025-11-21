@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll Nixstasis with device details
+Requires=network.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+SyslogIdentifier=nixstasis
+ExecStart=/opt/nixstasis/bin/poll
+Restart=always
+RestartSec=120s
