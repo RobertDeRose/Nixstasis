@@ -4,6 +4,9 @@
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_logging.sh"
 
+CONFIG_DIR="/etc/nixstasis"
+ID_FILE="${CONFIG_DIR}/id"
+
 API_URL="https://nixstasis.device.<domain>/api/v1"
 HEADERS=(
   -H 'accept: application/json'
@@ -17,6 +20,71 @@ function _post() {
   curl -q -X POST "${API_URL}/${endpoint}" "${HEADERS[@]}" -d "${payload}" 2> /dev/null
 }
 
+#########################################
+# Get Device MAC address
+#
+# Output:
+#   str  - The MAC Address of eth0
+#########################################
+function get_mac_address() {
+  cat /sys/class/net/eth0/address
+}
+
+#########################################
+# Get Device standardized remote access name
+#
+# Output:
+#   str  - A unique name for the device
+#########################################
+function get_name() {
+  echo "atom-$(get_mac_address | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+}
+
+#########################################
+# Set Device registration id
+#
+# Input:
+#   id: uuid  - The id returned during registration
+# Returns:
+#   0 - If ID was saved successfully
+#   _ - The system error that caused the failure
+#########################################
+function set_id() {
+  [ ! -e "${CONFIG_DIR}" ] && mkdir -p "${CONFIG_DIR}"
+
+  echo "$1" > "$ID_FILE"
+}
+
+#########################################
+# Get Device registration id
+#
+# Output:
+#   id: uuid  - The id returned during registration
+# Returns:
+#   0 - If API request was successful
+#   1 - Otherwise
+#########################################
+function get_id() {
+  if [ ! -e "${ID_FILE}" ]; then
+    log_fatal "Device registration file is missing"
+    return 1
+  fi
+
+  ID="$(cat "${CONFIG_DIR}/id")"
+  if [[ -z ${ID} ]]; then
+    log_fatal "Device registration id is missing"
+    return 2
+  fi
+
+  echo "$ID"
+}
+
+#########################################
+# Convert JSON to an Bash Associative Array format
+#
+# Example:
+#   declare -A test="( $( json_outputting_command | json2aa))"
+#########################################
 function json2aa() {
   cat - | jq -r 'to_entries[] | "[\(.key)]=\"\(.value)\""'
 }
@@ -29,20 +97,21 @@ function json2aa() {
 # Returns:
 #   0 - If API request was successful
 #   1 - Otherwise
-# Output Environment:
-#   RESPONSE[id]
-#   RESPONSE[mac_address]
-#   RESPONSE[ip_address]
-#   RESPONSE[account]
-#   RESPONSE[store]
-#   RESPONSE[door]
-#   RESPONSE[software_version]
-#   RESPONSE[firmware_version]
-#   RESPONSE[remote_access_token]
-#   RESPONSE[remote_access_requested]
-#   RESPONSE[remote_connection_string]
-#   RESPONSE[status]
-#   RESPONSE[last_seen]
+# Output:
+#   JSON with keys:
+#   - id
+#   - mac_address
+#   - ip_address
+#   - account
+#   - store
+#   - door
+#   - software_version
+#   - firmware_version
+#   - remote_access_token
+#   - remote_access_requested
+#   - remote_connection_string
+#   - status
+#   - last_seen
 #########################################
 function register_device() {
   local payload="$1"
@@ -58,25 +127,26 @@ function register_device() {
 # Returns:
 #   0 - If API request was successful
 #   1 - Otherwise
-# Output Environment:
-#   RESPONSE[id]
-#   RESPONSE[mac_address]
-#   RESPONSE[ip_address]
-#   RESPONSE[account]
-#   RESPONSE[store]
-#   RESPONSE[door]
-#   RESPONSE[software_version]
-#   RESPONSE[firmware_version]
-#   RESPONSE[remote_access_token]
-#   RESPONSE[remote_access_requested]
-#   RESPONSE[remote_connection_string]
-#   RESPONSE[status]
-#   RESPONSE[last_seen]
+# Output:
+#   JSON with keys:
+#   - id
+#   - mac_address
+#   - ip_address
+#   - account
+#   - store
+#   - door
+#   - software_version
+#   - firmware_version
+#   - remote_access_token
+#   - remote_access_requested
+#   - remote_connection_string
+#   - status
+#   - last_seen
 #########################################
 function poll_nixstasis() {
   local id="$1"
   local data="$2"
-  _post "device/poll/${id}" "${data}"
+  _post "device/${id}/poll" "${data}"
 }
 
 #########################################
@@ -99,7 +169,7 @@ function DeviceCreate() {
 }
 
 #########################################
-# Create a DeviceCreate Object
+# Create a DeviceUpdate Object
 #
 # Arguments:
 #   account: int                    - The account number the device is associated with
@@ -135,7 +205,30 @@ function DeviceUpdate() {
 }
 
 #########################################
-# Create a DeviceCreate Object
+# Create a DeviceConnection Object
+#
+# Use this when only updating remote access data
+#
+# Arguments:
+#   remote_connection_string: str   - The URI needed to access the device remotely
+#   remote_access_token: str        - The security token needed to access the devices remote configurstion screen
+# Outputs:
+#   json string ready for use with `poll_nixstasis`
+#########################################
+function DeviceConnection() {
+  jq -rn \
+    --arg remote_connection_string "$1" \
+    --arg remote_access_token "$2" \
+    '
+  def nullIfEmpty(arg): if arg == "" then null else arg end;
+  {
+    remote_access_token: nullIfEmpty($remote_access_token),
+    remote_connection_string: nullIfEmpty($remote_connection_string)
+  }'
+}
+
+#########################################
+# Create a Reader Object
 #
 # Arguments:
 #   serial_number: str  - The serial number of the reader
