@@ -5,22 +5,24 @@ set -eo pipefail
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_api.sh"
 
-INSTALL_DIR="$(realpath "${SOURCE_DIR}/..")"
-CONFIG_DIR="/etc/nixstasis"
-
-NAME="atom-$(cat /sys/class/net/eth0/address | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-ID_FILE="/etc/nixstasis/id"
-
-if [ ! -e "${ID_FILE}" ]; then
-  log_fatal "Device registration file is missing, cannot poll Nixstasis"
-  exit 1
+if ! ID="$(get_id)"; then
+  exit_code="$?"
+  log_fatal "Cannot poll Nixstasis"
+  exit "$exit_code"
 fi
 
-ID="$(cat "${CONFIG_DIR}/id")"
-if [[ -z ${ID} ]]; then
-  log_fatal "Device registration id is missing, cannot poll Nixstasis"
-  exit 2
+if ! NAME="$(get_name)"; then
+  log_fatal "Cannot get unique name for device, won't be able to provide remote access"
+  exit 3
 fi
+
+function start_frp() {
+  systemd-run --quiet --collect --service-type=simple \
+    --unit="nixstasis-access" \
+    --working-directory="${INSTALL_DIR}" \
+    --setenv=NAME="${NAME}" \
+    "${SOURCE_DIR}/run_frp"
+}
 
 function pub_and_get() {
   local topic="${1}"
@@ -34,14 +36,6 @@ function pub_and_get() {
   response="$(timeout 3 mosquitto_sub -t "${topic}" -C 2 | jq 'select(.isResponse == true or .isResponse == 1)')"
 
   [[ "${response}" ]] && echo "${response}" || echo '{}'
-}
-
-function start_frp() {
-  systemd-run --quiet --collect --service-type=simple \
-    --unit="nixstasis-access" \
-    --working-directory="${INSTALL_DIR}" \
-    --setenv=NAME="${NAME}" \
-    /usr/bin/timeout 1h "/opt/frp/bin/frpc" -c "${INSTALL_DIR}/client.toml"
 }
 
 function frp_running() { systemctl is-active nixstasis-access &> /dev/null; }

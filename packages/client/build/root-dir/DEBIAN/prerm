@@ -5,4 +5,11 @@ action=("disable")
 
 systemctl "${action[@]}" nixstasis-registration.service
 systemctl "${action[@]}" nixstasis-poll.path
-systemctl stop nixstasis-poll.service
+
+if systemctl is-active nixstasis-poll.service 2> /dev/null; then
+  systemctl stop nixstasis-poll.service
+fi
+
+if systemctl is-active nixstasis-access.service 2> /dev/null; then
+  systemctl stop nixstasis-access.service
+fi
