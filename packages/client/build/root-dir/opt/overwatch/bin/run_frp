@@ -20,6 +20,23 @@ if ! ID="$(get_id)"; then
   exit 2
 fi
 
+function start() {
+  if poll_nixstasis "${ID}" "$(DeviceConnection "${NAME}")"; then
+    log_info "Updated connection_string with Nixstasis"
+  else
+    log_fatal "Unable to update Nixstasis with connection_string"
+    exit 1
+  fi
+}
+
+function stop() {
+  if poll_nixstasis "${ID}" "$(DeviceConnection)"; then
+    log_info "Removed connection_string from Nixstasis"
+  else
+    log_fatal "Unable to update Nixstasis with connection_string"
+  fi
+}
+
 export NAME
 /usr/bin/timeout 1h "${FRP_CLIENT}" -c "${INSTALL_DIR}/client.toml" &
 
@@ -30,16 +47,7 @@ if [[ -z $pid ]]; then
   exit 1
 fi
 
-if poll_nixstasis "${ID}" "$(DeviceConnection "${NAME}")"; then
-  log_info "Updated connection_string with Nixstasis"
-else
-  log_fatal "Unable to update Nixstasis with connection_string"
-fi
+trap "stop" EXIT INT TERM QUIT
 
-while systemctl is-active nixstasis-access &> /dev/null; do sleep 30; done
-
-if poll_nixstasis "${ID}" "$(DeviceConnection)"; then
-  log_info "Removed connection_string from Nixstasis"
-else
-  log_fatal "Unable to update Nixstasis with connection_string"
-fi
+start
+while pidof frpc &> /dev/null; do sleep 30; done
