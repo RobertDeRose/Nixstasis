@@ -5,12 +5,6 @@ set -eo pipefail
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_api.sh"
 
-if ! ID="$(get_id)"; then
-  exit_code="$?"
-  log_fatal "Cannot poll Nixstasis"
-  exit "$exit_code"
-fi
-
 if ! NAME="$(get_name)"; then
   log_fatal "Cannot get unique name for device, won't be able to provide remote access"
   exit 3
@@ -23,6 +17,10 @@ function start_frp() {
     --setenv=NAME="${NAME}" \
     "${SOURCE_DIR}/run_frp"
 }
+
+function frp_running() { systemctl is-active nixstasis-access &> /dev/null; }
+
+function stop_frp() { frp_running && systemctl stop nixstasis-access; }
 
 function pub_and_get() {
   local topic="${1}"
@@ -37,8 +35,6 @@ function pub_and_get() {
 
   [[ "${response}" ]] && echo "${response}" || echo '{}'
 }
-
-function frp_running() { systemctl is-active nixstasis-access &> /dev/null; }
 
 function main() {
   if ! store_info="$(pub_and_get "store/info" | jq '{
@@ -92,8 +88,19 @@ function main() {
 if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
   log_info "Starting Nixstasis polling"
 
+  trap "stop_frp" EXIT INT TERM QUIT
+
   while true; do
     sleep 3
+
+    unset ID
+    if ! ID="$(get_id)"; then
+      exit_code="$?"
+      log_fatal "Cannot poll Nixstasis"
+      systemctl start nixstasis-registration
+      exit "$exit_code"
+    fi
+
     main
     sleep 57
   done
