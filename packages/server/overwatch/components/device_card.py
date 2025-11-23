@@ -1,3 +1,4 @@
+from textwrap import dedent
 from uuid import UUID
 
 import reflex as rx
@@ -29,31 +30,39 @@ def status_badge(status: rx.Var[str]) -> rx.Component:
 
 
 def connect_button(device: Device) -> rx.Component:
+    ssh_command = dedent(f"""
+        proxy=(
+            proxycommand ncat
+            --proxy-type http
+            --proxy device.<domain>:2022 %h %p
+        )
+        ssh -o "${{proxy[*]}}" checkpoint@{device.remote_connection_string}-ssh
+        """).strip()
+
     return rx.popover.root(
         rx.popover.trigger(
             rx.button("Connect", rx.icon("arrow-right", size=16), variant="solid"),
         ),
         rx.popover.content(
             rx.flex(
-                rx.link(
-                    rx.button("Cockpit", rx.icon("plane", size=16), variant="surface", color_scheme="indigo"),
-                    href=f"https://{device.remote_connection_string}.device.<domain>",
-                    is_external=True,
+                rx.hstack(
+                    rx.link(
+                        rx.button("Open Cockpit", rx.icon("plane", size=16), variant="surface", color_scheme="indigo"),
+                        href=f"https://{device.remote_connection_string}.device.<domain>",
+                        is_external=True,
+                    ),
+                    # rx.spacer(),
+                    rx.button("Copy SSH Command", rx.icon("copy", size=16), variant="surface"),
+                    on_click=lambda: rx.set_clipboard(ssh_command),
                 ),
-                rx.heading("SSH", size="2"),
-                rx.markdown(
-                    """
-                    ```console
-                    ssh -o 'proxycommand ncat --proxy-type http --proxy device.<domain>:2022 %h %p' """
-                    f"""checkpoint@{device.remote_connection_string}-ssh
-                    ```
-                    """,
-                ),
+                rx.heading("SSH ", size="3"),
+                rx.text.em("Copy and paste the below command into a terminal", style={"font-size": ".85em"}),
+                rx.code_block(code=ssh_command, language="shell-session", style={"font-size": ".75em"}),
                 direction="column",
-                spacing="4",
+                spacing="3",
                 justify="between",
             ),
-            style={"width": 1200},
+            size="2",
             align="end",
         ),
     )
