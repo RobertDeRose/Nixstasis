@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from nixstasis.backend.api.v1.endpoints import devices
+from nixstasis.backend.api.v1.endpoints import devices, on_demand_tls
 
 
 api_router = FastAPI(
@@ -14,3 +14,4 @@ api_router = FastAPI(
 )
 
 api_router.include_router(devices.router, prefix="/api/v1/device", tags=["devices"])
+api_router.include_router(on_demand_tls.router, include_in_schema=False)
