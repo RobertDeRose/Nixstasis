@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <title>{{ .MetaTitle }} - {{ .PageTitle }}</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="{{ .MetaDescription }}" />
+    <meta name="author" content="{{ .MetaAuthor }}" />
+    <link rel="shortcut icon" href="{{ pathjoin .ActionEndpoint "/assets/images/favicon.png" }}" type="image/png" />
+    <link rel="icon" href="{{ pathjoin .ActionEndpoint "/assets/images/favicon.png" }}" type="image/png" />
+    <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/google-webfonts/roboto.css" }}" />
+    <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/line-awesome/line-awesome.css" }}" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style>
+      :root {
+        /* Default Reflex colors - Orange theme */
+        --color-primary: #f97316;
+        --color-primary-hover: #ea580c;
+        --color-primary-light: #fb923c;
+
+        /* Light theme colors */
+        --bg-base: #ffffff;
+        --bg-secondary: #f8fafc;
+        --bg-card: #ffffff;
+        --border-color: #e2e8f0;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --text-tertiary: #94a3b8;
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --shadow-color: rgba(0, 0, 0, 0.1);
+      }
+
+      .dark {
+        /* Dark theme colors */
+        --bg-base: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-card: rgba(30, 41, 59, 0.8);
+        --border-color: rgba(71, 85, 105, 0.3);
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-tertiary: #94a3b8;
+        --input-bg: rgba(15, 23, 42, 0.6);
+        --input-border: rgba(71, 85, 105, 0.4);
+        --shadow-color: rgba(0, 0, 0, 0.3);
+      }
+
+      body {
+        background: var(--bg-base);
+        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text-primary);
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+
+      .dark body {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 10px 25px var(--shadow-color);
+        transition: all 0.3s ease;
+      }
+
+      .dark .card {
+        backdrop-filter: blur(10px);
+      }
+
+      .input-field {
+        background: var(--input-bg);
+        border: 1px solid var(--input-border);
+        color: var(--text-primary);
+        transition: all 0.2s;
+      }
+
+      .input-field:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+      }
+
+      .dark .input-field:focus {
+        background: rgba(15, 23, 42, 0.8);
+      }
+
+      .input-field::placeholder {
+        color: var(--text-tertiary);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+        color: white;
+        transition: all 0.2s;
+      }
+
+      .btn-primary:hover {
+        background: linear-gradient(135deg, var(--color-primary-hover) 0%, #dc2626 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 25px rgba(249, 115, 22, 0.3);
+      }
+
+      .btn-secondary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        transition: all 0.2s;
+      }
+
+      .btn-secondary:hover {
+        background: var(--input-bg);
+        transform: translateY(-1px);
+      }
+
+      .auth-button {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s;
+      }
+
+      .auth-button:hover {
+        background: var(--bg-secondary);
+        border-color: var(--color-primary);
+        transform: translateX(4px);
+      }
+
+      .link-primary {
+        color: var(--color-primary-light);
+        transition: color 0.2s;
+      }
+
+      .link-primary:hover {
+        color: var(--color-primary);
+      }
+
+      .text-muted {
+        color: var(--text-secondary);
+      }
+
+      .text-tertiary {
+        color: var(--text-tertiary);
+      }
+
+      .icon-muted {
+        color: var(--text-tertiary);
+      }
+
+      .border-divider {
+        border-color: var(--border-color);
+      }
+    </style>
+    {{ if eq .Data.ui_options.custom_css_required "yes" }}
+      <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/css/custom.css" }}" />
+    {{ end }}
+  </head>
+
+  {{ $authenticatorCount := len .Data.login_options.authenticators }}
+  {{ $qrCodeLink := pathjoin .ActionEndpoint "/qrcode/login.png" }}
+
+  <body class="h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+      <!-- Main Card -->
+      <div class="card rounded-xl overflow-hidden">
+
+        <!-- Header with Logo -->
+        <div class="px-8 py-8 text-center border-b border-divider">
+          {{ if .LogoURL }}
+            <div class="flex justify-center mb-4">
+              <img class="h-16 w-auto" src="{{ .LogoURL }}" alt="{{ .LogoDescription }}" />
+            </div>
+          {{ else }}
+            <div class="flex justify-center mb-4">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);">
+                <i class="las la-lock text-white text-3xl"></i>
+              </div>
+            </div>
+          {{ end }}
+          <h2 class="text-2xl font-bold mb-1" style="color: var(--text-primary);">Nixstasis</h2>
+          <p class="text-sm text-muted">Sign in to continue</p>
+        </div>
+
+        <!-- Form Content -->
+        <div class="px-8 py-8">
+
+          {{ if eq .Data.login_options.form_required "yes" }}
+            <div id="loginform" {{ if ne $authenticatorCount 1 }}class="hidden"{{ end }}>
+              <form action="{{ pathjoin .ActionEndpoint "/login" }}" method="POST" class="space-y-6">
+
+                <!-- Username Field -->
+                <div>
+                  <label for="username" class="block text-sm font-medium text-muted mb-2">
+                    Username or Email
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <i class="las la-user icon-muted text-lg"></i>
+                    </div>
+                    <input
+                      class="input-field w-full pl-10 pr-4 py-3 rounded-lg text-sm"
+                      id="username"
+                      name="username"
+                      type="text"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      autocomplete="username"
+                      spellcheck="false"
+                      placeholder="Enter your username or email"
+                      autofocus
+                      required
+                    />
+                  </div>
+                </div>
+
+                {{ if eq .Data.login_options.realm_dropdown_required "yes" }}
+                  <div>
+                    <label for="realm" class="block text-sm font-medium text-muted mb-2">
+                      Realm
+                    </label>
+                    <select id="realm" name="realm" class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                      {{ range .Data.login_options.realms }}
+                        {{ if eq .default "yes" }}
+                          <option value="{{ .realm }}" selected>{{ .label }}</option>
+                        {{ else }}
+                          <option value="{{ .realm }}">{{ .label }}</option>
+                        {{ end }}
+                      {{ end }}
+                    </select>
+                  </div>
+                {{ else }}
+                  {{ range .Data.login_options.realms }}
+                    <input type="hidden" id="realm" name="realm" value="{{ .realm }}" />
+                  {{ end }}
+                {{ end }}
+
+                <!-- Buttons -->
+                <div class="flex gap-3 pt-2">
+                  {{ if ne $authenticatorCount 1 }}
+                    <button type="button" onclick="hideLoginForm();return false;" class="btn-secondary px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+                      <i class="las la-arrow-left"></i>
+                      <span>Back</span>
+                    </button>
+                  {{ end }}
+                  <button type="submit" class="btn-primary flex-1 px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
+                    <span>Continue</span>
+                    <i class="las la-arrow-right"></i>
+                  </button>
+                </div>
+              </form>
+
+              <!-- Links -->
+              <div id="user_actions" class="flex flex-wrap justify-center gap-6 pt-8 border-t border-divider mt-8 {{ if or (ne $authenticatorCount 1) (eq .Data.login_options.hide_links "yes") }}hidden{{ end }}">
+                <div id="user_register_link" {{ if eq .Data.login_options.hide_register_link "yes" }}class="hidden"{{ end }}>
+                  <a class="link-primary text-sm font-medium flex items-center gap-1.5" href="{{ pathjoin .ActionEndpoint "/register" .Data.login_options.default_realm }}">
+                    <i class="las la-user-plus"></i>
+                    <span>Register</span>
+                  </a>
+                </div>
+
+                <div id="forgot_username_link" {{ if eq .Data.login_options.hide_forgot_username_link "yes" }}class="hidden"{{ end }}>
+                  <a class="link-primary text-sm font-medium flex items-center gap-1.5" href="{{ pathjoin .ActionEndpoint "/forgot" .Data.login_options.default_realm }}">
+                    <i class="las la-question-circle"></i>
+                    <span>Forgot Username?</span>
+                  </a>
+                </div>
+
+                <div id="contact_support_link" {{ if eq .Data.login_options.hide_contact_support_link "yes" }}class="hidden"{{ end }}>
+                  <a class="link-primary text-sm font-medium flex items-center gap-1.5" href="{{ pathjoin .ActionEndpoint "/help" .Data.login_options.default_realm }}">
+                    <i class="las la-life-ring"></i>
+                    <span>Support</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          {{ end }}
+
+          {{ if eq .Data.login_options.authenticators_required "yes" }}
+            <div id="authenticators" class="space-y-3">
+              {{ range .Data.login_options.authenticators }}
+                <div>
+                  {{ if .endpoint }}
+                    <a href="{{ .endpoint }}" class="block">
+                      <div class="auth-button rounded-lg overflow-hidden flex items-center group">
+                        <div class="flex-shrink-0 w-14 h-14 flex items-center justify-center text-2xl" style="background-color: {{ .background_color }}; color: {{ .color }};">
+                          <i class="{{ .class_name }}"></i>
+                        </div>
+                        <div class="flex-1 px-4 text-center">
+                          {{ if eq .text "Azure" }}
+                          <span class="font-medium tracking-wide text-sm" style="color: var(--text-primary);">Microsoft Entra</span>
+                          {{ else }}
+                          <span class="font-medium capitalize tracking-wide text-sm" style="color: var(--text-primary);">{{ .text }}</span>
+                          {{ end }}
+                        </div>
+                        <div class="flex-shrink-0 w-10 h-14 flex items-center justify-center icon-muted transition-colors" style="transition: color 0.2s;">
+                          <i class="las la-arrow-right"></i>
+                        </div>
+                      </div>
+                    </a>
+                  {{ else }}
+                    <a href="#" onclick="showLoginForm('{{ .realm }}', '{{ .registration_enabled }}', '{{ .username_recovery_enabled }}', '{{ .contact_support_enabled }}', '{{ .ActionEndpoint }}');return false;" class="block">
+                      <div class="auth-button rounded-lg overflow-hidden flex items-center group">
+                        <div class="flex-shrink-0 w-14 h-14 flex items-center justify-center text-2xl" style="background-color: {{ .background_color }}; color: {{ .color }};">
+                          <i class="{{ .class_name }}"></i>
+                        </div>
+                        <div class="flex-1 px-4 text-center">
+                          <span class="font-medium uppercase tracking-wide text-sm" style="color: var(--text-primary);">{{ .text }}</span>
+                        </div>
+                        <div class="flex-shrink-0 w-10 h-14 flex items-center justify-center icon-muted transition-colors" style="transition: color 0.2s;">
+                          <i class="las la-arrow-right"></i>
+                        </div>
+                      </div>
+                    </a>
+                  {{ end }}
+                </div>
+              {{ end }}
+            </div>
+          {{ end }}
+
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="mt-6 text-center">
+        <p class="text-xs text-tertiary">
+          Powered by <span class="font-semibold" style="color: var(--color-primary);">AuthCrunch</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Theme System Integration -->
+    <script>
+      // Apply theme from localStorage on page load
+      (function() {
+        const theme = localStorage.getItem('theme');
+        const html = document.documentElement;
+
+        if (theme === 'dark') {
+          html.classList.add('dark');
+        } else if (theme === 'light') {
+          html.classList.remove('dark');
+        } else if (theme === 'system' || !theme) {
+          // Follow system preference
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            html.classList.add('dark');
+          } else {
+            html.classList.remove('dark');
+          }
+        }
+
+        // Optional: Load primary color from localStorage if you store it
+        const primaryColor = localStorage.getItem('primaryColor');
+        if (primaryColor) {
+          document.documentElement.style.setProperty('--color-primary', primaryColor);
+          // Calculate hover color (slightly darker)
+          document.documentElement.style.setProperty('--color-primary-hover', primaryColor);
+        }
+
+        // Listen for system theme changes when in system mode
+        if (theme === 'system' || !theme) {
+          window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (e.matches) {
+              html.classList.add('dark');
+            } else {
+              html.classList.remove('dark');
+            }
+          });
+        }
+      })();
+    </script>
+
+    <!-- JavaScript -->
+    <script src="{{ pathjoin .ActionEndpoint "/assets/js/login.js" }}"></script>
+    {{ if eq .Data.ui_options.custom_js_required "yes" }}
+      <script src="{{ pathjoin .ActionEndpoint "/assets/js/custom.js" }}"></script>
+    {{ end }}
+  </body>
+</html>
