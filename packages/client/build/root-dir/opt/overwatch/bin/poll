@@ -5,6 +5,9 @@ set -eo pipefail
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_api.sh"
 
+PAYLOAD_FILE="/var/run/nixstasis/payload"
+mkdir -p "$(dirname "$PAYLOAD_FILE")"
+
 if ! NAME="$(get_name)"; then
   log_fatal "Cannot get unique name for device, won't be able to provide remote access"
   exit 3
@@ -70,6 +73,13 @@ function main() {
   )"
 
   payload="$(jq -n "${payload} * ${store_info} * ${readers}")"
+  # [[ ! -e $PAYLOAD_FILE ]] && printf '%s\n' "$payload" > "$PAYLOAD_FILE"
+
+  # if diff -q <(jq -S . "$PAYLOAD_FILE") <(jq -S . <<< "$payload") > /dev/null; then
+  #   payload='{}'
+  # else
+  #   printf '%s\n' "$payload" > "$PAYLOAD_FILE"
+  # fi
 
   if declare -A response="( $(poll_nixstasis "${ID}" "${payload}" | json2aa) )"; then
     log_info "Polled Nixstasis"
@@ -91,7 +101,7 @@ if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
   trap "stop_frp" EXIT INT TERM QUIT
 
   while true; do
-    sleep 3
+    sleep 5
 
     unset ID
     if ! ID="$(get_id)"; then
@@ -102,6 +112,6 @@ if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
     fi
 
     main
-    sleep 57
+    sleep 10
   done
 fi

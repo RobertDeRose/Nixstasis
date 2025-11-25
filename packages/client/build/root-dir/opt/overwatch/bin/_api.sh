@@ -17,7 +17,14 @@ function _post() {
   local endpoint="$1"
   local payload="$2"
 
-  curl -q -X POST "${API_URL}/${endpoint}" "${HEADERS[@]}" -d "${payload}" 2> /dev/null
+  body="$(mktemp)"
+  status="$(curl -s -X POST "${API_URL}/${endpoint}" "${HEADERS[@]}" -d "${payload}" -o "$body" -w '%{http_code}')"
+
+  cat "$body" && rm -f "$body"
+
+  if ((status >= 400)); then
+    return "$status"
+  fi
 }
 
 #########################################
