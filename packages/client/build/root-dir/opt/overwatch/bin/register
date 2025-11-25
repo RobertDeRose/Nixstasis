@@ -24,6 +24,6 @@ if declare -A response="( $(register_device "${payload}" | json2aa) )"; then
     exit 3
   fi
 else
-  log_fatal "Unable to connect to Nixstasis"
+  log_fatal "Unable to connect to Nixstasis: $?"
   exit 4
 fi
