@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from nixstasis.models import Device
 
 
-domain_pattern = re.compile(r"^(auth|nixstasis|atom-.*?)\.ab\.checkpoint-device\.com$")
+domain_pattern = re.compile(r"^(auth|nixstasis|frp-router|atom-.*?)\.ab\.checkpoint-device\.com$")
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
