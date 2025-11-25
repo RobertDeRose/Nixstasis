@@ -38,8 +38,16 @@
 			# }
 
 			ui {
+				theme basic
+				#template login {env.HOME}/.local/caddy/ui/login.template
+				template login /var/www/auth/login.template
+				template portal /var/www/auth/portal.template
+				# Logo configuration
+				static_asset "assets/images/logo.svg" "image/svg+xml" /var/www/auth/icon.svg
+
+				# Links displayed on the portal page after login
 				links {
-					"My Website" / icon "las la-star"
+					"Nixstasis" https://nixstasis.device.<domain> icon "las la-server"
 				}
 			}
 		}
@@ -96,9 +104,9 @@ nixstasis.device.<domain> {
 		}
 
 		handle @static {
-			file_server {
-				pass_thru
-			}
+			authorize with entra_policy
+			encode
+			file_server
 		}
 
 		# Handle the WebSocket /_event and routes like /ping
