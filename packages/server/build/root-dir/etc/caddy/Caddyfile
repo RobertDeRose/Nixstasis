@@ -48,6 +48,7 @@
 				# Links displayed on the portal page after login
 				links {
 					"Nixstasis" https://nixstasis.device.<domain> icon "las la-server"
+					"FRP Admin" https://frp-router.device.<domain> icon "las la-ethernet"
 				}
 			}
 		}
@@ -115,6 +116,15 @@ nixstasis.device.<domain> {
 			reverse_proxy localhost:8000
 		}
 	}
+}
+
+frp-router.device.<domain> {
+	tls {
+		on_demand
+	}
+
+	authorize with entra_policy
+	reverse_proxy localhost:8081
 }
 
 # AlarmBox sites use their own Authentication
