@@ -5,6 +5,7 @@ description = "Monitoring and Remote Access for AtomixOS deployments"
 readme = "README.md"
 requires-python = ">=3.13"
 
+
 [tool.ruff]
 fix = true
 indent-width = 4

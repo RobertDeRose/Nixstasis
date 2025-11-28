@@ -1,0 +1,11 @@
+#!/bin/bash
+
+cd <%= "${PKG_DIR#${ROOT_DIR}}" %>
+venv/bin/reflex db migrate
+
+action=("enable")
+[[ -d /run/systemd/system/ ]] && action+=("--now")
+
+systemctl "${action[@]}" nixstasis.service
+systemctl "${action[@]}" frps.service
+systemctl "${action[@]}" caddy.service

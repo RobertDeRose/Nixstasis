@@ -1,0 +1,12 @@
+package-type: python
+package-name: nixstasis
+package-description: SFERO Nixstasis
+pre-package-script: build/export_frontend.sh
+package-dependencies: |
+  atom-python3.13
+  caddy
+  frp
+install-dir: /opt
+arch-independent: false
+os-independent: true
+upload-package: true
