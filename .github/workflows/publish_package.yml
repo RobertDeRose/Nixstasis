@@ -1,0 +1,43 @@
+name: Publish Packages
+run-name: Publishing ${{ github.event.release.tag_name }}
+
+on:
+  release:
+    types:
+      - edited
+
+jobs:
+
+  check-configs:
+    if: ${{ contains(github.event.release.name, '[') && contains(github.event.release.name, ']') }}
+    uses: ./.github/workflows/_check_configs.yml
+
+  push-release:
+    needs: check-configs
+
+    strategy:
+      matrix:
+        distro: ${{ fromJSON(needs.check-configs.outputs.distros) }}
+        arch: ${{ fromJSON(needs.check-configs.outputs.achs) }}
+
+    runs-on: ${{ matrix.distro }}-${{ matrix.arch }}-ephemeral
+
+    steps:
+      - name: Pushlish to APT Servers
+        uses: RobertDeRose/common-build-scripts/actions/publish@v3
+        with:
+          token: ${{ secrets.ORG_GIT_TOKEN }}
+          product-as-prefix: false
+          os-independent: ${{ needs.check-configs.outputs.os-independent }}
+          arch-independent: ${{ needs.check-configs.outputs.arch-independent }}
+          products: |
+            apollo
+
+
+  update-release:
+    needs: push-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update Release
+        uses: RobertDeRose/common-build-scripts/actions/update-release@v3

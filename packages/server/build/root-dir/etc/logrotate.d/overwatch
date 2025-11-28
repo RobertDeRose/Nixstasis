@@ -1,0 +1,9 @@
+/var/log/overwarch/*.log {
+	daily
+	maxsize 10M
+	missingok
+	rotate 30
+	compress
+	delaycompress
+	notifempty
+}
