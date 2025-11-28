@@ -2,9 +2,9 @@ __pycache__/
 .cursorignore
 .ruff_cache
 .states
-.venv/
+.venv
 .web
 *.db
 *.py[cod]
 assets/external/
-venv/
+venv
