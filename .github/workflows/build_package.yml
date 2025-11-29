@@ -9,66 +9,7 @@ on:
 
 jobs:
   check-configs:
-    name: Checking Build Request
-    runs-on: ubuntu-24.04
-
-    outputs:
-      package: ${{ steps.parameters.outputs.package }}
-      version: ${{ steps.parameters.outputs.version }}
-      distros: ${{ steps.parameters.outputs.distros }}
-      arches: ${{ steps.parameters.outputs.arches }}
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v5
-
-      - name: Get Parameters
-        id: parameters
-        run: |
-          package="packages/${GITHUB_REF_NAME%/*}"
-
-          if grep -qP "packages/v(\d+\.){2,3}(\d+)?" <<< "${package}"; then
-            package="packages/server"
-          fi
-
-          if [[ ! -e "${package}" || ! -e "${package}/package_options.yml" ]]; then
-            echo "Invalid Build Request, there is no ${package} folder or 'package_options.yml' is missing"
-            exit 1
-          fi
-
-          cd "${package}"
-
-          PKG_TYPE=$(yq '.package-type' package_options.yml)
-          DEFAULT_VALUE=$([[ "${PKG_TYPE}" == "generic" || "${PKG_TYPE}" == "cockpit" ]] && echo "true" || echo "false")
-
-          # null evaluates to empty string in yq
-          OS_IND=$(yq '.os-independent' package_options.yml)
-          ARCH_IND=$(yq '.arch-independent' package_options.yml)
-
-          [ "${OS_IND}" == "null" ] && OS_IND="${DEFAULT_VALUE}"
-          [ "${ARCH_IND}" == "null" ] && ARCH_IND="${DEFAULT_VALUE}"
-
-          if "${OS_IND}"; then
-            distros=(focal)
-          else
-            distros=(focal jammy noble)
-          fi
-
-          arches=(amd64)
-          if ! "${ARCH_IND}"; then
-            arches+=(arm64)
-          fi
-
-          # Convert array to JSON array format
-          json_distros="[$(printf '"%s"\n' "${distros[@]}" | paste -sd ',' -)]"
-          json_arches="[$(printf '"%s"\n' "${arches[@]}" | paste -sd ',' -)]"
-
-          {
-            echo "distros=${json_distros}"
-            echo "arches=${json_arches}"
-            echo "package=${package}"
-            echo "version=${GITHUB_REF_NAME#*/[vV]}"
-          } | tee -a "${GITHUB_OUTPUT}"
+    uses: ./.github/workflows/_check_configs.yml
 
   build-package:
     needs: check-configs
@@ -76,8 +17,8 @@ jobs:
 
     strategy:
       matrix:
-        distro: ${{ fromJSON(needs.check-configs.outputs.distros) }}
         arch: ${{ fromJSON(needs.check-configs.outputs.arches) }}
+        distro: ${{ fromJSON(needs.check-configs.outputs.distros) }}
 
     runs-on: ${{ matrix.distro }}-${{ matrix.arch }}-ephemeral
 

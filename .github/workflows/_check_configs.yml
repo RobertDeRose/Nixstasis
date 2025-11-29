@@ -8,8 +8,12 @@ on:
         value: ${{ jobs.check-configs.outputs.version }}
       distros:
         value: ${{ jobs.check-configs.outputs.distros }}
-      archs:
-        value: ${{ jobs.check-configs.outputs.archs }}
+      arches:
+        value: ${{ jobs.check-configs.outputs.arches }}
+      os-independent:
+        value: ${{ jobs.check-configs.outputs.os-independent }}
+      arch-independent:
+        value: ${{ jobs.check-configs.outputs.arch-independent }}
 
 jobs:
   check-configs:
@@ -20,13 +24,13 @@ jobs:
       package: ${{ steps.parameters.outputs.package }}
       version: ${{ steps.parameters.outputs.version }}
       distros: ${{ steps.parameters.outputs.distros }}
-      archs: ${{ steps.parameters.outputs.archs }}
+      arches: ${{ steps.parameters.outputs.arches }}
+      os-independent: ${{ steps.parameters.outputs.os-independent }}
+      arch-independent: ${{ steps.parameters.outputs.arch-independent }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-        with:
-          persist-credentials: false
 
       - name: Get Parameters
         id: parameters
@@ -60,18 +64,20 @@ jobs:
             distros=(focal jammy noble)
           fi
 
-          archs=(amd64)
+          arches=(amd64)
           if ! "${ARCH_IND}"; then
-            archs+=(arm64)
+            arches+=(arm64)
           fi
 
           # Convert array to JSON array format
-          json_distro="[$(printf '"%s"\n' "${distros[@]}" | paste -sd ',' -)]"
-          json_arch="[$(printf '"%s"\n' "${archs[@]}" | paste -sd ',' -)]"
+          json_distros="[$(printf '"%s"\n' "${distros[@]}" | paste -sd ',' -)]"
+          json_arches="[$(printf '"%s"\n' "${arches[@]}" | paste -sd ',' -)]"
 
           {
-            echo "distros=${json_distro}"
-            echo "archs=${json_arch}"
+            echo "distros=${json_distros}"
+            echo "arches=${json_arches}"
             echo "package=${package}"
             echo "version=${GITHUB_REF_NAME#*/[vV]}"
+            echo "os-independent=${OS_IND}"
+            echo "arch-independent=${ARCH_IND}"
           } | tee -a "${GITHUB_OUTPUT}"
