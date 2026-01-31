@@ -16,7 +16,12 @@ class ModalState(rx.State):
 
     @rx.event
     def open_modal(self, device: dict):
-        """Open the device detail modal."""
+        """
+        Open the device detail modal.
+
+        Args:
+            device: Dictionary representation of the device to display.
+        """
         self.selected_device = Device(**device)
         self.show_modal = True
 
@@ -28,7 +33,12 @@ class ModalState(rx.State):
 
     @rx.event
     def open_connection_modal(self, connection_string: str):
-        """Open the connection string modal."""
+        """
+        Open the connection string modal.
+
+        Args:
+            connection_string: The string to display and copy.
+        """
         self.connection_string_to_display = connection_string
         self.show_connection_modal = True
         self.copied = False
@@ -40,9 +50,13 @@ class ModalState(rx.State):
         self.connection_string_to_display = ""
 
     @rx.event
-    def copy_to_clipboard(self):
-        """Copy the connection string to the clipboard and show feedback."""
+    async def copy_to_clipboard(self):
+        """
+        Copy the connection string to the clipboard and show feedback.
+
+        Toggles the 'copied' state for 2 seconds to show a success icon/message.
+        """
         yield rx.set_clipboard(self.connection_string_to_display)
         self.copied = True
-        yield asyncio.sleep(2)
+        await asyncio.sleep(2)
         self.copied = False

@@ -1,11 +1,26 @@
-# Defaults to 0.0.0.0:7000 for FRPS
+# Defaults to 0.0.0.0:7000 for FRPS (Fast Reverse Proxy Server)
+# This is the main bind port for the FRPS server where FRPC clients connect
+# It is implicit, but listed here for clarity.
+# bindPort = 7000
+
+# The port for the FRPS dashboard/admin interface
+# Accessed via frp-router.device.<domain> (proxied by Caddy)
 webServer.port = 8081
+
+# Log configuration
 log.to = "console"
 log.level = "info"
 
 # Support for SSH proxying
+# Clients can expose their local SSH (port 22) via this port on the server
+# 'tcpmux' allows multiple connections on a single port differentiated by multiplexer
 tcpmuxHTTPConnectPort = 2022
 
-# Support for Cockpit proxying
+# Support for HTTP proxying (AlarmBox web interface)
+# The port where the server listens for HTTP traffic to tunnel to clients
+# Caddy proxies *.device.<domain> to this port (localhost:8080)
 vhostHTTPPort = 8080
+
+# The root domain for virtual hosts
+# Subdomains (e.g., atom-123.ab...) will be matched against this
 subDomainHost = "device.<domain>"

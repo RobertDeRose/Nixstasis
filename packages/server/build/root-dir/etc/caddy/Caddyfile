@@ -1,20 +1,30 @@
 # vim: set ts=4 sw=4 et:
 {
+	# Global email address used for Let's Encrypt certificate registration
 	email RobertDeRose@users.noreply.github.com
+
+	# Configure Caddy's global logging to output to stdout in console format
 	log {
 		format console
 	}
+
+	# On-Demand TLS Configuration
+	# Caddy will ask the upstream service if it should obtain a certificate for a given domain
+	# This prevents abuse by only issuing certs for allowed domains
 	on_demand_tls {
 		ask http://localhost:8000/permit_tls
 	}
 
-	# Order is important - security must process before reverse_proxy
+	# Order directives ensure the security plugin (authp) runs before standard Caddy directives
+	# 'authenticate' validates credentials/sessions
+	# 'authorize' enforces access policies
 	order authenticate before respond
 	order authorize before reverse_proxy
 
-	# Security configuration
+	# Security configuration using the authp plugin (AuthCrunch)
 	security {
-		# OAuth identity provider for Azure/Entra ID
+		# OAuth 2.0 Identity Provider configuration for Microsoft Entra ID (formerly Azure AD)
+		# This handles the handshake with Microsoft to get user identity
 		oauth identity provider azure {
 			realm azure
 			driver azure
@@ -24,12 +34,18 @@
 			scopes openid email profile
 		}
 
-		# Authentication portal
+		# Authentication Portal Configuration
+		# Defines how the login page looks and behaves
 		authentication portal myportal {
+			# Token lifetime set to 1 hour (3600 seconds)
 			crypto default token lifetime 3600
+			# JWT signing key for validating tokens
 			crypto key sign-verify {$JWT_KEY}
+			# Enable the Azure provider defined above
 			enable identity provider azure
 
+			# Cookie domain set to the root domain so auth works across subdomains
+			# e.g., auth.ab... and nixstasis.ab... share the session
 			cookie domain device.<domain>
 
 			# transform user {
@@ -37,9 +53,10 @@
 			#     action add role authp/user
 			# }
 
+			# UI Customization for the login portal
 			ui {
 				theme basic
-				#template login {env.HOME}/.local/caddy/ui/login.template
+				# Custom templates for login and portal pages
 				template login /var/www/auth/login.template
 				template portal /var/www/auth/portal.template
 				# Logo configuration
@@ -53,40 +70,60 @@
 			}
 		}
 
-		# Authorization policy for Entra ID auth
+		# Authorization Policy
+		# Defines WHO can access resources protected by this policy
 		authorization policy entra_policy {
+			# Where to redirect unauthenticated users
 			set auth url https://auth.device.<domain>
-			#allow roles authp/user authp/admin
+
+			# Allow any authenticated user with a valid role (currently wildcard)
 			allow roles *
+
+			# Verify the JWT token signature using the shared key
 			crypto key verify {$JWT_KEY}
+
+			# Look for the token in the Authorization: Bearer header
 			validate bearer header
+
+			# Pass user claims (email, name, etc.) to the upstream app via headers
 			inject headers with claims
 		}
 	}
 }
 
-# Authentication portal site
+# Authentication Portal Site
+# This subdomain handles the actual login flow and callbacks
 auth.device.<domain> {
 	tls {
+		# Obtain certificates on demand (checked via global on_demand_tls ask)
 		on_demand
 	}
 
+	# Attach the 'myportal' configuration to this site
 	authenticate with myportal
 }
 
+# Nixstasis Application Site
+# The main dashboard and API server
 nixstasis.device.<domain> {
 	tls {
 		on_demand
 	}
 
+	# Serve static files from this directory
 	root * /var/www/nixstasis
 	encode
 
+	# API Request Handling
+	# Proxy /api/v1/* requests directly to the backend Python server
+	# No authentication required here (handled by the app or script logic?)
+	# NOTE: Currently no 'authorize' directive, implies public API or app-handled auth
 	handle /api/v1/* {
 		reverse_proxy localhost:8000
 	}
 
-	# Static assets - no auth
+	# Static Assets Handling
+	# Publicly accessible assets (CSS, JS, Images) - No Auth Required
 	@static_assets {
 		path /assets/* /favicon* /*.jpg /*.png /style.css /sitemap.xml
 	}
@@ -95,22 +132,26 @@ nixstasis.device.<domain> {
 		file_server
 	}
 
-	# Everything else requires auth
+	# Protected Content Handling
+	# Everything else requires authentication via 'entra_policy'
 	handle {
-		# Serves the Nixstasis application directly
+		# SPA (Single Page App) Support
+		# Try to serve file, directory, or fall back to index.html for client-side routing
 		@static {
 			file {
 				try_files {path} {path}/ {path}/index.html
 			}
 		}
 
+		# Serve protected static files (the React/Reflex frontend)
 		handle @static {
 			authorize with entra_policy
 			encode
 			file_server
 		}
 
-		# Handle the WebSocket /_event and routes like /ping
+		# Handle WebSocket connections (/_event) and other dynamic routes
+		# Proxied to the backend server, protected by auth policy
 		handle {
 			authorize with entra_policy
 			reverse_proxy localhost:8000
@@ -118,20 +159,28 @@ nixstasis.device.<domain> {
 	}
 }
 
+# FRP Router Admin Interface
+# Proxies to the FRPS (Fast Reverse Proxy Server) dashboard
 frp-router.device.<domain> {
 	tls {
 		on_demand
 	}
 
+	# Protect the admin dashboard with the same Entra ID policy
 	authorize with entra_policy
 	reverse_proxy localhost:8081
 }
 
-# AlarmBox sites use their own Authentication
+# Wildcard Subdomains for AlarmBox Devices
+# Matches any other subdomain (e.g., atom-12345.device.<domain>)
+# Used for accessing individual devices remotely via the FRP tunnel
 *.device.<domain> {
 	tls {
 		on_demand
 	}
 
+	# Proxy to the HTTP tunnel port (8080) defined in frps.toml
+	# Note: No 'authorize' directive here - Devices/FRP likely handle their own auth
+	# or rely on the tunnel security.
 	reverse_proxy localhost:8080
 }
