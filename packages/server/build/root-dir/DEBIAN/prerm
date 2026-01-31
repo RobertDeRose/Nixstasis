@@ -1,0 +1,8 @@
+#!/bin/bash
+
+action=("disable")
+[[ -d /run/systemd/system/ ]] && action+=("--now")
+
+systemctl "${action[@]}" nixstasis.service
+systemctl "${action[@]}" frps.service
+systemctl "${action[@]}" caddy.service

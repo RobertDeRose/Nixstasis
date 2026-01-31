@@ -1,0 +1,6 @@
+package-type: generic
+package-name: caddy
+package-description: The Ultimate Server
+pre-package-script: bin/build_caddy.sh
+arch-independent: false
+upload-package: true

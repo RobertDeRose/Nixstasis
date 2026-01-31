@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <title>{{ .MetaTitle }} - {{ .PageTitle }}</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="{{ .MetaDescription }}" />
+    <meta name="author" content="{{ .MetaAuthor }}" />
+    <link rel="shortcut icon" href="{{ pathjoin .ActionEndpoint "/assets/images/favicon.png" }}" type="image/png" />
+    <link rel="icon" href="{{ pathjoin .ActionEndpoint "/assets/images/favicon.png" }}" type="image/png" />
+    <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/google-webfonts/roboto.css" }}" />
+    <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/line-awesome/line-awesome.css" }}" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style>
+      :root {
+        /* Default Reflex colors - Orange theme */
+        --color-primary: #f97316;
+        --color-primary-hover: #ea580c;
+        --color-primary-light: #fb923c;
+
+        /* Light theme colors */
+        --bg-base: #ffffff;
+        --bg-secondary: #f8fafc;
+        --bg-card: #ffffff;
+        --border-color: #e2e8f0;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --text-tertiary: #94a3b8;
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --shadow-color: rgba(0, 0, 0, 0.1);
+      }
+
+      .dark {
+        /* Dark theme colors */
+        --bg-base: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-card: rgba(30, 41, 59, 0.8);
+        --border-color: rgba(71, 85, 105, 0.3);
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-tertiary: #94a3b8;
+        --input-bg: rgba(15, 23, 42, 0.6);
+        --input-border: rgba(71, 85, 105, 0.4);
+        --shadow-color: rgba(0, 0, 0, 0.3);
+      }
+
+      body {
+        background: var(--bg-base);
+        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text-primary);
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+
+      .dark body {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 10px 25px var(--shadow-color);
+        transition: all 0.3s ease;
+      }
+
+      .dark .card {
+        backdrop-filter: blur(10px);
+      }
+
+      .portal-link {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        text-decoration: none;
+        color: var(--text-primary);
+      }
+
+      .portal-link:hover {
+        background: var(--bg-secondary);
+        border-color: var(--color-primary);
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px var(--shadow-color);
+      }
+
+      .portal-link.logout {
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+
+      .portal-link.logout:hover {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+      }
+
+      .portal-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        font-size: 1.75rem;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+        color: white;
+      }
+
+      .portal-link.logout .portal-icon {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+
+      .text-muted {
+        color: var(--text-secondary);
+      }
+
+      .border-divider {
+        border-color: var(--border-color);
+      }
+
+      .subtitle {
+        color: var(--text-secondary);
+        text-align: center;
+        margin-bottom: 1.5rem;
+      }
+    </style>
+    {{ if eq .Data.ui_options.custom_css_required "yes" }}
+      <link rel="stylesheet" href="{{ pathjoin .ActionEndpoint "/assets/css/custom.css" }}" />
+    {{ end }}
+  </head>
+
+  <body class="h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl">
+      <!-- Main Card -->
+      <div class="card rounded-xl overflow-hidden">
+
+        <!-- Header with Logo -->
+        <div class="px-8 py-8 text-center border-b border-divider">
+          {{ if .LogoURL }}
+            <div class="flex justify-center mb-4">
+              <img class="h-16 w-auto" src="{{ .LogoURL }}" alt="{{ .LogoDescription }}" />
+            </div>
+          {{ else }}
+            <div class="flex justify-center mb-4">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);">
+                <i class="las la-th-large text-white text-3xl"></i>
+              </div>
+            </div>
+          {{ end }}
+          <h2 class="text-2xl font-bold mb-1" style="color: var(--text-primary);">Nixstasis</h2>
+          <p class="text-sm text-muted">Select a service below</p>
+        </div>
+
+        <!-- Portal Links Content -->
+        <div class="px-8 py-8">
+          <div class="space-y-3">
+            {{ range .PrivateLinks }}
+              <a href="{{ .Link }}" {{ if .TargetEnabled }}target="{{ .Target }}"{{ end }} class="portal-link">
+                <div class="portal-icon">
+                  {{ if .IconEnabled }}
+                    <i class="{{ .IconName }}"></i>
+                  {{ else }}
+                    <i class="las la-link"></i>
+                  {{ end }}
+                </div>
+                <div class="flex-1 px-4">
+                  <span class="font-medium text-base">{{ .Title }}</span>
+                </div>
+                <div class="flex-shrink-0">
+                  <i class="las la-arrow-right text-xl" style="color: var(--text-tertiary);"></i>
+                </div>
+              </a>
+            {{ end }}
+
+            <!-- Sign Out Button -->
+            <a href="{{ pathjoin .ActionEndpoint "/logout" }}" class="portal-link logout">
+              <div class="portal-icon">
+                <i class="las la-sign-out-alt"></i>
+              </div>
+              <div class="flex-1 px-4">
+                <span class="font-medium text-base">Sign Out</span>
+              </div>
+              <div class="flex-shrink-0">
+                <i class="las la-arrow-right text-xl" style="color: var(--text-tertiary);"></i>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="mt-6 text-center">
+        <p class="text-xs" style="color: var(--text-tertiary);">
+          Powered by <span class="font-semibold" style="color: var(--color-primary);">AuthCrunch</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Theme System Integration -->
+    <script>
+      // Apply theme from localStorage on page load
+      (function() {
+        const theme = localStorage.getItem('theme');
+        const html = document.documentElement;
+
+        if (theme === 'dark') {
+          html.classList.add('dark');
+        } else if (theme === 'light') {
+          html.classList.remove('dark');
+        } else if (theme === 'system' || !theme) {
+          // Follow system preference
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            html.classList.add('dark');
+          } else {
+            html.classList.remove('dark');
+          }
+        }
+
+        // Optional: Load primary color from localStorage if you store it
+        const primaryColor = localStorage.getItem('primaryColor');
+        if (primaryColor) {
+          document.documentElement.style.setProperty('--color-primary', primaryColor);
+          // Calculate hover color (slightly darker)
+          document.documentElement.style.setProperty('--color-primary-hover', primaryColor);
+        }
+
+        // Listen for system theme changes when in system mode
+        if (theme === 'system' || !theme) {
+          window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (e.matches) {
+              html.classList.add('dark');
+            } else {
+              html.classList.remove('dark');
+            }
+          });
+        }
+      })();
+    </script>
+
+    <!-- JavaScript -->
+    <script src="{{ pathjoin .ActionEndpoint "/assets/js/portal.js" }}"></script>
+    {{ if eq .Data.ui_options.custom_js_required "yes" }}
+      <script src="{{ pathjoin .ActionEndpoint "/assets/js/custom.js" }}"></script>
+    {{ end }}
+  </body>
+</html>

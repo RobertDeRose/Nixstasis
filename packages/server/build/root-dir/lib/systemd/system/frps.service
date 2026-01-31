@@ -1,0 +1,11 @@
+[Unit]
+Description=frp server
+
+[Service]
+Type=simple
+ExecStart=/opt/frp/bin/frps -c /etc/frp/frps.toml
+Restart=always
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target

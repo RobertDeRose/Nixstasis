@@ -1,0 +1,6 @@
+package-type: generic
+package-name: frp
+package-description: Fast Reverse Proxy
+pre-package-script: bin/download_frp.sh
+arch-independent: false
+upload-package: true

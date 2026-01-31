@@ -1,0 +1,12 @@
+[Unit]
+Description=The Ultimate Server
+
+[Install]
+WantedBy=default.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/caddy/env.prod
+ExecStart=/opt/caddy/bin/caddy run --config /etc/caddy/Caddyfile
+Restart=always
+RestartSec=60s

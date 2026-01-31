@@ -1,0 +1,17 @@
+[Unit]
+Description=Nixstasis
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=<%= "${PKG_DIR#${ROOT_DIR}}" %>
+Environment=PATH=<%= "${PKG_DIR#${ROOT_DIR}}" %>/venv/bin:$PATH
+ExecStart=<%= "${PKG_DIR#${ROOT_DIR}}" %>/venv/bin/reflex run --env prod --backend-only --backend-host 127.0.0.1
+
+SyslogIdentifier=nixstasis
+Restart=always
+RestartSec=60s
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

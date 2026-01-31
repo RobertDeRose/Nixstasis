@@ -1,0 +1,16 @@
+[Unit]
+Description=Nixstasis Registration
+ConditionPathExists=!/etc/nixstasis/id
+Requires=network.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+SyslogIdentifier=nixstasis
+ExecStart=/opt/nixstasis/bin/register
+Restart=always
+RestartSec=120s
+
+[Install]
+WantedBy=multi-user.target
