@@ -2,6 +2,15 @@
 # shellcheck disable=SC1091,SC2034,SC2155
 set -eo pipefail
 
+################################################################################
+# Register Script
+#
+# One-time registration script.
+# 1. Identifies the device (MAC, IP).
+# 2. Registers with Nixstasis API.
+# 3. Saves the returned UUID to disk.
+################################################################################
+
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_api.sh"
 

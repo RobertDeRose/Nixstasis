@@ -1,5 +1,13 @@
-# shellcheck shell=bash
-# shellcheck disable=SC1091
+#!/bin/bash
+# shellcheck disable=SC1091,SC2034,SC2155
+
+################################################################################
+# _api.sh
+#
+# Common library of functions for interacting with the Nixstasis API.
+# Handles device identity (MAC, Name), configuration persistence (ID file),
+# and API calls (Register, Poll).
+################################################################################
 
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_logging.sh"
@@ -13,6 +21,17 @@ HEADERS=(
   -H 'Content-Type: application/json'
 )
 
+#########################################
+# Helper: Perform a POST request
+#
+# Arguments:
+#   endpoint: str - The API endpoint path (e.g., "device/register")
+#   payload: json - The request body
+# Returns:
+#   Status code of the request
+# Output:
+#   Response body
+#########################################
 function _post() {
   local endpoint="$1"
   local payload="$2"
@@ -30,6 +49,8 @@ function _post() {
 #########################################
 # Get Device MAC address
 #
+# Reads the MAC address from the eth0 interface.
+#
 # Output:
 #   str  - The MAC Address of eth0
 #########################################
@@ -40,6 +61,9 @@ function get_mac_address() {
 #########################################
 # Get Device standardized remote access name
 #
+# Generates a unique, URL-safe name based on the MAC address.
+# format: atom-<mac_address_no_colons>
+#
 # Output:
 #   str  - A unique name for the device
 #########################################
@@ -49,6 +73,8 @@ function get_name() {
 
 #########################################
 # Set Device registration id
+#
+# Persists the UUID received from the server to disk.
 #
 # Input:
 #   id: uuid  - The id returned during registration
@@ -65,11 +91,14 @@ function set_id() {
 #########################################
 # Get Device registration id
 #
+# Retrieves the persisted UUID from disk.
+#
 # Output:
 #   id: uuid  - The id returned during registration
 # Returns:
-#   0 - If API request was successful
-#   1 - Otherwise
+#   0 - If found
+#   1 - If file missing
+#   2 - If file empty
 #########################################
 function get_id() {
   if [ ! -e "${ID_FILE}" ]; then
@@ -89,6 +118,8 @@ function get_id() {
 #########################################
 # Convert JSON to an Bash Associative Array format
 #
+# Helper to parse flat JSON objects into Bash arrays for easy access.
+#
 # Example:
 #   declare -A test="( $( json_outputting_command | json2aa))"
 #########################################
@@ -105,20 +136,7 @@ function json2aa() {
 #   0 - If API request was successful
 #   1 - Otherwise
 # Output:
-#   JSON with keys:
-#   - id
-#   - mac_address
-#   - ip_address
-#   - account
-#   - store
-#   - door
-#   - software_version
-#   - firmware_version
-#   - remote_access_token
-#   - remote_access_requested
-#   - remote_connection_string
-#   - status
-#   - last_seen
+#   JSON response from server (Device object)
 #########################################
 function register_device() {
   local payload="$1"
@@ -135,20 +153,7 @@ function register_device() {
 #   0 - If API request was successful
 #   1 - Otherwise
 # Output:
-#   JSON with keys:
-#   - id
-#   - mac_address
-#   - ip_address
-#   - account
-#   - store
-#   - door
-#   - software_version
-#   - firmware_version
-#   - remote_access_token
-#   - remote_access_requested
-#   - remote_connection_string
-#   - status
-#   - last_seen
+#   JSON response from server (Device object)
 #########################################
 function poll_nixstasis() {
   local id="$1"
