@@ -2,6 +2,16 @@
 # shellcheck disable=SC1091,SC2034,SC2155
 set -eo pipefail
 
+################################################################################
+# Poll Script
+#
+# Main polling service for the Nixstasis client.
+# 1. Collects local device info (store info, readers, software versions).
+# 2. Sends heartbeat to Nixstasis server.
+# 3. Checks if server requested remote access.
+# 4. Starts/Stops the FRP tunnel accordingly.
+################################################################################
+
 SOURCE_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" # Script's directory
 source "${SOURCE_DIR}/_api.sh"
 
@@ -13,6 +23,7 @@ if ! NAME="$(get_name)"; then
   exit 3
 fi
 
+# Starts the FRP tunnel via systemd
 function start_frp() {
   systemd-run --quiet --collect --service-type=simple \
     --unit="nixstasis-access" \
@@ -21,10 +32,14 @@ function start_frp() {
     "${SOURCE_DIR}/run_frp"
 }
 
+# Checks if FRP service is active
 function frp_running() { systemctl is-active nixstasis-access &> /dev/null; }
 
+# Stops the FRP tunnel
 function stop_frp() { frp_running && systemctl stop nixstasis-access; }
 
+# Helper to publish a request to MQTT (mosquitto) and wait for a response
+# Used to communicate with other local services (apollo-wirama-driver)
 function pub_and_get() {
   local topic="${1}"
   local response
@@ -40,6 +55,7 @@ function pub_and_get() {
 }
 
 function main() {
+  # 1. Get Store Info from local driver
   if ! store_info="$(pub_and_get "store/info" | jq '{
         account: (.accountNumber // null),
         store: (.storeNumber // null),
@@ -48,6 +64,7 @@ function main() {
     log_warn "Unable to get store info, apollo-wirama-driver did not respond after 3 seconds"
   fi
 
+  # 2. Get Reader Info from local driver
   if ! readers="$(pub_and_get "Wirama/Devices/enabled" | jq '{
         firmware_version: (.readers[0].expectedFwVersion // null),
         readers: (.readers // []) | map({
@@ -66,12 +83,14 @@ function main() {
     log_warn "Unable to get readers, apollo-wirama-driver did not respond after 10 seconds"
   fi
 
+  # 3. Construct Payload
   payload="$(
     DeviceUpdate "" "" "" \
       "$(dpkg-query -W -f='${Version}' apollo-wirama-driver 2> /dev/null)" "" "" \
       "$(frp_running && echo "${NAME}" || echo "")"
   )"
 
+  # Merge all info
   payload="$(jq -n "${payload} * ${store_info} * ${readers}")"
   # [[ ! -e $PAYLOAD_FILE ]] && printf '%s\n' "$payload" > "$PAYLOAD_FILE"
 
@@ -81,9 +100,11 @@ function main() {
   #   printf '%s\n' "$payload" > "$PAYLOAD_FILE"
   # fi
 
+  # 4. Send Heartbeat to Server
   if declare -A response="( $(poll_nixstasis "${ID}" "${payload}" | json2aa) )"; then
     log_info "Polled Nixstasis"
 
+    # 5. Handle Remote Access Request
     if [[ ${response[remote_access_requested]} == "true" ]] && ! frp_running; then
       log_info "Nixstasis is requesting access, starting nixstasis-access"
       if ! start_frp; then
@@ -103,10 +124,12 @@ if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
   while true; do
     sleep 5
 
+    # Check for valid registration ID
     unset ID
     if ! ID="$(get_id)"; then
       exit_code="$?"
-      log_fatal "Cannot poll Nixstasis"
+      log_fatal "Cannot poll Nixstasis (Missing ID)"
+      # If missing ID, trigger re-registration service
       systemctl start nixstasis-registration
       exit "$exit_code"
     fi
