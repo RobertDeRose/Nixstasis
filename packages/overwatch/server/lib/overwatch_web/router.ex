@@ -2,28 +2,41 @@ defmodule NixstasisWeb.Router do
   use NixstasisWeb, :router
 
   pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, html: {NixstasisWeb.Layouts, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, html: {NixstasisWeb.Layouts, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   scope "/", NixstasisWeb do
-    pipe_through :browser
+    pipe_through(:browser)
 
-    get "/", PageController, :home
+    live("/devices/approvals", DeviceLive.Approval, :index)
+    live("/devices", DeviceLive.Index, :index)
+    live("/devices/new", DeviceLive.Index, :new)
+    live("/alerts", AlertLive.Index, :index)
+    live("/alerts/rules", AlertLive.Rules, :index)
+    live("/reports", ReportLive.Index, :index)
+    live("/reports/new", ReportLive.Builder, :new)
+    live("/reports/:id", ReportLive.Show, :show)
+    live("/settings", SettingsLive, :index)
+
+    # get "/", PageController, :home
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", NixstasisWeb do
-  #   pipe_through :api
-  # end
+  scope "/api/v1", NixstasisWeb do
+    pipe_through(:api)
+
+    post("/devices/register", DeviceController, :register)
+    post("/devices/:device_id/heartbeat", HeartbeatController, :create)
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:nixstasis, :dev_routes) do
@@ -35,10 +48,10 @@ defmodule NixstasisWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: NixstasisWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      live_dashboard("/dashboard", metrics: NixstasisWeb.Telemetry)
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 end

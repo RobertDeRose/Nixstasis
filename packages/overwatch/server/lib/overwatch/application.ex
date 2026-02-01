@@ -14,6 +14,7 @@ defmodule Nixstasis.Application do
       {Phoenix.PubSub, name: Nixstasis.PubSub},
       # Start a worker by calling: Nixstasis.Worker.start_link(arg)
       # {Nixstasis.Worker, arg},
+      Nixstasis.Monitoring.OfflineChecker,
       # Start to serve requests, typically the last entry
       NixstasisWeb.Endpoint
     ]

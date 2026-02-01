@@ -21,17 +21,12 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Examine Elixir Phoenix 1.8+ project with LiveView 1.1+ in `.`
-- [ ] T002 Once you understand the structure of the Phoenix project remove the sample code
-- [ ] T003 Ensure postgres is running in either docker or container:
-      - container run --name ow-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
-      - Preferred on macOS if available
-      or
-      - docker run --name ow-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
-- [ ] T004 Ensure Ecto is configured for Postgres and enable JSONB/GIN index support in `mix.exs` and `config/config.exs`
-- [ ] T005 Run `mix ecto.create` to create your database
-- [ ] T006 Setup basic Context structure (`Devices`, `Monitoring`, `Reporting`) in `lib/nixstasis/`
-- [ ] T007 Configure Phoenix Endpoint `check_origin` for Caddy/FRP trust in `config/runtime.exs`
+- [x] T001 Examine Elixir Phoenix 1.8+ project with LiveView 1.1+ in `.`
+- [x] T002 Once you understand the structure of the Phoenix project remove the sample code
+- [x] T004 Ensure Ecto is configured for Postgres and enable JSONB/GIN index support in `mix.exs` and `config/config.exs`
+- [x] T005 Run `mix ecto.create` to create your database
+- [x] T006 Setup basic Context structure (`Devices`, `Monitoring`, `Reporting`) in `lib/nixstasis/`
+- [x] T007 Configure Phoenix Endpoint `check_origin` for Caddy/FRP trust in `config/runtime.exs`
 
 ---
 
@@ -41,12 +36,12 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create `devices` table migration with JSONB `schema_definition` and GIN index in `priv/repo/migrations/`
-- [ ] T009 Create `telemetry_events` table migration with JSONB payload and GIN index in `priv/repo/migrations/`
-- [ ] T010 Create `Device` schema with embedded schema validation support in `lib/nixstasis/devices/device.ex`
-- [ ] T011 Create `Telemetry` schema in `lib/nixstasis/monitoring/telemetry.ex`
-- [ ] T012 Setup basic API Pipeline in `lib/nixstasis_web/router.ex` (scope "/api/v1")
-- [ ] T013 Create `DeviceContext` with basic CRUD (no business logic yet) in `lib/nixstasis/devices.ex`
+- [x] T008 Create `devices` table migration with JSONB `schema_definition` and GIN index in `priv/repo/migrations/`
+- [x] T009 Create `telemetry_events` table migration with JSONB payload and GIN index in `priv/repo/migrations/`
+- [x] T010 Create `Device` schema with embedded schema validation support in `lib/nixstasis/devices/device.ex`
+- [x] T011 Create `Telemetry` schema in `lib/nixstasis/monitoring/telemetry.ex`
+- [x] T012 Setup basic API Pipeline in `lib/nixstasis_web/router.ex` (scope "/api/v1")
+- [x] T013 Create `DeviceContext` with basic CRUD (no business logic yet) in `lib/nixstasis/devices.ex`
 
 **Nixstasis**: Foundation ready - user story implementation can now begin in parallel
 
@@ -60,20 +55,20 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T014 [P] [US1] Create contract test for `POST /devices/register` in
+- [x] T014 [P] [US1] Create contract test for `POST /devices/register` in
       `test/nixstasis_web/controllers/device_controller_test.exs`
-- [ ] T015 [P] [US1] Create unit test for `Device` schema validation (product key required) in
+- [x] T015 [P] [US1] Create unit test for `Device` schema validation (product key required) in
       `test/nixstasis/devices/device_test.exs`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement `register_device` logic in `Nixstasis.Devices` (handle schema validation) in
+- [x] T016 [US1] Implement `register_device` logic in `Nixstasis.Devices` (handle schema validation) in
       `lib/nixstasis/devices.ex`
-- [ ] T017 [US1] Create `DeviceController.register/2` action in
+- [x] T017 [US1] Create `DeviceController.register/2` action in
       `lib/nixstasis_web/controllers/device_controller.ex`
-- [ ] T018 [US1] Implement JSONB schema validation helper (ensure `product` exists) in
+- [x] T018 [US1] Implement JSONB schema validation helper (ensure `product` exists) in
       `lib/nixstasis/devices/schema_validator.ex`
-- [ ] T019 [US1] Add `product_key` extraction logic to Registration flow in `lib/nixstasis/devices.ex`
+- [x] T019 [US1] Add `product_key` extraction logic to Registration flow in `lib/nixstasis/devices.ex`
 
 **Nixstasis**: Devices can register and are grouped by product key in DB
 
@@ -87,18 +82,18 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Create integration test for Approval Workflow in `test/nixstasis/devices/approval_test.exs`
+- [x] T020 [P] [US2] Create integration test for Approval Workflow in `test/nixstasis/devices/approval_test.exs`
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add `approval_status` field handling to `Device` changeset in `lib/nixstasis/devices/device.ex`
-- [ ] T022 [US2] Implement `approve_device` and `list_pending_devices` in `lib/nixstasis/devices.ex`
-- [ ] T023 [US2] Update `register_device` to check approval status (auto-reject/pending if unknown) in
+- [x] T021 [US2] Add `approval_status` field handling to `Device` changeset in `lib/nixstasis/devices/device.ex`
+- [x] T022 [US2] Implement `approve_device` and `list_pending_devices` in `lib/nixstasis/devices.ex`
+- [x] T023 [US2] Update `register_device` to check approval status (auto-reject/pending if unknown) in
       `lib/nixstasis/devices.ex`
-- [ ] T024 [US2] Ensure `Devices` context enforces `AuthCrunch` policies for admin actions (approvals).
-- [ ] T025 [US2] Create LiveView for Device Approval (Pending List) in
+- [x] T024 [US2] Ensure `Devices` context enforces `AuthCrunch` policies for admin actions (approvals).
+- [x] T025 [US2] Create LiveView for Device Approval (Pending List) in
       `lib/nixstasis_web/live/devices/approval_live.ex`
-- [ ] T026 [US2] Create LiveView for Device Approval (Approved List + Add MAC) in
+- [x] T026 [US2] Create LiveView for Device Approval (Approved List + Add MAC) in
       `lib/nixstasis_web/live/devices/index_live.ex`
 
 **Nixstasis**: Registration is now gated; Admin UI exists for approvals
@@ -113,18 +108,18 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T027 [P] [US3] Create contract test for `POST /devices/heartbeat` in
+- [x] T027 [P] [US3] Create contract test for `POST /devices/heartbeat` in
       `test/nixstasis_web/controllers/heartbeat_controller_test.exs`
-- [ ] T028 [P] [US3] Create unit test for Command Queueing logic in `test/nixstasis/monitoring/command_queue_test.exs`
+- [x] T028 [P] [US3] Create unit test for Command Queueing logic in `test/nixstasis/monitoring/command_queue_test.exs`
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Create `PendingCommand` schema and migration in `lib/nixstasis/devices/pending_command.ex`
-- [ ] T030 [US3] Implement `queue_command` and `pop_pending_commands` in `lib/nixstasis/devices.ex`
-- [ ] T031 [US3] Implement `heartbeat` logic (update last_seen, fetch commands) in `lib/nixstasis/monitoring.ex`
-- [ ] T032 [US3] Create `HeartbeatController.create/2` action in `lib/nixstasis_web/controllers/heartbeat_controller.ex`
-- [ ] T033 [US3] Implement `last_seen_at` update on heartbeat in `lib/nixstasis/devices.ex`
-- [ ] T033a [US3] Implement `RateLimiter` plug using Hammer or similar to enforce configurable limits per device token in `lib/nixstasis_web/plugs/rate_limiter.ex`
+- [x] T029 [US3] Create `PendingCommand` schema and migration in `lib/nixstasis/devices/pending_command.ex`
+- [x] T030 [US3] Implement `queue_command` and `pop_pending_commands` in `lib/nixstasis/devices.ex`
+- [x] T031 [US3] Implement `heartbeat` logic (update last_seen, fetch commands) in `lib/nixstasis/monitoring.ex`
+- [x] T032 [US3] Create `HeartbeatController.create/2` action in `lib/nixstasis_web/controllers/heartbeat_controller.ex`
+- [x] T033 [US3] Implement `last_seen_at` update on heartbeat in `lib/nixstasis/devices.ex`
+- [x] T033a [US3] Implement `RateLimiter` plug using Hammer or similar to enforce configurable limits per device token in `lib/nixstasis_web/plugs/rate_limiter.ex`
 
 **Nixstasis**: Devices can check in and receive commands
 
@@ -138,19 +133,19 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T034 [P] [US4] Create unit test for Offline Detection Logic in `test/nixstasis/monitoring/alert_worker_test.exs`
+- [x] T034 [P] [US4] Create unit test for Offline Detection Logic in `test/nixstasis/monitoring/alert_worker_test.exs`
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Create `Alert` schema and migration in `lib/nixstasis/monitoring/alert.ex`
-- [ ] T036 [US4] Implement `check_offline_devices` function in `lib/nixstasis/monitoring.ex`
-- [ ] T037 [US4] Create GenServer/Oban worker for periodic offline checks in
+- [x] T035 [US4] Create `Alert` schema and migration in `lib/nixstasis/monitoring/alert.ex`
+- [x] T036 [US4] Implement `check_offline_devices` function in `lib/nixstasis/monitoring.ex`
+- [x] T037 [US4] Create GenServer/Oban worker for periodic offline checks in
       `lib/nixstasis/monitoring/offline_checker.ex`
-- [ ] T038 [US4] Create LiveView for Alerts Dashboard in `lib/nixstasis_web/live/alerts/index_live.ex`
-- [ ] T039 [US4] Implement Config UI for "Offline Window" duration in `lib/nixstasis_web/live/settings_live.ex`
-- [ ] T039a [US4] Implement Email dispatch for alerts using Swoosh in `lib/nixstasis/notifications/email.ex`
-- [ ] T039b [US4] Implement Webhook dispatch for alerts (POST payload) in `lib/nixstasis/notifications/webhook.ex`
-- [ ] T039c [US4] Implement UI form in Settings LiveView to configure Notification destinations (Email list, Webhook URL) in `lib/nixstasis_web/live/settings_live.ex`
+- [x] T038 [US4] Create LiveView for Alerts Dashboard in `lib/nixstasis_web/live/alerts/index_live.ex`
+- [x] T039 [US4] Implement Config UI for "Offline Window" duration in `lib/nixstasis_web/live/settings_live.ex`
+- [x] T039a [US4] Implement Email dispatch for alerts using Swoosh in `lib/nixstasis/notifications/email.ex`
+- [x] T039b [US4] Implement Webhook dispatch for alerts (POST payload) in `lib/nixstasis/notifications/webhook.ex`
+- [x] T039c [US4] Implement UI form in Settings LiveView to configure Notification destinations (Email list, Webhook URL) in `lib/nixstasis_web/live/settings_live.ex`
 
 **Nixstasis**: System auto-detects dead devices and shows alerts
 
@@ -164,14 +159,14 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T040 [P] [US5] Create unit test for Rule Evaluator in `test/nixstasis/monitoring/rule_evaluator_test.exs`
+- [x] T040 [P] [US5] Create unit test for Rule Evaluator in `test/nixstasis/monitoring/rule_evaluator_test.exs`
 
 ### Implementation for User Story 5
 
-- [ ] T041 [US5] Create `AlertRule` schema and migration in `lib/nixstasis/monitoring/alert_rule.ex`
-- [ ] T042 [US5] Implement `evaluate_telemetry` logic (match JSONB payload vs Rules) in `lib/nixstasis/monitoring.ex`
-- [ ] T043 [US5] Integrate `evaluate_telemetry` into Heartbeat/Telemetry ingestion flow in `lib/nixstasis/monitoring.ex`
-- [ ] T044 [US5] Create LiveView for creating/managing Alert Rules in `lib/nixstasis_web/live/alerts/rules_live.ex`
+- [x] T041 [US5] Create `AlertRule` schema and migration in `lib/nixstasis/monitoring/alert_rule.ex`
+- [x] T042 [US5] Implement `evaluate_telemetry` logic (match JSONB payload vs Rules) in `lib/nixstasis/monitoring.ex`
+- [x] T043 [US5] Integrate `evaluate_telemetry` into Heartbeat/Telemetry ingestion flow in `lib/nixstasis/monitoring.ex`
+- [x] T044 [US5] Create LiveView for creating/managing Alert Rules in `lib/nixstasis_web/live/alerts/rules_live.ex`
 
 **Nixstasis**: Users can define dynamic alerts on JSON data
 
@@ -185,15 +180,15 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T045 [P] [US6] Create unit test for Dynamic Query Builder in `test/nixstasis/reporting/query_builder_test.exs`
+- [x] T045 [P] [US6] Create unit test for Dynamic Query Builder in `test/nixstasis/reporting/query_builder_test.exs`
 
 ### Implementation for User Story 6
 
-- [ ] T046 [US6] Create `CustomReport` schema (stores query config) in `lib/nixstasis/reporting/custom_report.ex`
-- [ ] T047 [US6] Implement Ecto Query builder for JSONB path extraction in `lib/nixstasis/reporting.ex`
-- [ ] T048 [US6] Create LiveView for Report Builder UI (Field Selector) in`lib/nixstasis_web/live/reports/builder_live.ex`
+- [x] T046 [US6] Create `CustomReport` schema (stores query config) in `lib/nixstasis/reporting/custom_report.ex`
+- [x] T047 [US6] Implement Ecto Query builder for JSONB path extraction in `lib/nixstasis/reporting.ex`
+- [x] T048 [US6] Create LiveView for Report Builder UI (Field Selector) in`lib/nixstasis_web/live/reports/builder_live.ex`
 - [ ] T048a [US6] Implement conflict resolution UI/logic in Report Builder to handle fields with differing types (per FR-016a) in `lib/nixstasis_web/live/reports/builder_live.ex`
-- [ ] T049 [US6] Create LiveView for Report Viewer (Table/Chart) in `lib/nixstasis_web/live/reports/show_live.ex`
+- [x] T049 [US6] Create LiveView for Report Viewer (Table/Chart) in `lib/nixstasis_web/live/reports/show_live.ex`
 
 **Nixstasis**: Dynamic reporting across device types
 
@@ -203,12 +198,12 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 **Purpose**: Improvements, docs, and final validation
 
-- [ ] T050 [P] Update Quickstart docs with final API examples in `specs/001-iot-device-monitoring/quickstart.md`
-- [ ] T051 Refactor `DeviceController` to use `FallbackController` for errors in
+- [x] T050 [P] Update Quickstart docs with final API examples in `specs/001-iot-device-monitoring/quickstart.md`
+- [x] T051 Refactor `DeviceController` to use `FallbackController` for errors in
       `lib/nixstasis_web/controllers/fallback_controller.ex`
-- [ ] T052 Optimize GIN indexes for specific common search paths in `priv/repo/migrations/` (optional tuning)
-- [ ] T053 [P] Add DaisyUI theme switching support in `lib/nixstasis_web/components/layouts/root.html.heex`
-- [ ] T054 Run full integration test suite and verify no regressions
+- [x] T052 Optimize GIN indexes for specific common search paths in `priv/repo/migrations/` (optional tuning)
+- [x] T053 [P] Add DaisyUI theme switching support in `lib/nixstasis_web/components/layouts/root.html.heex`
+- [x] T054 Run full integration test suite and verify no regressions
 
 ## Dependencies & Execution Order
 
