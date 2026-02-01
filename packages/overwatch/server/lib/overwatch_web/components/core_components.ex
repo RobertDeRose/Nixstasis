@@ -39,13 +39,13 @@ defmodule NixstasisWeb.CoreComponents do
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.flash>
   """
-  attr :id, :string, doc: "the optional id of flash container"
-  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-  attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
-  attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
+  attr(:id, :string, doc: "the optional id of flash container")
+  attr(:flash, :map, default: %{}, doc: "the map of flash messages to display")
+  attr(:title, :string, default: nil)
+  attr(:kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup")
+  attr(:rest, :global, doc: "the arbitrary HTML attributes to add to the flash container")
 
-  slot :inner_block, doc: "the optional inner block that renders the flash message"
+  slot(:inner_block, doc: "the optional inner block that renders the flash message")
 
   def flash(assigns) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
@@ -88,10 +88,10 @@ defmodule NixstasisWeb.CoreComponents do
       <.button phx-click="go" variant="primary">Send!</.button>
       <.button navigate={~p"/"}>Home</.button>
   """
-  attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
-  attr :class, :string
-  attr :variant, :string, values: ~w(primary)
-  slot :inner_block, required: true
+  attr(:rest, :global, include: ~w(href navigate patch method download name value disabled))
+  attr(:class, :string)
+  attr(:variant, :string, values: ~w(primary))
+  slot(:inner_block, required: true)
 
   def button(%{rest: rest} = assigns) do
     variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
@@ -142,30 +142,33 @@ defmodule NixstasisWeb.CoreComponents do
       <.input field={@form[:email]} type="email" />
       <.input name="my-input" errors={["oh no!"]} />
   """
-  attr :id, :any, default: nil
-  attr :name, :any
-  attr :label, :string, default: nil
-  attr :value, :any
+  attr(:id, :any, default: nil)
+  attr(:name, :any)
+  attr(:label, :string, default: nil)
+  attr(:value, :any)
 
-  attr :type, :string,
+  attr(:type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file month number password
                search select tel text textarea time url week)
+  )
 
-  attr :field, Phoenix.HTML.FormField,
+  attr(:field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
+  )
 
-  attr :errors, :list, default: []
-  attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
-  attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
-  attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
-  attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
-  attr :class, :string, default: nil, doc: "the input class to use over defaults"
-  attr :error_class, :string, default: nil, doc: "the input error class to use over defaults"
+  attr(:errors, :list, default: [])
+  attr(:checked, :boolean, doc: "the checked flag for checkbox inputs")
+  attr(:prompt, :string, default: nil, doc: "the prompt for select inputs")
+  attr(:options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2")
+  attr(:multiple, :boolean, default: false, doc: "the multiple flag for select inputs")
+  attr(:class, :string, default: nil, doc: "the input class to use over defaults")
+  attr(:error_class, :string, default: nil, doc: "the input error class to use over defaults")
 
-  attr :rest, :global,
+  attr(:rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
                 multiple pattern placeholder readonly required rows size step)
+  )
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
@@ -282,9 +285,9 @@ defmodule NixstasisWeb.CoreComponents do
   @doc """
   Renders a header with title.
   """
-  slot :inner_block, required: true
-  slot :subtitle
-  slot :actions
+  slot(:inner_block, required: true)
+  slot(:subtitle)
+  slot(:actions)
 
   def header(assigns) do
     ~H"""
@@ -312,20 +315,21 @@ defmodule NixstasisWeb.CoreComponents do
         <:col :let={user} label="username">{user.username}</:col>
       </.table>
   """
-  attr :id, :string, required: true
-  attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
-  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
+  attr(:id, :string, required: true)
+  attr(:rows, :list, required: true)
+  attr(:row_id, :any, default: nil, doc: "the function for generating the row id")
+  attr(:row_click, :any, default: nil, doc: "the function for handling phx-click on each row")
 
-  attr :row_item, :any,
+  attr(:row_item, :any,
     default: &Function.identity/1,
     doc: "the function for mapping each row before calling the :col and :action slots"
+  )
 
   slot :col, required: true do
-    attr :label, :string
+    attr(:label, :string)
   end
 
-  slot :action, doc: "the slot for showing user actions in the last table column"
+  slot(:action, doc: "the slot for showing user actions in the last table column")
 
   def table(assigns) do
     assigns =
@@ -376,7 +380,7 @@ defmodule NixstasisWeb.CoreComponents do
       </.list>
   """
   slot :item, required: true do
-    attr :title, :string, required: true
+    attr(:title, :string, required: true)
   end
 
   def list(assigns) do
@@ -410,8 +414,8 @@ defmodule NixstasisWeb.CoreComponents do
       <.icon name="hero-x-mark" />
       <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
   """
-  attr :name, :string, required: true
-  attr :class, :string, default: "size-4"
+  attr(:name, :string, required: true)
+  attr(:class, :string, default: "size-4")
 
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
@@ -468,5 +472,115 @@ defmodule NixstasisWeb.CoreComponents do
   """
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
+  end
+
+  @doc """
+  Renders a simple form.
+
+  ## Examples
+
+      <.simple_form for={@form} phx-change="validate" phx-submit="save">
+        <.input field={@form[:email]} label="Email"/>
+        <.input field={@form[:username]} label="Username" />
+        <:actions>
+          <.button>Save</.button>
+        </:actions>
+      </.simple_form>
+  """
+  attr(:for, :any, required: true, doc: "the datastructure for the form")
+  attr(:as, :any, default: nil, doc: "the server side parameter to collect all input under")
+
+  attr(:rest, :global,
+    include: ~w(autocomplete name rel action enctype method novalidate target multipart),
+    doc: "the arbitrary HTML attributes to apply to the form tag"
+  )
+
+  slot(:inner_block, required: true)
+  slot(:actions, doc: "the slot for form actions, such as a save button")
+
+  def simple_form(assigns) do
+    ~H"""
+    <.form :let={f} for={@for} as={@as} {@rest}>
+      <div class="space-y-8 bg-white mt-10">
+        {render_slot(@inner_block, f)}
+        <div :if={@actions != []} class="flex items-center justify-between gap-6">
+          {render_slot(@actions, f)}
+        </div>
+      </div>
+    </.form>
+    """
+  end
+
+  @doc """
+  Renders a modal.
+
+  ## Examples
+
+      <.modal id="confirm-modal">
+        This is a modal.
+      </.modal>
+
+  """
+  attr(:id, :string, required: true)
+  attr(:show, :boolean, default: false)
+  attr(:on_cancel, :any, default: %JS{})
+  slot(:inner_block, required: true)
+
+  def modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-mounted={@show && show_modal(@id)}
+      phx-remove={hide_modal(@id)}
+      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      class="relative z-50 hidden"
+    >
+      <div id={"#{@id}-bg"} class="fixed inset-0 bg-zinc-50/90 transition-opacity" aria-hidden="true" />
+      <div
+        class="fixed inset-0 overflow-y-auto"
+        aria-labelledby={"#{@id}-title"}
+        aria-describedby={"#{@id}-description"}
+        role="dialog"
+        aria-modal="true"
+        tabindex="0"
+      >
+        <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+          <div class="w-full max-w-3xl overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+            <button
+              type="button"
+              phx-click={JS.exec("data-cancel", to: "##{@id}")}
+              class="absolute right-5 top-5 -m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
+              aria-label={gettext("close")}
+            >
+              <.icon name="hero-x-mark" class="h-6 w-6" />
+            </button>
+            <div id={"#{@id}-content"}>
+              {render_slot(@inner_block)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def show_modal(js \\ %JS{}, id) when is_binary(id) do
+    js
+    |> JS.show(to: "##{id}")
+    |> JS.show(
+      to: "##{id}-bg",
+      transition: {"transition-all transform ease-out duration-300", "opacity-0", "opacity-100"}
+    )
+    |> show("##{id}-content")
+  end
+
+  def hide_modal(js \\ %JS{}, id) do
+    js
+    |> JS.hide(
+      to: "##{id}-bg",
+      transition: {"transition-all transform ease-in duration-200", "opacity-100", "opacity-0"}
+    )
+    |> hide("##{id}-content")
+    |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
   end
 end
