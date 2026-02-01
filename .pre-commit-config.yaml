@@ -47,6 +47,7 @@ repos:
     rev: v0.45.0
     hooks:
       - id: markdownlint
+        exclude: ".*/specs/.*.md"
         args:
           - -c
           - pyproject.toml
