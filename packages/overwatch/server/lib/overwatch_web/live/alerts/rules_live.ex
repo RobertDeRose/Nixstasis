@@ -45,85 +45,76 @@ defmodule NixstasisWeb.AlertLive.Rules do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-4xl">
-      <div class="mb-8 flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Alert Rules</h1>
-        <.link navigate={~p"/alerts"} class="text-blue-600 hover:underline">
-          &larr; Back to Alerts
-        </.link>
+    <div class="mx-auto max-w-7xl">
+      <.header>
+        Alert Rules
+        <:subtitle>Manage automation rules for generating alerts.</:subtitle>
+        <:actions>
+          <.link navigate={~p"/alerts"}>
+            <.button variant="outline">&larr; Back to Alerts</.button>
+          </.link>
+        </:actions>
+      </.header>
+
+      <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <h2 class="card-title">Create New Rule</h2>
+          <.simple_form for={@form} phx-change="validate" phx-submit="save">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <.input
+                field={@form[:product_key]}
+                label="Product Key"
+                placeholder="e.g. thermostat-v1"
+              />
+              <.input
+                field={@form[:condition_field]}
+                label="JSON Path"
+                placeholder="e.g. temp or sensors.temp"
+              />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <.input
+                field={@form[:operator]}
+                type="select"
+                label="Operator"
+                options={[">", "<", "=", "!=", ">=", "<="]}
+              />
+              <.input field={@form[:threshold_value]} label="Threshold" placeholder="e.g. 50" />
+            </div>
+
+            <:actions>
+              <.button phx-disable-with="Saving...">Create Rule</.button>
+            </:actions>
+          </.simple_form>
+        </div>
       </div>
 
-      <div class="bg-white p-6 rounded-lg shadow mb-8">
-        <h2 class="text-lg font-semibold mb-4">Create New Rule</h2>
-        <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <.input field={@form[:product_key]} label="Product Key" placeholder="e.g. thermostat-v1" />
-            <.input
-              field={@form[:condition_field]}
-              label="JSON Path"
-              placeholder="e.g. temp or sensors.temp"
-            />
-          </div>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-0">
+          <.table id="rules" rows={@rules}>
+            <:col :let={rule} label="Product Key">{rule.product_key}</:col>
+            <:col :let={rule} label="Condition">
+              <code class="bg-base-200 px-2 py-1 rounded">{rule.condition_field}</code>
+              <span class="mx-2 font-bold">{rule.operator}</span>
+              <span class="text-base-content">{rule.threshold_value}</span>
+            </:col>
+            <:action :let={rule}>
+              <.link
+                phx-click="delete"
+                phx-value-id={rule.id}
+                data-confirm="Are you sure?"
+                class="text-error hover:text-error/80"
+              >
+                Delete
+              </.link>
+            </:action>
+          </.table>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <.input
-              field={@form[:operator]}
-              type="select"
-              label="Operator"
-              options={[">", "<", "=", "!=", ">=", "<="]}
-            />
-            <.input field={@form[:threshold_value]} label="Threshold" placeholder="e.g. 50" />
-          </div>
-
-          <div class="flex justify-end">
-            <.button phx-disable-with="Saving...">Create Rule</.button>
-          </div>
-        </.form>
-      </div>
-
-      <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Product Key
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Condition
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <%= for rule <- @rules do %>
-              <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {rule.product_key}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <code class="bg-gray-100 px-2 py-1 rounded">{rule.condition_field}</code>
-                  <span class="mx-2 font-bold">{rule.operator}</span>
-                  <span class="text-gray-900">{rule.threshold_value}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    phx-click="delete"
-                    phx-value-id={rule.id}
-                    data-confirm="Are you sure?"
-                    class="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-        <%= if Enum.empty?(@rules) do %>
-          <div class="p-6 text-center text-gray-500">No rules defined yet.</div>
-        <% end %>
+          <%= if Enum.empty?(@rules) do %>
+            <div class="p-6 text-center text-base-content/50">No rules defined yet.</div>
+          <% end %>
+        </div>
       </div>
     </div>
     """

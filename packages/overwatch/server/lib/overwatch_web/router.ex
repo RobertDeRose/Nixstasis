@@ -22,9 +22,10 @@ defmodule NixstasisWeb.Router do
     live("/devices", DeviceLive.Index, :index)
     live("/devices/new", DeviceLive.Index, :new)
     live("/alerts", AlertLive.Index, :index)
+    live("/alerts/new", AlertLive.Index, :new)
     live("/alerts/rules", AlertLive.Rules, :index)
     live("/reports", ReportLive.Index, :index)
-    live("/reports/new", ReportLive.Builder, :new)
+    live("/reports/new", ReportLive.Index, :new)
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
 

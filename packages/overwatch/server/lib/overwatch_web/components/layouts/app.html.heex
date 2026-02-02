@@ -1,0 +1,27 @@
+<div class="drawer lg:drawer-open">
+  <input id="drawer" type="checkbox" class="drawer-toggle" />
+  <div class="drawer-content flex flex-col min-h-screen">
+    <!-- Navbar for mobile -->
+    <div class="w-full navbar bg-base-100 lg:hidden shadow-sm z-40">
+      <div class="flex-none px-2 mx-2">
+        <img src={~p"/images/logo.svg"} class="dark:invert" width="40" alt="Nixstasis Logo" />
+      </div>
+      <div class="flex-1 font-bold text-lg">Nixstasis</div>
+      <div class="flex-none">
+        <.theme_toggle />
+      </div>
+    </div>
+
+<!-- Main Content -->
+    <main class="flex-1 p-4 md:p-8 pt-6 pb-24 lg:pb-8">
+      <.flash_group flash={@flash} />
+      {@inner_content}
+    </main>
+
+<!-- Bottom Nav (Mobile) -->
+    <.bottom_nav current_path={assigns[:current_path]} />
+  </div>
+
+<!-- Sidebar -->
+  <.sidebar current_path={assigns[:current_path]} />
+</div>

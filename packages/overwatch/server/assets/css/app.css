@@ -1,7 +1,13 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
-@import "tailwindcss" source(none);
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;600;700&display=swap');
+
+@theme {
+  --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
 @source "../css";
 @source "../js";
 @source "../../lib/nixstasis_web";
@@ -26,32 +32,48 @@
   default: false;
   prefersdark: true;
   color-scheme: "dark";
-  --color-base-100: oklch(30.33% 0.016 252.42);
-  --color-base-200: oklch(25.26% 0.014 253.1);
-  --color-base-300: oklch(20.15% 0.012 254.09);
-  --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
-  --color-neutral: oklch(37% 0.044 257.287);
-  --color-neutral-content: oklch(98% 0.003 247.858);
-  --color-info: oklch(58% 0.158 241.966);
-  --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(60% 0.118 184.704);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
+  /* Deep Gunmetal/Black for background to contrast with Navy */
+  --color-base-100: #1a222b;
+  /* Brand Navy for cards/surfaces */
+  --color-base-200: #2c3947;
+  /* Slightly lighter navy for borders/hover */
+  --color-base-300: #3b4d61;
+  /* White text */
+  --color-base-content: #ffffff;
+
+  /* Brand Grey (lighter) for primary actions in dark mode */
+  --color-primary: #8d9fb0;
+  --color-primary-content: #1a222b;
+
+  /* Brand Red for secondary actions */
+  --color-secondary: #ae153c;
+  --color-secondary-content: #ffffff;
+
+  /* Brand Grey as Accent */
+  --color-accent: #8d9fb0;
+  --color-accent-content: #1a222b;
+
+  --color-neutral: #2c3947;
+  --color-neutral-content: #ffffff;
+
+  --color-info: #8d9fb0;
+  --color-info-content: #1a222b;
+
+  --color-success: #5f7f6e;
+  --color-success-content: #ffffff;
+
+  --color-warning: #d9d7e5; /* Using Pastel Lavender as a soft warning/highlight */
+  --color-warning-content: #2c3947;
+
+  --color-error: #ae153c;
+  --color-error-content: #ffffff;
+
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;
   --size-selector: 0.21875rem;
   --size-field: 0.21875rem;
-  --border: 1.5px;
+  --border: 1px;
   --depth: 1;
   --noise: 0;
 }
@@ -61,32 +83,48 @@
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: oklch(98% 0 0);
-  --color-base-200: oklch(96% 0.001 286.375);
-  --color-base-300: oklch(92% 0.004 286.32);
-  --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
-  --color-secondary: oklch(55% 0.027 264.364);
-  --color-secondary-content: oklch(98% 0.002 247.839);
-  --color-accent: oklch(0% 0 0);
-  --color-accent-content: oklch(100% 0 0);
-  --color-neutral: oklch(44% 0.017 285.786);
-  --color-neutral-content: oklch(98% 0 0);
-  --color-info: oklch(62% 0.214 259.815);
-  --color-info-content: oklch(97% 0.014 254.604);
-  --color-success: oklch(70% 0.14 182.503);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
+  /* White background */
+  --color-base-100: #ffffff;
+  /* Brand Grey Tint for slight contrast areas */
+  --color-base-200: #ebeded;
+  /* Brand Blue Tint */
+  --color-base-300: #d4d6d8;
+  /* Brand Navy for text */
+  --color-base-content: #2c3947;
+
+  /* Brand Navy as Primary */
+  --color-primary: #2c3947;
+  --color-primary-content: #ffffff;
+
+  /* Brand Red as Secondary */
+  --color-secondary: #ae153c;
+  --color-secondary-content: #ffffff;
+
+  /* Brand Grey as Accent */
+  --color-accent: #8d9fb0;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #ebeded;
+  --color-neutral-content: #2c3947;
+
+  --color-info: #8d9fb0;
+  --color-info-content: #ffffff;
+
+  --color-success: #5f7f6e;
+  --color-success-content: #ffffff;
+
+  --color-warning: #f3efe4; /* Pastel Yellow */
+  --color-warning-content: #2c3947;
+
+  --color-error: #ae153c;
+  --color-error-content: #ffffff;
+
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;
   --size-selector: 0.21875rem;
   --size-field: 0.21875rem;
-  --border: 1.5px;
+  --border: 1px;
   --depth: 1;
   --noise: 0;
 }
@@ -97,7 +135,24 @@
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
 /* Use the data attribute for dark mode  */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+/*
+  1. Trigger if explicit dark attribute is present
+  2. OR trigger if (System is Dark) AND (NOT explicitly Light)
+*/
+@custom-variant dark {
+
+  /* Scenario 1: Explicit Dark Theme is set */
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  /* Scenario 2: System is Dark AND it is NOT explicitly Light */
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *, :root:not([data-theme="light"])) {
+      @slot;
+    }
+  }
+}
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }

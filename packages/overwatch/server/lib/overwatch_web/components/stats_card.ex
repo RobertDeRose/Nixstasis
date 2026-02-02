@@ -8,11 +8,11 @@ defmodule NixstasisWeb.Components.StatsCard do
 
   def stats_card(assigns) do
     ~H"""
-    <div class="stats shadow bg-base-100">
+    <div class="stats shadow bg-base-100 w-full h-full">
       <div class="stat place-items-center">
         <div class="stat-title">{@title}</div>
         <div class={"stat-value " <> @color_class}>{@value}</div>
-        <div :if={@desc} class="stat-desc">{@desc}</div>
+        <div class="stat-desc min-h-4">{@desc}</div>
       </div>
     </div>
     """

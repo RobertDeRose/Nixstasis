@@ -90,11 +90,16 @@ defmodule NixstasisWeb.CoreComponents do
   """
   attr(:rest, :global, include: ~w(href navigate patch method download name value disabled))
   attr(:class, :string)
-  attr(:variant, :string, values: ~w(primary))
+  attr(:variant, :string, values: ~w(primary outline ghost))
   slot(:inner_block, required: true)
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    variants = %{
+      "primary" => "btn-primary",
+      "outline" => "btn-outline",
+      "ghost" => "btn-ghost",
+      nil => "btn-primary"
+    }
 
     assigns =
       assign_new(assigns, :class, fn ->
@@ -338,34 +343,36 @@ defmodule NixstasisWeb.CoreComponents do
       end
 
     ~H"""
-    <table class="table table-zebra">
-      <thead>
-        <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
-          <th :if={@action != []}>
-            <span class="sr-only">{gettext("Actions")}</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-        <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
-          <td
-            :for={col <- @col}
-            phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
-          >
-            {render_slot(col, @row_item.(row))}
-          </td>
-          <td :if={@action != []} class="w-0 font-semibold">
-            <div class="flex gap-4">
-              <%= for action <- @action do %>
-                {render_slot(action, @row_item.(row))}
-              <% end %>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
+          <tr>
+            <th :for={col <- @col}>{col[:label]}</th>
+            <th :if={@action != []}>
+              <span class="sr-only">{gettext("Actions")}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
+          <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
+            <td
+              :for={col <- @col}
+              phx-click={@row_click && @row_click.(row)}
+              class={@row_click && "hover:cursor-pointer"}
+            >
+              {render_slot(col, @row_item.(row))}
+            </td>
+            <td :if={@action != []} class="w-0 font-semibold">
+              <div class="flex gap-4">
+                <%= for action <- @action do %>
+                  {render_slot(action, @row_item.(row))}
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     """
   end
 
@@ -501,7 +508,7 @@ defmodule NixstasisWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class="space-y-8 bg-white mt-10">
+      <div class="space-y-8 bg-base-100 mt-10">
         {render_slot(@inner_block, f)}
         <div :if={@actions != []} class="flex items-center justify-between gap-6">
           {render_slot(@actions, f)}
@@ -533,9 +540,15 @@ defmodule NixstasisWeb.CoreComponents do
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
-      class="relative z-50 hidden"
+      phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+      phx-key="escape"
+      class="relative z-[60] hidden"
     >
-      <div id={"#{@id}-bg"} class="fixed inset-0 bg-zinc-50/90 transition-opacity" aria-hidden="true" />
+      <div
+        id={"#{@id}-bg"}
+        class="fixed inset-0 bg-base-300/80 backdrop-blur-sm transition-opacity"
+        aria-hidden="true"
+      />
       <div
         class="fixed inset-0 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
@@ -545,11 +558,11 @@ defmodule NixstasisWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-          <div class="w-full max-w-3xl overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+          <div class="w-full max-w-3xl overflow-hidden rounded-2xl bg-base-100 p-6 text-left align-middle shadow-xl transition-all">
             <button
               type="button"
               phx-click={JS.exec("data-cancel", to: "##{@id}")}
-              class="absolute right-5 top-5 -m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
+              class="absolute right-5 top-5 -m-2.5 p-2.5 text-base-content/60 hover:text-base-content"
               aria-label={gettext("close")}
             >
               <.icon name="hero-x-mark" class="h-6 w-6" />

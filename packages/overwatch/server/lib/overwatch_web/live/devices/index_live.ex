@@ -10,59 +10,54 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   def render(assigns) do
     ~H"""
-    <.header>
-      Devices
-      <:actions>
-        <.link patch={~p"/devices/new"}>
-          <.button>New Device</.button>
-        </.link>
-      </:actions>
-    </.header>
-
-    <.table
-      id="devices"
-      rows={@streams.devices}
-    >
-      <:col :let={{_id, device}} label="MAC Address">{device.mac_address}</:col>
-      <:col :let={{_id, device}} label="Product">{device.product_key}</:col>
-      <:col :let={{_id, device}} label="Status">
-        <span class={[
-          "badge",
-          device.approval_status == "approved" && "badge-success",
-          device.approval_status == "pending" && "badge-warning",
-          device.approval_status == "rejected" && "badge-error"
-        ]}>
-          {device.approval_status}
-        </span>
-      </:col>
-      <:col :let={{_id, device}} label="Last Seen">{device.last_seen_at}</:col>
-    </.table>
-
-    <.modal :if={@live_action == :new} id="device-modal" show on_cancel={JS.patch(~p"/devices")}>
+    <div class="mx-auto max-w-7xl">
       <.header>
-        New Device
-        <:subtitle>Pre-register a device by MAC address.</:subtitle>
-      </.header>
-      <.simple_form
-        for={@form}
-        id="device-form"
-        phx-change="validate"
-        phx-submit="save"
-      >
-        <.input field={@form[:mac_address]} label="MAC Address" />
-        <.input field={@form[:product_key]} label="Product Key" />
-        <.input
-          field={@form[:approval_status]}
-          type="select"
-          label="Status"
-          options={["pending", "approved", "rejected"]}
-        />
-
+        Devices
         <:actions>
-          <.button phx-disable-with="Saving...">Save Device</.button>
+          <.link patch={~p"/devices/new"}>
+            <.button>Add Device</.button>
+          </.link>
         </:actions>
-      </.simple_form>
-    </.modal>
+      </.header>
+
+      <.table
+        id="devices"
+        rows={@streams.devices}
+      >
+        <:col :let={{_id, device}} label="MAC Address">{device.mac_address}</:col>
+        <:col :let={{_id, device}} label="Product">{device.product_key}</:col>
+        <:col :let={{_id, device}} label="Status">
+          <span class={[
+            "badge",
+            device.approval_status == "approved" && "badge-success",
+            device.approval_status == "pending" && "badge-warning",
+            device.approval_status == "rejected" && "badge-error"
+          ]}>
+            {device.approval_status}
+          </span>
+        </:col>
+        <:col :let={{_id, device}} label="Last Seen">{device.last_seen_at}</:col>
+      </.table>
+
+      <.modal :if={@live_action == :new} id="device-modal" show on_cancel={JS.patch(~p"/devices")}>
+        <.header>
+          Add Device
+          <:subtitle>Pre-register a device by MAC address.</:subtitle>
+        </.header>
+        <.simple_form
+          for={@form}
+          id="device-form"
+          phx-change="validate"
+          phx-submit="save"
+        >
+          <.input field={@form[:mac_address]} label="MAC Address" placeholder="AA:BB:CC:DD:EE:FF" />
+
+          <:actions>
+            <.button phx-disable-with="Saving...">Save Device</.button>
+          </:actions>
+        </.simple_form>
+      </.modal>
+    </div>
     """
   end
 
@@ -72,7 +67,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   defp apply_action(socket, :new, _params) do
     socket
-    |> assign(:page_title, "New Device")
+    |> assign(:page_title, "Add Device")
     |> assign(:device, %Device{})
     |> assign(:form, to_form(Devices.change_device(%Device{})))
   end
@@ -84,6 +79,12 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("validate", %{"device" => device_params}, socket) do
+    # Inject defaults for validation if they are missing
+    device_params =
+      device_params
+      |> Map.put_new("product_key", "manual-entry")
+      |> Map.put_new("approval_status", "approved")
+
     changeset =
       socket.assigns.device
       |> Devices.change_device(device_params)
@@ -93,6 +94,12 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("save", %{"device" => device_params}, socket) do
+    # Inject defaults for saving
+    device_params =
+      device_params
+      |> Map.put_new("product_key", "manual-entry")
+      |> Map.put_new("approval_status", "approved")
+
     case Devices.create_device(device_params) do
       {:ok, device} ->
         {:noreply,
