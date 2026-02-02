@@ -12,30 +12,32 @@ defmodule NixstasisWeb.DeviceLive.Approval do
 
   def render(assigns) do
     ~H"""
-    <.header>
-      Pending Approvals
-      <:subtitle>Review and approve new devices</:subtitle>
-    </.header>
+    <div class="mx-auto max-w-7xl">
+      <.header>
+        Pending Approvals
+        <:subtitle>Review and approve new devices</:subtitle>
+      </.header>
 
-    <.table
-      id="devices"
-      rows={@streams.devices}
-    >
-      <:col :let={{_id, device}} label="MAC Address">{device.mac_address}</:col>
-      <:col :let={{_id, device}} label="Product">{device.product_key}</:col>
-      <:col :let={{_id, device}} label="Status">
-        <span class="badge badge-warning">{device.approval_status}</span>
-      </:col>
-      <:action :let={{_id, device}}>
-        <.link
-          phx-click={JS.push("approve", value: %{id: device.id})}
-          data-confirm="Are you sure you want to approve this device?"
-          class="btn btn-sm btn-success"
-        >
-          Approve
-        </.link>
-      </:action>
-    </.table>
+      <.table
+        id="devices"
+        rows={@streams.devices}
+      >
+        <:col :let={{_id, device}} label="MAC Address">{device.mac_address}</:col>
+        <:col :let={{_id, device}} label="Product">{device.product_key}</:col>
+        <:col :let={{_id, device}} label="Status">
+          <span class="badge badge-warning">{device.approval_status}</span>
+        </:col>
+        <:action :let={{_id, device}}>
+          <.link
+            phx-click={JS.push("approve", value: %{id: device.id})}
+            data-confirm="Are you sure you want to approve this device?"
+            class="btn btn-sm btn-success"
+          >
+            Approve
+          </.link>
+        </:action>
+      </.table>
+    </div>
     """
   end
 

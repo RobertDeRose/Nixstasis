@@ -9,68 +9,7 @@ defmodule NixstasisWeb.Layouts do
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
   # and other static content.
-  embed_templates "layouts/*"
-
-  @doc """
-  Renders your app layout.
-
-  This function is typically invoked from every template,
-  and it often contains your application menu, sidebar,
-  or similar.
-
-  ## Examples
-
-      <Layouts.app flash={@flash}>
-        <h1>Content</h1>
-      </Layouts.app>
-
-  """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-
-  attr :current_scope, :map,
-    default: nil,
-    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
-
-  slot :inner_block, required: true
-
-  def app(assigns) do
-    ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </header>
-
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
-
-    <.flash_group flash={@flash} />
-    """
-  end
+  embed_templates("layouts/*")
 
   @doc """
   Shows the flash group with standard titles and content.
@@ -79,8 +18,8 @@ defmodule NixstasisWeb.Layouts do
 
       <.flash_group flash={@flash} />
   """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:id, :string, default: "flash-group", doc: "the optional id of flash container")
 
   def flash_group(assigns) do
     ~H"""
@@ -111,6 +50,150 @@ defmodule NixstasisWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders the sidebar navigation.
+  """
+  def sidebar(assigns) do
+    assigns = assign(assigns, :current_path, assigns[:current_path] || "")
+
+    ~H"""
+    <div class="drawer-side z-50">
+      <label for="drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+      <div class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
+        <div class="mb-8 px-2 flex items-center gap-3">
+          <img src={~p"/images/logo.svg"} class="dark:invert" width="40" alt="Nixstasis Logo" />
+          <div>
+            <div class="font-bold text-xl tracking-tight">Nixstasis</div>
+            <div class="text-xs opacity-60">Atomic Coherence</div>
+          </div>
+        </div>
+
+        <ul class="menu menu-lg gap-2">
+          <li>
+            <.link navigate={~p"/"} class={if @current_path == "/", do: "active"}>
+              <.icon name="hero-home" class="size-5" /> Dashboard
+            </.link>
+          </li>
+          <li>
+            <.link
+              navigate={~p"/devices"}
+              class={if String.starts_with?(@current_path, "/devices"), do: "active"}
+            >
+              <.icon name="hero-server" class="size-5" /> Devices
+            </.link>
+          </li>
+          <li>
+            <.link
+              navigate={~p"/alerts"}
+              class={if String.starts_with?(@current_path, "/alerts"), do: "active"}
+            >
+              <.icon name="hero-bell" class="size-5" /> Alerts
+            </.link>
+          </li>
+          <li>
+            <.link
+              navigate={~p"/reports"}
+              class={if String.starts_with?(@current_path, "/reports"), do: "active"}
+            >
+              <.icon name="hero-chart-bar" class="size-5" /> Reports
+            </.link>
+          </li>
+        </ul>
+
+        <div class="divider"></div>
+
+        <ul class="menu menu-lg gap-2">
+          <li>
+            <.link
+              navigate={~p"/settings"}
+              class={if String.starts_with?(@current_path, "/settings"), do: "active"}
+            >
+              <.icon name="hero-cog-6-tooth" class="size-5" /> Settings
+            </.link>
+          </li>
+        </ul>
+
+        <div class="mt-auto space-y-4">
+          <div class="flex justify-center">
+            <.theme_toggle />
+          </div>
+
+          <div class="card bg-base-100 shadow-sm p-4 text-sm">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold">System Status</span>
+              <div class="tooltip" data-tip="System Online">
+                <div class="w-3 h-3 rounded-full bg-success"></div>
+              </div>
+            </div>
+            <div class="text-xs opacity-70">
+              v{Application.spec(:nixstasis, :vsn)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders the bottom navigation for mobile.
+  """
+  def bottom_nav(assigns) do
+    assigns = assign(assigns, :current_path, assigns[:current_path] || "")
+
+    ~H"""
+    <div class="fixed bottom-4 left-4 right-4 mx-auto max-w-lg shadow-lg rounded-box z-50 bg-base-100 lg:hidden flex justify-center">
+      <ul class="menu menu-horizontal p-1 w-full justify-between flex-nowrap">
+        <li class="tooltip tooltip-top" data-tip="Dashboard">
+          <.link
+            navigate={~p"/"}
+            class={if @current_path == "/", do: "active text-primary"}
+            aria-label="Dashboard"
+          >
+            <.icon name="hero-home" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Devices">
+          <.link
+            navigate={~p"/devices"}
+            class={if String.starts_with?(@current_path, "/devices"), do: "active text-primary"}
+            aria-label="Devices"
+          >
+            <.icon name="hero-server" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Alerts">
+          <.link
+            navigate={~p"/alerts"}
+            class={if String.starts_with?(@current_path, "/alerts"), do: "active text-primary"}
+            aria-label="Alerts"
+          >
+            <.icon name="hero-bell" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Reports">
+          <.link
+            navigate={~p"/reports"}
+            class={if String.starts_with?(@current_path, "/reports"), do: "active text-primary"}
+            aria-label="Reports"
+          >
+            <.icon name="hero-chart-bar" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Settings">
+          <.link
+            navigate={~p"/settings"}
+            class={if String.starts_with?(@current_path, "/settings"), do: "active text-primary"}
+            aria-label="Settings"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-6" />
+          </.link>
+        </li>
+      </ul>
     </div>
     """
   end
