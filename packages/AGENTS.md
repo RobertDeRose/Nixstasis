@@ -1,9 +1,36 @@
-This is a web application written using the Phoenix web framework.
+# IoT Monitoring and Remote Access Monorepo Project
 
-## Project guidelines
+This is project Nixstasis. It is an IoT Monitoring and Remote Access applications.
+This repo house the original Prototype of the project. The projects is made up of 4 parts:
 
-- Use `mix precommit` alias when you are done with all changes and fix any pending issues
-- Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
+1. **client**: Written in Bash 4+
+2. **server**: Written in Python 3.13 using Reflex 0.80+
+3. **caddy**: For on demand TLS certificates using Let's Encrypt, Reverse proxying, and static asset hosting
+4. **frp**: For NAT-busting reverse proxying of the clients to the server, allowing remote access without the need
+            for open inbound ports exposed on the internet or the need of a VPN client/server.
+
+The new effort is to migrate the server web application to Elixir to use the Phoenix Framework with it's LiveView feature.
+The client needs to be re-written in a more maintainable and testable language. The integration of Caddy and FRP are solid
+and don't need any work at this time.
+
+## Project Structure
+
+- `packages`: Contains code and Debian packaging structure for each piece of the project
+  - `caddy`: Uses xcaddy to build a Debian package of Caddy with the AuthCrunch plugin
+  - `client`: The prototype client written in Bash
+  - `frp`: Downloads the latest release from GitHub and generate a Debian Package
+  - `server`: The original Prototype server application written in Python and Reflex
+  - `nixstasis`: The new Elixir based server application currently in development
+- `specs`: Contains specifications for features for the new Elixir based server application using [spec-kit](https://github.com/github/spec-kit)
+
+## Code Standards
+
+- Server will be written in Elixir 1.19.5+ using Phoenix 1.8.3+ with LiveView 1.1+
+  - Use `mix precommit` alias when you are done with all changes and fix any pending issues
+  - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
+
+- Client will be written in Go 1.25.6+
+  - Use gofmt after all changes
 
 ### Phoenix v1.8 guidelines
 
@@ -42,7 +69,6 @@ custom classes must fully style the input
 - Implement **subtle micro-interactions** (e.g., button hover effects, and smooth transitions)
 - Ensure **clean typography, spacing, and layout balance** for a refined, premium look
 - Focus on **delightful details** like hover effects, loading states, and smooth page transitions
-
 
 <!-- usage-rules-start -->
 
