@@ -58,11 +58,20 @@ defmodule NixstasisWeb.AlertLive.Rules do
         <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <.input field={@form[:product_key]} label="Product Key" placeholder="e.g. thermostat-v1" />
-            <.input field={@form[:condition_field]} label="JSON Path" placeholder="e.g. temp or sensors.temp" />
+            <.input
+              field={@form[:condition_field]}
+              label="JSON Path"
+              placeholder="e.g. temp or sensors.temp"
+            />
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <.input field={@form[:operator]} type="select" label="Operator" options={[">", "<", "=", "!=", ">=", "<="]} />
+            <.input
+              field={@form[:operator]}
+              type="select"
+              label="Operator"
+              options={[">", "<", "=", "!=", ">=", "<="]}
+            />
             <.input field={@form[:threshold_value]} label="Threshold" placeholder="e.g. 50" />
           </div>
 
@@ -76,22 +85,35 @@ defmodule NixstasisWeb.AlertLive.Rules do
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Key</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Product Key
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Condition
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <%= for rule <- @rules do %>
               <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{rule.product_key}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {rule.product_key}
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <code class="bg-gray-100 px-2 py-1 rounded">{rule.condition_field}</code>
                   <span class="mx-2 font-bold">{rule.operator}</span>
                   <span class="text-gray-900">{rule.threshold_value}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button phx-click="delete" phx-value-id={rule.id} data-confirm="Are you sure?" class="text-red-600 hover:text-red-900">
+                  <button
+                    phx-click="delete"
+                    phx-value-id={rule.id}
+                    data-confirm="Are you sure?"
+                    class="text-red-600 hover:text-red-900"
+                  >
                     Delete
                   </button>
                 </td>

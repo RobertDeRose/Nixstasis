@@ -105,7 +105,7 @@ defmodule NixstasisWeb.ReportLive.Builder do
             />
           </div>
 
-          <!-- Fields Section -->
+    <!-- Fields Section -->
           <div class="mb-8">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-semibold">Columns (Fields)</h2>
@@ -156,7 +156,7 @@ defmodule NixstasisWeb.ReportLive.Builder do
             </div>
           </div>
 
-          <!-- Filters Section -->
+    <!-- Filters Section -->
           <div class="mb-8">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-semibold">Filters (Optional)</h2>
