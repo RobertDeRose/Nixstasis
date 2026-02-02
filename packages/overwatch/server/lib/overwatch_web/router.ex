@@ -17,6 +17,7 @@ defmodule NixstasisWeb.Router do
   scope "/", NixstasisWeb do
     pipe_through(:browser)
 
+    live("/", DashboardLive.Index, :index)
     live("/devices/approvals", DeviceLive.Approval, :index)
     live("/devices", DeviceLive.Index, :index)
     live("/devices/new", DeviceLive.Index, :new)

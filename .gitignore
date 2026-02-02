@@ -1,1 +1,47 @@
-*opencode*
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets will be generated.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where third-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you like to edit your project deps locally.
+/.fetch
+
+# If the VM crashes, it generates a dump, let's ignore it too.
+erl_crash.dump
+
+# Also ignore the .elixir_ls directory used by the ElixirLS language server.
+.elixir_ls/
+
+# Ignore the .elixir_ide directory used by the Elixir IDE.
+.elixir_ide/
+
+# Ignore the .lexical directory used by the Lexical language server.
+.lexical/
+
+# General editor configuration
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Environment variables
+.env
+.env.*
+
+# Node assets
+/assets/node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Opencode
+.opencode
