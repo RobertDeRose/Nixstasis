@@ -11,6 +11,42 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.SchemaValidator
 
   @doc """
+  Counts all devices.
+  """
+  def count_all do
+    Repo.aggregate(Device, :count, :id)
+  end
+
+  @doc """
+  Counts devices by online/offline status.
+  Online is defined as seen within the last 5 minutes.
+  """
+  def count_by_status(:online) do
+    threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
+
+    Device
+    |> where([d], d.last_seen_at >= ^threshold)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  def count_by_status(:offline) do
+    threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
+
+    Device
+    |> where([d], d.last_seen_at < ^threshold or is_nil(d.last_seen_at))
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Counts devices pending approval.
+  """
+  def count_pending_approvals do
+    Device
+    |> where([d], d.approval_status == "pending")
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
   Registers a device.
   """
   def register_device(attrs) do

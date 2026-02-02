@@ -29,7 +29,7 @@ defmodule NixstasisWeb.ReportLive.Show do
           <p class="text-sm text-gray-500">Source: {@report.config["source"]}</p>
         </div>
         <div class="flex gap-2">
-           <.link navigate={~p"/reports"} class="px-4 py-2 border rounded hover:bg-gray-50">
+          <.link navigate={~p"/reports"} class="px-4 py-2 border rounded hover:bg-gray-50">
             Back to List
           </.link>
           <!-- TODO: Edit report -->

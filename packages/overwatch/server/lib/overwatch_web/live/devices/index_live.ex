@@ -26,11 +26,14 @@ defmodule NixstasisWeb.DeviceLive.Index do
       <:col :let={{_id, device}} label="MAC Address">{device.mac_address}</:col>
       <:col :let={{_id, device}} label="Product">{device.product_key}</:col>
       <:col :let={{_id, device}} label="Status">
-        <span class={["badge",
+        <span class={[
+          "badge",
           device.approval_status == "approved" && "badge-success",
           device.approval_status == "pending" && "badge-warning",
           device.approval_status == "rejected" && "badge-error"
-        ]}>{device.approval_status}</span>
+        ]}>
+          {device.approval_status}
+        </span>
       </:col>
       <:col :let={{_id, device}} label="Last Seen">{device.last_seen_at}</:col>
     </.table>
@@ -48,7 +51,12 @@ defmodule NixstasisWeb.DeviceLive.Index do
       >
         <.input field={@form[:mac_address]} label="MAC Address" />
         <.input field={@form[:product_key]} label="Product Key" />
-        <.input field={@form[:approval_status]} type="select" label="Status" options={["pending", "approved", "rejected"]} />
+        <.input
+          field={@form[:approval_status]}
+          type="select"
+          label="Status"
+          options={["pending", "approved", "rejected"]}
+        />
 
         <:actions>
           <.button phx-disable-with="Saving...">Save Device</.button>
