@@ -4,7 +4,7 @@
     "Chunkhound": {
       "type": "local",
       "command": ["chunkhound", "mcp"],
-      "enabled": false,
+      "enabled": true,
       "environment": {
       },
     },

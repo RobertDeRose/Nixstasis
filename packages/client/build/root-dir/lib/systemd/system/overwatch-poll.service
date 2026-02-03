@@ -7,6 +7,6 @@ Wants=network-online.target
 [Service]
 Type=simple
 SyslogIdentifier=nixstasis
-ExecStart=/opt/nixstasis/bin/poll
+ExecStart=/usr/bin/nixstasis poll
 Restart=always
 RestartSec=120s
