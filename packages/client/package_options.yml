@@ -1,9 +1,8 @@
 package-type: generic
 package-name: apollo-nixstasis
 package-description: Nixstasis SOM Nixstasis Client
+pre_package_script: bin/pre_package.sh
 upload-package: true
 package-dependencies: |
-  curl
   frp
-  jq
   systemd
