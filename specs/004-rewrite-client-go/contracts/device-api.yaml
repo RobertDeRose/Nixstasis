@@ -1,0 +1,82 @@
+openapi: 3.0.0
+info:
+  title: Nixstasis Device API
+  version: 1.0.0
+  description: Internal API contracts for Device-to-Server communication.
+
+paths:
+  /device/register:
+    post:
+      summary: Register a new device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mac_address:
+                  type: string
+                  example: "00:11:22:33:44:55"
+                ip_address:
+                  type: string
+                  example: "192.168.1.10"
+                name:
+                  type: string
+                  example: "atom-001122334455"
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+
+  /device/{id}/poll:
+    post:
+      summary: Send telemetry heartbeat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                telemetry:
+                  type: object
+                  description: Merged JSON from all plugins
+                schema_urls:
+                  type: array
+                  items:
+                    type: string
+                  description: List of schema URLs from active plugins
+                connection_status:
+                  type: object
+                  properties:
+                    connected:
+                      type: boolean
+                    connection_string:
+                      type: string
+      responses:
+        '200':
+          description: Heartbeat acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  remote_access_requested:
+                    type: boolean
+                    description: If true, client should start FRP
