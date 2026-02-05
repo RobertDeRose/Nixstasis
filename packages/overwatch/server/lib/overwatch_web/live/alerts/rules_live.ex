@@ -62,8 +62,8 @@ defmodule NixstasisWeb.AlertLive.Rules do
           <.simple_form for={@form} phx-change="validate" phx-submit="save">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <.input
-                field={@form[:product_key]}
-                label="Product Key"
+                field={@form[:product_name]}
+                label="Product Name"
                 placeholder="e.g. thermostat-v1"
               />
               <.input
@@ -93,7 +93,7 @@ defmodule NixstasisWeb.AlertLive.Rules do
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-0">
           <.table id="rules" rows={@rules}>
-            <:col :let={rule} label="Product Key">{rule.product_key}</:col>
+            <:col :let={rule} label="Product Name">{rule.product_name}</:col>
             <:col :let={rule} label="Condition">
               <code class="bg-base-200 px-2 py-1 rounded">{rule.condition_field}</code>
               <span class="mx-2 font-bold">{rule.operator}</span>

@@ -13,23 +13,32 @@ defmodule NixstasisWeb.DeviceLive.Show do
   def handle_params(%{"id" => id}, _, socket) do
     device = Devices.get_device!(id)
 
-    # Task 4.2: Set remote_access_requested: true on mount/view
-    if !device.remote_access_requested do
-      Devices.set_remote_access(device, true)
-    end
+    if Devices.online?(device) do
+      # Task 4.2: Set remote_access_requested: true on mount/view
+      if !device.remote_access_requested do
+        Devices.set_remote_access(device, true)
+      end
 
-    {:noreply,
-     socket
-     |> assign(:page_title, "Device #{device.mac_address}")
-     |> assign(:device, device)
-     |> assign(:active_tab, "overview")
-     |> assign(:ssh_session_started, false)
-     |> assign(:ssh_token, nil)
-     # Mock data for ApexCharts
-     |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
-     |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
-     |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
-     |> assign(:pcp_chart, line_chart_config())}
+      {:noreply,
+       socket
+       |> assign(:page_title, "Device #{device.mac_address}")
+       |> assign(:device, device)
+       |> assign(:device_offline, false)
+       |> assign(:active_tab, "overview")
+       |> assign(:ssh_session_started, false)
+       |> assign(:ssh_token, nil)
+       # Mock data for ApexCharts
+       |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
+       |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
+       |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
+       |> assign(:pcp_chart, line_chart_config())}
+    else
+      {:noreply,
+       socket
+       |> assign(:page_title, "Device #{device.mac_address} - Offline")
+       |> assign(:device, device)
+       |> assign(:device_offline, true)}
+    end
   end
 
   @impl true

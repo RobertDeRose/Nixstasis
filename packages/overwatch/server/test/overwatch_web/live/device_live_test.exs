@@ -6,14 +6,16 @@ defmodule NixstasisWeb.DeviceLiveTest do
   @create_attrs %{
     name: "Test Device",
     mac_address: "AA:BB:CC:DD:EE:FF",
-    account_number: "ACC123",
+    account_number: "123456789",
     firmware_version: "1.0.0",
     approval_status: "approved",
-    product_key: "PROD-123"
+    product_name: "PROD-123"
   }
 
   defp create_device(_) do
-    {:ok, device} = Devices.register_device(@create_attrs)
+    {:ok, device} =
+      Devices.create_device(Map.merge(@create_attrs, %{last_seen_at: DateTime.utc_now()}))
+
     # Ensure it starts with remote_access_requested: false
     {:ok, device} = Devices.set_remote_access(device, false)
     %{device: device}
@@ -35,10 +37,18 @@ defmodule NixstasisWeb.DeviceLiveTest do
   describe "Device Index" do
     test "lists all devices", %{conn: conn} do
       {:ok, _d1} =
-        Devices.register_device(%{@create_attrs | mac_address: "11:11:11:11:11:11", name: "D1"})
+        Devices.create_device(%{
+          @create_attrs
+          | mac_address: "11:11:11:11:11:11",
+            product_name: "D1"
+        })
 
       {:ok, _d2} =
-        Devices.register_device(%{@create_attrs | mac_address: "22:22:22:22:22:22", name: "D2"})
+        Devices.create_device(%{
+          @create_attrs
+          | mac_address: "22:22:22:22:22:22",
+            product_name: "D2"
+        })
 
       {:ok, _view, html} = live(conn, ~p"/devices")
 
@@ -47,21 +57,20 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
 
     test "filters devices by status", %{conn: conn} do
-      {:ok, approved} =
-        Devices.register_device(%{
+      {:ok, _approved} =
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "AA:AA:AA:AA:AA:AA",
-            name: "Approved Device"
+            product_name: "Approved Device",
+            approval_status: "approved"
         })
 
-      {:ok, _} = Devices.approve_device(approved)
-
       {:ok, _pending} =
-        Devices.register_device(%{
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "BB:BB:BB:BB:BB:BB",
             approval_status: "pending",
-            name: "Pending Device"
+            product_name: "Pending Device"
         })
 
       {:ok, view, _html} = live(conn, ~p"/devices")
@@ -87,17 +96,17 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
     test "sorts devices", %{conn: conn} do
       {:ok, _d1} =
-        Devices.register_device(%{
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "11:11:11:11:11:11",
-            name: "A-Device"
+            product_name: "A-Device"
         })
 
       {:ok, _d2} =
-        Devices.register_device(%{
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "99:99:99:99:99:99",
-            name: "Z-Device"
+            product_name: "Z-Device"
         })
 
       {:ok, view, _html} = live(conn, ~p"/devices")
@@ -120,14 +129,14 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
     test "bulk approves devices", %{conn: conn} do
       {:ok, device} =
-        Devices.register_device(%{
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "CC:CC:CC:CC:CC:CC",
             approval_status: "pending",
-            name: "To Approve"
+            product_name: "To Approve"
         })
 
-      {:ok, view, _html} = live(conn, ~p"/devices")
+      {:ok, view, _html} = live(conn, ~p"/devices?status=pending")
 
       # Select the device
       view
@@ -149,14 +158,14 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
     test "bulk rejects devices", %{conn: conn} do
       {:ok, device} =
-        Devices.register_device(%{
+        Devices.create_device(%{
           @create_attrs
           | mac_address: "DD:DD:DD:DD:DD:DD",
             approval_status: "pending",
-            name: "To Reject"
+            product_name: "To Reject"
         })
 
-      {:ok, view, _html} = live(conn, ~p"/devices")
+      {:ok, view, _html} = live(conn, ~p"/devices?status=pending")
 
       # Select the device
       view

@@ -3,7 +3,7 @@ defmodule Nixstasis.Repo.Migrations.CreateAlertRules do
 
   def change do
     create table(:alert_rules) do
-      add(:product_key, :string, null: false)
+      add(:product_name, :string, null: false)
       add(:condition_field, :string, null: false)
       add(:operator, :string, null: false)
       add(:threshold_value, :string, null: false)
@@ -11,6 +11,6 @@ defmodule Nixstasis.Repo.Migrations.CreateAlertRules do
       timestamps(type: :utc_datetime)
     end
 
-    create(index(:alert_rules, [:product_key]))
+    create(index(:alert_rules, [:product_name]))
   end
 end

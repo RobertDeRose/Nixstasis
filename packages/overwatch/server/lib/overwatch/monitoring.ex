@@ -65,7 +65,7 @@ defmodule Nixstasis.Monitoring do
   end
 
   def evaluate_telemetry(%Device{} = device, payload) do
-    rules = list_rules_for_product(device.product_key)
+    rules = list_rules_for_product(device.product_name)
 
     for rule <- rules do
       if RuleEvaluator.evaluate(payload, rule) do
@@ -90,8 +90,8 @@ defmodule Nixstasis.Monitoring do
     Repo.delete(rule)
   end
 
-  def list_rules_for_product(product_key) do
-    Repo.all(from(r in AlertRule, where: r.product_key == ^product_key))
+  def list_rules_for_product(product_name) do
+    Repo.all(from(r in AlertRule, where: r.product_name == ^product_name))
   end
 
   defp create_rule_alert(device, rule) do
