@@ -111,14 +111,67 @@ defmodule Nixstasis.Devices do
   @doc """
   Returns the list of devices.
 
+  ## Options
+    * `:sort_by` - The field to sort by. Defaults to `:inserted_at`.
+    * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
+    * `:filter` - A map of filters (e.g., `%{status: "pending"}`).
+    * `:search` - A search string for mac_address or account_number.
+
   ## Examples
 
       iex> list_devices()
       [%Device{}, ...]
 
   """
-  def list_devices do
-    Repo.all(Device)
+  def list_devices(opts \\ []) do
+    sort_by = Keyword.get(opts, :sort_by, :inserted_at)
+    sort_order = Keyword.get(opts, :sort_order, :desc)
+    filter = Keyword.get(opts, :filter, %{})
+    search = Keyword.get(opts, :search)
+
+    Device
+    |> filter_by_status(filter[:status])
+    |> search_devices(search)
+    |> order_by([d], {^sort_order, field(d, ^sort_by)})
+    |> Repo.all()
+  end
+
+  defp filter_by_status(query, nil), do: query
+
+  defp filter_by_status(query, status) do
+    where(query, [d], d.approval_status == ^status)
+  end
+
+  defp search_devices(query, nil), do: query
+
+  defp search_devices(query, term) do
+    term = "%#{term}%"
+    where(query, [d], ilike(d.mac_address, ^term) or ilike(d.account_number, ^term))
+  end
+
+  @doc """
+  Approves multiple devices by ID.
+  """
+  def approve_devices(ids) when is_list(ids) do
+    from(d in Device, where: d.id in ^ids)
+    |> Repo.update_all(set: [approval_status: "approved", updated_at: DateTime.utc_now()])
+  end
+
+  @doc """
+  Rejects multiple devices by ID.
+  """
+  def reject_devices(ids) when is_list(ids) do
+    from(d in Device, where: d.id in ^ids)
+    |> Repo.update_all(set: [approval_status: "rejected", updated_at: DateTime.utc_now()])
+  end
+
+  @doc """
+  Sets the remote_access_requested flag.
+  """
+  def set_remote_access(%Device{} = device, requested?) do
+    device
+    |> Device.changeset(%{remote_access_requested: requested?})
+    |> Repo.update()
   end
 
   @doc """

@@ -55,6 +55,16 @@ defmodule NixstasisWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-mounted={
+        @kind == :info &&
+          JS.push("lv:clear-flash", value: %{key: @kind})
+          |> hide("##{@id}")
+          |> JS.transition({"ease-out duration-300", "opacity-100", "opacity-0"},
+            time: 300,
+            blocking: false
+          )
+          |> JS.set_attribute({"style", "display: none"}, to: "##{@id}")
+      }
       role="alert"
       class="toast toast-top toast-end z-50"
       {@rest}
