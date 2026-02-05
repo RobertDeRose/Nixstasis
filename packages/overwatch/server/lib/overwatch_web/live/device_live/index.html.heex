@@ -1,0 +1,113 @@
+<div class="p-4">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold">Devices</h1>
+    <div class="flex gap-2">
+      <.form for={%{}} as={:search} phx-submit="search" phx-change="search" class="flex gap-2">
+        <input
+          type="text"
+          name="search"
+          value={@search}
+          placeholder="Search devices..."
+          class="input input-bordered input-sm"
+          phx-debounce="300"
+        />
+      </.form>
+      <div class="join">
+        <.link
+          patch={~p"/devices?#{%{status: nil}}"}
+          class={"btn btn-sm join-item #{is_nil(@filter_status) && "btn-active"}"}
+        >
+          All
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{status: "pending"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "pending" && "btn-active"}"}
+        >
+          Pending
+        </.link>
+      </div>
+    </div>
+  </div>
+
+  <%= if length(@selected_ids) > 0 do %>
+    <div class="bg-base-200 p-2 rounded-lg mb-4 flex gap-4 items-center">
+      <span class="font-semibold">{length(@selected_ids)} selected</span>
+      <button phx-click="bulk_approve" class="btn btn-sm btn-success">Approve</button>
+      <button phx-click="bulk_reject" class="btn btn-sm btn-error">Reject</button>
+    </div>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead>
+        <tr>
+          <th>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              phx-click="toggle_all"
+              checked={length(@selected_ids) > 0}
+            />
+          </th>
+          <th phx-click="sort" phx-value-sort_by="mac_address" class="cursor-pointer hover:text-primary">
+            Device Name {if @sort_by == :mac_address, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th phx-click="sort" phx-value-sort_by="ipv4_address" class="cursor-pointer hover:text-primary">
+            IPv4 {if @sort_by == :ipv4_address, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th phx-click="sort" phx-value-sort_by="account_number" class="cursor-pointer hover:text-primary">
+            Account # {if @sort_by == :account_number, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th phx-click="sort" phx-value-sort_by="approval_status" class="cursor-pointer hover:text-primary">
+             Status {if @sort_by == :approval_status, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th>Online</th>
+        </tr>
+      </thead>
+      <tbody id="devices-stream" phx-update="stream">
+        <tr
+          :for={{dom_id, device} <- @streams.devices}
+          id={dom_id}
+          class="hover"
+        >
+          <td>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              phx-click="toggle_selection"
+              phx-value-id={device.id}
+              checked={device.id in @selected_ids}
+            />
+          </td>
+          <td class="font-mono">
+            <.link navigate={~p"/devices/#{device.id}"} class="hover:underline">
+              {device.mac_address}
+            </.link>
+          </td>
+          <td class="font-mono">{device.ipv4_address || "N/A"}</td>
+          <td class="font-mono">{device.account_number || "N/A"}</td>
+          <td>
+            <div class={"badge #{case device.approval_status do
+              "approved" -> "badge-success"
+              "rejected" -> "badge-error"
+              _ -> "badge-warning"
+            end}"}>
+              {device.approval_status}
+            </div>
+          </td>
+          <td>
+            <%= if NixstasisWeb.DeviceLive.Index.online?(device) do %>
+              <div class="badge badge-success gap-2">
+                Online
+              </div>
+            <% else %>
+              <div class="badge badge-ghost gap-2">
+                Offline
+              </div>
+            <% end %>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -20,6 +20,7 @@ defmodule NixstasisWeb.Router do
     live("/", DashboardLive.Index, :index)
     live("/devices", DeviceLive.Index, :index)
     live("/devices/new", DeviceLive.Index, :new)
+    live("/devices/approvals", DeviceLive.Index, :approvals)
     live("/devices/:id", DeviceLive.Show, :show)
     live("/alerts", AlertLive.Index, :index)
     live("/alerts/new", AlertLive.Index, :new)

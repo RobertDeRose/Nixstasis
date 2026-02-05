@@ -33,5 +33,21 @@ defmodule Nixstasis.Devices.DeviceTest do
 
       assert changeset.valid?
     end
+
+    test "accepts new fields" do
+      attrs = %{
+        mac_address: "AA:BB:CC:DD:EE:FF",
+        product_key: "key123",
+        ipv4_address: "192.168.1.1",
+        account_number: "ACC-12345",
+        remote_access_requested: true
+      }
+
+      changeset = Device.changeset(%Device{}, attrs)
+      assert changeset.valid?
+      assert get_field(changeset, :ipv4_address) == "192.168.1.1"
+      assert get_field(changeset, :account_number) == "ACC-12345"
+      assert get_field(changeset, :remote_access_requested) == true
+    end
   end
 end

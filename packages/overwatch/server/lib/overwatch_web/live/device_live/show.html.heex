@@ -1,0 +1,83 @@
+<.header>
+  Device {@device.mac_address}
+  <:subtitle>Account: {@device.account_number} | Product Key: {@device.product_key}</:subtitle>
+  <:actions>
+    <.link navigate={~p"/devices"} class="btn btn-ghost">Back to List</.link>
+  </:actions>
+</.header>
+
+<div class="mt-4">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title justify-center">CPU</h2>
+        <div id="cpu-chart" phx-hook="ApexChart" data-options={Jason.encode!(@cpu_chart)} class="flex justify-center"></div>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title justify-center">Memory</h2>
+        <div id="memory-chart" phx-hook="ApexChart" data-options={Jason.encode!(@memory_chart)} class="flex justify-center"></div>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title justify-center">Disk</h2>
+        <div id="disk-chart" phx-hook="ApexChart" data-options={Jason.encode!(@disk_chart)} class="flex justify-center"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8">
+     <div role="tablist" class="tabs tabs-lifted">
+       <a role="tab" class={"tab #{@active_tab == "overview" && "tab-active"}"} phx-click="change_tab" phx-value-tab="overview">Overview</a>
+       <a role="tab" class={"tab #{@active_tab == "pcp" && "tab-active"}"} phx-click="change_tab" phx-value-tab="pcp">PCP Data</a>
+       <a role="tab" class={"tab #{@active_tab == "terminal" && "tab-active"}"} phx-click="change_tab" phx-value-tab="terminal">Terminal</a>
+     </div>
+
+     <div class="p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box">
+       <%= case @active_tab do %>
+         <% "overview" -> %>
+           <h3 class="font-bold">Details</h3>
+           <ul class="list-disc pl-5 mt-2">
+             <li>Remote Access Requested: {@device.remote_access_requested}</li>
+             <li>Last Seen: {@device.last_seen_at || "Never"}</li>
+             <li>Status: {@device.approval_status}</li>
+           </ul>
+
+           <div class="mt-4">
+             <a href={"https://#{@device.mac_address}.devices.example.com:9090"} target="_blank" class="btn btn-primary">
+               Open Cockpit
+             </a>
+           </div>
+
+         <% "pcp" -> %>
+           <h3 class="font-bold mb-4">Historical Performance Data</h3>
+           <div id="pcp-chart" phx-hook="ApexChart" data-options={Jason.encode!(@pcp_chart)}></div>
+
+          <% "terminal" -> %>
+            <%= if @ssh_session_started do %>
+              <div
+                id="terminal-container"
+                phx-update="ignore"
+                phx-hook="TerminalHook"
+                data-device-id={@device.id}
+                data-token={@ssh_token}
+                class="bg-black text-white p-4 font-mono h-[400px] overflow-hidden rounded-lg relative"
+              >
+                <div class="text-gray-500">Connecting to SSH session...</div>
+              </div>
+            <% else %>
+              <div class="flex flex-col items-center justify-center h-[400px] bg-base-200 rounded-lg">
+                <p class="mb-4 text-lg">Start a secure remote access session with this device.</p>
+                <button class="btn btn-primary" phx-click="start_ssh_session">
+                  Start Remote Session
+                </button>
+                <p class="mt-2 text-sm text-gray-500">This will generate a temporary SSH key and authorize it on the device.</p>
+              </div>
+            <% end %>
+
+       <% end %>
+     </div>
+  </div>
+</div>
