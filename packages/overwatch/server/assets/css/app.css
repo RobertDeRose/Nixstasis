@@ -159,4 +159,11 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+
+@layer utilities {
+  .table-zebra tbody tr:nth-child(even) :where(.table-zebra tbody tr:nth-child(even)) {
+    background-color: color-mix(in oklab, var(--color-base-200), transparent 70%);
+  }
+}
+
 /* This file is for your main application CSS */

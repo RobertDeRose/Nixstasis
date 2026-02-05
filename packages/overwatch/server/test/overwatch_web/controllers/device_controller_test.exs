@@ -4,7 +4,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
   test "POST /api/v1/devices/register registers a new device", %{conn: conn} do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:FF",
-      "product_key" => "prod_123",
+      "product_name" => "prod_123",
       "schema_definition" => %{"temp" => "float"},
       "metadata" => %{"fw" => "1.0"}
     }

@@ -5,14 +5,15 @@ defmodule Nixstasis.Devices.ApprovalTest do
 
   describe "approval workflow" do
     test "list_pending_devices/0 returns only pending devices" do
-      {:ok, pending} = Devices.register_device(%{mac_address: "AA", product_key: "P1"})
+      {:ok, pending} =
+        Devices.register_device(%{mac_address: "11:11:11:11:11:11", product_name: "P1"})
 
       # We create an approved device directly via Repo for setup, as register_device defaults to pending
       # and we haven't implemented pre-approval logic yet.
       {:ok, _approved} =
         Devices.register_device(%{
-          mac_address: "BB",
-          product_key: "P1",
+          mac_address: "22:22:22:22:22:22",
+          product_name: "P1",
           approval_status: "approved"
         })
 
@@ -26,7 +27,9 @@ defmodule Nixstasis.Devices.ApprovalTest do
     end
 
     test "approve_device/1 changes status to approved" do
-      {:ok, device} = Devices.register_device(%{mac_address: "CC", product_key: "P1"})
+      {:ok, device} =
+        Devices.register_device(%{mac_address: "33:33:33:33:33:33", product_name: "P1"})
+
       assert device.approval_status == "pending"
 
       {:ok, updated} = Devices.approve_device(device)
@@ -34,14 +37,16 @@ defmodule Nixstasis.Devices.ApprovalTest do
     end
 
     test "register_device/1 maintains approval status on re-registration" do
-      {:ok, device} = Devices.register_device(%{mac_address: "DD", product_key: "P1"})
+      {:ok, device} =
+        Devices.register_device(%{mac_address: "44:44:44:44:44:44", product_name: "P1"})
+
       {:ok, _} = Devices.approve_device(device)
 
       # Re-register
       {:ok, updated} =
         Devices.register_device(%{
-          mac_address: "DD",
-          product_key: "P1",
+          mac_address: "44:44:44:44:44:44",
+          product_name: "P1",
           metadata: %{"new" => "data"}
         })
 

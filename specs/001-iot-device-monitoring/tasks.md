@@ -49,15 +49,15 @@ description: "Implementation tasks for IoT Device Monitoring feature"
 
 ## Phase 3: User Story 1 - Device Self-Registration & Grouping (Priority: P1)
 
-**Goal**: Allow devices to register with dynamic schema and product key grouping
+**Goal**: Allow devices to register with dynamic schema and product name grouping
 
-**Independent Test**: Register device with/without product key, verify DB persistence and rejection
+**Independent Test**: Register device with/without product name, verify DB persistence and rejection
 
 ### Tests for User Story 1 ⚠️
 
 - [x] T014 [P] [US1] Create contract test for `POST /devices/register` in
       `test/nixstasis_web/controllers/device_controller_test.exs`
-- [x] T015 [P] [US1] Create unit test for `Device` schema validation (product key required) in
+- [x] T015 [P] [US1] Create unit test for `Device` schema validation (product name required) in
       `test/nixstasis/devices/device_test.exs`
 
 ### Implementation for User Story 1
@@ -70,7 +70,7 @@ description: "Implementation tasks for IoT Device Monitoring feature"
       `lib/nixstasis/devices/schema_validator.ex`
 - [x] T019 [US1] Add `product_key` extraction logic to Registration flow in `lib/nixstasis/devices.ex`
 
-**Nixstasis**: Devices can register and are grouped by product key in DB
+**Nixstasis**: Devices can register and are grouped by product name in DB
 
 ---
 

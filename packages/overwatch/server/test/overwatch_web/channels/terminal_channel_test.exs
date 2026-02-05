@@ -3,7 +3,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
   alias Nixstasis.Devices
 
   setup do
-    {:ok, device} = Devices.create_device(%{mac_address: "AA:BB:CC:DD:EE:FF", product_key: "key"})
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "key"})
 
     # Generate a dummy key (content doesn't matter for token verification,
     # but matters for SshClient if we wanted it to work)

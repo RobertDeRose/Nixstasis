@@ -2,7 +2,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   use NixstasisWeb, :live_view
 
   alias Nixstasis.Devices
-  # alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.Device
 
   @impl true
   def mount(_params, _session, socket) do
@@ -18,14 +18,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_params(params, _url, socket) do
     sort_by = safe_to_existing_atom(params["sort_by"] || "inserted_at", :inserted_at)
     sort_order = safe_to_existing_atom(params["sort_order"] || "desc", :desc)
-
-    filter_status =
-      cond do
-        params["status"] not in [nil, ""] -> params["status"]
-        socket.assigns.live_action == :approvals -> "pending"
-        true -> nil
-      end
-
+    filter_status = if params["status"] == "", do: nil, else: params["status"] || "approved"
     search = params["search"]
 
     opts = [
@@ -37,13 +30,28 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
     devices = Devices.list_devices(opts)
 
-    {:noreply,
-     socket
-     |> assign(:sort_by, sort_by)
-     |> assign(:sort_order, sort_order)
-     |> assign(:filter_status, filter_status)
-     |> assign(:search, search)
-     |> stream(:devices, devices, reset: true)}
+    socket =
+      socket
+      |> assign(:sort_by, sort_by)
+      |> assign(:sort_order, sort_order)
+      |> assign(:filter_status, filter_status)
+      |> assign(:search, search)
+      |> assign(:total_count, length(devices))
+      |> stream(:devices, devices, reset: true)
+
+    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  defp apply_action(socket, :new, _params) do
+    socket
+    |> assign(:page_title, "New Device")
+    |> assign(:device, %Device{})
+  end
+
+  defp apply_action(socket, :index, _params) do
+    socket
+    |> assign(:page_title, "Listing Devices")
+    |> assign(:device, nil)
   end
 
   defp safe_to_existing_atom(value, default) do
@@ -95,20 +103,26 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("toggle_all", _params, socket) do
-    # For streams, "all" is tricky without keeping list in memory.
-    # Assuming we select currently visible or fetch IDs.
-    # For simplicity, if empty select all loaded, if not empty deselect all.
-    current_ids =
-      socket.assigns.streams.devices.inserts |> Enum.map(fn {_id, item} -> item.id end)
+    opts = [
+      filter: %{status: socket.assigns.filter_status},
+      search: socket.assigns.search
+    ]
+
+    devices = Devices.list_devices(opts)
+    visible_ids = Enum.map(devices, & &1.id)
+    all_visible_selected? = Enum.all?(visible_ids, &(&1 in socket.assigns.selected_ids))
 
     new_selected =
-      if Enum.empty?(socket.assigns.selected_ids) do
-        current_ids
-      else
+      if all_visible_selected? do
         []
+      else
+        visible_ids
       end
 
-    {:noreply, assign(socket, :selected_ids, new_selected)}
+    {:noreply,
+     socket
+     |> assign(:selected_ids, new_selected)
+     |> stream(:devices, devices, reset: true)}
   end
 
   def handle_event("bulk_approve", _params, socket) do
@@ -133,6 +147,11 @@ defmodule NixstasisWeb.DeviceLive.Index do
      |> push_navigate(to: ~p"/devices")}
   end
 
+  @impl true
+  def handle_info({NixstasisWeb.DeviceLive.FormComponent, {:saved, device}}, socket) do
+    {:noreply, stream_insert(socket, :devices, device)}
+  end
+
   defp get_params(assigns) do
     %{
       "sort_by" => assigns[:sort_by],
@@ -142,12 +161,5 @@ defmodule NixstasisWeb.DeviceLive.Index do
     }
     |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
     |> Map.new()
-  end
-
-  def online?(device) do
-    case device.last_seen_at do
-      nil -> false
-      time -> DateTime.diff(DateTime.utc_now(), time, :minute) < 5
-    end
   end
 end

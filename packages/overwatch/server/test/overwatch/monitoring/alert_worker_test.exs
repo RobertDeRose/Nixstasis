@@ -8,7 +8,9 @@ defmodule Nixstasis.Monitoring.AlertWorkerTest do
   describe "offline detection" do
     test "check_offline_devices/1 creates alerts for offline devices" do
       # Offline device (10 mins ago)
-      {:ok, offline} = Devices.register_device(%{mac_address: "OFF", product_key: "P1"})
+      {:ok, offline} =
+        Devices.register_device(%{mac_address: "11:11:11:11:11:11", product_name: "P1"})
+
       {:ok, offline} = Devices.approve_device(offline)
 
       {:ok, offline} =
@@ -17,7 +19,9 @@ defmodule Nixstasis.Monitoring.AlertWorkerTest do
         })
 
       # Online device (1 min ago)
-      {:ok, online} = Devices.register_device(%{mac_address: "ON", product_key: "P1"})
+      {:ok, online} =
+        Devices.register_device(%{mac_address: "22:22:22:22:22:22", product_name: "P1"})
+
       {:ok, online} = Devices.approve_device(online)
 
       {:ok, _online} =
@@ -38,7 +42,9 @@ defmodule Nixstasis.Monitoring.AlertWorkerTest do
     end
 
     test "check_offline_devices/1 does not duplicate active alerts" do
-      {:ok, offline} = Devices.register_device(%{mac_address: "OFF2", product_key: "P1"})
+      {:ok, offline} =
+        Devices.register_device(%{mac_address: "33:33:33:33:33:33", product_name: "P1"})
+
       {:ok, offline} = Devices.approve_device(offline)
 
       {:ok, _offline} =

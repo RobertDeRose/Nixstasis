@@ -4,7 +4,9 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
   alias Nixstasis.Devices
 
   setup do
-    {:ok, device} = Devices.register_device(%{mac_address: "HB1", product_key: "P1"})
+    {:ok, device} =
+      Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "P1"})
+
     # Need to approve it
     {:ok, approved} = Devices.approve_device(device)
     %{device: approved}

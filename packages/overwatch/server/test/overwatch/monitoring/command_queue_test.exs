@@ -6,7 +6,8 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
 
   describe "command queue" do
     test "queue_command/2 adds command to queue" do
-      {:ok, device} = Devices.register_device(%{mac_address: "Q1", product_key: "P1"})
+      {:ok, device} =
+        Devices.register_device(%{mac_address: "11:11:11:11:11:11", product_name: "P1"})
 
       {:ok, command} = Devices.queue_command(device, %{"cmd" => "reboot"})
       assert command.status == "queued"
@@ -14,7 +15,9 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
     end
 
     test "pop_pending_commands/1 returns and updates commands" do
-      {:ok, device} = Devices.register_device(%{mac_address: "Q2", product_key: "P1"})
+      {:ok, device} =
+        Devices.register_device(%{mac_address: "22:22:22:22:22:22", product_name: "P1"})
+
       {:ok, c1} = Devices.queue_command(device, %{"id" => 1})
       {:ok, _c2} = Devices.queue_command(device, %{"id" => 2})
 
