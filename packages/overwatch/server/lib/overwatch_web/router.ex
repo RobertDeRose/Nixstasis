@@ -18,9 +18,9 @@ defmodule NixstasisWeb.Router do
     pipe_through(:browser)
 
     live("/", DashboardLive.Index, :index)
-    live("/devices/approvals", DeviceLive.Approval, :index)
     live("/devices", DeviceLive.Index, :index)
     live("/devices/new", DeviceLive.Index, :new)
+    live("/devices/:id", DeviceLive.Show, :show)
     live("/alerts", AlertLive.Index, :index)
     live("/alerts/new", AlertLive.Index, :new)
     live("/alerts/rules", AlertLive.Rules, :index)
@@ -52,7 +52,13 @@ defmodule NixstasisWeb.Router do
     scope "/dev" do
       pipe_through(:browser)
 
-      live_dashboard("/dashboard", metrics: NixstasisWeb.Telemetry)
+      live_dashboard(
+        "/dashboard",
+        metrics: NixstasisWeb.Telemetry,
+        ecto_repos: [Nixstasis.Repo],
+        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]]
+      )
+
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
