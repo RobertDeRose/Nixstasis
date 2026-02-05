@@ -5,9 +5,14 @@
       "type": "local",
       "command": ["chunkhound", "mcp"],
       "enabled": true,
-      "environment": {
-      },
+      "environment": {},
     },
+    "hexdocs-mcp": {
+      "type": "local",
+      "command": ["npx", "-y", "hexdocs-mcp@0.6.0"],
+      "enabled": true,
+      "environment": {},
+    }
   },
   "instructions": [
       "https://daisyui.com/llms.txt"
