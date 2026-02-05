@@ -11,6 +11,9 @@ defmodule Nixstasis.Devices.Device do
     field(:schema_definition, :map, default: %{})
     field(:last_seen_at, :utc_datetime)
     field(:metadata, :map, default: %{})
+    field(:ipv4_address, :string)
+    field(:account_number, :string)
+    field(:remote_access_requested, :boolean, default: false)
 
     timestamps(type: :utc_datetime)
   end
@@ -24,7 +27,10 @@ defmodule Nixstasis.Devices.Device do
       :approval_status,
       :schema_definition,
       :last_seen_at,
-      :metadata
+      :metadata,
+      :ipv4_address,
+      :account_number,
+      :remote_access_requested
     ])
     |> validate_required([:mac_address, :product_key])
     |> validate_inclusion(:approval_status, ["pending", "approved", "rejected"])
