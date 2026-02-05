@@ -46,7 +46,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
             />
           </.link>
 
-          <.link navigate="/devices/approvals">
+          <.link navigate="/devices?status=pending">
             <NixstasisWeb.Components.StatsCard.stats_card
               title="Pending Approvals"
               value={"#{@stats.pending_approvals}"}
@@ -70,7 +70,10 @@ defmodule NixstasisWeb.DashboardLive.Index do
           <span class="text-xs font-normal opacity-80">View and configure fleet</span>
         </.link>
 
-        <.link navigate="/devices/approvals" class="btn btn-secondary h-auto py-4 flex flex-col gap-2">
+        <.link
+          navigate="/devices?status=pending"
+          class="btn btn-secondary h-auto py-4 flex flex-col gap-2"
+        >
           <span class="text-lg">Pending Approvals</span>
           <span class="text-xs font-normal opacity-80">Review new registrations</span>
         </.link>

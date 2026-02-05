@@ -42,7 +42,7 @@ curl -X POST http://localhost:4000/api/v1/devices/register \
   -H "Content-Type: application/json" \
   -d '{
     "mac_address": "AA:BB:CC:DD:EE:01",
-    "product_key": "sensor-v1",
+    "product_name": "sensor-v1",
     "firmware_version": "1.0.0",
     "schema_definition": {
       "type": "object",
@@ -101,7 +101,7 @@ curl -X POST http://localhost:4000/api/v1/devices/$DEVICE_ID/heartbeat \
 
 1. Go to **Alerts > Rules** (`/alerts/rules`).
 2. Create a new rule:
-   - **Product Key**: `sensor-v1`
+   - **Product Name**: `sensor-v1`
    - **JSON Path**: `temp`
    - **Operator**: `>`
    - **Threshold**: `50`

@@ -9,7 +9,7 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       Devices.register_device(%{
         "token" => "device-1",
         "mac_address" => "AA:BB:CC:DD:EE:01",
-        "product_key" => "sensor-v1",
+        "product_name" => "sensor-v1",
         "firmware_version" => "1.0.0",
         "schema_definition" => %{"type" => "object"}
       })

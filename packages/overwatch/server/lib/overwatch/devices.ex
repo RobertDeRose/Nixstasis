@@ -290,4 +290,15 @@ defmodule Nixstasis.Devices do
       _ -> []
     end
   end
+
+  @doc """
+  Checks if a device is online.
+  Online is defined as seen within the last 5 minutes.
+  """
+  def online?(%Device{} = device) do
+    case device.last_seen_at do
+      nil -> false
+      time -> DateTime.diff(DateTime.utc_now(), time, :minute) < 5
+    end
+  end
 end

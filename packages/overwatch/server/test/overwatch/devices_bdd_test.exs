@@ -4,7 +4,7 @@ defmodule Nixstasis.DevicesBDDTest do
   alias Nixstasis.Devices
 
   describe "User Story 2: Bulk Approval Workflow" do
-    @valid_attrs %{mac_address: "AA:BB:CC:DD:EE:FF", product_key: "key"}
+    @valid_attrs %{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "key"}
 
     def device_fixture(attrs) do
       {:ok, device} =
@@ -17,10 +17,27 @@ defmodule Nixstasis.DevicesBDDTest do
 
     test "Scenario 1: Filter awaiting approval" do
       # GIVEN multiple devices in "awaiting approval" state
-      d1 = device_fixture(%{mac_address: "01", product_key: "k1", approval_status: "pending"})
-      d2 = device_fixture(%{mac_address: "02", product_key: "k2", approval_status: "pending"})
+      d1 =
+        device_fixture(%{
+          mac_address: "11:11:11:11:11:11",
+          product_name: "k1",
+          approval_status: "pending"
+        })
+
+      d2 =
+        device_fixture(%{
+          mac_address: "22:22:22:22:22:22",
+          product_name: "k2",
+          approval_status: "pending"
+        })
+
       # AND a device in "approved" state
-      _d3 = device_fixture(%{mac_address: "03", product_key: "k3", approval_status: "approved"})
+      _d3 =
+        device_fixture(%{
+          mac_address: "33:33:33:33:33:33",
+          product_name: "k3",
+          approval_status: "approved"
+        })
 
       # WHEN the user filters for "awaiting approval" (pending)
       results = Devices.list_devices(filter: %{status: "pending"})
@@ -34,8 +51,19 @@ defmodule Nixstasis.DevicesBDDTest do
 
     test "Scenario 2: Bulk Approve" do
       # GIVEN multiple selected pending devices
-      d1 = device_fixture(%{mac_address: "01", product_key: "k1", approval_status: "pending"})
-      d2 = device_fixture(%{mac_address: "02", product_key: "k2", approval_status: "pending"})
+      d1 =
+        device_fixture(%{
+          mac_address: "11:11:11:11:11:11",
+          product_name: "k1",
+          approval_status: "pending"
+        })
+
+      d2 =
+        device_fixture(%{
+          mac_address: "22:22:22:22:22:22",
+          product_name: "k2",
+          approval_status: "pending"
+        })
 
       # WHEN the user clicks "Approve" (calls approve_devices)
       Devices.approve_devices([d1.id, d2.id])
@@ -47,8 +75,19 @@ defmodule Nixstasis.DevicesBDDTest do
 
     test "Scenario 3: Bulk Reject" do
       # GIVEN multiple selected pending devices
-      d1 = device_fixture(%{mac_address: "01", product_key: "k1", approval_status: "pending"})
-      d2 = device_fixture(%{mac_address: "02", product_key: "k2", approval_status: "pending"})
+      d1 =
+        device_fixture(%{
+          mac_address: "11:11:11:11:11:11",
+          product_name: "k1",
+          approval_status: "pending"
+        })
+
+      d2 =
+        device_fixture(%{
+          mac_address: "22:22:22:22:22:22",
+          product_name: "k2",
+          approval_status: "pending"
+        })
 
       # WHEN the user clicks "Reject" (calls reject_devices)
       Devices.reject_devices([d1.id, d2.id])

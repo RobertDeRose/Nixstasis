@@ -10,7 +10,7 @@ Represents a physical IoT unit.
 - **Fields**:
   - `id` (UUID, PK)
   - `mac_address` (String, Unique, Indexed) - Physical identifier.
-  - `product_key` (String, Indexed) - Grouping key from schema.
+  - `product_name` (String, Indexed) - Grouping key from schema.
   - `approval_status` (Enum: `pending`, `approved`, `rejected`) - For US2 approval workflow.
   - `schema_definition` (JSONB) - The schema provided during registration.
   - `last_seen_at` (Timestamp) - Updated on heartbeat.
@@ -43,7 +43,7 @@ Configuration for data-driven alerts.
 - **Fields**:
   - `id` (UUID, PK)
   - `name` (String)
-  - `product_key` (String) - Applies to devices with this product.
+  - `product_name` (String) - Applies to devices with this product.
   - `condition_field` (String) - JSON path (e.g., "temperature").
   - `operator` (Enum: `>`, `<`, `=`, `!=`)
   - `threshold_value` (String/Number)

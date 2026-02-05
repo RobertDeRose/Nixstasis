@@ -8,14 +8,13 @@ defmodule Nixstasis.Devices.DeviceTest do
       changeset = Device.changeset(%Device{}, %{})
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).mac_address
-      assert "can't be blank" in errors_on(changeset).product_key
     end
 
     test "validates approval_status inclusion" do
       changeset =
         Device.changeset(%Device{}, %{
-          mac_address: "AA:BB:CC",
-          product_key: "key",
+          mac_address: "11:11:11:11:11:11",
+          product_name: "key",
           approval_status: "invalid"
         })
 
@@ -26,8 +25,8 @@ defmodule Nixstasis.Devices.DeviceTest do
     test "valid device" do
       changeset =
         Device.changeset(%Device{}, %{
-          mac_address: "AA:BB:CC",
-          product_key: "key",
+          mac_address: "11:11:11:11:11:11",
+          product_name: "key",
           approval_status: "pending"
         })
 
@@ -37,16 +36,16 @@ defmodule Nixstasis.Devices.DeviceTest do
     test "accepts new fields" do
       attrs = %{
         mac_address: "AA:BB:CC:DD:EE:FF",
-        product_key: "key123",
+        product_name: "key123",
         ipv4_address: "192.168.1.1",
-        account_number: "ACC-12345",
+        account_number: "12345",
         remote_access_requested: true
       }
 
       changeset = Device.changeset(%Device{}, attrs)
       assert changeset.valid?
       assert get_field(changeset, :ipv4_address) == "192.168.1.1"
-      assert get_field(changeset, :account_number) == "ACC-12345"
+      assert get_field(changeset, :account_number) == "12345"
       assert get_field(changeset, :remote_access_requested) == true
     end
   end

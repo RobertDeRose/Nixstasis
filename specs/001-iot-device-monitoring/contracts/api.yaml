@@ -55,7 +55,7 @@ paths:
                     type: string
                     example: "pending"
         '400':
-          description: Invalid schema or missing product key
+          description: Invalid schema or missing product name
 
   /api/v1/devices/heartbeat:
     post:

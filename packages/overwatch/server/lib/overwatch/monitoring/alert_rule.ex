@@ -3,7 +3,7 @@ defmodule Nixstasis.Monitoring.AlertRule do
   import Ecto.Changeset
 
   schema "alert_rules" do
-    field(:product_key, :string)
+    field(:product_name, :string)
     field(:condition_field, :string)
     field(:operator, :string)
     field(:threshold_value, :string)
@@ -14,8 +14,8 @@ defmodule Nixstasis.Monitoring.AlertRule do
   @doc false
   def changeset(alert_rule, attrs) do
     alert_rule
-    |> cast(attrs, [:product_key, :condition_field, :operator, :threshold_value])
-    |> validate_required([:product_key, :condition_field, :operator, :threshold_value])
+    |> cast(attrs, [:product_name, :condition_field, :operator, :threshold_value])
+    |> validate_required([:product_name, :condition_field, :operator, :threshold_value])
     |> validate_inclusion(:operator, [">", "<", "=", "!=", ">=", "<="])
   end
 end

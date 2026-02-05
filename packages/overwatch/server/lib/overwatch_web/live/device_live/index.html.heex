@@ -14,10 +14,10 @@
       </.form>
       <div class="join">
         <.link
-          patch={~p"/devices?#{%{status: nil}}"}
-          class={"btn btn-sm join-item #{is_nil(@filter_status) && "btn-active"}"}
+          patch={~p"/devices?#{%{status: "approved"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "approved" && "btn-active"}"}
         >
-          All
+          Approved
         </.link>
         <.link
           patch={~p"/devices?#{%{status: "pending"}}"}
@@ -25,7 +25,22 @@
         >
           Pending
         </.link>
+        <.link
+          patch={~p"/devices?#{%{status: "rejected"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "rejected" && "btn-active"}"}
+        >
+          Rejected
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{status: nil}}"}
+          class={"btn btn-sm join-item #{is_nil(@filter_status) && "btn-active"}"}
+        >
+          All
+        </.link>
       </div>
+      <.link patch={~p"/devices/new"} class="btn btn-sm btn-primary">
+        Add Device
+      </.link>
     </div>
   </div>
 
@@ -44,22 +59,44 @@
           <th>
             <input
               type="checkbox"
+              id="select-all-checkbox"
               class="checkbox checkbox-sm"
               phx-click="toggle_all"
-              checked={length(@selected_ids) > 0}
+              phx-hook="IndeterminateCheckbox"
+              data-selected-count={length(@selected_ids)}
+              data-total-count={@total_count}
             />
           </th>
-          <th phx-click="sort" phx-value-sort_by="mac_address" class="cursor-pointer hover:text-primary">
-            Device Name {if @sort_by == :mac_address, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          <th
+            phx-click="sort"
+            phx-value-sort_by="mac_address"
+            class="cursor-pointer hover:text-primary"
+          >
+            Device Name {if @sort_by == :mac_address,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
-          <th phx-click="sort" phx-value-sort_by="ipv4_address" class="cursor-pointer hover:text-primary">
+          <th
+            phx-click="sort"
+            phx-value-sort_by="ipv4_address"
+            class="cursor-pointer hover:text-primary"
+          >
             IPv4 {if @sort_by == :ipv4_address, do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
-          <th phx-click="sort" phx-value-sort_by="account_number" class="cursor-pointer hover:text-primary">
-            Account # {if @sort_by == :account_number, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          <th
+            phx-click="sort"
+            phx-value-sort_by="account_number"
+            class="cursor-pointer hover:text-primary"
+          >
+            Account # {if @sort_by == :account_number,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
-          <th phx-click="sort" phx-value-sort_by="approval_status" class="cursor-pointer hover:text-primary">
-             Status {if @sort_by == :approval_status, do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          <th
+            phx-click="sort"
+            phx-value-sort_by="approval_status"
+            class="cursor-pointer hover:text-primary"
+          >
+            Status {if @sort_by == :approval_status,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
           <th>Online</th>
         </tr>
@@ -80,14 +117,20 @@
             />
           </td>
           <td class="font-mono">
-            <.link navigate={~p"/devices/#{device.id}"} class="hover:underline">
-              {device.mac_address}
-            </.link>
+            <%= if Nixstasis.Devices.online?(device) do %>
+              <.link navigate={~p"/devices/#{device.id}"} class="hover:underline">
+                {device.mac_address}
+              </.link>
+            <% else %>
+              <span class="text-gray-400 cursor-not-allowed" title="Device Offline">
+                {device.mac_address}
+              </span>
+            <% end %>
           </td>
           <td class="font-mono">{device.ipv4_address || "N/A"}</td>
           <td class="font-mono">{device.account_number || "N/A"}</td>
           <td>
-            <div class={"badge #{case device.approval_status do
+            <div class={"badge badge-soft w-24 #{case device.approval_status do
               "approved" -> "badge-success"
               "rejected" -> "badge-error"
               _ -> "badge-warning"
@@ -96,13 +139,13 @@
             </div>
           </td>
           <td>
-            <%= if NixstasisWeb.DeviceLive.Index.online?(device) do %>
-              <div class="badge badge-success gap-2">
-                Online
+            <%= if Nixstasis.Devices.online?(device) do %>
+              <div class="badge badge-success w-24">
+                online
               </div>
             <% else %>
-              <div class="badge badge-ghost gap-2">
-                Offline
+              <div class="badge badge-error w-24">
+                offline
               </div>
             <% end %>
           </td>
@@ -111,3 +154,14 @@
     </table>
   </div>
 </div>
+
+<.modal :if={@live_action in [:new]} id="device-modal" show on_cancel={JS.patch(~p"/devices")}>
+  <.live_component
+    module={NixstasisWeb.DeviceLive.FormComponent}
+    id={@device.id || :new}
+    title={@page_title}
+    action={@live_action}
+    device={@device}
+    patch={~p"/devices"}
+  />
+</.modal>

@@ -89,8 +89,8 @@ defmodule NixstasisWeb.AlertLive.Index do
         <.simple_form for={@form} phx-change="validate_rule" phx-submit="save_rule">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <.input
-              field={@form[:product_key]}
-              label="Product Key"
+              field={@form[:product_name]}
+              label="Product Name"
               placeholder="e.g. thermostat-v1"
             />
             <.input

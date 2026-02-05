@@ -19,7 +19,7 @@ defmodule NixstasisWeb.DeviceJSON do
     %{
       id: device.id,
       mac_address: device.mac_address,
-      product_key: device.product_key,
+      product_name: device.product_name,
       approval_status: device.approval_status,
       schema_definition: device.schema_definition,
       last_seen_at: device.last_seen_at,
