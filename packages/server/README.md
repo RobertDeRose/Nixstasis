@@ -1,18 +1,43 @@
-# Nixstasis
+# Nixstasis Server (Elixir/Phoenix)
 
-To start your Phoenix server:
+The Nixstasis server is a Phoenix + LiveView application that provides the web UI and API for device monitoring,
+approvals, alerts, and reporting.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+## Features
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- LiveView UI for fleet health, approvals, alerts, and reports.
+- JSONB-backed device and telemetry storage (Postgres).
+- API endpoints for device registration and heartbeat polling.
+- Integrates with Caddy/AuthCrunch and FRP for secure remote access.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Prerequisites
 
-## Learn more
+- Elixir `~> 1.19`
+- Erlang/OTP (compatible with Elixir 1.19)
+- Postgres
 
-* Official website: <https://www.phoenixframework.org/>
-* Guides: <https://hexdocs.pm/phoenix/overview.html>
-* Docs: <https://hexdocs.pm/phoenix>
-* Forum: <https://elixirforum.com/c/phoenix-forum>
-* Source: <https://github.com/phoenixframework/phoenix>
+## Setup
+
+```bash
+mix setup
+mix phx.server
+```
+
+Visit [http://localhost:4000](http://localhost:4000).
+
+## Tests
+
+```bash
+mix test
+```
+
+## Configuration
+
+- Runtime config: `config/runtime.exs`
+- App config: `config/config.exs`
+- Database config: `config/dev.exs`, `config/test.exs`
+
+## Rewrite Status
+
+From specs `001`, `002`, and `003`, the core server rewrite (devices, monitoring, dashboard, and UI polish) is
+complete. The device list enhancement work in `specs/005-enhance-device-list` is still pending.
