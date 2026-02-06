@@ -16,6 +16,10 @@ defmodule Nixstasis.DataCase do
 
   use ExUnit.CaseTemplate
 
+  alias Ecto.Adapters.SQL.Sandbox
+  alias Nixstasis.Devices
+  alias Nixstasis.Repo
+
   using do
     quote do
       alias Nixstasis.Repo
