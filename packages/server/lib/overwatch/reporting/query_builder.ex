@@ -1,4 +1,8 @@
 defmodule Nixstasis.Reporting.QueryBuilder do
+  @moduledoc """
+  Builds dynamic telemetry report queries from configuration.
+  """
+
   import Ecto.Query
   alias Nixstasis.Monitoring.Telemetry
 
@@ -69,10 +73,11 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp apply_json_path_filter(query, path, op, val) do
     # Determine casting based on value type
     {cast_type, _val_to_compare} =
-      cond do
-        is_integer(val) or is_float(val) -> {"::numeric", val}
+      if is_integer(val) or is_float(val) do
+        {"::numeric", val}
+      else
         # Default to string comparison
-        true -> {"", val}
+        {"", val}
       end
 
     case op do

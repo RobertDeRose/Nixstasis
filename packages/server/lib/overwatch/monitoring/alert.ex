@@ -1,4 +1,8 @@
 defmodule Nixstasis.Monitoring.Alert do
+  @moduledoc """
+  Schema for alerts triggered by monitoring rules or offline checks.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
