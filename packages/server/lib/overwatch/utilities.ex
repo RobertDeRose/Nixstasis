@@ -1,4 +1,4 @@
- defmodule Nixstasis.Utilities do
+defmodule Nixstasis.Utilities do
   @moduledoc """
   Common utility functions
   """
@@ -24,11 +24,12 @@
     clean = String.replace(raw_mac, ~r/[^a-fA-F0-9]/, "") |> String.upcase()
 
     # 2. Use binary matching to format if the length is correct (12 chars)
+    # format: off
     case clean do
-      <<a::binary-size(2), b::binary-size(2), c::binary-size(2),
-        d::binary-size(2), e::binary-size(2), f::binary-size(2)>> -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}"
-
+      <<a::2-bytes, b::2-bytes, c::2-bytes, d::2-bytes, e::2-bytes, f::2-bytes>> -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}"
       _ -> clean
     end
+
+    # format: on
   end
 end

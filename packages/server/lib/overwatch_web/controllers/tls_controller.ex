@@ -11,9 +11,7 @@ defmodule NixstasisWeb.TLSController do
   def check_domain(conn, %{"domain" => domain}) do
     case Regex.run(@domain_pattern, domain) do
       [_, type] when type in ["auth", "frp-router"] -> approve(conn, domain)
-
       [_, subdomain] -> if valid_subdomain?(subdomain), do: approve(conn, domain), else: deny(conn, domain)
-
       _ -> deny(conn, domain)
     end
   end
@@ -32,6 +30,7 @@ defmodule NixstasisWeb.TLSController do
 
   defp deny(conn, domain) do
     Logger.info("[DENYING] #{domain} for TLS")
+
     conn
     |> put_status(:unauthorized)
     |> json(%{error: "The host is not permitted"})

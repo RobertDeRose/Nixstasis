@@ -33,9 +33,7 @@ defmodule NixstasisWeb.TerminalChannel do
             channel_pid: self()
           )
 
-        Logger.info(
-          "Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}"
-        )
+        Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
 
         # Schedule session limits
         Process.send_after(self(), :max_duration_reached, @max_session_duration)
