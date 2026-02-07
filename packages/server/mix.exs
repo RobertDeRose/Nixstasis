@@ -59,12 +59,7 @@ defmodule Nixstasis.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:heroicons,
-      github: "tailwindlabs/heroicons",
-      tag: "v2.2.0",
-      sparse: "optimized",
-      app: false,
-      compile: false,
-      depth: 1},
+       github: "tailwindlabs/heroicons", tag: "v2.2.0", sparse: "optimized", app: false, compile: false, depth: 1},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
