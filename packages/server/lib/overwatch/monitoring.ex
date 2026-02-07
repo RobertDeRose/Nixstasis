@@ -32,7 +32,7 @@ defmodule Nixstasis.Monitoring do
     query =
       from(d in Device,
         where: d.last_seen_at < ^cutoff,
-        where: d.approval_status == "approved",
+        where: d.approval_status == :approved,
         left_join: a in Alert,
         on: a.device_id == d.id and a.type == "offline" and a.status == "active",
         where: is_nil(a.id),

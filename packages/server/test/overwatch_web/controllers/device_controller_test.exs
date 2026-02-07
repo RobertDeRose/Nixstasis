@@ -5,7 +5,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:FF",
       "product_name" => "prod_123",
-      "schema_definition" => %{"temp" => "float"},
+      "schema" => %{"temp" => "float"},
       "metadata" => %{"fw" => "1.0"}
     }
 
