@@ -1,0 +1,15 @@
+# Ignore source files and build artifacts not intended for the package payload
+# (Assuming the packager might try to include the whole directory if not ignored)
+cmd/
+internal/
+init/
+bin/pre_package.sh
+scripts/
+go.mod
+go.sum
+Makefile
+README.md
+config.example.yaml
+.gitignore
+.golangci.yml
+package_options.yml

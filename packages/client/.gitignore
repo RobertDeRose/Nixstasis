@@ -1,0 +1,11 @@
+# Go
+*.exe
+*.test
+*.out
+vendor/
+bin/nixstasis
+built/root-dir/usr/bin/nixstasis
+
+# OS
+.DS_Store
+*.swp

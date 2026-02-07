@@ -1,0 +1,355 @@
+# golangci-lint configuration for Go beginners (v2.8.0+)
+# This config enables linters that help you write idiomatic, modern Go code
+# Focuses on catching common mistakes and promoting best practices
+
+version: "2"
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+
+  # Include test files
+  tests: true
+
+  # Number of CPUs to use (0 = auto-detect)
+  concurrency: 0
+
+  # Modules download mode
+  modules-download-mode: readonly
+
+  # The mode used to evaluate relative paths
+  relative-path-mode: gomod
+
+# Output configuration
+output:
+  formats:
+    text:
+      # Print linter name in the end of issue text
+      print-linter-name: true
+      # Print lines of code with issue
+      print-issued-lines: true
+      # Use colors
+      colors: true
+  # Show statistics per linter
+  show-stats: true
+  # Order to use when sorting results
+  sort-order:
+    - linter
+    - severity
+    - file
+
+linters:
+  # Disable all linters by default
+  default: none
+
+  # Enable specific linters
+  enable:
+    # === ESSENTIAL FOR BEGINNERS ===
+
+    # Errcheck: checks for unchecked errors
+    - errcheck
+
+    # Govet: reports suspicious constructs
+    - govet
+
+    # Ineffassign: detects ineffectual assignments
+    - ineffassign
+
+    # Staticcheck: comprehensive static analysis (includes gosimple and stylecheck in v2)
+    - staticcheck
+
+    # Unused: checks for unused constants, variables, functions and types
+    - unused
+
+    # === CODE FORMATTING ===
+
+    # Misspell: finds commonly misspelled English words
+    - misspell
+
+    # Revive: fast, configurable, extensible linter (golint replacement)
+    - revive
+
+    # Gocritic: provides diagnostics for bugs, performance and style
+    - gocritic
+
+    # Unconvert: removes unnecessary type conversions
+    - unconvert
+
+    # Unparam: reports unused function parameters
+    - unparam
+
+    # Nakedret: finds naked returns in functions
+    - nakedret
+
+    # Prealloc: finds slice declarations that could be pre-allocated
+    - prealloc
+
+    # Predeclared: finds code that shadows predeclared identifiers
+    - predeclared
+
+    # Whitespace: detects leading and trailing whitespace
+    - whitespace
+
+    # === ERROR HANDLING ===
+
+    # Errorlint: finds code that will cause problems with Go 1.13+ error wrapping
+    - errorlint
+
+    # Nilerr: finds code returning nil even when error is not nil
+    - nilerr
+
+    # Errname: checks that sentinel errors are prefixed with Err
+    - errname
+
+    # === COMMON MISTAKES ===
+
+    # Bodyclose: checks whether HTTP response body is closed
+    - bodyclose
+
+    # Contextcheck: checks for context.Context cancellation
+    - contextcheck
+
+    # Noctx: finds sending http request without context.Context
+    - noctx
+
+    # Rowserrcheck: checks whether Err of rows is checked
+    - rowserrcheck
+
+    # Sqlclosecheck: checks that sql.Rows and sql.Stmt are closed
+    - sqlclosecheck
+
+    # Wastedassign: finds wasted assignment statements
+    - wastedassign
+
+    # Makezero: finds slice declarations with non-zero initial length
+    - makezero
+
+    # Durationcheck: checks for multiplying time.Duration by an int
+    - durationcheck
+
+    # === MODERNIZATION & BEST PRACTICES ===
+
+    # Modernize: detects usage of deprecated/legacy code patterns (THE KEY LINTER!)
+    - modernize
+
+    # Gomodguard: checks for blocked/deprecated dependencies
+    - gomodguard
+
+    # Depguard: checks if package imports are allowed
+    - depguard
+
+    # Exptostd: detects functions from golang.org/x/exp/ that can be replaced by std
+    - exptostd
+
+    # Copyloopvar: detects places where loop variables are copied (Go 1.22+)
+    - copyloopvar
+
+    # === STRUCTURED LOGGING ===
+
+    # Sloglint: ensures consistent usage of slog (structured logging)
+    - sloglint
+
+    # === TESTING ===
+
+    # Tparallel: detects inappropriate usage of t.Parallel()
+    - tparallel
+
+    # Testifylint: checks usage of github.com/stretchr/testify
+    - testifylint
+
+    # === COMMENTS & DOCUMENTATION ===
+
+    # Godot: checks if comments end in a period
+    - godot
+
+    # === SECURITY ===
+
+    # Gosec: inspects source code for security problems
+    - gosec
+
+    # === CODE QUALITY ===
+
+    # Nolintlint: reports ill-formed or insufficient nolint directives
+    - nolintlint
+
+  # Linter-specific settings
+  settings:
+    errcheck:
+      # Report about not checking of errors in type assertions
+      check-type-assertions: true
+      # Report about assignment of errors to blank identifier
+      check-blank: true
+      # List of functions to exclude from checking
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+
+    govet:
+      # Enable all analyzers
+      enable-all: true
+      # Disable specific analyzers that might be too noisy for beginners
+      disable:
+        - shadow
+        - fieldalignment
+
+    revive:
+      # Enable only the most helpful rules for beginners
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    gocritic:
+      # Enable multiple checks by tags
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - whyNoLint
+        - hugeParam
+
+    errorlint:
+      # Check whether fmt.Errorf uses the %w verb for formatting errors
+      errorf: true
+      # Permit more than 1 %w verb, valid per Go 1.20
+      errorf-multi: true
+      # Check for plain error comparisons
+      comparison: true
+
+    misspell:
+      # Correct spellings using locale preferences
+      locale: US
+
+    nakedret:
+      # Make an issue if func has more lines than this and has naked returns
+      max-func-lines: 30
+
+    unparam:
+      # Inspect exported functions
+      check-exported: false
+
+    gosec:
+      # Exclude rules that duplicate other linters or are too strict
+      excludes:
+        - G104  # Duplicates errcheck
+        - G306  # Can be too strict about file permissions
+
+    depguard:
+      rules:
+        main:
+          deny:
+            # Deprecated packages that beginners should avoid
+            - pkg: io/ioutil
+              desc: "io/ioutil is deprecated since Go 1.16, use io or os packages instead"
+            - pkg: github.com/pkg/errors
+              desc: "Use standard library errors package and fmt.Errorf with %w instead (since Go 1.13)"
+
+    gomodguard:
+      blocked:
+        # List of blocked modules with recommendations
+        modules:
+          - github.com/pkg/errors:
+              recommendations:
+                - errors
+                - fmt
+              reason: "Use standard library errors package (Go 1.13+) instead"
+          - io/ioutil:
+              recommendations:
+                - io
+                - os
+              reason: "Deprecated since Go 1.16, use io and os packages"
+
+    whitespace:
+      multi-if: false
+      multi-func: false
+
+    testifylint:
+      enable-all: true
+
+    nolintlint:
+      # Require nolint directives to mention specific linter
+      require-specific: true
+      # Require an explanation after nolint directive
+      require-explanation: true
+
+  # Exclusion rules for linters
+  exclusions:
+    # Exclude some linters from running on test files
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - gocritic
+          - unparam
+
+      # Exclude known issues in auto-generated code
+      - path: '.*\.pb\.go'
+        linters:
+          - staticcheck
+          - errcheck
+          - unused
+
+      - path: '.*_mock\.go'
+        linters:
+          - staticcheck
+          - errcheck
+
+    # Don't hide errors in generated files completely
+    generated: strict
+
+issues:
+  # Maximum issues count per one linter (0 = unlimited)
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text (0 = unlimited)
+  max-same-issues: 0
+
+  # Show only new issues (useful for large existing codebases)
+  new: false
+
+  # Apply fixes if supported by the linter
+  fix: false
+
+severity:
+  # Set the default severity for issues
+  default: error
+
+  # Define custom severity rules
+  rules:
+    - linters:
+        - godot
+        - misspell
+      severity: warning
+    - linters:
+        - errcheck
+        - govet
+        - staticcheck
+      severity: error
+
+formatters:
+  # Enable formatters that help with code style
+  enable:
+    - goimports  # Automatically format imports

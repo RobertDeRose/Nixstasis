@@ -12,7 +12,7 @@
 	# Caddy will ask the upstream service if it should obtain a certificate for a given domain
 	# This prevents abuse by only issuing certs for allowed domains
 	on_demand_tls {
-		ask http://localhost:8000/permit_tls
+		ask http://localhost:4000/api/v1/check_domain
 	}
 
 	# Order directives ensure the security plugin (authp) runs before standard Caddy directives

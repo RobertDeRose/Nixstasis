@@ -1,0 +1,12 @@
+api:
+  url: "http://nixstasis.device.<domain>"
+
+poll:
+  interval: 30s
+
+plugins:
+  dir: "/usr/libexec/nixstasis"
+
+log:
+  level: "info"
+  format: "text"

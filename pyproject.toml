@@ -116,8 +116,10 @@ MD013.line_length = 120
 extend-ignore-words-re = [
   "[mM]osquitto",
   "[sS][oO][mM]",
-  "selectin"
+  "selectin",
 ]
 extend-ignore-re = [
   "[a-zA-Z0-9]{12,24}"
 ]
+[tool.typos.default.extend-words]
+Hashi = "Hashi"

@@ -1,13 +1,31 @@
 # Welcome to Nixstasis
 
-This project is built using the following tools:
+Nixstasis is an IoT monitoring and remote access platform. This repository is a monorepo with multiple codebases and
+packaging workflows.
 
-* [`Python 3.13+`](https://docs.python.org/3.13/)
-* [`uv`](https://docs.astral.sh/uv/getting-started/installation/): Project and dependency management
-* [`Reflex`](https://reflex.dev/open-source/): Front-end and Back-end development in pure Python
-* [`FRP`](https://gofrp.org/en/): Fast Reverse Proxy, for NAT punching port forwarding
-* [`Caddy`](http://caddyserver.com): Automatic on-demand TLS certificates using Let's Encrypt
-* [`AuthCrunch`](https://authcrunch.com): Authorization using Azure, with support for many other OIDC providers
+The client and server have been rewritten from their original Bash and Python/Reflex implementations into Go and
+Elixir/Phoenix, respectively.
+
+## Key Components
+
+- **Client (Go)**: Lightweight agent that registers devices, polls telemetry plugins, and manages FRP tunnels.
+- **Server (Elixir/Phoenix + LiveView)**: API and web UI for device monitoring, approvals, alerts, and reporting.
+- **Packaging (Debian)**: Custom GitHub Actions/workflows for building Caddy and FRP Debian packages.
+- **Infrastructure**: [`FRP`](https://gofrp.org/en/), [`Caddy`](https://caddyserver.com/), and
+  [`AuthCrunch`](https://authcrunch.com) integrate to provide secure, on-demand remote access.
+
+## Repository Structure
+
+- `packages/client`: Go-based client agent.
+- `packages/server`: Phoenix server application.
+- `packages/caddy`: Debian packaging for Caddy (with AuthCrunch).
+- `packages/frp`: Debian packaging for FRP.
+- `specs`: Feature specs and task checklists for the rewrites and ongoing work.
+
+## Package READMEs
+
+- Client: [`packages/client/README.md`](packages/client/README.md)
+- Server: [`packages/server/README.md`](packages/server/README.md)
 
 ## Overview
 
@@ -73,82 +91,22 @@ flowchart TB
     style Device fill:#F3E5F5,stroke:#4A148C,stroke-width:4px,color:#000
 ``` -->
 
-## Reflex Project Structure
+## Status Snapshot (from specs task checklists)
 
-This project has the following directory structure:
-
-```bash
-├── README.md
-├── assets
-├── rxconfig.py
-└── nixstasis
-    ├── __init__.py
-    ├── backend
-    │   ├── __init__.py
-    │   └── . . .
-    ├── components
-    │   ├── __init__.py
-    │   └── . . .
-    ├── pages
-    │   ├── __init__.py
-    │   └── . . .
-    ├── models
-    │   │   ├── __init__.py
-    │   └── . . .
-    ├── states
-    │   ├── __init__.py
-    │   └── . . .
-    ├── styles.py
-    ├── templates
-    │   ├── __init__.py
-    │   └── . . .
-    └── nixstasis.py
-```
-
-See [Reflex's Project Structure docs](https://reflex.dev/docs/getting-started/project-structure/) for more general
-information about the Reflex project structure.
-
-### Adding Pages
-
-Pages live in `nixstasis/pages/`. Each page is a function that returns a Reflex component and is registered by importing
-it from `nixstasis/pages/__init__.py`.
-
-This project uses the `@template` decorator in `nixstasis/templates/template.py` instead of using `@rx.page` or calling
-`rx.add_page` directly.
-
-To add a page:
-
-1. Create a new file in `nixstasis/pages/` Its recommend to use one file per page.
-2. Add a function decorated with `@template`, it accepts the same args as `@rx.page`.
-3. Import the page in `nixstasis/pages/__init__.py` to register it; the sidebar order follows the import order in
-  `nixstasis/components/sidebar.py`.
-
-### Adding Components
-
-Put reusable UI components that are shared across pages in `nixstasis/components/`. For example, the sidebar lives in
-`nixstasis/components/sidebar.py`.
-
-### Adding State
-
-As the app grows, it's recommended to use [substates](https://reflex.dev/docs/substates/overview/) to organize state.
-
-Define substates in their own files when they are shared, or colocate them in the page file when the state is
-page-scoped.
-
-### Running Nixstasis in Development Mode
-
-Use the `Start Nixstasis` VS Code launch configuration to run the app locally for development and debugging. It invokes
-`reflex run` and attaches the debugger to the running instance.
+- **Client rewrite (Go)**: Core functionality is implemented (registration, polling, FRP management, packaging). Two
+  items remain in progress: `internal/plugin` foundational structs (T006) and FRP lifecycle hooks (T027).
+- **Server rewrite (Elixir/Phoenix)**: Core monitoring, dashboard, and UI polish tasks are complete. The device list
+  enhancement spec (005) is pending.
 
 ## FRP (Fast Reverse Proxy)
 
 This service has two components:
 
-* `frps`: The server, which must run on the same server as Nixstasis and must have a wildcard domain name assigned to
+- `frps`: The server, which must run on the same server as Nixstasis and must have a wildcard domain name assigned to
           the IP Address that the server is running. The IP Address must be publicly reachable on the Internet.
-* `frpc`: This is the client that must be deployed on the devices that Nixstasis will monitor and provide remote access.
+- `frpc`: This is the client that must be deployed on the devices that Nixstasis will monitor and provide remote access.
 
-These services are configured using a `toml` file. The documentation can be referenced in the link above.
+These services are configured using a `toml` file. See the FRP docs for configuration details.
 
 This repo includes a fully deployable configuration for the server designed for this service. It currently supports both
 `ssh` and `https` proxying. This allows Nixstasis to provide remote access to the device's Web UI (Cockpit) and to
@@ -164,10 +122,10 @@ stripped. For example `atom-8268a89d95e7`.
 
 Caddy is the front-end server and provides these features:
 
-* Reverse proxying to FRPS
-* Automatic TLS (HTTPS) certificates per device
-* Static file serving for Nixstasis's UI
-* Authentication via the AuthCrunch plugin
+- Reverse proxying to FRPS
+- Automatic TLS (HTTPS) certificates per device
+- Static file serving for Nixstasis's UI
+- Authentication via the AuthCrunch plugin
 
 FRPS provides the public tunnel to devices but is not used for TLS termination. FRPS also does not reliably handle HTTP
 upgrade requests (required for WebSockets) and lacks built-in ACME support. Caddy handles TLS termination and ACME,

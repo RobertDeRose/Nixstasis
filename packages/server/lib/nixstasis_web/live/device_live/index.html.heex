@@ -1,0 +1,159 @@
+<div class="p-4">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold">Devices</h1>
+    <div class="flex gap-2">
+      <.form for={%{}} as={:search} phx-submit="search" phx-change="search" class="flex gap-2">
+        <input
+          type="text"
+          name="search"
+          value={@search}
+          placeholder="Search devices..."
+          class="input input-bordered input-sm"
+          phx-debounce="300"
+        />
+      </.form>
+      <div class="join">
+        <.link
+          patch={~p"/devices?#{%{status: :approved}}"}
+          class={"btn btn-sm join-item #{@filter_status == :approved && "btn-active"}"}
+        >
+          Approved
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{status: :pending}}"}
+          class={"btn btn-sm join-item #{@filter_status == :pending && "btn-active"}"}
+        >
+          Pending
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{status: :rejected}}"}
+          class={"btn btn-sm join-item #{@filter_status == :rejected && "btn-active"}"}
+        >
+          Rejected
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{status: nil}}"}
+          class={"btn btn-sm join-item #{is_nil(@filter_status) && "btn-active"}"}
+        >
+          All
+        </.link>
+      </div>
+      <.link patch={~p"/devices/new"} class="btn btn-sm btn-primary">
+        Add Device
+      </.link>
+    </div>
+  </div>
+
+  <%= if length(@selected_ids) > 0 do %>
+    <div class="bg-base-200 p-2 rounded-lg mb-4 flex gap-4 items-center">
+      <span class="font-semibold">{length(@selected_ids)} selected</span>
+      <button phx-click="bulk_approve" class="btn btn-sm btn-success">Approve</button>
+      <button phx-click="bulk_reject" class="btn btn-sm btn-error">Reject</button>
+    </div>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead>
+        <tr>
+          <th>
+            <input
+              type="checkbox"
+              id="select-all-checkbox"
+              class="checkbox checkbox-sm"
+              phx-click="toggle_all"
+              phx-hook="IndeterminateCheckbox"
+              data-selected-count={length(@selected_ids)}
+              data-total-count={@total_count}
+            />
+          </th>
+          <th
+            phx-click="sort"
+            phx-value-sort_by="mac_address"
+            class="cursor-pointer hover:text-primary"
+          >
+            Device Name {if @sort_by == :mac_address,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th
+            phx-click="sort"
+            phx-value-sort_by="account_number"
+            class="cursor-pointer hover:text-primary"
+          >
+            Account # {if @sort_by == :account_number,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th
+            phx-click="sort"
+            phx-value-sort_by="approval_status"
+            class="cursor-pointer hover:text-primary"
+          >
+            Status {if @sort_by == :approval_status,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th>Online</th>
+        </tr>
+      </thead>
+      <tbody id="devices-stream" phx-update="stream">
+        <tr
+          :for={{dom_id, device} <- @streams.devices}
+          id={dom_id}
+          class="hover"
+        >
+          <td>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              phx-click="toggle_selection"
+              phx-value-id={device.id}
+              checked={device.id in @selected_ids}
+            />
+          </td>
+          <td class="font-mono">
+            <%= if Nixstasis.Devices.online?(device) do %>
+              <.link navigate={~p"/devices/#{device.id}"} class="hover:underline">
+                {device.mac_address}
+              </.link>
+            <% else %>
+              <span class="text-gray-400 cursor-not-allowed" title="Device Offline">
+                {device.mac_address}
+              </span>
+            <% end %>
+          </td>
+          <td class="font-mono">{device.account_number || "N/A"}</td>
+          <td>
+            <div class={"badge badge-soft w-24 #{case device.approval_status do
+              :approved -> "badge-success"
+              :rejected -> "badge-error"
+              _ -> "badge-warning"
+            end}"}>
+              {device.approval_status}
+            </div>
+          </td>
+          <td>
+            <%= if Nixstasis.Devices.online?(device) do %>
+              <div class="badge badge-success w-24">
+                online
+              </div>
+            <% else %>
+              <div class="badge badge-error w-24">
+                offline
+              </div>
+            <% end %>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<.modal :if={@live_action in [:new]} id="device-modal" show on_cancel={JS.patch(~p"/devices")}>
+  <.live_component
+    module={NixstasisWeb.DeviceLive.FormComponent}
+    id={@device.id || :new}
+    title={@page_title}
+    action={@live_action}
+    device={@device}
+    patch={~p"/devices"}
+  />
+</.modal>
