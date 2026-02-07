@@ -10,5 +10,5 @@ defmodule Nixstasis.Devices.SchemaValidator do
     :ok
   end
 
-  def validate(_), do: {:error, "schema_definition must be a JSON object"}
+  def validate(_), do: {:error, "schema must be a JSON object"}
 end

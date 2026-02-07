@@ -14,7 +14,7 @@ defmodule Nixstasis.Devices.ApprovalTest do
         Devices.register_device(%{
           mac_address: "22:22:22:22:22:22",
           product_name: "P1",
-          approval_status: "approved"
+          approval_status: :approved
         })
 
       pending_list = Devices.list_pending_devices()
@@ -30,10 +30,10 @@ defmodule Nixstasis.Devices.ApprovalTest do
       {:ok, device} =
         Devices.register_device(%{mac_address: "33:33:33:33:33:33", product_name: "P1"})
 
-      assert device.approval_status == "pending"
+      assert device.approval_status == :pending
 
       {:ok, updated} = Devices.approve_device(device)
-      assert updated.approval_status == "approved"
+      assert updated.approval_status == :approved
     end
 
     test "register_device/1 maintains approval status on re-registration" do
@@ -50,7 +50,7 @@ defmodule Nixstasis.Devices.ApprovalTest do
           metadata: %{"new" => "data"}
         })
 
-      assert updated.approval_status == "approved"
+      assert updated.approval_status == :approved
       assert updated.metadata["new"] == "data"
     end
   end

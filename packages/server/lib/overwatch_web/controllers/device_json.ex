@@ -21,9 +21,9 @@ defmodule NixstasisWeb.DeviceJSON do
       mac_address: device.mac_address,
       product_name: device.product_name,
       approval_status: device.approval_status,
-      schema_definition: device.schema_definition,
       last_seen_at: device.last_seen_at,
-      metadata: device.metadata
+      schema: device.schema,
+      metadata: device.metadata,
     }
   end
 end

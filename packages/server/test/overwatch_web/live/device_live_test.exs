@@ -8,7 +8,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
     mac_address: "AA:BB:CC:DD:EE:FF",
     account_number: "123456789",
     firmware_version: "1.0.0",
-    approval_status: "approved",
+    approval_status: :approved,
     product_name: "PROD-123"
   }
 
@@ -62,14 +62,14 @@ defmodule NixstasisWeb.DeviceLiveTest do
           @create_attrs
           | mac_address: "AA:AA:AA:AA:AA:AA",
             product_name: "Approved Device",
-            approval_status: "approved"
+            approval_status: :approved
         })
 
       {:ok, _pending} =
         Devices.create_device(%{
           @create_attrs
           | mac_address: "BB:BB:BB:BB:BB:BB",
-            approval_status: "pending",
+            approval_status: :pending,
             product_name: "Pending Device"
         })
 
@@ -132,7 +132,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
         Devices.create_device(%{
           @create_attrs
           | mac_address: "CC:CC:CC:CC:CC:CC",
-            approval_status: "pending",
+            approval_status: :pending,
             product_name: "To Approve"
         })
 
@@ -153,7 +153,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert flash["info"] == "Devices approved"
 
       updated_device = Devices.get_device!(device.id)
-      assert updated_device.approval_status == "approved"
+      assert updated_device.approval_status == :approved
     end
 
     test "bulk rejects devices", %{conn: conn} do
@@ -161,7 +161,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
         Devices.create_device(%{
           @create_attrs
           | mac_address: "DD:DD:DD:DD:DD:DD",
-            approval_status: "pending",
+            approval_status: :pending,
             product_name: "To Reject"
         })
 
@@ -182,7 +182,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert flash["info"] == "Devices rejected"
 
       updated_device = Devices.get_device!(device.id)
-      assert updated_device.approval_status == "rejected"
+      assert updated_device.approval_status == :rejected
     end
   end
 end
