@@ -1,4 +1,8 @@
 defmodule NixstasisWeb.Components.StatsCard do
+  @moduledoc """
+  UI component for dashboard stats cards.
+  """
+
   use Phoenix.Component
 
   attr(:title, :string, required: true)

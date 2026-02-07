@@ -1,4 +1,8 @@
 defmodule NixstasisWeb.TerminalChannel do
+  @moduledoc """
+  Channel for browser-based SSH terminal sessions.
+  """
+
   use NixstasisWeb, :channel
   require Logger
 

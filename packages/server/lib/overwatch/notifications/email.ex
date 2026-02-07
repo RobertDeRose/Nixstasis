@@ -1,4 +1,8 @@
 defmodule Nixstasis.Notifications.Email do
+  @moduledoc """
+  Sends alert notifications via email.
+  """
+
   import Swoosh.Email
 
   def send_alert_email(to, alert) do
