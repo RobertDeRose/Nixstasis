@@ -1,32 +1,74 @@
 defmodule Nixstasis.Monitoring.Alert do
   @moduledoc """
-  Schema for alerts triggered by monitoring rules or offline checks.
+  Resource for alerts triggered by monitoring rules or offline checks.
   """
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    data_layer: AshPostgres.DataLayer,
+    domain: Nixstasis.Domain,
+    extensions: [AshJsonApi.Resource]
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-  schema "alerts" do
-    # offline, threshold
-    field(:type, :string)
-    field(:status, :string, default: "active")
-    field(:message, :string)
-    field(:triggered_at, :utc_datetime)
-    # Virtual or future relation
-    field(:rule_id, :binary_id)
+  postgres do
+    table "alerts"
+    repo Nixstasis.Repo
 
-    belongs_to(:device, Nixstasis.Devices.Device)
+    references do
+      reference :device, on_delete: :delete
+    end
 
-    timestamps(type: :utc_datetime)
+    custom_indexes do
+      index [:device_id]
+      index [:status]
+      index [:type]
+      index [:triggered_at]
+    end
   end
 
-  def changeset(alert, attrs) do
-    alert
-    |> cast(attrs, [:device_id, :rule_id, :type, :status, :message, :triggered_at])
-    |> validate_required([:device_id, :type, :message, :triggered_at])
-    |> validate_inclusion(:type, ["offline", "threshold"])
-    |> validate_inclusion(:status, ["active", "resolved", "acknowledged"])
+  json_api do
+    type "alert"
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:device_id, :rule_id, :type, :status, :message, :triggered_at]
+    end
+
+    update :update do
+      accept [:status, :message]
+    end
+  end
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :type, Nixstasis.Types.AlertType do
+      allow_nil? false
+    end
+
+    attribute :status, Nixstasis.Types.AlertStatus do
+      allow_nil? false
+      default :active
+    end
+
+    attribute :message, :string do
+      allow_nil? false
+    end
+
+    attribute :triggered_at, :utc_datetime do
+      allow_nil? false
+      default &DateTime.utc_now/0
+    end
+
+    attribute :rule_id, :integer
+
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :device, Nixstasis.Devices.Device do
+      allow_nil? false
+    end
   end
 end

@@ -1,25 +1,57 @@
 defmodule Nixstasis.Monitoring.AlertRule do
   @moduledoc """
-  Schema for telemetry alert rules.
+  Resource for telemetry alert rules.
   """
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    data_layer: AshPostgres.DataLayer,
+    domain: Nixstasis.Domain,
+    extensions: [AshJsonApi.Resource]
 
-  schema "alert_rules" do
-    field(:product_name, :string)
-    field(:condition_field, :string)
-    field(:operator, :string)
-    field(:threshold_value, :string)
+  postgres do
+    table "alert_rules"
+    repo Nixstasis.Repo
 
-    timestamps(type: :utc_datetime)
+    custom_indexes do
+      index [:product_name]
+    end
   end
 
-  @doc false
-  def changeset(alert_rule, attrs) do
-    alert_rule
-    |> cast(attrs, [:product_name, :condition_field, :operator, :threshold_value])
-    |> validate_required([:product_name, :condition_field, :operator, :threshold_value])
-    |> validate_inclusion(:operator, [">", "<", "=", "!=", ">=", "<="])
+  json_api do
+    type "alert_rule"
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:product_name, :condition_field, :operator, :threshold_value]
+    end
+
+    update :update do
+      accept [:product_name, :condition_field, :operator, :threshold_value]
+    end
+  end
+
+  attributes do
+    integer_primary_key :id
+
+    attribute :product_name, :string do
+      allow_nil? false
+    end
+
+    attribute :condition_field, :string do
+      allow_nil? false
+    end
+
+    attribute :operator, Nixstasis.Types.RuleOperator do
+      allow_nil? false
+    end
+
+    attribute :threshold_value, :string do
+      allow_nil? false
+    end
+
+    timestamps()
   end
 end

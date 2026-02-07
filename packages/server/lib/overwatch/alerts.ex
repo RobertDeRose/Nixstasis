@@ -2,8 +2,10 @@ defmodule Nixstasis.Alerts do
   @moduledoc """
   Context module for alerts.
   """
-  import Ecto.Query
-  alias Nixstasis.Repo
+
+  require Ash.Query
+
+  alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Alert
 
   @doc """
@@ -11,7 +13,7 @@ defmodule Nixstasis.Alerts do
   """
   def count_active do
     Alert
-    |> where([a], a.status == "active")
-    |> Repo.aggregate(:count, :id)
+    |> Ash.Query.filter(status == :active)
+    |> Ash.count!(domain: Domain)
   end
 end

@@ -52,6 +52,7 @@ config :spark,
 
 config :nixstasis,
   ecto_repos: [Nixstasis.Repo],
+  ash_domains: [Nixstasis.Domain],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
