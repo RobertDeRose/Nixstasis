@@ -1,28 +1,69 @@
 defmodule Nixstasis.Devices.PendingCommand do
   @moduledoc """
-  Schema for queued device commands awaiting delivery.
+  Resource for queued device commands awaiting delivery.
   """
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    data_layer: AshPostgres.DataLayer,
+    domain: Nixstasis.Domain,
+    extensions: [AshJsonApi.Resource]
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-  schema "pending_commands" do
-    field(:command_payload, :map)
-    field(:status, :string, default: "queued")
-    field(:queued_at, :utc_datetime)
-    field(:delivered_at, :utc_datetime)
+  postgres do
+    table "pending_commands"
+    repo Nixstasis.Repo
 
-    belongs_to(:device, Nixstasis.Devices.Device)
+    references do
+      reference :device, on_delete: :delete
+    end
 
-    timestamps(type: :utc_datetime)
+    custom_indexes do
+      index [:device_id]
+      index [:status]
+    end
   end
 
-  def changeset(pending_command, attrs) do
-    pending_command
-    |> cast(attrs, [:device_id, :command_payload, :status, :queued_at, :delivered_at])
-    |> validate_required([:device_id, :command_payload])
-    |> validate_inclusion(:status, ["queued", "delivered", "acked"])
+  json_api do
+    type "pending_command"
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:command_payload, :status, :queued_at, :delivered_at, :device_id]
+    end
+
+    update :update do
+      accept [:status, :delivered_at, :command_payload]
+    end
+  end
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :command_payload, :map do
+      allow_nil? false
+      default %{}
+    end
+
+    attribute :status, Nixstasis.Types.PendingCommandStatus do
+      allow_nil? false
+      default :queued
+    end
+
+    attribute :queued_at, :utc_datetime do
+      allow_nil? false
+      default &DateTime.utc_now/0
+    end
+
+    attribute :delivered_at, :utc_datetime
+
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :device, Nixstasis.Devices.Device do
+      allow_nil? false
+    end
   end
 end

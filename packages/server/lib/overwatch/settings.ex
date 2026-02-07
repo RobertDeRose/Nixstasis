@@ -2,28 +2,27 @@ defmodule Nixstasis.Settings do
   @moduledoc """
   Context for system settings.
   """
-  import Ecto.Query, warn: false
-  alias Nixstasis.Repo
-  alias Nixstasis.SystemSetting
+
+  alias Nixstasis.Domain
 
   def get_setting(key, default \\ nil) do
-    case Repo.get_by(SystemSetting, key: key) do
-      nil -> default
-      setting -> setting.value
+    case Domain.get_setting_by_key(key) do
+      {:ok, nil} -> default
+      {:ok, setting} -> setting.value
+      {:error, _} -> default
     end
   end
 
   def put_setting(key, value) do
-    case Repo.get_by(SystemSetting, key: key) do
-      nil ->
-        %SystemSetting{}
-        |> SystemSetting.changeset(%{key: key, value: value})
-        |> Repo.insert()
+    case Domain.get_setting_by_key(key) do
+      {:ok, nil} ->
+        Domain.create_setting(%{key: key, value: value})
 
-      setting ->
-        setting
-        |> SystemSetting.changeset(%{value: value})
-        |> Repo.update()
+      {:ok, setting} ->
+        Domain.update_setting(setting, %{value: value})
+
+      {:error, error} ->
+        {:error, error}
     end
   end
 
