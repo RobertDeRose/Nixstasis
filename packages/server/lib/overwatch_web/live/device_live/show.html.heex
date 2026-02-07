@@ -109,8 +109,7 @@
             </div>
           <% "pcp" -> %>
             <h3 class="font-bold mb-4">Historical Performance Data</h3>
-            <div id="pcp-chart" phx-hook="ApexChart" data-options={Jason.encode!(@pcp_chart)}>
-            </div>
+            <div id="pcp-chart" phx-hook="ApexChart" data-options={Jason.encode!(@pcp_chart)}></div>
           <% "terminal" -> %>
             <%= if @ssh_session_started do %>
               <div

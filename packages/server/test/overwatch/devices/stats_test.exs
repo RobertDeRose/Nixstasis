@@ -28,8 +28,7 @@ defmodule Nixstasis.Devices.StatsTest do
       # We need to hack this slightly or use repo directly as update_last_seen sets to now()
       offline
       |> Ecto.Changeset.change(
-        last_seen_at:
-          DateTime.utc_now() |> DateTime.add(-10, :minute) |> DateTime.truncate(:second)
+        last_seen_at: DateTime.utc_now() |> DateTime.add(-10, :minute) |> DateTime.truncate(:second)
       )
       |> Nixstasis.Repo.update()
 
