@@ -11,17 +11,14 @@
         <.theme_toggle />
       </div>
     </div>
-
-<!-- Main Content -->
+    <!-- Main Content -->
     <main class="flex-1 p-4 md:p-8 pt-6 pb-24 lg:pb-8">
       <.flash_group flash={@flash} />
       {@inner_content}
     </main>
-
-<!-- Bottom Nav (Mobile) -->
+    <!-- Bottom Nav (Mobile) -->
     <.bottom_nav current_path={assigns[:current_path]} />
   </div>
-
-<!-- Sidebar -->
+  <!-- Sidebar -->
   <.sidebar current_path={assigns[:current_path]} />
 </div>

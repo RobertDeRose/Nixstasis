@@ -23,7 +23,7 @@ defmodule NixstasisWeb.DeviceJSON do
       approval_status: device.approval_status,
       last_seen_at: device.last_seen_at,
       schema: device.schema,
-      metadata: device.metadata,
+      metadata: device.metadata
     }
   end
 end
