@@ -61,7 +61,7 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
     device_params =
       device_params
       |> Map.put_new("product_name", "manual-entry")
-      |> Map.put_new("approval_status", "approved")
+      |> Map.put_new("approval_status", :approved)
 
     case Devices.create_device(device_params) do
       {:ok, device} ->

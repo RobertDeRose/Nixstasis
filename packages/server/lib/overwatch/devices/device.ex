@@ -1,18 +1,26 @@
 defmodule Nixstasis.Devices.Device do
+  @moduledoc """
+  The Device schema.
+
+  This schema represents a device in the Nixstasis system, capturing essential
+  attributes such as MAC address, product name, approval status, and metadata.
+  It includes validations to ensure data integrity, such as MAC address formatting
+  and approval status constraints.
+  """
   use Ecto.Schema
   import Ecto.Changeset
+  import Nixstasis.Utilities, only: [format_mac_address: 1]
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "devices" do
     field(:mac_address, :string)
     field(:product_name, :string)
-    field(:approval_status, :string, default: "pending")
-    field(:schema_definition, :map, default: %{})
-    field(:last_seen_at, :utc_datetime)
-    field(:metadata, :map, default: %{})
-    field(:ipv4_address, :string)
     field(:account_number, :string)
+    field(:approval_status, Ecto.Enum, values: [:pending, :approved, :rejected], default: :pending)
+    field(:last_seen_at, :utc_datetime)
+    field(:schema, :map, default: %{})
+    field(:metadata, :map, default: %{})
     field(:remote_access_requested, :boolean, default: false)
 
     timestamps(type: :utc_datetime)
@@ -24,45 +32,18 @@ defmodule Nixstasis.Devices.Device do
     |> cast(attrs, [
       :mac_address,
       :product_name,
-      :approval_status,
-      :schema_definition,
-      :last_seen_at,
-      :metadata,
-      :ipv4_address,
       :account_number,
+      :approval_status,
+      :last_seen_at,
+      :schema,
+      :metadata,
       :remote_access_requested
     ])
     |> validate_required([:mac_address])
-    |> validate_inclusion(:approval_status, ["pending", "approved", "rejected"])
-    |> validate_format(:account_number, ~r/^\d+$/, message: "must contain only digits")
+    |> update_change(:mac_address, &format_mac_address/1)
+    |> validate_format(:mac_address, ~r/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/)
+    |> validate_format(:account_number, ~r/^\d+$/)
+    |> validate_length(:account_number, min: 5)
     |> unique_constraint(:mac_address)
-    |> normalize_mac_address()
-  end
-
-  defp normalize_mac_address(changeset) do
-    case get_change(changeset, :mac_address) do
-      nil ->
-        changeset
-
-      mac ->
-        # Remove all non-alphanumeric chars
-        clean_mac = String.replace(mac, ~r/[^a-fA-F0-9]/, "") |> String.upcase()
-
-        cond do
-          # Basic length check (EUI-48 is 12 hex chars)
-          String.length(clean_mac) == 12 ->
-            formatted_mac =
-              clean_mac
-              |> String.graphemes()
-              |> Enum.chunk_every(2)
-              |> Enum.map(&Enum.join/1)
-              |> Enum.join(":")
-
-            put_change(changeset, :mac_address, formatted_mac)
-
-          true ->
-            add_error(changeset, :mac_address, "is invalid. Must be 12 hex characters.")
-        end
-    end
   end
 end

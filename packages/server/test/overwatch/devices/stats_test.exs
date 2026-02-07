@@ -46,14 +46,14 @@ defmodule Nixstasis.Devices.StatsTest do
         Devices.register_device(%{
           mac_address: "44:44:44:44:44:44",
           product_name: "K",
-          approval_status: "pending"
+          approval_status: :pending
         })
 
       {:ok, _} =
         Devices.register_device(%{
           mac_address: "55:55:55:55:55:55",
           product_name: "K",
-          approval_status: "pending"
+          approval_status: :pending
         })
 
       {:ok, app} =

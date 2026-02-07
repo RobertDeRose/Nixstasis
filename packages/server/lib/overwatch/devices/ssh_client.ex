@@ -1,4 +1,8 @@
 defmodule Nixstasis.Devices.SshClient do
+  @moduledoc """
+  A simple SSH client that connects to a device via an SSH tunnel using SSH command-line tool.
+  It uses Elixir's Port to manage the SSH process and communicate with it.
+  """
   use GenServer
   require Logger
 

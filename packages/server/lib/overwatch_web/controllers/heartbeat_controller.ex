@@ -9,7 +9,7 @@ defmodule NixstasisWeb.HeartbeatController do
     # Phoenix handles 404 for that automatically.
     device = Devices.get_device!(device_id)
 
-    if device.approval_status == "approved" do
+    if device.approval_status == :approved do
       case Monitoring.heartbeat(device, params) do
         {:ok, _device, commands} ->
           render(conn, :show, commands: commands)
