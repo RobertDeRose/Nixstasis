@@ -1,24 +1,50 @@
 defmodule Nixstasis.SystemSetting do
   @moduledoc """
-  Schema for storing system-level configuration values.
+  Resource for storing system-level configuration values.
   """
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    data_layer: AshPostgres.DataLayer,
+    domain: Nixstasis.Domain,
+    extensions: [AshJsonApi.Resource]
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-  schema "system_settings" do
-    field(:key, :string)
-    field(:value, :map)
-
-    timestamps(type: :utc_datetime)
+  postgres do
+    table "system_settings"
+    repo Nixstasis.Repo
   end
 
-  def changeset(setting, attrs) do
-    setting
-    |> cast(attrs, [:key, :value])
-    |> validate_required([:key, :value])
-    |> unique_constraint(:key)
+  json_api do
+    type "system_setting"
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:key, :value]
+    end
+
+    update :update do
+      accept [:value]
+    end
+  end
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :key, :string do
+      allow_nil? false
+    end
+
+    attribute :value, :map do
+      allow_nil? false
+      default %{}
+    end
+
+    timestamps()
+  end
+
+  identities do
+    identity :unique_key, [:key]
   end
 end

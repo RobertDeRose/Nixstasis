@@ -10,7 +10,7 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
         Devices.register_device(%{mac_address: "11:11:11:11:11:11", product_name: "P1"})
 
       {:ok, command} = Devices.queue_command(device, %{"cmd" => "reboot"})
-      assert command.status == "queued"
+      assert command.status == :queued
       assert command.command_payload == %{"cmd" => "reboot"}
     end
 
@@ -33,7 +33,7 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
       # For now assuming we can fetch via repo directly or add helper
       # But since test uses DataCase, we can use Repo
       alias Nixstasis.Repo
-      assert Repo.get!(PendingCommand, c1.id).status == "delivered"
+      assert Repo.get!(PendingCommand, c1.id).status == :delivered
     end
   end
 end

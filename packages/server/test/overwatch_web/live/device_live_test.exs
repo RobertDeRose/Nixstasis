@@ -4,10 +4,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias Nixstasis.Devices
 
   @create_attrs %{
-    name: "Test Device",
     mac_address: "AA:BB:CC:DD:EE:FF",
     account_number: "123456789",
-    firmware_version: "1.0.0",
     approval_status: :approved,
     product_name: "PROD-123"
   }

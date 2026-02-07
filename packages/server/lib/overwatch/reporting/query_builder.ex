@@ -4,6 +4,8 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   """
 
   import Ecto.Query
+
+  alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
 
   def build(config) do
@@ -17,7 +19,9 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp base_query("telemetry") do
-    from(t in Telemetry, as: :telemetry)
+    Telemetry
+    |> AshPostgres.DataLayer.resource_to_query(Domain)
+    |> then(fn query -> from(t in query) end)
   end
 
   defp select_fields(query, fields) do

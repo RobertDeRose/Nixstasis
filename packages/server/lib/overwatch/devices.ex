@@ -3,9 +3,9 @@ defmodule Nixstasis.Devices do
   The Devices context.
   """
 
-  import Ecto.Query, warn: false
-  alias Nixstasis.Repo
+  require Ash.Query
 
+  alias Nixstasis.Domain
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
@@ -14,7 +14,8 @@ defmodule Nixstasis.Devices do
   Counts all devices.
   """
   def count_all do
-    Repo.aggregate(Device, :count, :id)
+    Device
+    |> Ash.count!(domain: Domain)
   end
 
   @doc """
@@ -25,16 +26,16 @@ defmodule Nixstasis.Devices do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
-    |> where([d], d.last_seen_at >= ^threshold)
-    |> Repo.aggregate(:count, :id)
+    |> Ash.Query.filter(last_seen_at >= ^threshold)
+    |> Ash.count!(domain: Domain)
   end
 
   def count_by_status(:offline) do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
-    |> where([d], d.last_seen_at < ^threshold or is_nil(d.last_seen_at))
-    |> Repo.aggregate(:count, :id)
+    |> Ash.Query.filter(last_seen_at < ^threshold or is_nil(last_seen_at))
+    |> Ash.count!(domain: Domain)
   end
 
   @doc """
@@ -42,53 +43,46 @@ defmodule Nixstasis.Devices do
   """
   def count_pending_approvals do
     Device
-    |> where([d], d.approval_status == :pending)
-    |> Repo.aggregate(:count, :id)
+    |> Ash.Query.filter(approval_status == :pending)
+    |> Ash.count!(domain: Domain)
   end
 
   @doc """
   Registers a device.
   """
   def register_device(attrs) do
-    # Prevent device from setting its own status
     safe_attrs =
       if is_map(attrs) do
         attrs
         |> Map.delete("approval_status")
         |> Map.delete(:approval_status)
+        |> Map.delete("schema_definition")
+        |> Map.delete(:schema_definition)
       else
         attrs
       end
 
-    schema_def = safe_attrs["schema_definition"] || safe_attrs[:schema_definition] || %{}
-    mac = safe_attrs["mac_address"] || safe_attrs[:mac_address]
+    schema_def =
+      if is_map(attrs) do
+        attrs["schema_definition"] || attrs[:schema_definition] || %{}
+      else
+        %{}
+      end
 
     case SchemaValidator.validate(schema_def) do
       :ok ->
-        case Repo.get_by(Device, mac_address: mac) do
-          nil ->
-            %Device{}
-            |> Device.changeset(safe_attrs)
-            |> Repo.insert()
-
-          %Device{} = device ->
-            device
-            |> Device.changeset(safe_attrs)
-            |> Repo.update()
-        end
+        Domain.register_device(safe_attrs)
 
       {:error, msg} ->
-        %Device{}
-        |> Device.changeset(safe_attrs)
-        |> Ecto.Changeset.add_error(:schema_definition, msg)
-        |> then(&{:error, &1})
+        {:error,
+         Ash.Error.Invalid.exception(
+           errors: [Ash.Error.Changes.InvalidAttribute.exception(field: :schema_definition, message: msg)]
+         )}
     end
   end
 
   def update_last_seen(%Device{} = device) do
-    device
-    |> Device.changeset(%{last_seen_at: DateTime.utc_now()})
-    |> Repo.update()
+    Domain.update_device(device, %{last_seen_at: DateTime.utc_now()})
   end
 
   @doc """
@@ -96,17 +90,15 @@ defmodule Nixstasis.Devices do
   """
   def list_pending_devices do
     Device
-    |> where([d], d.approval_status == :pending)
-    |> Repo.all()
+    |> Ash.Query.filter(approval_status == :pending)
+    |> Ash.read!(domain: Domain)
   end
 
   @doc """
   Approves a device.
   """
   def approve_device(%Device{} = device) do
-    device
-    |> Device.changeset(%{approval_status: :approved})
-    |> Repo.update()
+    Domain.update_device(device, %{approval_status: :approved})
   end
 
   @doc """
@@ -117,12 +109,6 @@ defmodule Nixstasis.Devices do
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
     * `:filter` - A map of filters (e.g., `%{status: :pending}`).
     * `:search` - A search string for mac_address or account_number.
-
-  ## Examples
-
-      iex> list_devices()
-      [%Device{}, ...]
-
   """
   def list_devices(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :inserted_at)
@@ -133,165 +119,131 @@ defmodule Nixstasis.Devices do
     Device
     |> filter_by_status(filter[:status])
     |> search_devices(search)
-    |> order_by([d], {^sort_order, field(d, ^sort_by)})
-    |> Repo.all()
+    |> Ash.Query.sort([{sort_by, sort_order}])
+    |> Ash.read!(domain: Domain)
   end
 
   @doc """
   Check if a device is requesting remote access by MAC address.
   """
   def requesting_remote_access?(mac) do
-    case Repo.get_by(Device, mac_address: mac) do
-      nil -> false
-      device -> device.remote_access_requested
+    case Domain.get_device_by_mac(mac) do
+      {:ok, nil} -> false
+      {:ok, device} -> device.remote_access_requested
+      {:error, _} -> false
     end
   end
 
   defp filter_by_status(query, nil), do: query
 
   defp filter_by_status(query, status) do
-    where(query, [d], d.approval_status == ^status)
+    Ash.Query.filter(query, approval_status == ^status)
   end
 
   defp search_devices(query, nil), do: query
 
   defp search_devices(query, term) do
-    term = "%#{term}%"
-    where(query, [d], ilike(d.mac_address, ^term) or ilike(d.account_number, ^term))
+    term = String.trim(to_string(term))
+
+    if term == "" do
+      query
+    else
+      Ash.Query.filter(query, contains(mac_address, ^term) or contains(account_number, ^term))
+    end
   end
 
   @doc """
   Approves multiple devices by ID.
   """
   def approve_devices(ids) when is_list(ids) do
-    from(d in Device, where: d.id in ^ids)
-    |> Repo.update_all(set: [approval_status: :approved, updated_at: DateTime.utc_now()])
+    Device
+    |> Ash.Query.filter(id in ^ids)
+    |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
   end
 
   @doc """
   Rejects multiple devices by ID.
   """
   def reject_devices(ids) when is_list(ids) do
-    from(d in Device, where: d.id in ^ids)
-    |> Repo.update_all(set: [approval_status: :rejected, updated_at: DateTime.utc_now()])
+    Device
+    |> Ash.Query.filter(id in ^ids)
+    |> Ash.bulk_update!(:update, %{approval_status: :rejected}, domain: Domain, strategy: :stream)
   end
 
   @doc """
   Sets the remote_access_requested flag.
   """
   def set_remote_access(%Device{} = device, requested?) do
-    device
-    |> Device.changeset(%{remote_access_requested: requested?})
-    |> Repo.update()
+    Domain.update_device(device, %{remote_access_requested: requested?})
   end
 
   @doc """
   Gets a single device.
 
-  Raises `Ecto.NoResultsError` if the Device does not exist.
-
-  ## Examples
-
-      iex> get_device!(123)
-      %Device{}
-
-      iex> get_device!(456)
-      ** (Ecto.NoResultsError)
-
+  Raises `Ash.Error.Invalid` if the Device does not exist.
   """
-  def get_device!(id), do: Repo.get!(Device, id)
+  def get_device!(id), do: Domain.get_device!(id)
 
   @doc """
   Creates a device.
-
-  ## Examples
-
-      iex> create_device(%{field: value})
-      {:ok, %Device{}}
-
-      iex> create_device(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
   """
   def create_device(attrs \\ %{}) do
-    %Device{}
-    |> Device.changeset(attrs)
-    |> Repo.insert()
+    Domain.create_device(attrs)
   end
 
   @doc """
   Updates a device.
-
-  ## Examples
-
-      iex> update_device(device, %{field: new_value})
-      {:ok, %Device{}}
-
-      iex> update_device(device, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
   """
   def update_device(%Device{} = device, attrs) do
-    device
-    |> Device.changeset(attrs)
-    |> Repo.update()
+    Domain.update_device(device, attrs)
   end
 
   @doc """
   Deletes a device.
-
-  ## Examples
-
-      iex> delete_device(device)
-      {:ok, %Device{}}
-
-      iex> delete_device(device)
-      {:error, %Ecto.Changeset{}}
-
   """
   def delete_device(%Device{} = device) do
-    Repo.delete(device)
+    Domain.destroy_device(device)
   end
 
   @doc """
-  Returns an `%Ecto.Changeset{}` for tracking device changes.
-
-  ## Examples
-
-      iex> change_device(device)
-      %Ecto.Changeset{data: %Device{}}
-
+  Returns an AshPhoenix form for tracking device changes.
   """
-  def change_device(%Device{} = device, attrs \\ %{}) do
-    Device.changeset(device, attrs)
+  def change_device(device, attrs \\ %{})
+
+  def change_device(%Device{id: nil} = _device, attrs) do
+    Device
+    |> AshPhoenix.Form.for_create(:create, domain: Domain, params: attrs)
+  end
+
+  def change_device(%Device{} = device, attrs) do
+    device
+    |> AshPhoenix.Form.for_update(:update, domain: Domain, params: attrs)
   end
 
   def queue_command(%Device{} = device, payload) do
-    %PendingCommand{}
-    |> PendingCommand.changeset(%{
+    Domain.create_pending_command(%{
       device_id: device.id,
       command_payload: payload,
-      status: "queued",
+      status: :queued,
       queued_at: DateTime.utc_now()
     })
-    |> Repo.insert()
   end
 
   def pop_pending_commands(%Device{} = device) do
-    Repo.transaction(fn ->
+    Ash.transaction(PendingCommand, fn ->
       query =
-        from(c in PendingCommand,
-          where: c.device_id == ^device.id and c.status == "queued",
-          lock: "FOR UPDATE SKIP LOCKED"
-        )
+        PendingCommand
+        |> Ash.Query.filter(device_id == ^device.id and status == :queued)
 
-      commands = Repo.all(query)
-
-      now = DateTime.utc_now()
+      commands = Ash.read!(query, domain: Domain)
 
       if commands != [] do
-        from(c in PendingCommand, where: c.id in ^Enum.map(commands, & &1.id))
-        |> Repo.update_all(set: [status: "delivered", delivered_at: now])
+        ids = Enum.map(commands, & &1.id)
+        now = DateTime.utc_now()
+
+        PendingCommand
+        |> Ash.Query.filter(id in ^ids)
+        |> Ash.bulk_update!(:update, %{status: :delivered, delivered_at: now}, domain: Domain)
       end
 
       commands

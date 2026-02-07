@@ -4,16 +4,13 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   alias Nixstasis.Reporting
 
   @impl true
-  def update(%{report: report} = assigns, socket) do
-    changeset = Reporting.change_custom_report(report)
-
+  def update(%{report: _report} = assigns, socket) do
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:report_name, "")
      |> assign(:fields, [%{id: Ecto.UUID.generate(), path: "", alias: ""}])
-     |> assign(:filters, [])
-     |> assign(:changeset, changeset)}
+     |> assign(:filters, [])}
   end
 
   @impl true
@@ -83,8 +80,11 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
          |> put_flash(:info, "Report created successfully")
          |> push_patch(to: socket.assigns.patch)}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+      {:error, %Ash.Error.Invalid{}} ->
+        {:noreply, put_flash(socket, :error, "Unable to save report")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Unable to save report")}
     end
   end
 
