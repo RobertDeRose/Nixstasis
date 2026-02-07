@@ -42,7 +42,7 @@ defmodule Nixstasis.Devices do
   """
   def count_pending_approvals do
     Device
-    |> where([d], d.approval_status == "pending")
+    |> where([d], d.approval_status == :pending)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -95,7 +95,7 @@ defmodule Nixstasis.Devices do
   """
   def list_pending_devices do
     Device
-    |> where([d], d.approval_status == "pending")
+    |> where([d], d.approval_status == :pending)
     |> Repo.all()
   end
 
@@ -104,7 +104,7 @@ defmodule Nixstasis.Devices do
   """
   def approve_device(%Device{} = device) do
     device
-    |> Device.changeset(%{approval_status: "approved"})
+    |> Device.changeset(%{approval_status: :approved})
     |> Repo.update()
   end
 
@@ -114,7 +114,7 @@ defmodule Nixstasis.Devices do
   ## Options
     * `:sort_by` - The field to sort by. Defaults to `:inserted_at`.
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
-    * `:filter` - A map of filters (e.g., `%{status: "pending"}`).
+    * `:filter` - A map of filters (e.g., `%{status: :pending}`).
     * `:search` - A search string for mac_address or account_number.
 
   ## Examples
@@ -154,7 +154,7 @@ defmodule Nixstasis.Devices do
   """
   def approve_devices(ids) when is_list(ids) do
     from(d in Device, where: d.id in ^ids)
-    |> Repo.update_all(set: [approval_status: "approved", updated_at: DateTime.utc_now()])
+    |> Repo.update_all(set: [approval_status: :approved, updated_at: DateTime.utc_now()])
   end
 
   @doc """
@@ -162,7 +162,7 @@ defmodule Nixstasis.Devices do
   """
   def reject_devices(ids) when is_list(ids) do
     from(d in Device, where: d.id in ^ids)
-    |> Repo.update_all(set: [approval_status: "rejected", updated_at: DateTime.utc_now()])
+    |> Repo.update_all(set: [approval_status: :rejected, updated_at: DateTime.utc_now()])
   end
 
   @doc """

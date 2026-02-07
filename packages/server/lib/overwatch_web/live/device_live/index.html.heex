@@ -14,20 +14,20 @@
       </.form>
       <div class="join">
         <.link
-          patch={~p"/devices?#{%{status: "approved"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "approved" && "btn-active"}"}
+          patch={~p"/devices?#{%{status: :approved}}"}
+          class={"btn btn-sm join-item #{@filter_status == :approved && "btn-active"}"}
         >
           Approved
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: "pending"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "pending" && "btn-active"}"}
+          patch={~p"/devices?#{%{status: :pending}}"}
+          class={"btn btn-sm join-item #{@filter_status == :pending && "btn-active"}"}
         >
           Pending
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: "rejected"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "rejected" && "btn-active"}"}
+          patch={~p"/devices?#{%{status: :rejected}}"}
+          class={"btn btn-sm join-item #{@filter_status == :rejected && "btn-active"}"}
         >
           Rejected
         </.link>
@@ -77,13 +77,6 @@
           </th>
           <th
             phx-click="sort"
-            phx-value-sort_by="ipv4_address"
-            class="cursor-pointer hover:text-primary"
-          >
-            IPv4 {if @sort_by == :ipv4_address, do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
-          <th
-            phx-click="sort"
             phx-value-sort_by="account_number"
             class="cursor-pointer hover:text-primary"
           >
@@ -127,12 +120,11 @@
               </span>
             <% end %>
           </td>
-          <td class="font-mono">{device.ipv4_address || "N/A"}</td>
           <td class="font-mono">{device.account_number || "N/A"}</td>
           <td>
             <div class={"badge badge-soft w-24 #{case device.approval_status do
-              "approved" -> "badge-success"
-              "rejected" -> "badge-error"
+              :approved -> "badge-success"
+              :rejected -> "badge-error"
               _ -> "badge-warning"
             end}"}>
               {device.approval_status}

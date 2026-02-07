@@ -11,7 +11,7 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
         "mac_address" => "AA:BB:CC:DD:EE:01",
         "product_name" => "sensor-v1",
         "firmware_version" => "1.0.0",
-        "schema_definition" => %{"type" => "object"}
+        "schema" => %{"type" => "object"}
       })
 
     # Manually insert telemetry to bypass context helpers if needed, or use Repo

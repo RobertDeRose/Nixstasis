@@ -18,7 +18,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_params(params, _url, socket) do
     sort_by = safe_to_existing_atom(params["sort_by"] || "inserted_at", :inserted_at)
     sort_order = safe_to_existing_atom(params["sort_order"] || "desc", :desc)
-    filter_status = if params["status"] == "", do: nil, else: params["status"] || "approved"
+    filter_status = if params["status"] == "", do: nil, else: params["status"] || :approved
     search = params["search"]
 
     opts = [
