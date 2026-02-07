@@ -11,7 +11,8 @@ defmodule Nixstasis.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      consolidate_protocols: Mix.env() != :dev
     ]
   end
 
@@ -40,6 +41,16 @@ defmodule Nixstasis.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:sourceror, "~> 1.8", only: [:dev, :test]},
+      {:open_api_spex, "~> 3.0"},
+      {:usage_rules, "~> 0.1", only: [:dev]},
+      {:live_debugger, "~> 0.6", only: [:dev]},
+      {:ash_state_machine, "~> 0.2"},
+      {:ash_admin, "~> 0.13"},
+      {:ash_postgres, "~> 2.0"},
+      {:ash_json_api, "~> 1.0"},
+      {:ash_phoenix, "~> 2.0"},
+      {:ash, "~> 3.0"},
       {:bandit, "~> 1.5"},
       {:dns_cluster, "~> 0.2"},
       {:ecto_psql_extras, "~> 0.6"},
@@ -62,7 +73,8 @@ defmodule Nixstasis.MixProject do
        github: "tailwindlabs/heroicons", tag: "v2.2.0", sparse: "optimized", app: false, compile: false, depth: 1},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:igniter, "~> 0.7.2", only: :dev, runtime: false}
     ]
   end
 
@@ -74,10 +86,10 @@ defmodule Nixstasis.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
+      setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      test: ["ash.setup --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind nixstasis", "esbuild nixstasis"],
       "assets.deploy": [
