@@ -38,6 +38,7 @@ defmodule NixstasisWeb.Router do
 
     post("/devices/register", DeviceController, :register)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
+    get("/check_domain", TLSController, :check_domain)
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

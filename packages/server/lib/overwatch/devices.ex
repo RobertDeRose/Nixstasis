@@ -136,6 +136,16 @@ defmodule Nixstasis.Devices do
     |> Repo.all()
   end
 
+  @doc """
+  Check if a device is requesting remote access by MAC address.
+  """
+  def requesting_remote_access?(mac) do
+    case Repo.get_by(Device, mac_address: mac) do
+      nil -> false
+      device -> device.remote_access_requested
+    end
+  end
+
   defp filter_by_status(query, nil), do: query
 
   defp filter_by_status(query, status) do
