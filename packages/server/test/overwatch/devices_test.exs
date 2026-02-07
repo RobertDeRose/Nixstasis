@@ -17,7 +17,8 @@ defmodule Nixstasis.DevicesTest do
 
     test "list_devices/0 returns all devices" do
       device = device_fixture()
-      assert Devices.list_devices() == [device]
+      assert [result] = Devices.list_devices()
+      assert result.id == device.id
     end
 
     test "list_devices/1 filters by approval_status" do
@@ -65,7 +66,7 @@ defmodule Nixstasis.DevicesTest do
           approval_status: :pending
         })
 
-      assert {2, nil} = Devices.approve_devices([d1.id, d2.id])
+      Devices.approve_devices([d1.id, d2.id])
 
       assert Devices.get_device!(d1.id).approval_status == :approved
       assert Devices.get_device!(d2.id).approval_status == :approved
@@ -86,7 +87,7 @@ defmodule Nixstasis.DevicesTest do
           approval_status: :pending
         })
 
-      assert {2, nil} = Devices.reject_devices([d1.id, d2.id])
+      Devices.reject_devices([d1.id, d2.id])
 
       assert Devices.get_device!(d1.id).approval_status == :rejected
       assert Devices.get_device!(d2.id).approval_status == :rejected

@@ -30,15 +30,13 @@ defmodule Nixstasis.Monitoring.AlertWorkerTest do
         })
 
       # Check with 5 min window
-      {count, _} = Monitoring.check_offline_devices(window_minutes: 5)
-
-      assert count == 1
+      Monitoring.check_offline_devices(window_minutes: 5)
 
       # Verify Alert
       assert [alert] = Repo.all(Alert)
       assert alert.device_id == offline.id
-      assert alert.type == "offline"
-      assert alert.status == "active"
+      assert alert.type == :offline
+      assert alert.status == :active
     end
 
     test "check_offline_devices/1 does not duplicate active alerts" do

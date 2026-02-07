@@ -1,22 +1,45 @@
 defmodule Nixstasis.Reporting.CustomReport do
   @moduledoc """
-  Schema for persisted custom report definitions.
+  Resource for persisted custom report definitions.
   """
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Ash.Resource,
+    data_layer: AshPostgres.DataLayer,
+    domain: Nixstasis.Domain,
+    extensions: [AshJsonApi.Resource]
 
-  schema "custom_reports" do
-    field(:name, :string)
-    field(:config, :map)
-
-    timestamps(type: :utc_datetime)
+  postgres do
+    table "custom_reports"
+    repo Nixstasis.Repo
   end
 
-  @doc false
-  def changeset(custom_report, attrs) do
-    custom_report
-    |> cast(attrs, [:name, :config])
-    |> validate_required([:name, :config])
+  json_api do
+    type "custom_report"
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:name, :config]
+    end
+
+    update :update do
+      accept [:name, :config]
+    end
+  end
+
+  attributes do
+    integer_primary_key :id
+
+    attribute :name, :string do
+      allow_nil? false
+    end
+
+    attribute :config, :map do
+      allow_nil? false
+    end
+
+    timestamps()
   end
 end

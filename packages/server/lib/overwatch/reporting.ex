@@ -2,33 +2,37 @@ defmodule Nixstasis.Reporting do
   @moduledoc """
   The Reporting context.
   """
-  import Ecto.Query, warn: false
-  alias Nixstasis.Repo
+
+  alias Nixstasis.Domain
   alias Nixstasis.Reporting.CustomReport
 
   def list_custom_reports do
-    Repo.all(CustomReport)
+    Domain.list_custom_reports!()
   end
 
-  def get_custom_report!(id), do: Repo.get!(CustomReport, id)
+  def get_custom_report!(id), do: Domain.get_custom_report!(id)
 
   def create_custom_report(attrs \\ %{}) do
-    %CustomReport{}
-    |> CustomReport.changeset(attrs)
-    |> Repo.insert()
+    Domain.create_custom_report(attrs)
   end
 
   def update_custom_report(%CustomReport{} = report, attrs) do
-    report
-    |> CustomReport.changeset(attrs)
-    |> Repo.update()
+    Domain.update_custom_report(report, attrs)
   end
 
   def delete_custom_report(%CustomReport{} = report) do
-    Repo.delete(report)
+    Domain.destroy_custom_report(report)
   end
 
-  def change_custom_report(%CustomReport{} = report, attrs \\ %{}) do
-    CustomReport.changeset(report, attrs)
+  def change_custom_report(report, attrs \\ %{})
+
+  def change_custom_report(%CustomReport{id: nil}, attrs) do
+    CustomReport
+    |> AshPhoenix.Form.for_create(:create, domain: Domain, params: attrs)
+  end
+
+  def change_custom_report(%CustomReport{} = report, attrs) do
+    report
+    |> AshPhoenix.Form.for_update(:update, domain: Domain, params: attrs)
   end
 end

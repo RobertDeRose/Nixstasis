@@ -16,6 +16,7 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
 
       <.simple_form
         for={@form}
+        as={:device}
         id="device-form"
         phx-target={@myself}
         phx-change="validate"
@@ -34,25 +35,23 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
 
   @impl true
   def update(%{device: device} = assigns, socket) do
-    changeset = Devices.change_device(device)
+    form = Devices.change_device(device)
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign_form(changeset)}
+     |> assign_form(form)}
   end
 
   @impl true
-  def handle_event("validate", %{"device" => device_params}, socket) do
-    changeset =
-      socket.assigns.device
-      |> Devices.change_device(device_params)
-      |> Map.put(:action, :validate)
-
-    {:noreply, assign_form(socket, changeset)}
+  def handle_event("validate", params, socket) do
+    device_params = params["device"] || params["form"] || %{}
+    form = AshPhoenix.Form.validate(socket.assigns.form, device_params)
+    {:noreply, assign_form(socket, form)}
   end
 
-  def handle_event("save", %{"device" => device_params}, socket) do
+  def handle_event("save", params, socket) do
+    device_params = params["device"] || params["form"] || %{}
     save_device(socket, socket.assigns.action, device_params)
   end
 
@@ -61,9 +60,9 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
     device_params =
       device_params
       |> Map.put_new("product_name", "manual-entry")
-      |> Map.put_new("approval_status", :approved)
+      |> Map.put_new("approval_status", "approved")
 
-    case Devices.create_device(device_params) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: device_params) do
       {:ok, device} ->
         notify_parent({:saved, device})
 
@@ -72,13 +71,17 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
          |> put_flash(:info, "Device created successfully")
          |> push_patch(to: socket.assigns.patch)}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+      {:error, form} ->
+        {:noreply, assign_form(socket, form)}
     end
   end
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
+  defp assign_form(socket, %Phoenix.HTML.Form{} = form) do
+    assign(socket, :form, form)
+  end
+
+  defp assign_form(socket, form) do
+    assign(socket, :form, to_form(form))
   end
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})

@@ -45,3 +45,6 @@ Thumbs.db
 
 # Opencode
 .opencode
+
+# chunkhound
+.chunkhound*

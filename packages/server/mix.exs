@@ -43,6 +43,7 @@ defmodule Nixstasis.MixProject do
     [
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:open_api_spex, "~> 3.0"},
+      {:ymlr, "~> 5.0"},
       {:usage_rules, "~> 0.1", only: [:dev]},
       {:live_debugger, "~> 0.6", only: [:dev]},
       {:ash_state_machine, "~> 0.2"},
@@ -96,6 +97,9 @@ defmodule Nixstasis.MixProject do
         "tailwind nixstasis --minify",
         "esbuild nixstasis --minify",
         "phx.digest"
+      ],
+      "openapi.generate": [
+        "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiRouter --filename priv/static/openapi.yaml"
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]

@@ -1,36 +1,32 @@
 defmodule Nixstasis.Devices.DeviceTest do
   use Nixstasis.DataCase
 
-  alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices
 
   describe "device validation" do
     test "validates required fields" do
-      changeset = Device.changeset(%Device{}, %{})
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).mac_address
+      assert {:error, %Ash.Error.Invalid{errors: errors}} = Devices.create_device(%{})
+      assert Enum.any?(errors, fn error -> Map.get(error, :field) == :mac_address end)
     end
 
     test "validates approval_status inclusion" do
-      changeset =
-        Device.changeset(%Device{}, %{
-          mac_address: "11:11:11:11:11:11",
-          product_name: "key",
-          approval_status: "invalid"
-        })
+      assert {:error, %Ash.Error.Invalid{errors: errors}} =
+               Devices.create_device(%{
+                 mac_address: "11:11:11:11:11:11",
+                 product_name: "key",
+                 approval_status: "invalid"
+               })
 
-      refute changeset.valid?
-      assert "is invalid" in errors_on(changeset).approval_status
+      assert Enum.any?(errors, fn error -> Map.get(error, :field) == :approval_status end)
     end
 
     test "valid device" do
-      changeset =
-        Device.changeset(%Device{}, %{
-          mac_address: "11:11:11:11:11:11",
-          product_name: "key",
-          approval_status: :pending
-        })
-
-      assert changeset.valid?
+      assert {:ok, _device} =
+               Devices.create_device(%{
+                 mac_address: "11:11:11:11:11:11",
+                 product_name: "key",
+                 approval_status: :pending
+               })
     end
 
     test "accepts new fields" do
@@ -41,10 +37,9 @@ defmodule Nixstasis.Devices.DeviceTest do
         remote_access_requested: true
       }
 
-      changeset = Device.changeset(%Device{}, attrs)
-      assert changeset.valid?
-      assert get_field(changeset, :account_number) == "12345"
-      assert get_field(changeset, :remote_access_requested) == true
+      assert {:ok, device} = Devices.create_device(attrs)
+      assert device.account_number == "12345"
+      assert device.remote_access_requested == true
     end
   end
 end

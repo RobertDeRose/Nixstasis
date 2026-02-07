@@ -1,46 +1,53 @@
 defmodule NixstasisWeb.AlertLive.Rules do
   use NixstasisWeb, :live_view
-  alias Nixstasis.Monitoring
+
+  alias Nixstasis.Domain
   alias Nixstasis.Monitoring.AlertRule
 
   def mount(_params, _session, socket) do
+    form =
+      AlertRule
+      |> AshPhoenix.Form.for_create(:create, domain: Domain)
+      |> to_form()
+
     {:ok,
      socket
-     |> assign(:rules, Monitoring.list_rules())
-     |> assign(:form, to_form(Monitoring.AlertRule.changeset(%Monitoring.AlertRule{}, %{})))}
+     |> assign(:rules, Domain.list_rules!())
+     |> assign(:form, form)}
   end
 
   def handle_event("save", %{"alert_rule" => rule_params}, socket) do
-    case Monitoring.create_rule(rule_params) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: rule_params) do
       {:ok, _rule} ->
+        form =
+          AlertRule
+          |> AshPhoenix.Form.for_create(:create, domain: Domain)
+          |> to_form()
+
         {:noreply,
          socket
          |> put_flash(:info, "Rule created successfully")
-         |> assign(:rules, Monitoring.list_rules())
-         |> assign(:form, to_form(Monitoring.AlertRule.changeset(%Monitoring.AlertRule{}, %{})))}
+         |> assign(:rules, Domain.list_rules!())
+         |> assign(:form, form)}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset))}
+      {:error, form} ->
+        {:noreply, assign(socket, :form, form)}
     end
   end
 
   def handle_event("validate", %{"alert_rule" => rule_params}, socket) do
-    changeset =
-      %AlertRule{}
-      |> AlertRule.changeset(rule_params)
-      |> Map.put(:action, :validate)
-
-    {:noreply, assign(socket, :form, to_form(changeset))}
+    form = AshPhoenix.Form.validate(socket.assigns.form, rule_params)
+    {:noreply, assign(socket, :form, form)}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    rule = Monitoring.get_rule!(id)
-    {:ok, _} = Monitoring.delete_rule(rule)
+    rule = Domain.get_rule!(id)
+    {:ok, _} = Domain.destroy_rule(rule)
 
     {:noreply,
      socket
      |> put_flash(:info, "Rule deleted")
-     |> assign(:rules, Monitoring.list_rules())}
+     |> assign(:rules, Domain.list_rules!())}
   end
 
   def render(assigns) do
@@ -59,7 +66,7 @@ defmodule NixstasisWeb.AlertLive.Rules do
       <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
           <h2 class="card-title">Create New Rule</h2>
-          <.simple_form for={@form} phx-change="validate" phx-submit="save">
+          <.simple_form for={@form} as={:alert_rule} phx-change="validate" phx-submit="save">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <.input
                 field={@form[:product_name]}

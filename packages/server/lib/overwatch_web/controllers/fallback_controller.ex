@@ -1,12 +1,19 @@
 defmodule NixstasisWeb.FallbackController do
   use NixstasisWeb, :controller
 
-  # This clause handles errors returned by Ecto's insert/update/delete.
-  def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
+  # This clause handles errors returned by Ash actions.
+  def call(conn, {:error, %Ash.Error.Invalid{} = error}) do
     conn
     |> put_status(:unprocessable_entity)
     |> put_view(json: NixstasisWeb.ErrorJSON)
-    |> render("error.json", changeset: changeset)
+    |> render("error.json", error: error)
+  end
+
+  def call(conn, {:error, %Ash.Error.Forbidden{}}) do
+    conn
+    |> put_status(:forbidden)
+    |> put_view(json: NixstasisWeb.ErrorJSON)
+    |> render("403.json")
   end
 
   # This clause is an example of how to handle resources that cannot be found.
