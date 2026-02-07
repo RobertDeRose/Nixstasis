@@ -1,4 +1,8 @@
 defmodule Nixstasis.Reporting.CustomReport do
+  @moduledoc """
+  Schema for persisted custom report definitions.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

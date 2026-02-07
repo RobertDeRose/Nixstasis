@@ -1,4 +1,8 @@
 defmodule NixstasisWeb.Plugs.RateLimiter do
+  @moduledoc """
+  Placeholder rate limiter plug for API requests.
+  """
+
   # import Plug.Conn
 
   def init(opts), do: opts

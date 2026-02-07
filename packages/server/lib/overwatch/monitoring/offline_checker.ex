@@ -1,4 +1,8 @@
 defmodule Nixstasis.Monitoring.OfflineChecker do
+  @moduledoc """
+  Periodically checks for devices that have gone offline.
+  """
+
   use GenServer
   alias Nixstasis.Monitoring
 

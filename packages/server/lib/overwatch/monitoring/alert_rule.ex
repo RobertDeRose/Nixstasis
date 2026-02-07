@@ -1,4 +1,8 @@
 defmodule Nixstasis.Monitoring.AlertRule do
+  @moduledoc """
+  Schema for telemetry alert rules.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
