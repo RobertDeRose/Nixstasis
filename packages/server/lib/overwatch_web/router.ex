@@ -14,6 +14,14 @@ defmodule NixstasisWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  scope "/api/json" do
+    pipe_through [:api]
+
+    forward "/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/api/json/open_api", default_model_expand_depth: 4
+
+    forward "/", NixstasisWeb.AshJsonApiRouter
+  end
+
   scope "/", NixstasisWeb do
     pipe_through(:browser)
 
@@ -61,6 +69,16 @@ defmodule NixstasisWeb.Router do
       )
 
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
+    end
+  end
+
+  if Application.compile_env(:nixstasis, :dev_routes) do
+    import AshAdmin.Router
+
+    scope "/admin" do
+      pipe_through :browser
+
+      ash_admin "/"
     end
   end
 end
