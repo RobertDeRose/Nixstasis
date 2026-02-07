@@ -1,4 +1,8 @@
 defmodule Nixstasis.Devices.PendingCommand do
+  @moduledoc """
+  Schema for queued device commands awaiting delivery.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

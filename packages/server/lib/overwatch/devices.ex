@@ -63,19 +63,20 @@ defmodule Nixstasis.Devices do
     schema_def = safe_attrs["schema_definition"] || safe_attrs[:schema_definition] || %{}
     mac = safe_attrs["mac_address"] || safe_attrs[:mac_address]
 
-    with :ok <- SchemaValidator.validate(schema_def) do
-      case Repo.get_by(Device, mac_address: mac) do
-        nil ->
-          %Device{}
-          |> Device.changeset(safe_attrs)
-          |> Repo.insert()
+    case SchemaValidator.validate(schema_def) do
+      :ok ->
+        case Repo.get_by(Device, mac_address: mac) do
+          nil ->
+            %Device{}
+            |> Device.changeset(safe_attrs)
+            |> Repo.insert()
 
-        %Device{} = device ->
-          device
-          |> Device.changeset(safe_attrs)
-          |> Repo.update()
-      end
-    else
+          %Device{} = device ->
+            device
+            |> Device.changeset(safe_attrs)
+            |> Repo.update()
+        end
+
       {:error, msg} ->
         %Device{}
         |> Device.changeset(safe_attrs)

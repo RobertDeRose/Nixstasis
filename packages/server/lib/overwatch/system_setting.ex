@@ -1,4 +1,8 @@
 defmodule Nixstasis.SystemSetting do
+  @moduledoc """
+  Schema for storing system-level configuration values.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
