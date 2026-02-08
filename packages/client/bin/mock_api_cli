@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required" >&2
+  exit 1
+fi
+
+URL="${MOCK_API_URL:-http://localhost:4000}"
+DEVICE_FILE="/etc/nixstasis/id"
+MAX_INLINE_SIZE=$((100 * 1024))
+
+usage() {
+  cat <<'USAGE'
+Usage: mock_api_cli <command> [options]
+
+Global options:
+  --url URL            Base URL (default: $MOCK_API_URL or http://localhost:4000)
+
+Commands:
+  list-endpoints
+  register
+  commands -c <command[,args][,file]> [-c <command[,args][,file]> ...]
+  command-results
+  telemetry
+  payload-put <file>
+
+Notes:
+  - Device UUID is read from /etc/nixstasis/id (or MOCK_API_DEVICE).
+  - All JSON responses are piped through jq.
+  - For commands, args may be a ';' separated list.
+  - If file size > 100KiB, a payload ref is created automatically.
+USAGE
+}
+
+resolve_device() {
+  if [[ -n "${MOCK_API_DEVICE:-}" ]]; then
+    echo "${MOCK_API_DEVICE}"
+    return
+  fi
+  if [[ ! -f "${DEVICE_FILE}" ]]; then
+    echo "device UUID not found at ${DEVICE_FILE} (set MOCK_API_DEVICE)" >&2
+    exit 1
+  fi
+  local uuid
+  uuid="$(cat "${DEVICE_FILE}")"
+  if [[ -z "$uuid" ]]; then
+    echo "device UUID file is empty: ${DEVICE_FILE}" >&2
+    exit 1
+  fi
+  echo "$uuid"
+}
+
+parse_globals() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --url)
+        URL="$2"
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  echo "$@"
+}
+
+post_json_payload() {
+  local endpoint="$1"
+  local payload="$2"
+  printf '%s' "$payload" | curl -sS -H 'Content-Type: application/json' -X POST "${URL}${endpoint}" --data-binary @- | jq
+}
+
+post_json_payload_raw() {
+  local endpoint="$1"
+  local payload="$2"
+  printf '%s' "$payload" | curl -sS -H 'Content-Type: application/json' -X POST "${URL}${endpoint}" --data-binary @-
+}
+
+get_json() {
+  local endpoint="$1"
+  curl -sS "${URL}${endpoint}" | jq
+}
+
+mime_type_for() {
+  local file="$1"
+  case "${file##*.}" in
+    stary)
+      echo "text/x-stary"
+      ;;
+    json)
+      echo "application/json"
+      ;;
+    yaml|yml)
+      echo "application/x-yaml"
+      ;;
+    txt)
+      echo "text/plain"
+      ;;
+    *)
+      echo "application/octet-stream"
+      ;;
+  esac
+}
+
+payload_json_for_file() {
+  local file="$1"
+  local name
+  name="$(basename "$file")"
+  local content_type
+  content_type="$(mime_type_for "$file")"
+  jq -n --rawfile data "$file" --arg ct "$content_type" --arg name "$name" '{content_type:$ct,name:$name,data:$data}'
+}
+
+payload_put_ref() {
+  local device="$1"
+  local file="$2"
+  local payload
+  payload="$(payload_json_for_file "$file")"
+  local response
+  response="$(post_json_payload_raw "/device/${device}/command_payloads" "$payload")"
+  local ref
+  ref="$(printf '%s' "$response" | jq -r '.ref // empty')"
+  if [[ -z "$ref" ]]; then
+    echo "payload-put failed: no ref returned" >&2
+    echo "$response" >&2
+    exit 1
+  fi
+  printf '%s' "$ref"
+}
+
+gen_id() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr 'A-Z' 'a-z'
+  else
+    date +%s%N
+  fi
+}
+
+build_args_json() {
+  local args_str="$1"
+  if [[ -z "$args_str" ]]; then
+    echo "[]"
+    return
+  fi
+  local args=()
+  IFS=';' read -r -a args <<<"$args_str"
+  printf '%s\n' "${args[@]}" | jq -R . | jq -s .
+}
+
+parse_command_spec() {
+  local spec="$1"
+  local cmd args file extra
+  IFS=',' read -r cmd args file extra <<<"$spec"
+  if [[ -n "$extra" ]]; then
+    echo "invalid -c format: $spec" >&2
+    exit 1
+  fi
+  if [[ -z "$cmd" ]]; then
+    echo "command type required in -c" >&2
+    exit 1
+  fi
+
+  if [[ -n "$args" && -z "$file" ]]; then
+    if [[ -f "$args" ]]; then
+      file="$args"
+      args=""
+    fi
+  fi
+
+  echo "$cmd|$args|$file"
+}
+
+args=($(parse_globals "$@"))
+if [[ ${#args[@]} -eq 0 ]]; then
+  usage
+  exit 1
+fi
+
+cmd="${args[0]}"
+shifted=("${args[@]:1}")
+
+case "$cmd" in
+  list-endpoints)
+    get_json "/"
+    ;;
+  register)
+    post_json_payload "/device/register" "{}"
+    ;;
+  commands)
+    command_specs=()
+    while [[ ${#shifted[@]} -gt 0 ]]; do
+      case "${shifted[0]}" in
+        -c)
+          command_specs+=("${shifted[1]}")
+          shifted=("${shifted[@]:2}")
+          ;;
+        *)
+          echo "unknown option: ${shifted[0]}" >&2
+          exit 1
+          ;;
+      esac
+    done
+    if [[ ${#command_specs[@]} -eq 0 ]]; then
+      echo "at least one -c is required" >&2
+      exit 1
+    fi
+
+    device="$(resolve_device)"
+    commands_json=()
+
+    for spec in "${command_specs[@]}"; do
+      parsed="$(parse_command_spec "$spec")"
+      cmd_type="${parsed%%|*}"
+      rest="${parsed#*|}"
+      args_str="${rest%%|*}"
+      file="${rest#*|}"
+
+      args_json="$(build_args_json "$args_str")"
+      payload_json="null"
+      payload_ref=""
+
+      if [[ -n "$file" ]]; then
+        if [[ ! -f "$file" ]]; then
+          echo "file not found: $file" >&2
+          exit 1
+        fi
+        size=$(wc -c <"$file")
+        if (( size > MAX_INLINE_SIZE )); then
+          payload_ref="$(payload_put_ref "$device" "$file")"
+        else
+          payload_json="$(payload_json_for_file "$file")"
+        fi
+      fi
+
+      command_id="$(gen_id)"
+      cmd_json=$(jq -n \
+        --arg id "$command_id" \
+        --arg type "$cmd_type" \
+        --argjson args "$args_json" \
+        --argjson payload "$payload_json" \
+        --arg payload_ref "$payload_ref" \
+        '{command_id:$id, type:$type}
+          + (if ($args | length) > 0 then {args:$args} else {} end)
+          + (if $payload != null then {payload:$payload} else {} end)
+          + (if ($payload_ref | length) > 0 then {payload_ref:$payload_ref} else {} end)'
+      )
+      commands_json+=("$cmd_json")
+    done
+
+    body=$(printf '%s\n' "${commands_json[@]}" | jq -s '{commands: .}')
+    post_json_payload "/device/${device}/commands" "$body"
+    ;;
+  command-results)
+    device="$(resolve_device)"
+    get_json "/device/${device}/command_results"
+    ;;
+  telemetry)
+    device="$(resolve_device)"
+    get_json "/device/${device}/telemetry"
+    ;;
+  payload-put)
+    if [[ ${#shifted[@]} -ne 1 ]]; then
+      echo "payload-put requires a single file path" >&2
+      exit 1
+    fi
+    file="${shifted[0]}"
+    if [[ ! -f "$file" ]]; then
+      echo "file not found: $file" >&2
+      exit 1
+    fi
+    device="$(resolve_device)"
+    payload="$(payload_json_for_file "$file")"
+    post_json_payload "/device/${device}/command_payloads" "$payload"
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

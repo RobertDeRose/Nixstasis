@@ -4,7 +4,7 @@ package transport
 import (
 	"bytes"
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +15,7 @@ import (
 	"github.com/sfero-nixstasis/client/internal/config"
 	"github.com/sfero-nixstasis/client/internal/frp"
 	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/plugin"
+	"github.com/sfero-nixstasis/client/internal/telemetry"
 )
 
 // Client handles API requests.
@@ -102,18 +102,53 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 
 // PollRequest represents the body of the poll request.
 type PollRequest struct {
-	Telemetry        plugin.TelemetryPayload `json:"telemetry"`
-	ConnectionStatus frp.ConnectionStatus    `json:"connection_status"`
+	Telemetry        telemetry.Payload    `json:"telemetry"`
+	ConnectionStatus frp.ConnectionStatus `json:"connection_status"`
 	// SchemaURLs to be added in Refinement
+}
+
+// CommandStatus represents the outcome of a server-issued command.
+type CommandStatus string
+
+const (
+	// CommandStatusOK indicates a successful command execution.
+	CommandStatusOK CommandStatus = "OK"
+	// CommandStatusFailed indicates a failed command execution.
+	CommandStatusFailed CommandStatus = "FAILED"
+)
+
+// CommandRequest represents a server-issued command returned with the poll response.
+type CommandRequest struct {
+	CommandID  string          `json:"command_id"`
+	Type       string          `json:"type"`
+	Args       []string        `json:"args,omitempty"`
+	Payload    *CommandPayload `json:"payload,omitempty"`
+	PayloadRef string          `json:"payload_ref,omitempty"`
+}
+
+// CommandPayload describes the payload attached to a command.
+type CommandPayload struct {
+	ContentType string `json:"content_type"`
+	Name        string `json:"name"`
+	Data        string `json:"data"`
+}
+
+// CommandResult represents the client response for a single command.
+type CommandResult struct {
+	CommandID string        `json:"command_id"`
+	Status    CommandStatus `json:"status"`
+	Output    any           `json:"output,omitempty"`
+	Error     string        `json:"error,omitempty"`
 }
 
 // PollResponse represents the response from the poll endpoint.
 type PollResponse struct {
-	RemoteAccessRequested bool `json:"remote_access_requested"`
+	RemoteAccessRequested bool             `json:"remote_access_requested"`
+	Commands              []CommandRequest `json:"commands,omitempty"`
 }
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
-func (c *Client) Poll(ctx context.Context, uuid string, payload plugin.TelemetryPayload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
+func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
 	url := fmt.Sprintf("%s/device/%s/poll", c.baseURL, uuid)
 
 	reqBody := PollRequest{
@@ -127,4 +162,29 @@ func (c *Client) Poll(ctx context.Context, uuid string, payload plugin.Telemetry
 	}
 
 	return &pollResp, nil
+}
+
+// CommandResultsRequest represents the body sent when returning command results.
+type CommandResultsRequest struct {
+	Results []CommandResult `json:"results"`
+}
+
+// SendCommandResults posts aggregated command results to the API.
+func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []CommandResult) error {
+	url := fmt.Sprintf("%s/device/%s/command_results", c.baseURL, uuid)
+	reqBody := CommandResultsRequest{Results: results}
+
+	return c.doJSON(ctx, http.MethodPost, url, reqBody, nil, http.StatusOK, http.StatusAccepted)
+}
+
+// FetchCommandPayload retrieves a payload by reference.
+func (c *Client) FetchCommandPayload(ctx context.Context, uuid, ref string) (*CommandPayload, error) {
+	url := fmt.Sprintf("%s/device/%s/command_payloads/%s", c.baseURL, uuid, ref)
+
+	var payload CommandPayload
+	if err := c.doJSON(ctx, http.MethodGet, url, nil, &payload, http.StatusOK); err != nil {
+		return nil, err
+	}
+
+	return &payload, nil
 }
