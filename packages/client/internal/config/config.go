@@ -3,6 +3,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 type Config struct {
 	API     APIConfig     `mapstructure:"api"`
 	Poll    PollConfig    `mapstructure:"poll"`
-	Plugins PluginsConfig `mapstructure:"plugins"`
+	Scripts ScriptsConfig `mapstructure:"scripts"`
 	Log     LogConfig     `mapstructure:"log"`
 }
 
@@ -27,8 +28,8 @@ type PollConfig struct {
 	Interval time.Duration `mapstructure:"interval"`
 }
 
-// PluginsConfig holds configuration for plugin discovery and execution.
-type PluginsConfig struct {
+// ScriptsConfig holds configuration for script discovery and execution.
+type ScriptsConfig struct {
 	Dir string `mapstructure:"dir"`
 }
 
@@ -38,16 +39,34 @@ type LogConfig struct {
 	Format string `mapstructure:"format"` // json or text
 }
 
-// Load reads configuration from file and environment variables.
-func Load() (*Config, error) {
+func setDefaults() *viper.Viper {
 	v := viper.New()
 
 	// Defaults
 	v.SetDefault("api.url", "http://localhost:4000")
 	v.SetDefault("poll.interval", 10*time.Second)
-	v.SetDefault("plugins.dir", "/usr/libexec/nixstasis/plugins")
+	v.SetDefault("scripts.dir", "/usr/libexec/nixstasis/scripts")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")
+
+	return v
+}
+
+// GetDefaultConfig returns a Config struct populated with default values.
+func GetDefaultConfig() (*Config, error) {
+	v := setDefaults()
+
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// Load reads configuration from file and environment variables.
+func Load() (*Config, error) {
+	v := setDefaults()
 
 	// Config File
 	v.SetConfigName("config")
