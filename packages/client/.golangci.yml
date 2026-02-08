@@ -90,6 +90,12 @@ linters:
     # Whitespace: detects leading and trailing whitespace
     - whitespace
 
+    # Goconst: finds repeated strings that should be constants (DRY principle)
+    - goconst
+
+    # Gocyclo: checks cyclomatic complexity (helps identify overly complex functions)
+    - gocyclo
+
     # === ERROR HANDLING ===
 
     # Errorlint: finds code that will cause problems with Go 1.13+ error wrapping
@@ -250,6 +256,18 @@ linters:
       # Inspect exported functions
       check-exported: false
 
+    goconst:
+      # Minimum length of string constant
+      min-len: 3
+      # Minimum occurrences to report
+      min-occurrences: 3
+      # Ignore test files
+      ignore-tests: true
+
+    gocyclo:
+      # Minimal code complexity to report
+      min-complexity: 15
+
     gosec:
       # Exclude rules that duplicate other linters or are too strict
       excludes:
@@ -304,6 +322,8 @@ linters:
           - gosec
           - gocritic
           - unparam
+          - goconst
+          - gocyclo
 
       # Exclude known issues in auto-generated code
       - path: '.*\.pb\.go'
@@ -342,14 +362,10 @@ severity:
     - linters:
         - godot
         - misspell
+        - goconst
       severity: warning
     - linters:
         - errcheck
         - govet
         - staticcheck
       severity: error
-
-formatters:
-  # Enable formatters that help with code style
-  enable:
-    - goimports  # Automatically format imports

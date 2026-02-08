@@ -43,6 +43,12 @@ erl_crash.dump
 .DS_Store
 Thumbs.db
 
+# Go artifacts
+*.exe
+*.test
+*.out
+vendor/
+
 # Opencode
 .opencode
 

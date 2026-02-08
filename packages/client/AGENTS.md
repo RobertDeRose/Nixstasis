@@ -63,7 +63,7 @@ GOEXPERIMENT=jsonv2 go build
 ```go
 import (
     "encoding/json/v2"
-    "encoding/json/v2/jsontext"
+    "encoding/json/jsontext"
 )
 
 type Config struct {

@@ -3,19 +3,18 @@ package identity
 
 import (
 	"context"
-	"log/slog"
-	"time"
-
 	"errors"
+	"log/slog"
 	"net"
 	"strings"
+	"time"
 )
 
 // GetPrimaryMAC returns the MAC address of the primary network interface (e.g. eth0).
 // It prioritizes "eth0" but falls back to the first non-loopback, non-virtual interface found.
 func GetPrimaryMAC() (string, error) {
 	interfaces, err := net.Interfaces()
-	var fallback = ""
+	fallback := ""
 
 	if err != nil {
 		return "", err
