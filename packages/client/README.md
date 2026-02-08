@@ -1,19 +1,19 @@
 # Nixstasis Client (Go)
 
 The Nixstasis Client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
-now provides a structured plugin system, durable identity, and FRP tunnel control.
+now provides embedded Starlark scripting for telemetry, durable identity, and FRP tunnel control.
 
 ## Features
 
 - **Auto-Registration**: Registers with the Nixstasis server on first boot and persists a device UUID.
-- **Plugin System**: Discovers and runs external plugins to collect telemetry.
+- **Starlark Scripts**: Discovers and runs `stary` scripts to collect telemetry.
 - **Remote Access**: Manages `frpc` tunnels on-demand based on server directives.
 - **Resilient**: Handles network interruptions and retries automatically.
 
 ## Project Layout
 
 - `cmd/nixstasis`: CLI entry point (`register`, `poll`, etc.).
-- `internal`: Core packages (config, identity, transport, plugin, frp).
+- `internal`: Core packages (config, identity, transport, telemetry, script, frp).
 - `bin`: Packaging scripts and helper utilities.
 
 ## Building
@@ -50,8 +50,8 @@ api:
 poll:
   interval: 10s
 
-plugins:
-  dir: "/usr/libexec/nixstasis/plugins"
+scripts:
+  dir: "/usr/libexec/nixstasis/scripts"
 ```
 
 ## Packaging
@@ -65,5 +65,4 @@ This project uses a custom packaging framework.
 
 From `specs/004-rewrite-client-go/tasks.md`, the Go rewrite is largely complete. Remaining items:
 
-- T006: `internal/plugin` foundational structs
 - T027: FRP lifecycle hooks for connection metadata
