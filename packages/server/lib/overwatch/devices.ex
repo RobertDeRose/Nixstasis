@@ -254,6 +254,41 @@ defmodule Nixstasis.Devices do
     end
   end
 
+  def acknowledge_command_results(%Device{} = device, results) when is_list(results) do
+    now = DateTime.utc_now()
+
+    acknowledged_count =
+      Enum.reduce(results, 0, fn result, count ->
+        command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
+
+        case fetch_pending_command(device.id, command_id) do
+          nil ->
+            count
+
+          command ->
+            status = command_result_status(result)
+            updated_payload = merge_command_result(command.command_payload, result, now, status)
+            {:ok, _} = Domain.update_pending_command(command, %{status: :acked, command_payload: updated_payload})
+            count + 1
+        end
+      end)
+
+    {:ok, acknowledged_count}
+  end
+
+  def acknowledge_command_results(_device, _results), do: {:error, "results must be a list"}
+
+  def get_command_payload(%Device{} = device, ref) when is_binary(ref) do
+    with {:ok, command_payload} <- find_payload_by_ref(device.id, ref),
+         {:ok, payload} <- extract_command_payload(command_payload) do
+      {:ok, payload}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def get_command_payload(_device, _ref), do: {:error, :not_found}
+
   @doc """
   Checks if a device is online.
   Online is defined as seen within the last 5 minutes.
@@ -262,6 +297,68 @@ defmodule Nixstasis.Devices do
     case device.last_seen_at do
       nil -> false
       time -> DateTime.diff(DateTime.utc_now(), time, :minute) < 5
+    end
+  end
+
+  defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "", do: nil
+
+  defp fetch_pending_command(device_id, command_id) do
+    PendingCommand
+    |> Ash.Query.filter(device_id == ^device_id and id == ^command_id)
+    |> Ash.read_one!(domain: Domain)
+  rescue
+    _ -> nil
+  end
+
+  defp command_result_status(result) do
+    status = Map.get(result, "status") || Map.get(result, :status)
+    if status in ["OK", :OK], do: "ok", else: "failed"
+  end
+
+  defp merge_command_result(command_payload, result, now, status) do
+    payload =
+      if is_map(command_payload) do
+        command_payload
+      else
+        %{}
+      end
+
+    payload
+    |> Map.put("result", result)
+    |> Map.put("result_status", status)
+    |> Map.put("result_received_at", now)
+  end
+
+  defp find_payload_by_ref(device_id, ref) do
+    payload_map =
+      PendingCommand
+      |> Ash.Query.filter(device_id == ^device_id)
+      |> Ash.read!(domain: Domain)
+      |> Enum.find_value(fn command ->
+        payload = command.command_payload || %{}
+        payload_ref = payload["payload_ref"] || payload[:payload_ref]
+        if payload_ref == ref, do: payload, else: nil
+      end)
+
+    case payload_map do
+      nil -> {:error, :not_found}
+      payload when is_map(payload) -> {:ok, payload}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp extract_command_payload(payload) do
+    command_payload =
+      payload["payload"] || payload[:payload] ||
+        %{
+          "content_type" => payload["content_type"] || payload[:content_type],
+          "name" => payload["name"] || payload[:name],
+          "data" => payload["data"] || payload[:data]
+        }
+
+    case command_payload do
+      %{} = map -> {:ok, map}
+      _ -> {:error, :not_found}
     end
   end
 end

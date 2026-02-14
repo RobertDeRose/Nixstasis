@@ -10,8 +10,13 @@ defmodule NixstasisWeb.HeartbeatController do
 
     if device.approval_status == :approved do
       case Monitoring.heartbeat(device, params) do
-        {:ok, _device, commands} ->
-          render(conn, :show, commands: commands)
+        {:ok, updated_device, commands} ->
+          render(conn, :show, commands: commands, device: updated_device)
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "Heartbeat processing failed", details: inspect(reason)})
       end
     else
       conn

@@ -1,0 +1,317 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLIENT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${CLIENT_ROOT}/.." && pwd)"
+SERVER_ROOT="${REPO_ROOT}/server"
+
+journey_id=""
+suite_id="runtime"
+description=""
+steps_raw=""
+force="false"
+dry_run="false"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/e2e/scaffold --id <journey_id> [options]
+
+Options:
+  --id <id>                Required. Journey ID (used as YAML filename).
+  --suite <suite_id>       Suite name hint for docs. Default: runtime
+  --description <text>     Journey description.
+  --steps <csv>            Comma-separated action:expect pairs.
+                           Example:
+                             runtime_register_device:runtime_device_registered,runtime_cleanup:runtime_resources_cleaned
+                           Optional custom step ids:
+                             step_register=runtime_register_device:runtime_device_registered
+  --force                  Overwrite existing scaffold files.
+  --dry-run                Print generated content without writing files.
+  -h, --help               Show help.
+EOF
+}
+
+trim() {
+  local input="$1"
+  input="${input#"${input%%[![:space:]]*}"}"
+  input="${input%"${input##*[![:space:]]}"}"
+  printf '%s' "${input}"
+}
+
+yaml_single_quote() {
+  local value="$1"
+  value="${value//\'/\'\'}"
+  printf "'%s'" "${value}"
+}
+
+to_pascal() {
+  local value="$1"
+  echo "${value}" | sed -E 's/[^a-zA-Z0-9]+/ /g' | awk '{ for (i=1; i<=NF; i++) { $i=toupper(substr($i,1,1)) substr($i,2) } printf "%s", $0 }' | sed 's/ //g'
+}
+
+to_camel() {
+  local value="$1"
+  local parts=()
+  IFS='_' read -r -a parts <<<"${value}"
+  local out=""
+  for i in "${!parts[@]}"; do
+    part="${parts[$i]}"
+    if [[ -z "${part}" ]]; then
+      continue
+    fi
+    if (( i == 0 )); then
+      out+="${part}"
+    else
+      out+="${part^}"
+    fi
+  done
+  printf '%s' "${out}"
+}
+
+while (($#)); do
+  case "$1" in
+    --id)
+      shift
+      journey_id="${1:-}"
+      shift || true
+      ;;
+    --suite)
+      shift
+      suite_id="${1:-}"
+      shift || true
+      ;;
+    --description)
+      shift
+      description="${1:-}"
+      shift || true
+      ;;
+    --steps)
+      shift
+      steps_raw="${1:-}"
+      shift || true
+      ;;
+    --force)
+      force="true"
+      shift
+      ;;
+    --dry-run)
+      dry_run="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "${journey_id}" ]]; then
+  echo "--id is required" >&2
+  usage
+  exit 1
+fi
+
+if [[ ! "${journey_id}" =~ ^[a-z0-9_]+$ ]]; then
+  echo "--id must contain only lowercase letters, numbers, and underscores" >&2
+  exit 1
+fi
+
+if [[ -z "${description}" ]]; then
+  description="TODO: describe ${journey_id}"
+fi
+
+if [[ -z "${steps_raw}" ]]; then
+  if [[ "${suite_id}" == "runtime" ]]; then
+    steps_raw="runtime_register_device:runtime_device_registered,runtime_cleanup:runtime_resources_cleaned"
+  else
+    steps_raw="register_device:uuid_returned"
+  fi
+fi
+
+journey_file="${SCRIPT_DIR}/journeys/${journey_id}.yaml"
+guide_file="${SCRIPT_DIR}/journeys/${journey_id}.scaffold.md"
+client_stub_dir="${CLIENT_ROOT}/internal/e2e/scaffold"
+server_stub_dir="${SERVER_ROOT}/lib/nixstasis/e2e/scaffold"
+client_stub_file="${client_stub_dir}/${journey_id}.go.stub"
+server_stub_file="${server_stub_dir}/${journey_id}.ex.stub"
+
+mkdir -p "${client_stub_dir}" "${server_stub_dir}" "$(dirname "${journey_file}")"
+
+for file in "${journey_file}" "${guide_file}" "${client_stub_file}" "${server_stub_file}"; do
+  if [[ -f "${file}" && "${force}" != "true" ]]; then
+    echo "Refusing to overwrite existing file: ${file}" >&2
+    echo "Re-run with --force to overwrite." >&2
+    exit 1
+  fi
+done
+
+IFS=',' read -r -a pairs <<<"${steps_raw}"
+actions=()
+expects=()
+step_ids=()
+for raw_pair in "${pairs[@]}"; do
+  pair="$(trim "${raw_pair}")"
+  if [[ -z "${pair}" ]]; then
+    continue
+  fi
+  if [[ "${pair}" != *:* ]]; then
+    echo "Invalid step '${pair}'. Expected action:expect format." >&2
+    exit 1
+  fi
+  left="${pair%%:*}"
+  expect="${pair#*:}"
+  step_id=""
+  action="${left}"
+  if [[ "${left}" == *=* ]]; then
+    step_id="${left%%=*}"
+    action="${left#*=}"
+  fi
+  step_id="$(trim "${step_id}")"
+  action="$(trim "${action}")"
+  expect="$(trim "${expect}")"
+  if [[ -z "${action}" || -z "${expect}" ]]; then
+    echo "Invalid step '${pair}'. action and expect must be non-empty." >&2
+    exit 1
+  fi
+  if [[ -n "${step_id}" && ! "${step_id}" =~ ^[a-z0-9_]+$ ]]; then
+    echo "Invalid step '${pair}'. step_id must contain only lowercase letters, numbers, and underscores." >&2
+    exit 1
+  fi
+  if [[ ! "${action}" =~ ^[a-z0-9_]+$ ]]; then
+    echo "Invalid step '${pair}'. action must contain only lowercase letters, numbers, and underscores." >&2
+    exit 1
+  fi
+  if [[ ! "${expect}" =~ ^[a-z0-9_]+$ ]]; then
+    echo "Invalid step '${pair}'. expect must contain only lowercase letters, numbers, and underscores." >&2
+    exit 1
+  fi
+  step_ids+=("${step_id}")
+  actions+=("${action}")
+  expects+=("${expect}")
+done
+
+if ((${#actions[@]} == 0)); then
+  echo "No valid steps were parsed from --steps." >&2
+  exit 1
+fi
+
+journey_content="$({
+  echo "id: ${journey_id}"
+  echo "description: $(yaml_single_quote "${description}")"
+  echo "steps:"
+  for i in "${!actions[@]}"; do
+    if [[ -n "${step_ids[$i]}" ]]; then
+      echo "  - step_id: $(yaml_single_quote "${step_ids[$i]}")"
+      echo "    action: $(yaml_single_quote "${actions[$i]}")"
+      echo "    expect: $(yaml_single_quote "${expects[$i]}")"
+      continue
+    fi
+    echo "  - action: $(yaml_single_quote "${actions[$i]}")"
+    echo "    expect: $(yaml_single_quote "${expects[$i]}")"
+  done
+})"
+
+guide_content="$({
+  echo "# Scaffold Guide: ${journey_id}"
+  echo
+  echo "Generated by \`scripts/e2e/scaffold\`."
+  echo
+  echo "## Suite"
+  echo "- \`${suite_id}\`"
+  echo
+  echo "## Files Generated"
+  echo "- \`packages/client/scripts/e2e/journeys/${journey_id}.yaml\`"
+  echo "- \`packages/client/internal/e2e/scaffold/${journey_id}.go.stub\`"
+  echo "- \`packages/server/lib/nixstasis/e2e/scaffold/${journey_id}.ex.stub\`"
+  echo
+  echo "## Next Steps"
+  echo "1. Add constants in \`packages/client/internal/e2e/constants.go\`."
+  echo "2. Wire handlers in \`packages/client/internal/e2e/journey_executor.go\`."
+  echo "3. Implement handlers in runtime or standard executor file."
+  echo "4. Add action/expect mappings in \`packages/server/lib/nixstasis/e2e/expectation_registry.ex\`."
+  echo "5. Add journey to suite lists in server config files."
+  echo "6. Add/adjust tests and run checks."
+})"
+
+client_stub_content="$({
+  echo "// Stub snippets for journey: ${journey_id}"
+  echo "// Copy needed parts into:"
+  echo "// - internal/e2e/constants.go"
+  echo "// - internal/e2e/journey_executor.go"
+  echo "// - internal/e2e/runtime_journey_executor.go (runtime) or internal/e2e/journey_executor.go (full suite)"
+  echo
+  echo "// constants.go"
+  for action in "${actions[@]}"; do
+    const_name="$(to_pascal "${action}")"
+    echo "const action${const_name} = \"${action}\""
+  done
+  echo
+  echo "// journey_executor.go -> stepHandlers()"
+  for action in "${actions[@]}"; do
+    const_name="$(to_pascal "${action}")"
+    handler_name="$(to_camel "${action}")"
+    echo "action${const_name}: e.${handler_name},"
+  done
+  echo
+  echo "// handler skeletons"
+  for i in "${!actions[@]}"; do
+    action="${actions[$i]}"
+    expect="${expects[$i]}"
+    handler_name="$(to_camel "${action}")"
+    echo "func (e *journeyExecutor) ${handler_name}(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {"
+    echo "    if expect != \"${expect}\" {"
+    echo "        return stepOutcome{}, expectationInvalidFailure(\"${expect}\", expect)"
+    echo "    }"
+    echo "    // TODO: implement ${action}"
+    echo "    return stepOutcome{}, nil"
+    echo "}"
+    echo
+  done
+})"
+
+server_stub_content="$({
+  echo "# ExpectationRegistry additions for ${journey_id}"
+  echo "# File: lib/nixstasis/e2e/expectation_registry.ex"
+  for i in "${!actions[@]}"; do
+    echo "\"${actions[$i]}\" => MapSet.new([\"${expects[$i]}\"]),"
+  done
+  echo
+  echo "# Suite additions for ${suite_id}"
+  echo "# Files:"
+  echo "# - config/dev.exs"
+  echo "# - config/test.exs"
+  echo "\"${suite_id}\" => [..., \"${journey_id}\"]"
+})"
+
+if [[ "${dry_run}" == "true" ]]; then
+  echo "=== ${journey_file} ==="
+  echo "${journey_content}"
+  echo
+  echo "=== ${guide_file} ==="
+  echo "${guide_content}"
+  echo
+  echo "=== ${client_stub_file} ==="
+  echo "${client_stub_content}"
+  echo
+  echo "=== ${server_stub_file} ==="
+  echo "${server_stub_content}"
+  exit 0
+fi
+
+echo "${journey_content}" > "${journey_file}"
+echo "${guide_content}" > "${guide_file}"
+echo "${client_stub_content}" > "${client_stub_file}"
+echo "${server_stub_content}" > "${server_stub_file}"
+
+echo "Scaffold created:"
+echo "- ${journey_file}"
+echo "- ${guide_file}"
+echo "- ${client_stub_file}"
+echo "- ${server_stub_file}"

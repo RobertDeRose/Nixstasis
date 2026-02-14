@@ -7,17 +7,31 @@ defmodule NixstasisWeb.ReportLive.Show do
   def mount(%{"id" => id}, _session, socket) do
     report = Reporting.get_custom_report!(id)
 
-    # Execute the query
-    query = QueryBuilder.build(report.config)
-    results = Repo.all(query)
+    if e2e_report?(report) do
+      {:ok,
+       socket
+       |> put_flash(:error, "E2E internal reports are not available in this view.")
+       |> push_navigate(to: ~p"/reports")}
+    else
+      # Execute the query
+      query = QueryBuilder.build(report.config)
+      results = Repo.all(query)
 
-    fields = report.config["fields"] || []
+      fields = QueryBuilder.fields_for_report(report.config)
+      source = report.config["source"] || report.config[:source] || "telemetry"
 
-    {:ok,
-     socket
-     |> assign(:report, report)
-     |> assign(:results, results)
-     |> assign(:fields, fields)}
+      {:ok,
+       socket
+       |> assign(:report, report)
+       |> assign(:results, results)
+       |> assign(:fields, fields)
+       |> assign(:source, source)}
+    end
+  end
+
+  defp e2e_report?(report) do
+    source = report.config["source"] || report.config[:source]
+    source == "e2e"
   end
 
   def render(assigns) do
@@ -26,7 +40,7 @@ defmodule NixstasisWeb.ReportLive.Show do
       <div class="mb-8 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">{@report.name}</h1>
-          <p class="text-sm text-gray-500">Source: {@report.config["source"]}</p>
+          <p class="text-sm text-gray-500">Source: {@source}</p>
         </div>
         <div class="flex gap-2">
           <.link navigate={~p"/reports"} class="px-4 py-2 border rounded hover:bg-gray-50">

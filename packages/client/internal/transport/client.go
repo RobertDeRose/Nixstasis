@@ -84,20 +84,40 @@ func (c *Client) doJSON(ctx context.Context, method, url string, reqBody, respBo
 // RegisterDevice registers the device with the Nixstasis API.
 // It returns the assigned UUID or an error.
 func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity) (string, error) {
-	url := fmt.Sprintf("%s/device/register", c.baseURL)
+	url := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
+	reqBody := map[string]any{
+		"mac_address": id.MACAddress,
+	}
+
+	if id.Name != "" {
+		reqBody["product_name"] = id.Name
+	}
+
+	if id.IPAddress != "" || id.UUID != "" {
+		metadata := map[string]any{}
+		if id.IPAddress != "" {
+			metadata["ip_address"] = id.IPAddress
+		}
+		if id.UUID != "" {
+			metadata["client_uuid"] = id.UUID
+		}
+		reqBody["metadata"] = metadata
+	}
 
 	var response struct {
-		UUID string `json:"uuid"`
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
 	}
-	if err := c.doJSON(ctx, http.MethodPost, url, id, &response, http.StatusOK); err != nil {
+	if err := c.doJSON(ctx, http.MethodPost, url, reqBody, &response, http.StatusCreated); err != nil {
 		return "", err
 	}
 
-	if response.UUID == "" {
-		return "", fmt.Errorf("API returned empty UUID")
+	if response.Data.ID == "" {
+		return "", fmt.Errorf("API returned empty device id")
 	}
 
-	return response.UUID, nil
+	return response.Data.ID, nil
 }
 
 // PollRequest represents the body of the poll request.
@@ -149,19 +169,21 @@ type PollResponse struct {
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
 func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
-	url := fmt.Sprintf("%s/device/%s/poll", c.baseURL, uuid)
+	url := fmt.Sprintf("%s/api/v1/devices/%s/heartbeat", c.baseURL, uuid)
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
 		ConnectionStatus: frpStatus,
 	}
 
-	var pollResp PollResponse
-	if err := c.doJSON(ctx, http.MethodPost, url, reqBody, &pollResp, http.StatusOK, http.StatusAccepted); err != nil {
+	var response struct {
+		Data PollResponse `json:"data"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusOK, http.StatusAccepted); err != nil {
 		return nil, err
 	}
 
-	return &pollResp, nil
+	return &response.Data, nil
 }
 
 // CommandResultsRequest represents the body sent when returning command results.
@@ -171,7 +193,7 @@ type CommandResultsRequest struct {
 
 // SendCommandResults posts aggregated command results to the API.
 func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []CommandResult) error {
-	url := fmt.Sprintf("%s/device/%s/command_results", c.baseURL, uuid)
+	url := fmt.Sprintf("%s/api/v1/devices/%s/command_results", c.baseURL, uuid)
 	reqBody := CommandResultsRequest{Results: results}
 
 	return c.doJSON(ctx, http.MethodPost, endpoint, reqBody, nil, http.StatusOK, http.StatusAccepted)
@@ -179,7 +201,7 @@ func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []
 
 // FetchCommandPayload retrieves a payload by reference.
 func (c *Client) FetchCommandPayload(ctx context.Context, uuid, ref string) (*CommandPayload, error) {
-	url := fmt.Sprintf("%s/device/%s/command_payloads/%s", c.baseURL, uuid, ref)
+	url := fmt.Sprintf("%s/api/v1/devices/%s/command_payloads/%s", c.baseURL, uuid, ref)
 
 	var payload CommandPayload
 	if err := c.doJSON(ctx, http.MethodGet, endpoint, nil, &payload, http.StatusOK); err != nil {
