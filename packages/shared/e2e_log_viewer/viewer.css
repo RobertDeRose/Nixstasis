@@ -1,0 +1,149 @@
+.e2e-log-entry {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  border: 1px solid rgba(141, 159, 176, 0.35);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #f2f4f7;
+}
+
+.e2e-log-entry-even {
+  background: #edf1f5;
+}
+
+.e2e-log-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.e2e-log-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  width: 100%;
+}
+
+.e2e-log-badge-start { background: #1d4ed8; }
+.e2e-log-badge-step { background: #2563eb; }
+.e2e-log-badge-failed { background: #be123c; }
+.e2e-log-badge-summary { background: #0f766e; }
+.e2e-log-badge-info { background: #475569; }
+
+.e2e-log-duration {
+  font-size: 0.82rem;
+  color: #5b6572;
+  font-style: italic;
+  text-align: center;
+}
+
+.e2e-log-content { min-width: 0; }
+.e2e-log-timestamp { font-size: 0.85rem; margin-bottom: 4px; }
+
+.e2e-step-header-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.e2e-step-header-table td {
+  padding: 0.2rem 0.35rem;
+  vertical-align: top;
+}
+
+.e2e-step-kv {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+
+.e2e-step-key {
+  font-weight: 800;
+}
+
+.e2e-step-status-col { text-align: center; width: 52px; }
+.e2e-step-status-icon { font-size: 1.05rem; font-weight: 800; }
+.e2e-step-status-pass { color: #166534; }
+.e2e-step-status-fail { color: #991b1b; }
+.e2e-step-status-neutral { color: #334155; }
+
+.e2e-step-panels-shell { margin-top: 6px; }
+.e2e-step-panels-divider { border-top: 1px solid rgba(141, 159, 176, 0.45); margin: 0.35rem 0 0.5rem; }
+
+.e2e-step-panels-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.e2e-step-panel {
+  border: 1px solid rgba(141, 159, 176, 0.45);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.e2e-step-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0.45rem 0.55rem;
+  font-weight: 700;
+  color: #2c3947;
+}
+
+.e2e-step-panel-summary-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.e2e-step-panel-status-pass { color: #166534; font-weight: 800; }
+.e2e-step-panel-status-fail { color: #991b1b; font-weight: 800; }
+.e2e-step-panel-status-neutral { color: #334155; font-weight: 800; }
+
+.e2e-step-panel-body { padding: 0.45rem 0.55rem 0.6rem; }
+
+.e2e-step-data-pre,
+.e2e-info-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.88rem;
+}
+
+.e2e-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.e2e-summary-table th,
+.e2e-summary-table td {
+  border-bottom: 1px solid #d8dde5;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.86rem;
+}
+
+.e2e-log-summary-passed {
+  background: rgba(22, 101, 52, 0.09);
+  border-color: rgba(22, 101, 52, 0.35);
+}
+
+.e2e-log-summary-failed {
+  background: rgba(153, 27, 27, 0.09);
+  border-color: rgba(153, 27, 27, 0.35);
+}
+
+@media (max-width: 900px) {
+  .e2e-log-entry {
+    grid-template-columns: 1fr;
+  }
+}

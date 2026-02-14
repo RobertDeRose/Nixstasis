@@ -8,8 +8,8 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    # TODO: Implement rate limiting using Hammer or similar.
-    # We would extract device ID/Token here and check limits.
+    # Rate limiting is currently enforced by upstream infrastructure.
+    # This plug remains a no-op placeholder for future extension.
     conn
   end
 end

@@ -6,10 +6,6 @@ defmodule Nixstasis.Devices.SshClient do
   use GenServer
   require Logger
 
-  # TODO: Make these configurable
-  @frp_host "device.<domain>"
-  @frp_port "2022"
-
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
@@ -33,7 +29,7 @@ defmodule Nixstasis.Devices.SshClient do
     # We use -o UserKnownHostsFile=/dev/null to avoid cluttering known_hosts
     ssh_cmd = "ssh"
 
-    proxy_cmd = "ncat --proxy-type http --proxy #{@frp_host}:#{@frp_port} %h %p"
+    proxy_cmd = "ncat --proxy-type http --proxy #{frp_host()}:#{frp_port()} %h %p"
 
     args = [
       "-i",
@@ -105,5 +101,15 @@ defmodule Nixstasis.Devices.SshClient do
     # SSH requires strict permissions
     File.chmod!(path, 0o600)
     path
+  end
+
+  defp frp_host do
+    Application.get_env(:nixstasis, :ssh_client, [])
+    |> Keyword.get(:frp_host, "device.<domain>")
+  end
+
+  defp frp_port do
+    Application.get_env(:nixstasis, :ssh_client, [])
+    |> Keyword.get(:frp_port, "2022")
   end
 end

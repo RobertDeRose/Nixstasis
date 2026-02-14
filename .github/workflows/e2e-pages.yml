@@ -1,0 +1,130 @@
+name: E2E Suites + Pages Report
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+concurrency:
+  group: e2e-pages-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up BEAM
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.3"
+          elixir-version: "1.19.1"
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.6"
+
+      - name: Prepare server
+        working-directory: packages/server
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+          MIX_ENV=dev mix ecto.create
+          MIX_ENV=dev mix ecto.migrate
+
+      - name: Start server
+        working-directory: packages/server
+        run: |
+          NIXSTASIS_DEV_BIND_ALL=true MIX_ENV=dev mix phx.server > /tmp/nixstasis-server.log 2>&1 &
+          echo $! > /tmp/nixstasis-server.pid
+
+      - name: Wait for server
+        run: |
+          for _ in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:4000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Server did not become ready in time."
+          tail -n 200 /tmp/nixstasis-server.log || true
+          exit 1
+
+      - name: Run E2E suites
+        working-directory: packages/client
+        env:
+          GOEXPERIMENT: jsonv2
+        run: |
+          scripts/e2e/run_all_suites \
+            --api-url http://127.0.0.1:4000 \
+            --env local \
+            --trigger ci \
+            --protocol-version 1 \
+            --reports-dir tmp/e2e/reports \
+            --logs-dir tmp/e2e/logs
+
+      - name: Build manifest-led static pages
+        working-directory: packages/server
+        env:
+          MAX_E2E_RUNS: ${{ vars.MAX_E2E_RUNS }}
+        run: |
+          mix e2e.export_static \
+            --reports-dir ../client/tmp/e2e/reports \
+            --logs-dir ../client/tmp/e2e/logs \
+            --pages-dir ../../e2e-pages \
+            --title "Nixstasis E2E Reports" \
+            --ref-name "${GITHUB_REF_NAME}" \
+            --ref-type "${GITHUB_REF_TYPE}" \
+            --full-sha "${GITHUB_SHA}" \
+            --max-runs "${MAX_E2E_RUNS}"
+
+      - name: Publish to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./e2e-pages
+          keep_files: true
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-raw-artifacts
+          path: |
+            packages/client/tmp/e2e/reports
+            packages/client/tmp/e2e/logs
+            /tmp/nixstasis-server.log
+          if-no-files-found: warn
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/nixstasis-server.pid ]; then
+            kill "$(cat /tmp/nixstasis-server.pid)" || true
+          fi

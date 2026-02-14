@@ -1,0 +1,17 @@
+id: runtime_transport_contract
+description: "Validate runtime transport endpoints and command payload/result lifecycle"
+steps:
+  - action: "runtime_register_device"
+    expect: "runtime_device_registered"
+  - action: "runtime_check_domain"
+    expect: "tls_domain_allowed"
+  - action: "runtime_approve_device"
+    expect: "device_approved"
+  - action: "runtime_queue_payload_ref_command"
+    expect: "command_payload_available"
+  - action: "runtime_poll_with_scripts"
+    expect: "scripts_polled_under_budget"
+  - action: "runtime_verify_telemetry"
+    expect: "telemetry_persisted"
+  - action: "runtime_cleanup"
+    expect: "runtime_resources_cleaned"

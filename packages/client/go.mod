@@ -10,7 +10,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	go.starlark.net v0.0.0-20260102030733-3fee463870c9
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/sys v0.29.0
 )
 
 require (
@@ -27,5 +26,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 )

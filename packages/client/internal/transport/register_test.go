@@ -12,7 +12,7 @@ import (
 )
 
 func TestRegisterDevice(t *testing.T) {
-	expectedUUID := "550e8400-e29b-41d4-a716-446655440000"
+	expectedDeviceID := "550e8400-e29b-41d4-a716-446655440000"
 	testDevice := identity.DeviceIdentity{
 		MACAddress: "00:11:22:33:44:55",
 		IPAddress:  "192.168.1.10",
@@ -23,7 +23,7 @@ func TestRegisterDevice(t *testing.T) {
 		name      string
 		handler   http.HandlerFunc
 		device    identity.DeviceIdentity
-		wantUUID  string
+		wantID    string
 		expectErr bool
 	}{
 		{
@@ -33,19 +33,21 @@ func TestRegisterDevice(t *testing.T) {
 					http.Error(w, "Expected POST", http.StatusBadRequest)
 					return
 				}
-				if r.URL.Path != "/device/register" {
+				if r.URL.Path != "/api/v1/devices/register" {
 					http.Error(w, "Invalid path", http.StatusBadRequest)
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				respBytes, _ := json.Marshal(map[string]string{
-					"uuid": expectedUUID,
+				w.WriteHeader(http.StatusCreated)
+				respBytes, _ := json.Marshal(map[string]any{
+					"data": map[string]string{
+						"id": expectedDeviceID,
+					},
 				})
 				_, _ = w.Write(respBytes)
 			},
 			device:    testDevice,
-			wantUUID:  expectedUUID,
+			wantID:    expectedDeviceID,
 			expectErr: false,
 		},
 		{
@@ -54,31 +56,33 @@ func TestRegisterDevice(t *testing.T) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			device:    testDevice,
-			wantUUID:  "",
+			wantID:    "",
 			expectErr: true,
 		},
 		{
 			name: "Invalid Response Body",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusCreated)
 				_, _ = w.Write([]byte(`{invalid-json`))
 			},
 			device:    testDevice,
-			wantUUID:  "",
+			wantID:    "",
 			expectErr: true,
 		},
 		{
-			name: "Empty UUID Response",
+			name: "Empty ID Response",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				respBytes, _ := json.Marshal(map[string]string{
-					"uuid": "",
+				w.WriteHeader(http.StatusCreated)
+				respBytes, _ := json.Marshal(map[string]any{
+					"data": map[string]string{
+						"id": "",
+					},
 				})
 				_, _ = w.Write(respBytes)
 			},
 			device:    testDevice,
-			wantUUID:  "",
+			wantID:    "",
 			expectErr: true,
 		},
 	}
@@ -93,14 +97,14 @@ func TestRegisterDevice(t *testing.T) {
 			}
 			client := NewClient(cfg)
 
-			uuid, err := client.RegisterDevice(context.Background(), tt.device)
+			deviceID, err := client.RegisterDevice(context.Background(), tt.device)
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("RegisterDevice() error = %v, expectErr %v", err, tt.expectErr)
 				return
 			}
-			if uuid != tt.wantUUID {
-				t.Errorf("RegisterDevice() uuid = %v, want %v", uuid, tt.wantUUID)
+			if deviceID != tt.wantID {
+				t.Errorf("RegisterDevice() id = %v, want %v", deviceID, tt.wantID)
 			}
 		})
 	}
