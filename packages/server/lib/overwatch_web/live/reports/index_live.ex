@@ -4,7 +4,7 @@ defmodule NixstasisWeb.ReportLive.Index do
   alias Nixstasis.Reporting.CustomReport
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :reports, Reporting.list_custom_reports())}
+    {:ok, assign(socket, :reports, visible_reports())}
   end
 
   def handle_params(params, _url, socket) do
@@ -27,7 +27,24 @@ defmodule NixstasisWeb.ReportLive.Index do
     # In a real app with streams we would stream_insert
     # Since we are using a list for now, we prepend and re-assign
     # Or just re-fetch
-    {:noreply, assign(socket, :reports, [report | socket.assigns.reports])}
+    reports =
+      if e2e_report?(report) do
+        socket.assigns.reports
+      else
+        [report | socket.assigns.reports]
+      end
+
+    {:noreply, assign(socket, :reports, reports)}
+  end
+
+  defp visible_reports do
+    Reporting.list_custom_reports()
+    |> Enum.reject(&e2e_report?/1)
+  end
+
+  defp e2e_report?(report) do
+    source = report.config["source"] || report.config[:source]
+    source == "e2e"
   end
 
   def render(assigns) do

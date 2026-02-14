@@ -46,7 +46,22 @@ defmodule NixstasisWeb.Router do
 
     post("/devices/register", DeviceController, :register)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
+    post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
+    get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
     get("/check_domain", TLSController, :check_domain)
+  end
+
+  scope "/e2e", NixstasisWeb do
+    pipe_through(:api)
+
+    get("/suites", E2ERunController, :suites)
+    get("/runs", E2ERunController, :index)
+    post("/runs", E2ERunController, :create)
+    get("/runs/:id", E2ERunController, :show)
+    post("/runs/:id/cancel", E2ERunController, :cancel)
+    get("/runs/:id/results", E2ERunResultController, :index)
+    post("/runs/:id/results", E2ERunResultController, :create)
+    get("/runs/:id/results/:journey_id/log", E2ERunResultController, :log)
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
@@ -65,7 +80,11 @@ defmodule NixstasisWeb.Router do
         "/dashboard",
         metrics: NixstasisWeb.Telemetry,
         ecto_repos: [Nixstasis.Repo],
-        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]]
+        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]],
+        on_mount: [NixstasisWeb.LiveDashboard.ThemeHook],
+        additional_pages: [
+          e2e: NixstasisWeb.LiveDashboard.E2EPage
+        ]
       )
 
       forward("/mailbox", Plug.Swoosh.MailboxPreview)

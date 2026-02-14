@@ -5,6 +5,8 @@
 vendor/
 bin/nixstasis
 built/root-dir/usr/bin/nixstasis
+tmp
+*.log
 
 # OS
 .DS_Store

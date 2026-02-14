@@ -13,7 +13,7 @@ GOLANGCI_LINT := $(GOBIN)/golangci-lint
 GOFUMPT := $(GOBIN)/gofumpt
 GOIMPORTS := $(GOBIN)/goimports
 
-.PHONY: all build test lint clean help fmt mod check install-tools
+.PHONY: all build test lint clean help fmt mod check install-tools e2e-scaffold
 .PHONY: check-golangci-version
 
 all: clean check install ## Run all checks and install the binary
@@ -29,8 +29,8 @@ install: build ## Build and install the binary to BUILD_ROOT
 
 fmt: $(GOFUMPT) $(GOIMPORTS) ## Format code with gofumpt and goimports
 	@echo "Formatting code..."
-	@$(GOFUMPT) -l -w .
-	@$(GOIMPORTS) -w -local github.com/RobertDeRose/sfero-nixstasis .
+	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOFUMPT) -l -w
+	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/RobertDeRose/sfero-nixstasis
 
 lint: $(GOLANGCI_LINT) ## Run golangci-lint
 	@echo "Running golangci-lint..."
@@ -85,6 +85,18 @@ clean: ## Remove build artifacts
 run_mock_server: ## Run a mock api server for testing
 	@echo "Starting mock server..."
 	@go run ./scripts/mock_api -log=stderr
+
+e2e-scaffold: ## Generate E2E journey scaffold (requires ID; optional SUITE, DESCRIPTION, STEPS)
+	@if [ -z "$(ID)" ]; then \
+		echo "Usage: make e2e-scaffold ID=<journey_id> [SUITE=runtime] [DESCRIPTION='...'] [STEPS=action:expect,...]"; \
+		exit 1; \
+	fi
+	@scripts/e2e/scaffold --id "$(ID)" \
+		$(if $(SUITE),--suite "$(SUITE)",) \
+		$(if $(DESCRIPTION),--description "$(DESCRIPTION)",) \
+		$(if $(STEPS),--steps "$(STEPS)",) \
+		$(if $(FORCE),--force,) \
+		$(if $(DRY_RUN),--dry-run,)
 
 help:
 	@echo "Usage: make [target]"

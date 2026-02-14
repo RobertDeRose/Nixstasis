@@ -13,16 +13,18 @@ defmodule Nixstasis.Monitoring do
   alias Nixstasis.Monitoring.RuleEvaluator
 
   def heartbeat(%Device{} = device, payload \\ %{}) do
-    # Update last_seen_at
-    {:ok, device} = Devices.update_last_seen(device)
+    telemetry_payload = normalize_telemetry_payload(payload)
 
-    # Evaluate telemetry against rules
-    evaluate_telemetry(device, payload)
+    with {:ok, device} <- Devices.update_last_seen(device),
+         {:ok, _event} <- persist_telemetry_event(device, telemetry_payload) do
+      # Evaluate telemetry against rules
+      evaluate_telemetry(device, telemetry_payload)
 
-    # Fetch pending commands
-    commands = Devices.pop_pending_commands(device)
+      # Fetch pending commands
+      commands = Devices.pop_pending_commands(device)
 
-    {:ok, device, commands}
+      {:ok, device, commands}
+    end
   end
 
   def check_offline_devices(opts \\ []) do
@@ -104,4 +106,39 @@ defmodule Nixstasis.Monitoring do
       })
     end
   end
+
+  defp persist_telemetry_event(%Device{} = device, payload) do
+    Domain.create_telemetry_event(%{
+      device_id: device.id,
+      payload: payload,
+      timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+    })
+  end
+
+  defp normalize_telemetry_payload(payload) when is_map(payload) do
+    sanitized =
+      payload
+      |> Map.drop(["device_id", :device_id])
+
+    case map_get(sanitized, "telemetry") do
+      telemetry when is_map(telemetry) ->
+        case map_get(sanitized, "connection_status") do
+          connection_status when is_map(connection_status) ->
+            Map.put_new(telemetry, "connection_status", connection_status)
+
+          _ ->
+            telemetry
+        end
+
+      _ ->
+        sanitized
+    end
+  end
+
+  defp normalize_telemetry_payload(_payload), do: %{}
+
+  defp map_get(map, "telemetry") when is_map(map), do: Map.get(map, "telemetry") || Map.get(map, :telemetry)
+
+  defp map_get(map, "connection_status") when is_map(map),
+    do: Map.get(map, "connection_status") || Map.get(map, :connection_status)
 end
