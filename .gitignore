@@ -25,6 +25,9 @@ erl_crash.dump
 # Ignore the .lexical directory used by the Lexical language server.
 .lexical/
 
+# Ignore locally generated e2e_pages
+/e2e-pages/
+
 # General editor configuration
 .idea/
 .vscode/

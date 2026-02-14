@@ -1,6 +1,9 @@
 import Config
 config :ash, policies: [show_policy_breakdowns?: true]
 
+bind_all? = String.downcase(System.get_env("NIXSTASIS_DEV_BIND_ALL", "false")) in ["1", "true", "yes"]
+endpoint_ip = if bind_all?, do: {0, 0, 0, 0}, else: {127, 0, 0, 1}
+
 # Configure your database
 config :nixstasis, Nixstasis.Repo,
   username: "postgres",
@@ -18,9 +21,8 @@ config :nixstasis, Nixstasis.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :nixstasis, NixstasisWeb.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  # Set NIXSTASIS_DEV_BIND_ALL=true to bind on 0.0.0.0 (needed for dockerized runtime E2E on non-Linux hosts).
+  http: [ip: endpoint_ip, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -62,6 +64,31 @@ config :nixstasis, NixstasisWeb.Endpoint,
       ~r"priv/gettext/.*(po)$",
       ~r"lib/nixstasis_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
+  ]
+
+config :nixstasis, :e2e,
+  allowed_env_labels: ["local"],
+  protocol_versions: ["1"],
+  environments: %{
+    "local" => %{
+      base_url: "http://localhost:4000",
+      seed_script: "priv/e2e/seed.exs"
+    }
+  },
+  suites: %{
+    "full" => ["auth", "dashboard", "create_record", "update_record", "logout"],
+    "runtime" => ["runtime_linux_telemetry", "runtime_transport_contract", "runtime_transport_negative"],
+    # Focused suite for validating optional custom step labels (step_id != action).
+    "runtime_step_labels" => ["runtime_step_labels"]
+  },
+  log_dir: "priv/e2e/logs",
+  report_dir: "priv/e2e/reports",
+  retention: [
+    enabled: true,
+    retention_days: 14,
+    max_run_count: 2000,
+    max_log_bytes: 1_000_000_000,
+    check_interval_ms: 60_000
   ]
 
 # Enable dev routes for dashboard and mailbox
