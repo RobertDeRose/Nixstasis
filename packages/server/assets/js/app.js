@@ -28,17 +28,276 @@ import ApexChart from "./hooks/apex_charts"
 import IndeterminateCheckbox from "./hooks/indeterminate_checkbox"
 import TerminalHook from "./hooks/terminal"
 
+const ReportColumnTitle = {
+  mounted() {
+    this.onKeydown = event => {
+      if (event.key === "Enter") {
+        event.preventDefault()
+      }
+    }
+
+    if (this.el.__reportColumnTitleOnKeydown) {
+      this.el.removeEventListener("keydown", this.el.__reportColumnTitleOnKeydown)
+    }
+
+    this.el.addEventListener("keydown", this.onKeydown)
+    this.el.__reportColumnTitleOnKeydown = this.onKeydown
+  },
+
+  destroyed() {
+    if (this.onKeydown) {
+      this.el.removeEventListener("keydown", this.onKeydown)
+    }
+
+    if (this.el.__reportColumnTitleOnKeydown === this.onKeydown) {
+      this.el.__reportColumnTitleOnKeydown = null
+    }
+  },
+}
+
+const ReportFilterValue = {
+  mounted() {
+    this.onKeydown = event => {
+      if (event.key === "Enter") {
+        event.preventDefault()
+      }
+    }
+
+    this.el.addEventListener("keydown", this.onKeydown)
+  },
+
+  destroyed() {
+    if (this.onKeydown) {
+      this.el.removeEventListener("keydown", this.onKeydown)
+    }
+  },
+}
+
+const ReportNameAutofocus = {
+  mounted() {
+    const focusNameInput = () => {
+      if (!this.el || !document.body.contains(this.el)) return
+      this.el.focus()
+      this.el.select()
+    }
+
+    requestAnimationFrame(focusNameInput)
+    setTimeout(focusNameInput, 120)
+  },
+}
+
+const ReportBuilderKeyboard = {
+  mounted() {
+    this.onKeydown = event => {
+      if (event.defaultPrevented) return
+
+      const key = event.key
+      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+
+      if (key === "Enter") {
+        const saveShortcutPressed = isMac ? event.metaKey : event.ctrlKey
+
+        if (saveShortcutPressed) {
+          const saveButton = document.getElementById("report-save-report")
+          if (saveButton?.disabled) return
+
+          event.preventDefault()
+          if (typeof this.el.requestSubmit === "function") {
+            this.el.requestSubmit()
+          } else {
+            saveButton?.click()
+          }
+          return
+        }
+      }
+
+      if (key !== "Tab") return
+
+      const tabOrder = this.getTabOrder()
+      const activeId = document.activeElement?.id
+      const index = tabOrder.indexOf(activeId)
+      if (index === -1) return
+
+      event.preventDefault()
+
+      const delta = event.shiftKey ? -1 : 1
+      const nextIndex = (index + delta + tabOrder.length) % tabOrder.length
+      const nextId = tabOrder[nextIndex]
+      document.getElementById(nextId)?.focus()
+    }
+
+    this.onFocusIn = event => {
+      const saveButton = document.getElementById("report-save-report")
+      if (!saveButton) return
+
+      if (event.target?.id === "report-save-report" && !saveButton.disabled) {
+        saveButton.classList.add("animate-pulse")
+      }
+    }
+
+    this.onFocusOut = event => {
+      if (event.target?.id === "report-save-report") {
+        event.target.classList.remove("animate-pulse")
+      }
+    }
+
+    if (this.el.__reportBuilderOnKeydown) {
+      this.el.removeEventListener("keydown", this.el.__reportBuilderOnKeydown)
+    }
+
+    if (this.el.__reportBuilderOnFocusIn) {
+      this.el.removeEventListener("focusin", this.el.__reportBuilderOnFocusIn)
+    }
+
+    if (this.el.__reportBuilderOnFocusOut) {
+      this.el.removeEventListener("focusout", this.el.__reportBuilderOnFocusOut)
+    }
+
+    this.el.addEventListener("keydown", this.onKeydown)
+    this.el.addEventListener("focusin", this.onFocusIn)
+    this.el.addEventListener("focusout", this.onFocusOut)
+    this.el.__reportBuilderOnKeydown = this.onKeydown
+    this.el.__reportBuilderOnFocusIn = this.onFocusIn
+    this.el.__reportBuilderOnFocusOut = this.onFocusOut
+  },
+
+  getTabOrder() {
+    const ids = ["report-name-input", "report-schema-id", "report-add-column"]
+
+    const columnRows = Array.from(this.el.querySelectorAll("[data-column-row-id]"))
+    for (const row of columnRows) {
+      const schemaField = row.querySelector("select[id^='report-field-path-']")
+      const columnTitle = row.querySelector("input[id^='report-field-alias-']")
+      if (schemaField?.id) ids.push(schemaField.id)
+      if (columnTitle?.id) ids.push(columnTitle.id)
+    }
+
+    ids.push("report-add-filter")
+
+    const filterRows = Array.from(this.el.querySelectorAll("[data-filter-row-id]"))
+    for (const row of filterRows) {
+      const filterField = row.querySelector("select[id^='report-filter-field-']")
+      const filterOperator = row.querySelector("select[id^='report-filter-operator-']")
+      const filterValue = row.querySelector("input[id^='report-filter-value-']")
+      if (filterField?.id) ids.push(filterField.id)
+      if (filterOperator?.id) ids.push(filterOperator.id)
+      if (filterValue?.id) ids.push(filterValue.id)
+    }
+
+    ids.push("report-save-report")
+
+    return ids.filter((id, index) => {
+      if (!id || ids.indexOf(id) !== index) return false
+      const el = document.getElementById(id)
+      return !!el && !el.disabled
+    })
+  },
+
+  destroyed() {
+    if (this.onKeydown) {
+      this.el.removeEventListener("keydown", this.onKeydown)
+    }
+
+    if (this.onFocusIn) {
+      this.el.removeEventListener("focusin", this.onFocusIn)
+    }
+
+    if (this.onFocusOut) {
+      this.el.removeEventListener("focusout", this.onFocusOut)
+    }
+
+    if (this.el.__reportBuilderOnKeydown === this.onKeydown) {
+      this.el.__reportBuilderOnKeydown = null
+    }
+
+    if (this.el.__reportBuilderOnFocusIn === this.onFocusIn) {
+      this.el.__reportBuilderOnFocusIn = null
+    }
+
+    if (this.el.__reportBuilderOnFocusOut === this.onFocusOut) {
+      this.el.__reportBuilderOnFocusOut = null
+    }
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, ApexChart, TerminalHook, IndeterminateCheckbox},
+  hooks: {
+    ...colocatedHooks,
+    ApexChart,
+    TerminalHook,
+    IndeterminateCheckbox,
+    ReportColumnTitle,
+    ReportFilterValue,
+    ReportNameAutofocus,
+    ReportBuilderKeyboard,
+  },
 })
 
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+window.addEventListener("phx:focus_column_title", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const input = document.getElementById(id)
+    if (!input) return
+
+    input.focus()
+    input.select()
+  })
+})
+window.addEventListener("phx:focus_schema_field", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const select = document.getElementById(id)
+    if (!select) return
+
+    select.focus()
+  })
+})
+window.addEventListener("phx:focus_filter_field", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const select = document.getElementById(id)
+    if (!select) return
+
+    select.focus()
+  })
+})
+window.addEventListener("phx:focus_filter_operator", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const select = document.getElementById(id)
+    if (!select) return
+
+    select.focus()
+  })
+})
+window.addEventListener("phx:focus_filter_value", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const input = document.getElementById(id)
+    if (!input) return
+
+    input.focus()
+    const end = input.value?.length ?? 0
+    input.setSelectionRange(end, end)
+  })
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
