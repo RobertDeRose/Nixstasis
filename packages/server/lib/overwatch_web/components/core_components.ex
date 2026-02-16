@@ -283,6 +283,32 @@ defmodule NixstasisWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a schema dropdown selector with a standardized style.
+  """
+  attr(:id, :string, default: nil)
+  attr(:name, :string, required: true)
+  attr(:label, :string, required: true)
+  attr(:value, :string, default: nil)
+  attr(:options, :list, default: [])
+  attr(:prompt, :string, default: "Select option")
+  attr(:rest, :global)
+
+  def schema_select(assigns) do
+    ~H"""
+    <.input
+      id={@id}
+      type="select"
+      name={@name}
+      label={@label}
+      value={@value}
+      options={@options}
+      prompt={@prompt}
+      {@rest}
+    />
+    """
+  end
+
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
