@@ -375,7 +375,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
 
     kept =
       runs
-      |> Enum.reject(&(MapSet.member?(purge_ids, &1["id"])))
+      |> Enum.reject(&MapSet.member?(purge_ids, &1["id"]))
       |> Enum.sort_by(fn run -> {run["timestamp"] || "", run["full_commit_sha"] || ""} end, :desc)
 
     purged_paths = Enum.map(to_purge, &String.trim_trailing(&1["run_path"] || "", "/"))
