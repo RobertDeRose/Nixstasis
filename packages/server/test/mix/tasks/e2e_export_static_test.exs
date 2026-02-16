@@ -49,7 +49,11 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
     assert entry["is_release"] == false
   end
 
-  test "prunes oldest non-release runs by max limit", %{reports_dir: reports_dir, logs_dir: logs_dir, pages_dir: pages_dir} do
+  test "prunes oldest non-release runs by max limit", %{
+    reports_dir: reports_dir,
+    logs_dir: logs_dir,
+    pages_dir: pages_dir
+  } do
     write_report_fixture(reports_dir, logs_dir, "run-a", "auth")
 
     run_task([

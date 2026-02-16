@@ -3,7 +3,10 @@ defmodule Nixstasis.Reporting do
   The Reporting context.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias Nixstasis.Domain
+  alias Nixstasis.Repo
   alias Nixstasis.Reporting.CustomReport
 
   def list_custom_reports do
@@ -15,6 +18,25 @@ defmodule Nixstasis.Reporting do
   def create_custom_report(attrs \\ %{}) do
     Domain.create_custom_report(attrs)
   end
+
+  def custom_report_name_taken?(name) when is_binary(name) and name != "" do
+    normalized_name = String.trim(name)
+
+    if normalized_name == "" do
+      false
+    else
+      query =
+        from(r in "custom_reports",
+          where: fragment("lower(?) = lower(?)", r.name, ^normalized_name),
+          select: 1,
+          limit: 1
+        )
+
+      Repo.one(query) == 1
+    end
+  end
+
+  def custom_report_name_taken?(_), do: false
 
   def update_custom_report(%CustomReport{} = report, attrs) do
     Domain.update_custom_report(report, attrs)

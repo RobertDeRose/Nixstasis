@@ -8,6 +8,10 @@ approvals, alerts, and reporting.
 - LiveView UI for fleet health, approvals, alerts, and reports.
 - JSONB-backed device and telemetry storage (Postgres).
 - API endpoints for device registration and heartbeat polling.
+- Schema-driven dropdown APIs for alert/report builders:
+  - `GET /api/v1/builder-schemas`
+  - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
+  - `POST /api/v1/builder-configurations/validate`
 - Integrates with Caddy/AuthCrunch and FRP for secure remote access.
 
 ## Prerequisites

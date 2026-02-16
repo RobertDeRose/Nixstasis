@@ -142,6 +142,22 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       assert first["status"] == "passed"
     end
 
+    test "ignores unknown schema keys in filters for telemetry source", %{device: device} do
+      config = %{
+        source: "telemetry",
+        fields: [%{path: "temp", alias: "temp"}],
+        filters: [
+          %{field: "device_id", operator: "=", value: device.id},
+          %{field: "unknown_field", operator: "=", value: "x"}
+        ]
+      }
+
+      query = QueryBuilder.build(config)
+      results = Repo.all(query)
+
+      assert length(results) == 2
+    end
+
     test "provides default fields for e2e source when none are configured" do
       fields = QueryBuilder.fields_for_report(%{source: "e2e", fields: []})
       assert fields != []
