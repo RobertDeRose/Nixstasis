@@ -45,6 +45,8 @@ erl_crash.dump
 # OS metadata
 .DS_Store
 Thumbs.db
+*.tmp
+*.swp
 
 # Go artifacts
 *.exe
