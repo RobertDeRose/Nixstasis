@@ -109,29 +109,39 @@ defmodule Nixstasis.SchemaOptions.Normalizer do
     keys = String.split(key, ".")
 
     Enum.reduce_while(keys, schema, fn segment, acc ->
-      cond do
-        is_map(acc["properties"]) and is_map(acc["properties"][segment]) ->
-          {:cont, acc["properties"][segment]}
-
-        is_map(acc[:properties]) and is_map(acc[:properties][segment]) ->
-          {:cont, acc[:properties][segment]}
-
-        is_map(acc[segment]) ->
-          {:cont, acc[segment]}
-
-        true ->
-          atom_key =
-            Enum.find(Map.keys(acc), fn key ->
-              is_atom(key) and Atom.to_string(key) == segment
-            end)
-
-          if atom_key && is_map(acc[atom_key]) do
-            {:cont, acc[atom_key]}
-          else
-            {:halt, %{}}
-          end
+      case next_segment_map(acc, segment) do
+        nil -> {:halt, %{}}
+        next -> {:cont, next}
       end
     end)
+  end
+
+  defp next_segment_map(acc, segment) when is_map(acc) do
+    direct =
+      [get_nested_map(acc, "properties", segment), get_nested_map(acc, :properties, segment), get_map(acc, segment)]
+      |> Enum.find(&is_map/1)
+
+    direct || atom_segment_map(acc, segment)
+  end
+
+  defp next_segment_map(_acc, _segment), do: nil
+
+  defp get_nested_map(map, parent, segment) do
+    nested = Map.get(map, parent)
+    if is_map(nested), do: get_map(nested, segment), else: nil
+  end
+
+  defp get_map(map, key) when is_map(map), do: Map.get(map, key)
+  defp get_map(_map, _key), do: nil
+
+  defp atom_segment_map(acc, segment) do
+    acc
+    |> Map.keys()
+    |> Enum.find(fn key -> is_atom(key) and Atom.to_string(key) == segment end)
+    |> case do
+      nil -> nil
+      atom_key -> get_map(acc, atom_key)
+    end
   end
 
   defp humanize(value) do

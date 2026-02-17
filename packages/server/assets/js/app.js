@@ -94,6 +94,13 @@ const ReportBuilderKeyboard = {
       const key = event.key
       const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
+      if (key === "Escape") {
+        event.preventDefault()
+        const closeButton = document.querySelector("#report-modal button[aria-label='close']")
+        closeButton?.click()
+        return
+      }
+
       if (key === "Enter") {
         const saveShortcutPressed = isMac ? event.metaKey : event.ctrlKey
 

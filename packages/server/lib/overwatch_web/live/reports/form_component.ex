@@ -7,23 +7,28 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   @all_scope "__all__"
 
   @impl true
-  def update(%{report: _report} = assigns, socket) do
+  def update(%{report: report} = assigns, socket) do
     schema_refs = SchemaOptions.list_schema_references()
-    selected_schema_id = @all_scope
+    selected_schema_id = normalize_scope_value(config_value(report.config, "schema_id"), @all_scope)
     schema_options = fetch_schema_options(schema_refs, selected_schema_id)
+    {fields, filters} = hydrate_builder_rows(report)
+    report_name = normalize_report_name(report.name || "")
 
-    {:ok,
-     socket
-     |> assign(assigns)
-     |> assign(:report_name, "")
-     |> assign(:fields, [%{id: Ecto.UUID.generate(), path: "", alias: ""}])
-     |> assign(:filters, [])
-     |> assign(:schema_refs, schema_refs)
-     |> assign(:selected_schema_id, selected_schema_id)
-     |> assign_schema_option_assigns(schema_options)
-     |> assign(:schema_issue, nil)
-     |> assign(:report_name_error, nil)
-     |> assign(:recent_enter_added_field_id, nil)}
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign(:report_name, report_name)
+      |> assign(:fields, fields)
+      |> assign(:filters, filters)
+      |> assign(:schema_refs, schema_refs)
+      |> assign(:selected_schema_id, selected_schema_id)
+      |> assign_schema_option_assigns(schema_options)
+      |> assign(:schema_issue, nil)
+      |> assign(:report_name_error, nil)
+      |> assign(:recent_enter_added_field_id, nil)
+      |> maybe_focus_first_column_field(assigns, fields)
+
+    {:ok, socket}
   end
 
   @impl true
@@ -148,77 +153,190 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     {:noreply, socket}
   end
 
-  def handle_event("save", %{"name" => name}, socket) do
-    normalized_name = normalize_report_name(name)
-    name_taken? = Reporting.custom_report_name_taken?(normalized_name)
-
-    validation =
-      validate_selected_keys(
-        socket.assigns.fields,
-        socket.assigns.filters,
-        socket.assigns.schema_options
-      )
-
-    maybe_record_invalid_attempt(validation)
-
-    config = %{
-      source: "telemetry",
-      schema_id: persisted_schema_id(socket.assigns.selected_schema_id),
-      fields: Enum.map(socket.assigns.fields, &Map.take(&1, [:path, :alias])),
-      filters: Enum.map(socket.assigns.filters, &Map.take(&1, [:field, :operator, :value]))
-    }
-
-    report_params = %{
-      "name" => normalized_name,
-      "config" => config
-    }
+  def handle_event("save", params, socket) do
+    save_ctx = build_save_context(socket, params)
+    maybe_record_invalid_attempt(save_ctx.validation)
 
     cond do
-      name_taken? ->
+      save_ctx.name_taken? ->
         {:noreply,
          socket
-         |> assign(:report_name, normalized_name)
+         |> assign_save_state(save_ctx)
          |> assign(:report_name_error, "Report title is already used.")
          |> put_flash(:error, "Choose a unique report title.")}
 
-      filters_have_invalid_value_types?(socket.assigns.filters, socket.assigns.schema_option_types) ->
+      filters_have_invalid_value_types?(save_ctx.submitted_filters, socket.assigns.schema_option_types) ->
         {:noreply,
          socket
+         |> assign_save_state(save_ctx)
          |> put_flash(:error, "Please correct filter value types before saving.")}
 
-      validation.valid ->
-        maybe_record_first_attempt(socket.assigns.fields, socket.assigns.filters)
-
-        case Reporting.create_custom_report(report_params) do
-          {:ok, report} ->
-            notify_parent({:saved, report})
-
-            {:noreply,
-             socket
-             |> put_flash(:info, "Report created successfully")
-             |> push_patch(to: socket.assigns.patch)}
-
-          {:error, %Ash.Error.Invalid{} = error} ->
-            if duplicate_report_name_error?(error) do
-              {:noreply,
-               socket
-               |> assign(:report_name_error, "Report title is already used.")
-               |> put_flash(:error, "Choose a unique report title.")}
-            else
-              {:noreply, put_flash(socket, :error, "Unable to save report")}
-            end
-
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Unable to save report")}
-        end
+      save_ctx.validation.valid ->
+        maybe_record_first_attempt(save_ctx.submitted_fields, save_ctx.submitted_filters)
+        persist_save(socket, save_ctx)
 
       true ->
         {:noreply,
          socket
+         |> assign_save_state(save_ctx)
          |> assign(:schema_issue, "Some selected fields are invalid for the active schema scope.")
          |> put_flash(:error, "Please reselect invalid fields before saving.")}
     end
   end
+
+  defp persist_report(%{id: nil}, report_params), do: Reporting.create_custom_report(report_params)
+  defp persist_report(report, report_params), do: Reporting.update_custom_report(report, report_params)
+
+  defp success_message(%{id: nil}), do: "Report created successfully"
+  defp success_message(_), do: "Report updated successfully"
+
+  defp build_save_context(socket, params) do
+    submitted_name =
+      params["name"] ||
+        socket.assigns.report_name ||
+        socket.assigns.report.name ||
+        ""
+
+    normalized_name = normalize_report_name(submitted_name)
+    submitted_schema_id = normalize_scope_value(Map.get(params, "schema_id"), socket.assigns.selected_schema_id)
+
+    submitted_fields =
+      submitted_fields_from_params(
+        params,
+        socket.assigns.fields,
+        socket.assigns.schema_option_labels
+      )
+
+    submitted_filters = submitted_filters_from_params(params, socket.assigns.filters)
+
+    validation =
+      validate_selected_keys(
+        submitted_fields,
+        submitted_filters,
+        socket.assigns.schema_options
+      )
+
+    report_params = %{
+      "name" => normalized_name,
+      "config" => %{
+        source: "telemetry",
+        schema_id: persisted_schema_id(submitted_schema_id),
+        fields: Enum.map(submitted_fields, &Map.take(&1, [:path, :alias])),
+        filters: Enum.map(submitted_filters, &Map.take(&1, [:field, :operator, :value]))
+      }
+    }
+
+    %{
+      normalized_name: normalized_name,
+      submitted_schema_id: submitted_schema_id,
+      submitted_fields: submitted_fields,
+      submitted_filters: submitted_filters,
+      validation: validation,
+      report_params: report_params,
+      name_taken?: name_taken_for_other_report?(socket.assigns.report, normalized_name)
+    }
+  end
+
+  defp assign_save_state(socket, save_ctx) do
+    socket
+    |> assign(:report_name, save_ctx.normalized_name)
+    |> assign(:selected_schema_id, save_ctx.submitted_schema_id)
+    |> assign(:fields, save_ctx.submitted_fields)
+    |> assign(:filters, save_ctx.submitted_filters)
+  end
+
+  defp persist_save(socket, save_ctx) do
+    case persist_report(socket.assigns.report, save_ctx.report_params) do
+      {:ok, report} ->
+        notify_parent({:saved, report})
+
+        {:noreply,
+         socket
+         |> put_flash(:info, success_message(socket.assigns.report))
+         |> push_patch(to: socket.assigns.patch)}
+
+      {:error, %Ash.Error.Invalid{} = error} ->
+        handle_persist_invalid(socket, error)
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Unable to save report")}
+    end
+  end
+
+  defp handle_persist_invalid(socket, error) do
+    if duplicate_report_name_error?(error) do
+      {:noreply,
+       socket
+       |> assign(:report_name_error, "Report title is already used.")
+       |> put_flash(:error, "Choose a unique report title.")}
+    else
+      {:noreply, put_flash(socket, :error, "Unable to save report")}
+    end
+  end
+
+  defp name_taken_for_other_report?(%{id: nil}, normalized_name),
+    do: Reporting.custom_report_name_taken?(normalized_name)
+
+  defp name_taken_for_other_report?(report, normalized_name) do
+    existing_name = normalize_report_name(report.name || "")
+
+    if String.downcase(existing_name) == String.downcase(normalized_name) do
+      false
+    else
+      Reporting.custom_report_name_taken?(normalized_name)
+    end
+  end
+
+  defp hydrate_builder_rows(report) do
+    config = report.config || %{}
+    config_fields = config_value(config, "fields") || []
+    config_filters = config_value(config, "filters") || []
+
+    fields =
+      config_fields
+      |> Enum.filter(&is_map/1)
+      |> Enum.map(fn field ->
+        %{
+          id: Ecto.UUID.generate(),
+          path: config_value(field, "path") || "",
+          alias: config_value(field, "alias") || ""
+        }
+      end)
+      |> ensure_minimum_one_field([%{id: Ecto.UUID.generate(), path: "", alias: ""}])
+
+    filters =
+      config_filters
+      |> Enum.filter(&is_map/1)
+      |> Enum.map(fn filter ->
+        %{
+          id: Ecto.UUID.generate(),
+          field: config_value(filter, "field") || "",
+          operator: normalize_filter_operator(config_value(filter, "operator") || "="),
+          value: config_value(filter, "value") || ""
+        }
+      end)
+
+    {fields, filters}
+  end
+
+  defp config_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, config_atom_key(key))
+  end
+
+  defp config_value(_, _), do: nil
+
+  defp config_atom_key("schema_id"), do: :schema_id
+  defp config_atom_key("fields"), do: :fields
+  defp config_atom_key("filters"), do: :filters
+  defp config_atom_key("path"), do: :path
+  defp config_atom_key("alias"), do: :alias
+  defp config_atom_key("field"), do: :field
+  defp config_atom_key("operator"), do: :operator
+  defp config_atom_key("value"), do: :value
+  defp config_atom_key(_), do: nil
+
+  defp normalize_filter_operator(op) when op in ["=", "!=", ">", "<", ">=", "<=", "=="], do: op
+  defp normalize_filter_operator(_), do: "="
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 
@@ -241,14 +359,16 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
         >
           <div class="mb-6">
             <label class="block text-sm font-medium text-base-content mb-2">Report Name</label>
+            <input type="hidden" name="report_id" value={@report.id || ""} />
             <input
               id="report-name-input"
-              phx-hook="ReportNameAutofocus"
+              phx-hook={if @action == :edit, do: nil, else: "ReportNameAutofocus"}
               type="text"
               name="name"
               value={@report_name}
               class="input input-bordered w-full"
               placeholder="e.g. Daily Temperature Check"
+              disabled={@action == :edit}
               required
             />
             <%= if @report_name_error do %>
@@ -432,9 +552,12 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       class="select select-sm select-bordered w-full"
                     >
                       <option value="=" selected={filter.operator == "="}>=</option>
+                      <option value="==" selected={filter.operator == "=="}>==</option>
                       <option value="!=" selected={filter.operator == "!="}>!=</option>
                       <option value=">" selected={filter.operator == ">"}>&gt;</option>
+                      <option value=">=" selected={filter.operator == ">="}>&gt;=</option>
                       <option value="<" selected={filter.operator == "<"}>&lt;</option>
+                      <option value="<=" selected={filter.operator == "<="}>&lt;=</option>
                     </select>
                   </div>
                   <div class="flex-1">
@@ -510,31 +633,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     old_labels = socket.assigns.schema_option_labels || %{}
 
     fields =
-      Enum.map(old_fields, fn field ->
-        if field.path != "" and not MapSet.member?(valid_keys, field.path) do
-          old_default_alias = default_alias_for_key(old_labels, field.path)
-
-          alias_value =
-            if field.alias == old_default_alias do
-              ""
-            else
-              field.alias
-            end
-
-          %{field | path: "", alias: alias_value}
-        else
-          field
-        end
-      end)
+      Enum.map(old_fields, &clear_invalid_field_selection(&1, valid_keys, old_labels))
 
     filters =
-      Enum.map(old_filters, fn filter ->
-        if filter.field != "" and not MapSet.member?(valid_keys, filter.field) do
-          %{filter | field: ""}
-        else
-          filter
-        end
-      end)
+      Enum.map(old_filters, &clear_invalid_filter_selection(&1, valid_keys))
 
     socket
     |> assign_schema_option_assigns(schema_options)
@@ -548,30 +650,56 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     |> refs_for_scope(selected_schema_id)
     |> Enum.flat_map(&fetch_ref_options/1)
     |> Enum.reduce(%{}, fn option, acc ->
-      key = Map.get(option, :key)
-      label = Map.get(option, :label)
-      value_type = Map.get(option, :value_type)
-
-      if is_binary(key) and key != "" do
-        normalized = %{
-          key: key,
-          label: if(is_binary(label) and label != "", do: label, else: humanize_field_name(key)),
-          value_type: normalize_value_type(value_type)
-        }
-
-        Map.update(acc, key, normalized, fn existing ->
-          if existing.value_type == "unknown" and normalized.value_type != "unknown" do
-            %{existing | value_type: normalized.value_type}
-          else
-            existing
-          end
-        end)
-      else
-        acc
-      end
+      merge_normalized_schema_option(acc, normalize_schema_option(option))
     end)
     |> Map.values()
     |> Enum.sort_by(&String.downcase(&1.label))
+  end
+
+  defp clear_invalid_field_selection(field, valid_keys, old_labels) do
+    if field.path != "" and not MapSet.member?(valid_keys, field.path) do
+      old_default_alias = default_alias_for_key(old_labels, field.path)
+      alias_value = if(field.alias == old_default_alias, do: "", else: field.alias)
+      %{field | path: "", alias: alias_value}
+    else
+      field
+    end
+  end
+
+  defp clear_invalid_filter_selection(filter, valid_keys) do
+    if filter.field != "" and not MapSet.member?(valid_keys, filter.field) do
+      %{filter | field: ""}
+    else
+      filter
+    end
+  end
+
+  defp normalize_schema_option(option) do
+    key = Map.get(option, :key)
+    label = Map.get(option, :label)
+    value_type = Map.get(option, :value_type)
+
+    if is_binary(key) and key != "" do
+      %{
+        key: key,
+        label: if(is_binary(label) and label != "", do: label, else: humanize_field_name(key)),
+        value_type: normalize_value_type(value_type)
+      }
+    else
+      nil
+    end
+  end
+
+  defp merge_normalized_schema_option(acc, nil), do: acc
+
+  defp merge_normalized_schema_option(acc, normalized) do
+    Map.update(acc, normalized.key, normalized, fn existing ->
+      if existing.value_type == "unknown" and normalized.value_type != "unknown" do
+        %{existing | value_type: normalized.value_type}
+      else
+        existing
+      end
+    end)
   end
 
   defp refs_for_scope(schema_refs, @all_scope), do: schema_refs
@@ -768,32 +896,34 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     if normalized_value == "" do
       nil
     else
-      case value_type do
-        "integer" ->
-          if valid_integer?(normalized_value), do: nil, else: "Expected integer value."
-
-        "number" ->
-          if valid_number?(normalized_value), do: nil, else: "Expected numeric value."
-
-        "float" ->
-          if valid_number?(normalized_value), do: nil, else: "Expected numeric value."
-
-        "boolean" ->
-          if valid_boolean?(normalized_value), do: nil, else: "Expected boolean (true/false)."
-
-        "object" ->
-          if valid_json_object?(normalized_value), do: nil, else: "Expected JSON object."
-
-        "array" ->
-          if valid_json_array?(normalized_value), do: nil, else: "Expected JSON array."
-
-        _ ->
-          nil
-      end
+      validation_message_for_value_type(value_type, normalized_value)
     end
   end
 
   defp filter_value_type_error(_option_types, _filter), do: nil
+
+  defp validation_message_for_value_type("integer", value),
+    do: invalid_message(valid_integer?(value), "Expected integer value.")
+
+  defp validation_message_for_value_type("number", value),
+    do: invalid_message(valid_number?(value), "Expected numeric value.")
+
+  defp validation_message_for_value_type("float", value),
+    do: invalid_message(valid_number?(value), "Expected numeric value.")
+
+  defp validation_message_for_value_type("boolean", value),
+    do: invalid_message(valid_boolean?(value), "Expected boolean (true/false).")
+
+  defp validation_message_for_value_type("object", value),
+    do: invalid_message(valid_json_object?(value), "Expected JSON object.")
+
+  defp validation_message_for_value_type("array", value),
+    do: invalid_message(valid_json_array?(value), "Expected JSON array.")
+
+  defp validation_message_for_value_type(_, _value), do: nil
+
+  defp invalid_message(true, _message), do: nil
+  defp invalid_message(false, message), do: message
 
   defp valid_integer?(value) when is_binary(value) do
     case Integer.parse(value) do
@@ -1037,6 +1167,72 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   defp normalize_nested_value(value) when is_boolean(value), do: to_string(value)
   defp normalize_nested_value(_value), do: ""
 
+  defp maybe_focus_first_column_field(socket, %{action: :edit}, fields) when is_list(fields) do
+    case List.first(fields) do
+      %{id: id} when is_binary(id) ->
+        push_event(socket, "focus_schema_field", %{id: column_path_select_id(id)})
+
+      _ ->
+        socket
+    end
+  end
+
+  defp maybe_focus_first_column_field(socket, _assigns, _fields), do: socket
+
+  defp submitted_fields_from_params(params, existing_fields, option_labels) do
+    existing_by_id = Map.new(existing_fields, &{&1.id, &1})
+    submitted_fields = Map.get(params, "fields")
+
+    if is_map(submitted_fields) do
+      ordered_ids = Enum.map(existing_fields, & &1.id)
+      extra_ids = submitted_fields |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
+
+      (ordered_ids ++ extra_ids)
+      |> Enum.map(fn id ->
+        submitted = Map.get(submitted_fields, id, %{})
+        existing = Map.get(existing_by_id, id, %{id: id, path: "", alias: ""})
+        path = normalize_nested_value(Map.get(submitted, "path", existing.path))
+
+        alias_value =
+          normalize_nested_value(Map.get(submitted, "alias", default_alias_for_key(option_labels, path)))
+
+        %{
+          id: id,
+          path: path,
+          alias: alias_value
+        }
+      end)
+    else
+      existing_fields
+    end
+  end
+
+  defp submitted_filters_from_params(params, existing_filters) do
+    existing_by_id = Map.new(existing_filters, &{&1.id, &1})
+    submitted_filters = Map.get(params, "filters")
+
+    if is_map(submitted_filters) do
+      ordered_ids = Enum.map(existing_filters, & &1.id)
+      extra_ids = submitted_filters |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
+
+      (ordered_ids ++ extra_ids)
+      |> Enum.map(fn id ->
+        submitted = Map.get(submitted_filters, id, %{})
+        existing = Map.get(existing_by_id, id, %{id: id, field: "", operator: "=", value: ""})
+
+        %{
+          id: id,
+          field: normalize_nested_value(Map.get(submitted, "field", existing.field)),
+          operator:
+            normalize_filter_operator(normalize_nested_value(Map.get(submitted, "operator", existing.operator))),
+          value: normalize_nested_value(Map.get(submitted, "value", existing.value))
+        }
+      end)
+    else
+      existing_filters
+    end
+  end
+
   defp maybe_clear_recent_enter_added_field(socket, id, value) do
     if socket.assigns.recent_enter_added_field_id == id and present?(value) do
       assign(socket, :recent_enter_added_field_id, nil)
@@ -1059,12 +1255,18 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   defp normalize_report_name(_), do: ""
 
   defp maybe_validate_report_name(socket, params, name) do
-    if report_name_changed?(params) do
+    should_validate =
+      case socket.assigns.report do
+        %{id: nil} -> true
+        _ -> report_name_changed?(params)
+      end
+
+    if should_validate do
       cond do
         name == "" ->
           assign(socket, :report_name_error, nil)
 
-        Reporting.custom_report_name_taken?(name) ->
+        name_taken_for_other_report?(socket.assigns.report, name) ->
           assign(socket, :report_name_error, "Report title is already used.")
 
         true ->
@@ -1075,11 +1277,11 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     end
   end
 
-  defp report_name_changed?(%{"name" => _}), do: true
-
   defp report_name_changed?(%{"_target" => target}) when is_list(target) do
     Enum.any?(target, &(&1 == "name"))
   end
+
+  defp report_name_changed?(%{"name" => _} = params), do: map_size(params) == 1
 
   defp report_name_changed?(_), do: false
 
@@ -1133,25 +1335,22 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     updated_fields = Enum.reject(fields, &(&1.id == id))
 
     focus_id =
-      cond do
-        is_integer(index) and index > 0 ->
-          updated_fields
-          |> Enum.at(index - 1)
-          |> then(fn
-            %{id: field_id} -> field_id
-            _ -> nil
-          end)
-
-        true ->
-          updated_fields
-          |> Enum.at(0)
-          |> then(fn
-            %{id: field_id} -> field_id
-            _ -> nil
-          end)
+      if is_integer(index) and index > 0 do
+        field_id_at(updated_fields, index - 1)
+      else
+        field_id_at(updated_fields, 0)
       end
 
     {updated_fields, focus_id}
+  end
+
+  defp field_id_at(fields, index) do
+    fields
+    |> Enum.at(index)
+    |> case do
+      %{id: field_id} -> field_id
+      _ -> nil
+    end
   end
 
   defp clear_recent_enter_added_field(socket, id) do
@@ -1320,7 +1519,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
             focus_last_column_title(socket)
         end
 
-      length(updated_filters) > 0 ->
+      updated_filters != [] ->
         case Enum.at(updated_filters, 0) do
           %{id: remaining_id} ->
             push_event(socket, "focus_filter_value", %{id: filter_value_input_id(remaining_id)})

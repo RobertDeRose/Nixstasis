@@ -132,6 +132,14 @@ defmodule NixstasisWeb.CoreComponents do
   end
 
   @doc """
+  Returns consistent classes for inline action links in data tables.
+  """
+  def action_link_class(:view), do: "link link-primary font-semibold"
+  def action_link_class(:edit), do: "link link-accent font-semibold"
+  def action_link_class(:delete), do: "link link-error font-semibold"
+  def action_link_class(_), do: "link font-semibold"
+
+  @doc """
   Renders an input with label and error messages.
 
   A `Phoenix.HTML.FormField` may be passed as argument,

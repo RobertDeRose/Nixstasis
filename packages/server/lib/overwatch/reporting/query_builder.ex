@@ -8,6 +8,7 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   alias Nixstasis.Domain
   alias Nixstasis.E2E.Run
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Reporting.TableFilters
 
   @telemetry_fields ~w(id device_id timestamp inserted_at updated_at)a
   @e2e_fields ~w(id suite_id journey_ids environment_label trigger_source protocol_version status started_at finished_at inserted_at updated_at)a
@@ -43,6 +44,16 @@ defmodule Nixstasis.Reporting.QueryBuilder do
       {"e2e", []} -> @e2e_default_fields
       _ -> fields
     end
+  end
+
+  def apply_result_view(rows, opts \\ %{}) when is_list(rows) do
+    sort_by = opts[:sort_by] || opts["sort_by"]
+    sort_dir = opts[:sort_dir] || opts["sort_dir"] || "asc"
+    filters = opts[:filters] || opts["filters"] || []
+
+    rows
+    |> TableFilters.filter_rows(filters)
+    |> TableFilters.sort_rows(sort_by, sort_dir)
   end
 
   defp normalize_source(nil), do: "telemetry"
@@ -161,15 +172,32 @@ defmodule Nixstasis.Reporting.QueryBuilder do
         query
 
       field_atom ->
-        case op do
-          "=" -> from(q in query, where: field(q, ^field_atom) == ^val)
-          "!=" -> from(q in query, where: field(q, ^field_atom) != ^val)
-          ">" -> from(q in query, where: field(q, ^field_atom) > ^val)
-          "<" -> from(q in query, where: field(q, ^field_atom) < ^val)
-          _ -> query
-        end
+        apply_schema_operator(query, field_atom, op, val)
     end
   end
+
+  defp apply_schema_operator(query, field_atom, "=", val),
+    do: from(q in query, where: field(q, ^field_atom) == ^val)
+
+  defp apply_schema_operator(query, field_atom, "==", val),
+    do: from(q in query, where: field(q, ^field_atom) == ^val)
+
+  defp apply_schema_operator(query, field_atom, "!=", val),
+    do: from(q in query, where: field(q, ^field_atom) != ^val)
+
+  defp apply_schema_operator(query, field_atom, ">", val),
+    do: from(q in query, where: field(q, ^field_atom) > ^val)
+
+  defp apply_schema_operator(query, field_atom, ">=", val),
+    do: from(q in query, where: field(q, ^field_atom) >= ^val)
+
+  defp apply_schema_operator(query, field_atom, "<", val),
+    do: from(q in query, where: field(q, ^field_atom) < ^val)
+
+  defp apply_schema_operator(query, field_atom, "<=", val),
+    do: from(q in query, where: field(q, ^field_atom) <= ^val)
+
+  defp apply_schema_operator(query, _field_atom, _op, _val), do: query
 
   defp field_atom_for(source, field_name) do
     normalized =
@@ -190,55 +218,57 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp apply_json_path_filter(query, path, op, val) do
-    cast_type =
-      if is_integer(val) or is_float(val) do
-        "::numeric"
-      else
-        ""
-      end
+    numeric? = is_integer(val) or is_float(val)
+    normalized_op = if op == "==", do: "=", else: op
 
-    case op do
-      "=" ->
-        dynamic_filter(query, path, "=", val, cast_type)
-
-      ">" ->
-        dynamic_filter(query, path, ">", val, cast_type)
-
-      "<" ->
-        dynamic_filter(query, path, "<", val, cast_type)
-
-      _ ->
-        query
+    if normalized_op in ["=", ">", ">=", "<", "<="] do
+      dynamic_filter(query, path, normalized_op, val, numeric?)
+    else
+      query
     end
   end
 
-  defp dynamic_filter(query, path, op, val, cast_type) do
+  defp dynamic_filter(query, path, op, val, numeric?) do
     path_segments = String.split(path, ".", trim: true)
 
-    case op do
-      "=" ->
-        if cast_type == "::numeric" do
-          from(q in query, where: fragment("( ? #>> ? )::numeric = ?", q.payload, ^path_segments, ^val))
-        else
-          from(q in query, where: fragment("? #>> ? = ?", q.payload, ^path_segments, ^val))
-        end
-
-      ">" ->
-        if cast_type == "::numeric" do
-          from(q in query, where: fragment("( ? #>> ? )::numeric > ?", q.payload, ^path_segments, ^val))
-        else
-          from(q in query, where: fragment("? #>> ? > ?", q.payload, ^path_segments, ^val))
-        end
-
-      "<" ->
-        if cast_type == "::numeric" do
-          from(q in query, where: fragment("( ? #>> ? )::numeric < ?", q.payload, ^path_segments, ^val))
-        else
-          from(q in query, where: fragment("? #>> ? < ?", q.payload, ^path_segments, ^val))
-        end
-
-      _ ->
-        query
+    if numeric? do
+      dynamic_filter_numeric(query, path_segments, op, val)
+    else
+      dynamic_filter_text(query, path_segments, op, val)
     end
   end
+
+  defp dynamic_filter_numeric(query, path_segments, "=", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric = ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, path_segments, ">", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric > ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, path_segments, ">=", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric >= ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, path_segments, "<", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric < ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, path_segments, "<=", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric <= ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, _path_segments, _op, _val), do: query
+
+  defp dynamic_filter_text(query, path_segments, "=", val),
+    do: from(q in query, where: fragment("? #>> ? = ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, path_segments, ">", val),
+    do: from(q in query, where: fragment("? #>> ? > ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, path_segments, ">=", val),
+    do: from(q in query, where: fragment("? #>> ? >= ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, path_segments, "<", val),
+    do: from(q in query, where: fragment("? #>> ? < ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, path_segments, "<=", val),
+    do: from(q in query, where: fragment("? #>> ? <= ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, _path_segments, _op, _val), do: query
 end

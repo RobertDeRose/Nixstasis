@@ -34,6 +34,7 @@ defmodule NixstasisWeb.Router do
     live("/alerts/rules", AlertLive.Rules, :index)
     live("/reports", ReportLive.Index, :index)
     live("/reports/new", ReportLive.Index, :new)
+    live("/reports/:id/edit", ReportLive.Index, :edit)
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
 
