@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: Custom Reports View Interaction API
+  version: 1.0.0
+  description: |
+    Contract supporting custom report list sorting/filtering, edit/delete actions,
+    and report-result sorting/filtering with simple conditional operators.
+    This contract is reference-only for feature increment 010 and is not a committed
+    controller implementation scope in this phase.
+servers:
+  - url: https://nixstasis.local
+paths:
+  /api/v1/custom-reports:
+    get:
+      summary: List custom reports with sort and column filters
+      parameters:
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [name, source, column_count, updated_at]
+        - in: query
+          name: sort_dir
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: filter_name
+          schema:
+            type: string
+        - in: query
+          name: filter_source
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Custom reports list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CustomReportListItem"
+
+  /api/v1/custom-reports/{report_id}:
+    patch:
+      summary: Update an existing custom report via query-modal payload
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomReportRequest"
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CustomReportDetail"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid report payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a custom report after explicit confirmation
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  enum: [true]
+      responses:
+        "204":
+          description: Report deleted
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Report cannot be deleted due to current state constraints
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/custom-reports/{report_id}/results:
+    get:
+      summary: Fetch rendered report rows with sorting and conditional filters
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+          description: Visible report column alias/path
+        - in: query
+          name: sort_dir
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: filters
+          style: deepObject
+          explode: true
+          schema:
+            type: object
+            additionalProperties:
+              $ref: "#/components/schemas/ResultFilter"
+      responses:
+        "200":
+          description: Report rows with applied sort/filter state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResultsResponse"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid operator or filter value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    CustomReportListItem:
+      type: object
+      required: [id, name, source, column_count, updated_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        source:
+          type: string
+        column_count:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+
+    CustomReportDetail:
+      type: object
+      required: [id, name, config, updated_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        config:
+          type: object
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateCustomReportRequest:
+      type: object
+      required: [name, config]
+      properties:
+        name:
+          type: string
+        config:
+          type: object
+          description: Query-builder configuration payload from report modal
+
+    ResultFilter:
+      type: object
+      required: [operator, value]
+      properties:
+        operator:
+          type: string
+          enum: [gt, gte, eq, lte, lt]
+        value:
+          type: string
+
+    ReportResultsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          type: object
+          required: [sort, filters, row_count]
+          properties:
+            sort:
+              type: object
+              properties:
+                by:
+                  type: string
+                direction:
+                  type: string
+                  enum: [asc, desc]
+            filters:
+              type: object
+              additionalProperties:
+                $ref: "#/components/schemas/ResultFilter"
+            row_count:
+              type: integer
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
