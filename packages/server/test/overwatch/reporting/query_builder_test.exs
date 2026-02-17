@@ -87,6 +87,23 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       assert List.first(results)["temp"] == 30
     end
 
+    test "supports >= and <= operators for jsonb values", %{device: device} do
+      config = %{
+        source: "telemetry",
+        fields: [%{path: "temp", alias: "temp"}],
+        filters: [
+          %{field: "device_id", operator: "=", value: device.id},
+          %{path: "temp", operator: ">=", value: 25},
+          %{path: "temp", operator: "<=", value: 30}
+        ]
+      }
+
+      results = config |> QueryBuilder.build() |> Repo.all()
+
+      assert length(results) == 2
+      assert Enum.sort(Enum.map(results, & &1["temp"])) == [25, 30]
+    end
+
     test "supports nested json path extraction for telemetry", %{device: device} do
       nested = %{
         device_id: device.id,
@@ -162,6 +179,25 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       fields = QueryBuilder.fields_for_report(%{source: "e2e", fields: []})
       assert fields != []
       assert Enum.any?(fields, fn field -> field["path"] == "status" end)
+    end
+  end
+
+  describe "apply_result_view/2" do
+    test "filters and sorts in-memory rows using strict operators" do
+      rows = [
+        %{"name" => "A", "temp" => 30},
+        %{"name" => "C", "temp" => 10},
+        %{"name" => "B", "temp" => 20}
+      ]
+
+      filtered_sorted =
+        QueryBuilder.apply_result_view(rows, %{
+          "filters" => [%{"column" => "temp", "operator" => ">", "value" => 15}],
+          "sort_by" => "name",
+          "sort_dir" => "desc"
+        })
+
+      assert ["B", "A"] == Enum.map(filtered_sorted, & &1["name"])
     end
   end
 end

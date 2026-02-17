@@ -1,4 +1,8 @@
 defmodule Mix.Tasks.E2e.ExportStatic do
+  @moduledoc """
+  Exports static E2E run pages and maintains a retention-managed run manifest.
+  """
+
   use Mix.Task
 
   alias NixstasisWeb.LiveDashboard.E2ELogPresenter
@@ -79,7 +83,16 @@ defmodule Mix.Tasks.E2e.ExportStatic do
 
     reports = load_reports(reports_dir)
     write_shared_assets(pages_dir)
-    write_run_page(run_dir, run_path, reports, logs_dir, title, timestamp, ref_name, ref_type, full_sha)
+
+    run_meta = %{
+      "title" => title,
+      "timestamp" => timestamp,
+      "ref_name" => ref_name,
+      "ref_type" => ref_type,
+      "full_sha" => full_sha
+    }
+
+    write_run_page(run_dir, run_path, reports, logs_dir, run_meta)
 
     manifest_entry = %{
       "id" => "#{ref_name}:#{full_sha}",
@@ -200,7 +213,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
     File.cp!(@shared_viewer_css_path, Path.join(assets_dir, "viewer.css"))
   end
 
-  defp write_run_page(run_dir, run_path, reports, logs_dir, title, timestamp, ref_name, ref_type, full_sha) do
+  defp write_run_page(run_dir, run_path, reports, logs_dir, run_meta) do
     File.rm_rf!(run_dir)
     File.mkdir_p!(run_dir)
     logs_export_dir = Path.join(run_dir, "logs")
@@ -227,14 +240,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
 
     root_prefix = relative_root_prefix(run_path)
 
-    run_data = %{
-      "title" => title,
-      "timestamp" => timestamp,
-      "ref_name" => ref_name,
-      "ref_type" => ref_type,
-      "full_sha" => full_sha,
-      "reports" => run_reports
-    }
+    run_data = Map.put(run_meta, "reports", run_reports)
 
     File.write!(Path.join(run_dir, "run.json"), Jason.encode!(run_data, pretty: true))
     File.write!(Path.join(run_dir, "index.html"), run_page_html(root_prefix))
