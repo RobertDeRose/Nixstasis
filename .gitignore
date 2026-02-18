@@ -47,6 +47,7 @@ erl_crash.dump
 Thumbs.db
 *.tmp
 *.swp
+*.log
 
 # Go artifacts
 *.exe

@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Add Rule Modal Interaction Contract
+  version: 1.0.0
+  description: |
+    Reference contract for Add Rule modal parity behaviors (create/edit UX, validation,
+    keyboard semantics, and save/cancel interaction outcomes).
+servers:
+  - url: https://nixstasis.local
+paths:
+  /api/v1/alert-rules:
+    post:
+      summary: Create alert rule from Add Rule modal payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertRuleRequest'
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, feedback]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AlertRule'
+                  feedback:
+                    $ref: '#/components/schemas/SaveFeedback'
+        "422":
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+  /api/v1/alert-rules/{rule_id}:
+    patch:
+      summary: Update alert rule from Add Rule edit modal payload
+      parameters:
+        - in: path
+          name: rule_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlertRuleRequest'
+      responses:
+        "200":
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, feedback]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AlertRule'
+                  feedback:
+                    $ref: '#/components/schemas/SaveFeedback'
+        "404":
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+components:
+  schemas:
+    AlertRule:
+      type: object
+      required:
+        - id
+        - name
+        - product_name
+        - condition_field
+        - operator
+        - threshold_value
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        product_name:
+          type: string
+        condition_field:
+          type: string
+        operator:
+          type: string
+        threshold_value:
+          type: string
+
+    CreateAlertRuleRequest:
+      type: object
+      required:
+        - name
+        - product_name
+        - condition_field
+        - operator
+        - threshold_value
+      properties:
+        name:
+          type: string
+        product_name:
+          type: string
+        condition_field:
+          type: string
+        operator:
+          type: string
+        threshold_value:
+          type: string
+
+    UpdateAlertRuleRequest:
+      type: object
+      required:
+        - product_name
+        - condition_field
+        - operator
+        - threshold_value
+      properties:
+        name:
+          type: string
+          description: Immutable in edit mode; ignored or rejected if changed.
+        product_name:
+          type: string
+        condition_field:
+          type: string
+        operator:
+          type: string
+        threshold_value:
+          type: string
+
+    SaveFeedback:
+      type: object
+      required: [type, message, dismiss_mode]
+      properties:
+        type:
+          type: string
+          enum: [success, error]
+        message:
+          type: string
+        dismiss_mode:
+          type: string
+          enum: [auto, manual_or_corrective_action]
+
+    ValidationIssue:
+      type: object
+      required: [field, message, blocking]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        blocking:
+          type: boolean
+
+    ValidationErrorResponse:
+      type: object
+      required: [error, issues, feedback]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+        feedback:
+          $ref: '#/components/schemas/SaveFeedback'
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string

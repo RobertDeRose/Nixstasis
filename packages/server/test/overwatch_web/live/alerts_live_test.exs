@@ -1,8 +1,10 @@
 defmodule NixstasisWeb.AlertsLiveTest do
   use NixstasisWeb.ConnCase
+
   import Phoenix.LiveViewTest
 
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
 
   setup do
     {:ok, _device} =
@@ -21,34 +23,458 @@ defmodule NixstasisWeb.AlertsLiveTest do
     :ok
   end
 
-  test "new rule modal renders schema-driven selectors", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/alerts/new")
+  test "new rule modal renders schema-driven selectors and action controls", %{conn: conn} do
+    {:ok, _view, html} = live(conn, alert_new_path())
 
-    assert html =~ "Schema Version"
     assert html =~ "Schema Field"
     assert html =~ "alert-schema-product"
-    assert html =~ "Temp"
+    assert html =~ "Create Rule"
+    assert html =~ "Edit Alert Rules"
+    assert html =~ "Active Alerts"
+  end
+
+  test "creates a rule successfully from modal", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    form_params = %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    }
+
+    render_submit(element(view, "#alert-rule-form"), form_params)
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+    assert render(view) =~ "Rule created successfully"
+
+    rules = Domain.list_rules!()
+    assert Enum.any?(rules, &(&1.product_name == "alert-schema-product" and &1.condition_field == "temp"))
+  end
+
+  test "edits an existing rule", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "80"
+      })
+
+    {:ok, view, html} = live(conn, alert_edit_path(rule.id))
+    assert html =~ "Edit Rule"
+    assert has_element?(view, "#alert-rule-save", "Save Changes")
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => "<=",
+        "threshold_value" => "42"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+    assert render(view) =~ "Rule updated successfully"
+
+    updated_rule = Domain.get_rule!(rule.id)
+    assert updated_rule.threshold_value == "42"
+    assert to_string(updated_rule.operator) == "<="
+  end
+
+  test "edit mode with unchanged numeric threshold does not show threshold type error", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "50"
+      })
+
+    {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "50"
+      }
+    })
+
+    refute render(view) =~ "Threshold value is invalid for the selected field type."
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "50"
+      }
+    })
+
+    refute render(view) =~ "Threshold value is invalid for the selected field type."
+    assert has_element?(view, "#rule-modal")
+  end
+
+  test "edit supports valid numeric threshold change from 50 to 51", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:39",
+        "product_name" => "weather-station",
+        "schema" => %{
+          "version" => "v1",
+          "properties" => %{
+            "rainfall" => %{"type" => "number"},
+            "status" => %{"type" => "string"},
+            "wind_speed" => %{"type" => "number"}
+          }
+        }
+      })
+
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "weather-station",
+        condition_field: "rainfall",
+        operator: ">=",
+        threshold_value: "50"
+      })
+
+    {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "weather-station",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "rainfall",
+        "operator" => ">=",
+        "threshold_value" => "51"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+    refute render(view) =~ "Threshold value is invalid for the selected field type."
+
+    updated_rule = Domain.get_rule!(rule.id)
+    assert updated_rule.threshold_value == "51"
+  end
+
+  test "edit flow keeps available fields editable and has no rule name input", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "status",
+        operator: "=",
+        threshold_value: "ok"
+      })
+
+    {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
+
+    refute has_element?(view, "input[name='alert_rule[name]']")
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "!=",
+        "threshold_value" => "error"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+    updated_rule = Domain.get_rule!(rule.id)
+    assert to_string(updated_rule.operator) == "is not"
+    assert updated_rule.threshold_value == "error"
+  end
+
+  test "invalid schema field is blocked with actionable error", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "invalid.path",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    html = render(view)
+    assert html =~ "Please select a valid schema field before saving."
+  end
+
+  test "dirty modal asks for discard confirmation on cancel", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "50"
+      }
+    })
+
+    render_keydown(view, "keydown", %{"key" => "Escape"})
+
+    assert has_element?(view, "#discard-rule-modal")
+    assert has_element?(view, "#rule-modal")
+    assert render(view) =~ "Discard Changes?"
+
+    render_click(element(view, "#discard-rule-modal button", "Keep Editing"))
+    assert has_element?(view, "#rule-modal")
+  end
+
+  test "modal includes keyboard hook and focus starts on first control", %{conn: conn} do
+    {:ok, view, html} = live(conn, alert_new_path())
+
+    assert html =~ "phx-hook=\"AlertRuleBuilderKeyboard\""
+    assert has_element?(view, "#alert-schema-id")
+    assert has_element?(view, "#alert-rule-save")
+  end
+
+  test "rule can be deleted from rules table", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "status",
+        operator: "=",
+        threshold_value: "ok"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+
+    render_click(element(view, "button[phx-click='confirm_delete_rule'][phx-value-id='#{rule.id}']"))
+    assert has_element?(view, "#delete-rule-modal")
+
+    render_click(element(view, "#delete-rule-modal button", "Delete"))
+
+    refute Enum.any?(Domain.list_rules!(), &(&1.id == rule.id))
+    assert render(view) =~ "Rule deleted"
   end
 
   test "schema product/version selections persist across schema selector changes", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/alerts/new")
+    {:ok, view, _html} = live(conn, alert_new_path())
 
-    _ =
-      view
-      |> element("#alert-schema-id")
-      |> render_change(%{"schema_id" => "alert-schema-product"})
-
-    assert has_element?(view, "#alert-schema-id option[value='alert-schema-product'][selected]")
-
-    _ =
-      view
-      |> element("#alert-schema-version")
-      |> render_change(%{"schema_version" => "v1"})
-
-    assert has_element?(view, "#alert-schema-version option[value='v1'][selected]")
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "alert_rule" => %{
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "10"
+      }
+    })
 
     assert has_element?(view, "#alert-schema-id option[value='alert-schema-product'][selected]")
-    assert has_element?(view, "#alert-schema-version option[value='v1'][selected]")
-    assert has_element?(view, "#form_condition_field option[value='temp']")
+    assert has_element?(view, "#alert-condition-field option[value='temp']")
+  end
+
+  test "schema with no fields blocks save and shows guidance", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:32",
+        "product_name" => "empty-schema-product",
+        "schema" => %{"version" => "v1", "properties" => %{}}
+      })
+
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "empty-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "",
+        "operator" => "=",
+        "threshold_value" => "x"
+      }
+    })
+
+    assert render(view) =~ "No schema fields are available for this schema/version."
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "empty-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "",
+        "operator" => "=",
+        "threshold_value" => "x"
+      }
+    })
+
+    assert render(view) =~ "This schema has no available fields for rules."
+  end
+
+  test "operator and value validation transitions from invalid to valid", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => ">",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert render(view) =~ "Operator is not valid for the selected field type."
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "=",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+    assert render(view) =~ "Rule created successfully"
+  end
+
+  test "modal labels and error announcements are accessible", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    assert has_element?(view, "label[for='alert-schema-id']")
+    assert has_element?(view, "#rule-modal [role='dialog']")
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => ">",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert has_element?(view, "#rule-modal [role='alert']")
+  end
+
+  test "rules table filtering and sorting controls are visible", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/alerts?tab=rules")
+
+    assert html =~ "Filter rules"
+    assert html =~ "Clear"
+    assert html =~ "Schema Product"
+    assert html =~ "Condition"
+    assert html =~ "Operator"
+  end
+
+  test "deprecated rules hide edit action and show warning label with reason tooltip", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "legacy_field_that_no_longer_exists",
+        operator: "=",
+        threshold_value: "ok"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+
+    assert render(view) =~ "Deprecated"
+
+    assert has_element?(view, "span.badge.badge-xs.border-amber-500.text-amber-800", "Deprecated")
+    refute has_element?(view, "button[aria-label='Edit rule #{rule.id}']")
+  end
+
+  test "clicking edit icon opens edit rule modal", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "90"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+
+    render_click(element(view, "button[phx-click='edit_rule'][phx-value-id='#{rule.id}']"))
+
+    assert_patch(view, ~p"/alerts/#{rule.id}/edit?tab=rules")
+    assert has_element?(view, "#rule-modal")
+    assert render(view) =~ "Edit Rule"
+  end
+
+  test "string fields show string-specific operators", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "is",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert has_element?(view, "#alert-operator option[value='contains']")
+    assert has_element?(view, "#alert-operator option[value=\"doesn't contain\"]")
+    assert has_element?(view, "#alert-operator option[value='is']")
+    assert has_element?(view, "#alert-operator option[value='is not']")
+  end
+
+  test "string field accepts alphanumeric threshold values", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "is",
+        "threshold_value" => "ok42"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+
+    assert Enum.any?(Domain.list_rules!(), fn rule ->
+             rule.product_name == "alert-schema-product" and
+               rule.condition_field == "status" and
+               rule.threshold_value == "ok42"
+           end)
+  end
+
+  test "edit flow accepts mixed form namespaces from browser payload", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:40",
+        "product_name" => "weather-station",
+        "schema" => %{
+          "version" => "v1",
+          "properties" => %{
+            "rainfall" => %{"type" => "number"}
+          }
+        }
+      })
+
+    {:ok, rule} =
+      Domain.create_rule(%{
+        product_name: "weather-station",
+        condition_field: "rainfall",
+        operator: ">=",
+        threshold_value: "50"
+      })
+
+    {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "weather-station",
+      "form" => %{"operator" => ">=", "threshold_value" => "51"},
+      "alert_rule" => %{"condition_field" => "rainfall"}
+    })
+
+    refute render(view) =~ "Threshold value is invalid for the selected field type."
   end
 end
