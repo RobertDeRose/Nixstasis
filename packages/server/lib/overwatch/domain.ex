@@ -96,6 +96,7 @@ defmodule Nixstasis.Domain do
       define :list_rules, action: :read
       define :get_rule, action: :read, get_by: [:id]
       define :create_rule, action: :create
+      define :update_rule, action: :update
       define :destroy_rule, action: :destroy
     end
 

@@ -570,6 +570,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:id, :string, required: true)
   attr(:show, :boolean, default: false)
   attr(:on_cancel, :any, default: %JS{})
+  attr(:close_on_cancel, :boolean, default: true)
   slot(:inner_block, required: true)
 
   def modal(assigns) do
@@ -578,7 +579,7 @@ defmodule NixstasisWeb.CoreComponents do
       id={@id}
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
-      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      data-cancel={cancel_behavior(@on_cancel, @close_on_cancel)}
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="escape"
       class="relative z-[60] hidden"
@@ -615,6 +616,9 @@ defmodule NixstasisWeb.CoreComponents do
     </div>
     """
   end
+
+  defp cancel_behavior(on_cancel, true), do: JS.exec(on_cancel, "phx-remove")
+  defp cancel_behavior(on_cancel, false), do: on_cancel
 
   def show_modal(js \\ %JS{}, id) when is_binary(id) do
     js

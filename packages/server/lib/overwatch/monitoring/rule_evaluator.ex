@@ -41,6 +41,10 @@ defmodule Nixstasis.Monitoring.RuleEvaluator do
   defp do_compare(val, "=", threshold), do: val == threshold
   # Just in case
   defp do_compare(val, "==", threshold), do: val == threshold
+  defp do_compare(val, "is", threshold), do: to_string(val) == to_string(threshold)
+  defp do_compare(val, "is not", threshold), do: to_string(val) != to_string(threshold)
+  defp do_compare(val, "contains", threshold), do: String.contains?(to_string(val), to_string(threshold))
+  defp do_compare(val, "doesn't contain", threshold), do: not String.contains?(to_string(val), to_string(threshold))
   defp do_compare(val, "!=", threshold), do: val != threshold
   defp do_compare(val, ">=", threshold), do: val >= threshold
   defp do_compare(val, "<=", threshold), do: val <= threshold

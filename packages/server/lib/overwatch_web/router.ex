@@ -31,6 +31,7 @@ defmodule NixstasisWeb.Router do
     live("/devices/:id", DeviceLive.Show, :show)
     live("/alerts", AlertLive.Index, :index)
     live("/alerts/new", AlertLive.Index, :new)
+    live("/alerts/:id/edit", AlertLive.Index, :edit)
     live("/alerts/rules", AlertLive.Rules, :index)
     live("/reports", ReportLive.Index, :index)
     live("/reports/new", ReportLive.Index, :new)

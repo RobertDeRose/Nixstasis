@@ -79,6 +79,10 @@ defmodule Nixstasis.Monitoring do
     Domain.create_rule(attrs)
   end
 
+  def update_rule(rule, attrs \\ %{}) do
+    Domain.update_rule(rule, attrs)
+  end
+
   def delete_rule(%AlertRule{} = rule) do
     Domain.destroy_rule(rule)
   end
