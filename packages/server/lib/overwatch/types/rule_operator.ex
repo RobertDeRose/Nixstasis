@@ -3,5 +3,5 @@ defmodule Nixstasis.Types.RuleOperator do
   Supported operators for alert rules.
   """
 
-  use Ash.Type.Enum, values: [">", "<", "=", "!=", ">=", "<="]
+  use Ash.Type.Enum, values: [">", "<", "=", "!=", ">=", "<=", "contains", "doesn't contain", "is", "is not"]
 end
