@@ -43,6 +43,29 @@ defmodule Nixstasis.DevicesTest do
       assert res.id == approved.id
     end
 
+    test "list_devices/1 filters by product and account number" do
+      wanted =
+        device_fixture(%{
+          mac_address: "33:33:33:33:33:33",
+          product_name: "alpha",
+          account_number: "77777",
+          approval_status: :approved
+        })
+
+      _other =
+        device_fixture(%{
+          mac_address: "44:44:44:44:44:44",
+          product_name: "beta",
+          account_number: "88888",
+          approval_status: :approved
+        })
+
+      assert [res] =
+               Devices.list_devices(filter: %{product: "alpha", account_number: "77777", status: "approved"})
+
+      assert res.id == wanted.id
+    end
+
     test "list_devices/1 searches by mac_address" do
       match = device_fixture(%{mac_address: "11:22:33:44:55:66", product_name: "k1"})
       _miss = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "k2"})

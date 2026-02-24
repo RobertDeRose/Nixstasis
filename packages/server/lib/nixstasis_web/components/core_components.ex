@@ -132,6 +132,14 @@ defmodule NixstasisWeb.CoreComponents do
   end
 
   @doc """
+  Returns consistent classes for inline action links in data tables.
+  """
+  def action_link_class(:view), do: "link link-primary font-semibold"
+  def action_link_class(:edit), do: "link link-accent font-semibold"
+  def action_link_class(:delete), do: "link link-error font-semibold"
+  def action_link_class(_), do: "link font-semibold"
+
+  @doc """
   Renders an input with label and error messages.
 
   A `Phoenix.HTML.FormField` may be passed as argument,
@@ -280,6 +288,32 @@ defmodule NixstasisWeb.CoreComponents do
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
+    """
+  end
+
+  @doc """
+  Renders a schema dropdown selector with a standardized style.
+  """
+  attr(:id, :string, default: nil)
+  attr(:name, :string, required: true)
+  attr(:label, :string, required: true)
+  attr(:value, :string, default: nil)
+  attr(:options, :list, default: [])
+  attr(:prompt, :string, default: "Select option")
+  attr(:rest, :global)
+
+  def schema_select(assigns) do
+    ~H"""
+    <.input
+      id={@id}
+      type="select"
+      name={@name}
+      label={@label}
+      value={@value}
+      options={@options}
+      prompt={@prompt}
+      {@rest}
+    />
     """
   end
 
@@ -536,6 +570,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:id, :string, required: true)
   attr(:show, :boolean, default: false)
   attr(:on_cancel, :any, default: %JS{})
+  attr(:close_on_cancel, :boolean, default: true)
   slot(:inner_block, required: true)
 
   def modal(assigns) do
@@ -544,7 +579,7 @@ defmodule NixstasisWeb.CoreComponents do
       id={@id}
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
-      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      data-cancel={cancel_behavior(@on_cancel, @close_on_cancel)}
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="escape"
       class="relative z-[60] hidden"
@@ -581,6 +616,9 @@ defmodule NixstasisWeb.CoreComponents do
     </div>
     """
   end
+
+  defp cancel_behavior(on_cancel, true), do: JS.exec(on_cancel, "phx-remove")
+  defp cancel_behavior(on_cancel, false), do: on_cancel
 
   def show_modal(js \\ %JS{}, id) when is_binary(id) do
     js

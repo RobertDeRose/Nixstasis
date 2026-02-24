@@ -1,7 +1,11 @@
 defmodule NixstasisWeb.HeartbeatControllerTest do
   use NixstasisWeb.ConnCase
 
+  require Ash.Query
+
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
+  alias Nixstasis.Monitoring.Telemetry
 
   setup do
     {:ok, device} =
@@ -19,14 +23,24 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     # Queue a command
     {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+    payload = %{"scripts" => %{"disk" => %{"data" => %{"usage_pct" => 73.2}}}}
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat", payload)
 
-    assert %{"commands" => commands} = json_response(conn, 200)["data"]
+    assert %{"commands" => commands, "remote_access_requested" => false} = json_response(conn, 200)["data"]
     assert length(commands) == 1
     assert hd(commands)["payload"] == %{"cmd" => "update"}
+    assert hd(commands)["command_id"]
 
     # Verify last_seen updated
     updated = Devices.get_device!(device.id)
     refute is_nil(updated.last_seen_at)
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^device.id)
+      |> Ash.read!(domain: Domain)
+
+    assert length(telemetry) == 1
+    assert hd(telemetry).payload["scripts"]["disk"]["data"]["usage_pct"] == 73.2
   end
 end

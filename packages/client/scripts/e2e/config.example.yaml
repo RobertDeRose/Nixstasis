@@ -1,0 +1,18 @@
+api:
+  url: "http://localhost:4000"
+
+e2e:
+  suite: "full"
+  environment: "local"
+  trigger: "manual"
+  protocol_version: "1"
+  idempotency_key: ""
+  journeys:
+    - auth
+    - dashboard
+    - create_record
+    - update_record
+    - logout
+  log_dir: "./tmp/e2e/logs"
+  report_dir: "./tmp/e2e/reports"
+  stary_dir: "./tmp/e2e/stary"

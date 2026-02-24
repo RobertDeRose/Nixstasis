@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+cd "${ROOT_DIR}"
+
+host_os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+requested_suite=""
+requested_journeys=""
+
+source_api_url=""
+forwarded_args=()
+
+effective_goexperiment="${GOEXPERIMENT:-}"
+if [[ "${effective_goexperiment}" != *"jsonv2"* ]]; then
+  if [[ -n "${effective_goexperiment}" ]]; then
+    effective_goexperiment="${effective_goexperiment},jsonv2"
+  else
+    effective_goexperiment="jsonv2"
+  fi
+fi
+
+while (($#)); do
+  case "$1" in
+    --suite)
+      shift
+      if (($#)); then
+        requested_suite="$1"
+        forwarded_args+=(--suite "$1")
+        shift
+      fi
+      ;;
+    --suite=*)
+      requested_suite="${1#*=}"
+      forwarded_args+=("$1")
+      shift
+      ;;
+    --journey)
+      shift
+      if (($#)); then
+        requested_journeys="$1"
+        forwarded_args+=(--journey "$1")
+        shift
+      fi
+      ;;
+    --journey=*)
+      requested_journeys="${1#*=}"
+      forwarded_args+=("$1")
+      shift
+      ;;
+    --journeys)
+      shift
+      if (($#)); then
+        requested_journeys="$1"
+        forwarded_args+=(--journeys "$1")
+        shift
+      fi
+      ;;
+    --journeys=*)
+      requested_journeys="${1#*=}"
+      forwarded_args+=("$1")
+      shift
+      ;;
+    --api-url)
+      shift
+      if (($#)); then
+        source_api_url="$1"
+        shift
+      fi
+      ;;
+    --api-url=*)
+      source_api_url="${1#*=}"
+      shift
+      ;;
+    *)
+      forwarded_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+needs_linux_runtime="false"
+if [[ "${requested_suite}" == "runtime" ]]; then
+  needs_linux_runtime="true"
+elif [[ "${requested_journeys}" == *"runtime_linux_telemetry"* ]] || [[ "${requested_journeys}" == *"runtime_transport_contract"* ]] || [[ "${requested_journeys}" == *"runtime_transport_negative"* ]]; then
+  needs_linux_runtime="true"
+fi
+
+if [[ "${host_os}" == "linux" || "${needs_linux_runtime}" != "true" ]]; then
+  GOEXPERIMENT="${effective_goexperiment}" go run ./scripts/e2e "${forwarded_args[@]}"
+  exit 0
+fi
+
+container_runtime=""
+if command -v container >/dev/null 2>&1; then
+  container_runtime="container"
+elif command -v docker >/dev/null 2>&1; then
+  container_runtime="docker"
+else
+  echo "docker or apple container CLI is required for non-linux runtime E2E execution" >&2
+  exit 1
+fi
+
+if [[ -z "${source_api_url}" ]]; then
+  source_api_url="http://localhost:4000"
+fi
+
+default_host_alias="host.docker.internal"
+if [[ "${container_runtime}" == "container" ]]; then
+  default_host_alias="host.container.internal"
+fi
+container_host_alias="${E2E_CONTAINER_HOST_ALIAS:-${default_host_alias}}"
+
+container_api_url="${source_api_url/localhost/${container_host_alias}}"
+container_api_url="${container_api_url/127.0.0.1/${container_host_alias}}"
+container_api_url="${container_api_url/host.container.internal/${container_host_alias}}"
+container_api_url="${container_api_url/host.docker.internal/${container_host_alias}}"
+forwarded_args+=(--api-url "${container_api_url}")
+
+image_tag="golang:1.25-trixie"
+container_go_bin="/usr/local/go/bin/go"
+runtime_args=(run --rm)
+default_cache_root="${TMPDIR:-/tmp}/nixstasis-e2e-go-cache"
+cache_root="${E2E_GO_CACHE_DIR:-${default_cache_root}}"
+host_gocache="${cache_root}/build"
+host_gomodcache="${cache_root}/mod"
+container_gocache="/tmp/nixstasis-go-build-cache"
+container_gomodcache="/tmp/nixstasis-go-mod-cache"
+
+mkdir -p "${host_gocache}" "${host_gomodcache}"
+
+if [[ "${container_runtime}" == "docker" ]]; then
+  runtime_args+=(--add-host "${container_host_alias}:host-gateway")
+fi
+
+"${container_runtime}" "${runtime_args[@]}" \
+  -e GOEXPERIMENT="${effective_goexperiment}" \
+  -e GOCACHE="${container_gocache}" \
+  -e GOMODCACHE="${container_gomodcache}" \
+  -v "${host_gocache}:${container_gocache}" \
+  -v "${host_gomodcache}:${container_gomodcache}" \
+  -v "${ROOT_DIR}:/app" \
+  -w /app \
+  -e E2E_CONTAINER_PATH_PREFIX="/app" \
+  -e E2E_HOST_PATH_PREFIX="${ROOT_DIR}" \
+  "${image_tag}" \
+  "${container_go_bin}" run ./scripts/e2e "${forwarded_args[@]}"

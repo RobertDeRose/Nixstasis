@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+api_url="http://localhost:4000"
+env_label="local"
+trigger_source="manual"
+protocol_version="1"
+reports_dir="${ROOT_DIR}/tmp/e2e/reports"
+logs_dir="${ROOT_DIR}/tmp/e2e/logs"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/e2e/run_all_suites [options]
+
+Options:
+  --api-url <url>             Base server URL. Default: http://localhost:4000
+  --env <label>               Environment label for runs. Default: local
+  --trigger <manual|ci>       Trigger source. Default: manual
+  --protocol-version <value>  Protocol version header value. Default: 1
+  --reports-dir <path>        Output dir for per-suite JSON summaries.
+                              Default: tmp/e2e/reports
+  --logs-dir <path>           Log root dir used by exporter.
+                              Default: tmp/e2e/logs
+  -h, --help                  Show help.
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --api-url)
+      shift
+      api_url="${1:-}"
+      shift || true
+      ;;
+    --env)
+      shift
+      env_label="${1:-}"
+      shift || true
+      ;;
+    --trigger)
+      shift
+      trigger_source="${1:-}"
+      shift || true
+      ;;
+    --protocol-version)
+      shift
+      protocol_version="${1:-}"
+      shift || true
+      ;;
+    --reports-dir)
+      shift
+      reports_dir="${1:-}"
+      shift || true
+      ;;
+    --logs-dir)
+      shift
+      logs_dir="${1:-}"
+      shift || true
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+mkdir -p "${reports_dir}"
+cd "${ROOT_DIR}"
+
+echo "Fetching suite catalog from ${api_url}/e2e/suites..."
+suite_catalog="$(curl -fsS "${api_url}/e2e/suites")"
+
+mapfile -t suite_rows < <(
+  python3 -c '
+import json, sys
+payload = json.loads(sys.stdin.read())
+for row in payload.get("data", []):
+    sid = str(row.get("id", "")).strip()
+    journeys = row.get("journey_ids", [])
+    if sid and isinstance(journeys, list):
+        csv = ",".join(str(j).strip() for j in journeys if str(j).strip())
+        print(f"{sid}\t{csv}")
+' <<<"${suite_catalog}"
+)
+
+if ((${#suite_rows[@]} == 0)); then
+  echo "No suites returned by server; aborting." >&2
+  exit 1
+fi
+
+echo "Running suites:"
+for row in "${suite_rows[@]}"; do
+  suite="${row%%$'\t'*}"
+  echo "  - ${suite}"
+done
+
+run_command_failed=0
+
+for row in "${suite_rows[@]}"; do
+  suite="${row%%$'\t'*}"
+  journeys_csv="${row#*$'\t'}"
+  if [[ "${journeys_csv}" == "${row}" ]]; then
+    journeys_csv=""
+  fi
+
+  report_path="${reports_dir}/${suite}.json"
+  echo "==> Running suite: ${suite}"
+  cmd=("${SCRIPT_DIR}/run"
+    --api-url "${api_url}"
+    --suite "${suite}"
+    --env "${env_label}"
+    --trigger "${trigger_source}"
+    --protocol-version "${protocol_version}")
+
+  if [[ -n "${journeys_csv}" ]]; then
+    cmd+=(--journeys "${journeys_csv}")
+  fi
+
+  if ! "${cmd[@]}" | tee "${report_path}"; then
+    printf '{"RunID":"","Status":"failed","Journeys":[],"Error":"suite command failed"}\n' > "${report_path}"
+    run_command_failed=1
+  fi
+done
+
+echo "Validating suite statuses..."
+suite_names=()
+for row in "${suite_rows[@]}"; do
+  suite_names+=("${row%%$'\t'*}")
+done
+
+if ! python3 - "${reports_dir}" "${suite_names[@]}" <<'PY'
+import json
+import pathlib
+import sys
+
+reports_dir = pathlib.Path(sys.argv[1])
+suites = sys.argv[2:]
+failed = []
+
+for suite in suites:
+    report_path = reports_dir / f"{suite}.json"
+    if not report_path.exists():
+        failed.append((suite, "missing report file"))
+        continue
+
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        failed.append((suite, f"invalid JSON: {exc}"))
+        continue
+
+    status = str(payload.get("Status", "")).lower()
+    if status != "passed":
+        failed.append((suite, f"status={status or 'unknown'}"))
+
+if failed:
+    print("One or more suites failed:")
+    for suite, reason in failed:
+        print(f"  - {suite}: {reason}")
+    sys.exit(1)
+PY
+then
+  exit 1
+fi
+
+if [[ "${run_command_failed}" -ne 0 ]]; then
+  echo "At least one suite command returned non-zero exit code." >&2
+  exit 1
+fi
+
+echo "All suites passed."

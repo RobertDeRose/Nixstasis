@@ -1,0 +1,5 @@
+id: create_record
+description: "Create primary business record"
+steps:
+  - action: "create_record"
+    expect: "record_created"

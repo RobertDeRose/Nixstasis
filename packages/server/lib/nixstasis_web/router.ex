@@ -31,9 +31,11 @@ defmodule NixstasisWeb.Router do
     live("/devices/:id", DeviceLive.Show, :show)
     live("/alerts", AlertLive.Index, :index)
     live("/alerts/new", AlertLive.Index, :new)
+    live("/alerts/:id/edit", AlertLive.Index, :edit)
     live("/alerts/rules", AlertLive.Rules, :index)
     live("/reports", ReportLive.Index, :index)
     live("/reports/new", ReportLive.Index, :new)
+    live("/reports/:id/edit", ReportLive.Index, :edit)
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
 
@@ -44,9 +46,31 @@ defmodule NixstasisWeb.Router do
   scope "/api/v1", NixstasisWeb do
     pipe_through(:api)
 
+    get("/builder-schemas", BuilderSchemaController, :index)
+    get("/builder-schemas/:schema_id/versions/:schema_version/options", BuilderSchemaController, :options)
+    post("/builder-configurations/validate", BuilderConfigValidationController, :create)
+
+    get("/devices", DeviceController, :index)
     post("/devices/register", DeviceController, :register)
+    post("/devices/:device_id/modal", DeviceController, :open_modal)
+    delete("/devices/:device_id/modal", DeviceController, :close_modal)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
+    post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
+    get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
     get("/check_domain", TLSController, :check_domain)
+  end
+
+  scope "/e2e", NixstasisWeb do
+    pipe_through(:api)
+
+    get("/suites", E2ERunController, :suites)
+    get("/runs", E2ERunController, :index)
+    post("/runs", E2ERunController, :create)
+    get("/runs/:id", E2ERunController, :show)
+    post("/runs/:id/cancel", E2ERunController, :cancel)
+    get("/runs/:id/results", E2ERunResultController, :index)
+    post("/runs/:id/results", E2ERunResultController, :create)
+    get("/runs/:id/results/:journey_id/log", E2ERunResultController, :log)
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
@@ -65,7 +89,11 @@ defmodule NixstasisWeb.Router do
         "/dashboard",
         metrics: NixstasisWeb.Telemetry,
         ecto_repos: [Nixstasis.Repo],
-        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]]
+        ecto_psql_extras_options: [long_running_queries: [threshold: "200 milliseconds"]],
+        on_mount: [NixstasisWeb.LiveDashboard.ThemeHook],
+        additional_pages: [
+          e2e: NixstasisWeb.LiveDashboard.E2EPage
+        ]
       )
 
       forward("/mailbox", Plug.Swoosh.MailboxPreview)

@@ -1,0 +1,21 @@
+# Built from `scripts/e2e/scaffold` and then simplified to showcase optional
+# custom `step_id` labels without Linux-heavy script execution steps.
+id: runtime_step_labels
+description: "Validate custom step labels mapped to existing runtime actions"
+steps:
+  # step_id is optional. Use it only when the display label should differ from action.
+  - step_id: "register_phase"
+    action: "runtime_register_device"
+    expect: "runtime_device_registered"
+  - step_id: "domain_guard"
+    action: "runtime_check_domain"
+    expect: "tls_domain_allowed"
+  - step_id: "approval_gate"
+    action: "runtime_approve_device"
+    expect: "device_approved"
+  - step_id: "payload_queue"
+    action: "runtime_queue_payload_ref_command"
+    expect: "command_payload_available"
+  - step_id: "cleanup"
+    action: "runtime_cleanup"
+    expect: "runtime_resources_cleaned"

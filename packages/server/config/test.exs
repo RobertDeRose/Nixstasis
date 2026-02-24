@@ -36,3 +36,29 @@ config :phoenix, :plug_init_mode, :runtime
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
+
+# E2E defaults for test environment
+config :nixstasis, :e2e,
+  allowed_env_labels: ["local", "test"],
+  protocol_versions: ["1"],
+  environments: %{
+    "local" => %{
+      base_url: "http://localhost:4000",
+      seed_script: "priv/e2e/seed.exs"
+    }
+  },
+  suites: %{
+    "full" => ["auth", "dashboard", "create_record", "update_record", "logout"],
+    "runtime" => ["runtime_linux_telemetry", "runtime_transport_contract", "runtime_transport_negative"],
+    # Focused suite for validating optional custom step labels (step_id != action).
+    "runtime_step_labels" => ["runtime_step_labels"]
+  },
+  log_dir: "priv/e2e/logs",
+  report_dir: "priv/e2e/reports",
+  retention: [
+    enabled: false,
+    retention_days: 14,
+    max_run_count: 2000,
+    max_log_bytes: 1_000_000_000,
+    check_interval_ms: 60_000
+  ]

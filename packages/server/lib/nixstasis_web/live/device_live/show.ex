@@ -11,39 +11,46 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   @impl true
   def handle_params(%{"id" => id}, _, socket) do
-    device = Devices.get_device!(id)
+    return_to = Map.get(socket.assigns, :return_to, "/devices")
 
-    if Devices.online?(device) do
-      # Task 4.2: Set remote_access_requested: true on mount/view
-      if !device.remote_access_requested do
-        Devices.set_remote_access(device, true)
-      end
+    case safe_get_device(id) do
+      {:ok, device} ->
+        if Devices.online?(device) do
+          {:noreply, setup_device_view(socket, device, return_to)}
+        else
+          {:noreply,
+           socket
+           |> assign(:return_to, return_to)
+           |> assign(:page_title, "Device #{device.mac_address} - Offline")
+           |> assign(:device, device)
+           |> assign(:device_offline, true)}
+        end
 
-      {:noreply,
-       socket
-       |> assign(:page_title, "Device #{device.mac_address}")
-       |> assign(:device, device)
-       |> assign(:device_offline, false)
-       |> assign(:active_tab, "overview")
-       |> assign(:ssh_session_started, false)
-       |> assign(:ssh_token, nil)
-       # Mock data for ApexCharts
-       |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
-       |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
-       |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
-       |> assign(:pcp_chart, line_chart_config())}
-    else
-      {:noreply,
-       socket
-       |> assign(:page_title, "Device #{device.mac_address} - Offline")
-       |> assign(:device, device)
-       |> assign(:device_offline, true)}
+      :error ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Device not found or unavailable")
+         |> push_navigate(to: return_to)}
     end
   end
 
   @impl true
   def handle_event("change_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
+  def handle_event("retry_session", _, socket) do
+    device = socket.assigns.device
+
+    if Devices.online?(device) do
+      {:noreply,
+       socket
+       |> setup_device_view(device, socket.assigns.return_to)
+       |> put_flash(:info, "Session reinitialized")}
+    else
+      {:noreply, put_flash(socket, :error, "Device is offline; unable to reinitialize session")}
+    end
   end
 
   @impl true
@@ -67,6 +74,45 @@ defmodule NixstasisWeb.DeviceLive.Show do
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to generate SSH keys: #{reason}")}
     end
+  end
+
+  defp safe_get_device(id) do
+    {:ok, Devices.get_device!(id)}
+  rescue
+    _ -> :error
+  end
+
+  defp setup_device_view(socket, device, return_to) do
+    if !device.remote_access_requested do
+      Devices.set_remote_access(device, true)
+    end
+
+    socket
+    |> assign(:return_to, return_to)
+    |> assign(:page_title, "Device #{device.mac_address}")
+    |> assign(:device, device)
+    |> assign(:cockpit_url, cockpit_url(device.mac_address))
+    |> assign(:device_offline, false)
+    |> assign(:active_tab, "overview")
+    |> assign(:ssh_session_started, false)
+    |> assign(:ssh_token, nil)
+    |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
+    |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
+    |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
+    |> assign(:pcp_chart, line_chart_config())
+  end
+
+  defp cockpit_url(mac_address) do
+    normalized_mac =
+      mac_address
+      |> to_string()
+      |> String.downcase()
+      |> String.replace(":", "")
+
+    domain_suffix = Application.get_env(:nixstasis, :cockpit_domain_suffix, "device.<domain>")
+    domain_prefix = Application.get_env(:nixstasis, :cockpit_domain_prefix, "atom-")
+
+    "https://#{domain_prefix}#{normalized_mac}.#{domain_suffix}"
   end
 
   @impl true

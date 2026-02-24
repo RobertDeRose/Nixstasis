@@ -1,0 +1,13 @@
+id: runtime_transport_negative
+description: "Validate runtime transport negative-path responses"
+steps:
+  - action: "runtime_register_device"
+    expect: "runtime_device_registered"
+  - action: "runtime_approve_device"
+    expect: "device_approved"
+  - action: "runtime_expect_missing_payload_ref"
+    expect: "command_payload_missing"
+  - action: "runtime_reject_invalid_command_results"
+    expect: "command_results_rejected"
+  - action: "runtime_cleanup"
+    expect: "runtime_resources_cleaned"

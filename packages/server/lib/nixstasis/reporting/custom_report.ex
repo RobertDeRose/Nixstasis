@@ -42,4 +42,8 @@ defmodule Nixstasis.Reporting.CustomReport do
 
     timestamps()
   end
+
+  identities do
+    identity :unique_name, [:name]
+  end
 end

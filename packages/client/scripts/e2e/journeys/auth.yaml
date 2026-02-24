@@ -1,0 +1,5 @@
+id: auth
+description: "Authenticate against the server"
+steps:
+  - action: "register_device"
+    expect: "uuid_returned"

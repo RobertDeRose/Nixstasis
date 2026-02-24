@@ -1,0 +1,5 @@
+id: logout
+description: "Logout from the server"
+steps:
+  - action: "logout"
+    expect: "session_ended"

@@ -4,8 +4,12 @@ defmodule NixstasisWeb.DeviceJSON do
   @doc """
   Renders a list of devices.
   """
+  def index(%{devices: devices, meta: meta}) do
+    %{data: for(device <- devices, do: data(device)), meta: meta}
+  end
+
   def index(%{devices: devices}) do
-    %{data: for(device <- devices, do: data(device))}
+    %{data: for(device <- devices, do: data(device)), meta: %{active_filters: %{}}}
   end
 
   @doc """
@@ -20,6 +24,7 @@ defmodule NixstasisWeb.DeviceJSON do
       id: device.id,
       mac_address: device.mac_address,
       product_name: device.product_name,
+      account_number: device.account_number,
       approval_status: device.approval_status,
       last_seen_at: device.last_seen_at,
       schema: device.schema,

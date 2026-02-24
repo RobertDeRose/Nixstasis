@@ -16,11 +16,17 @@
       Account: {@device.account_number} | Product Name: {@device.product_name}
     </:subtitle>
     <:actions>
-      <.link navigate={~p"/devices"} class="btn btn-ghost">Back to List</.link>
+      <.link navigate={@return_to || ~p"/devices"} class="btn btn-ghost">Back to List</.link>
     </:actions>
   </.header>
 
   <div class="mt-4">
+    <div class="alert alert-info mb-4 justify-between">
+      <span>
+        If PCP or Terminal data becomes unavailable, use Retry Session to reinitialize without leaving this view.
+      </span>
+      <button class="btn btn-xs btn-outline" phx-click="retry_session">Retry Session</button>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
@@ -100,7 +106,7 @@
 
             <div class="mt-4">
               <a
-                href={"https://#{@device.mac_address}.devices.example.com:9090"}
+                href={@cockpit_url}
                 target="_blank"
                 class="btn btn-primary"
               >

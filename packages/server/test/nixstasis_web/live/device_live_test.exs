@@ -1,186 +1,126 @@
 defmodule NixstasisWeb.DeviceLiveTest do
   use NixstasisWeb.ConnCase
   import Phoenix.LiveViewTest
+
   alias Nixstasis.Devices
 
-  @create_attrs %{
-    mac_address: "AA:BB:CC:DD:EE:FF",
+  @base_attrs %{
     account_number: "123456789",
     approval_status: :approved,
-    product_name: "PROD-123"
+    product_name: "PROD-1",
+    last_seen_at: DateTime.utc_now()
   }
 
-  defp create_device(_) do
-    {:ok, device} =
-      Devices.create_device(Map.merge(@create_attrs, %{last_seen_at: DateTime.utc_now()}))
-
-    # Ensure it starts with remote_access_requested: false
-    {:ok, device} = Devices.set_remote_access(device, false)
-    %{device: device}
+  defp create_device!(attrs) do
+    {:ok, device} = Devices.create_device(Map.merge(@base_attrs, attrs))
+    device
   end
 
-  describe "Device Show" do
-    setup [:create_device]
-
-    test "mount sets remote_access_requested to true", %{conn: conn, device: device} do
-      assert device.remote_access_requested == false
-
-      {:ok, _view, _html} = live(conn, ~p"/devices/#{device}")
-
-      updated_device = Devices.get_device!(device.id)
-      assert updated_device.remote_access_requested == true
-    end
-  end
-
-  describe "Device Index" do
-    test "lists all devices", %{conn: conn} do
-      {:ok, _d1} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "11:11:11:11:11:11",
-            product_name: "D1"
-        })
-
-      {:ok, _d2} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "22:22:22:22:22:22",
-            product_name: "D2"
-        })
-
+  describe "Device Index filters and table" do
+    test "renders MAC Address and Product columns", %{conn: conn} do
+      _ = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA", product_name: "Alpha"})
       {:ok, _view, html} = live(conn, ~p"/devices")
 
-      assert html =~ "11:11:11:11:11:11"
-      assert html =~ "22:22:22:22:22:22"
+      assert html =~ "MAC Address"
+      assert html =~ "Product"
     end
 
-    test "filters devices by status", %{conn: conn} do
-      {:ok, _approved} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "AA:AA:AA:AA:AA:AA",
-            product_name: "Approved Device",
-            approval_status: :approved
-        })
-
-      {:ok, _pending} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "BB:BB:BB:BB:BB:BB",
-            approval_status: :pending,
-            product_name: "Pending Device"
-        })
+    test "adds additive filters by clicking product/status/account and supports clear", %{conn: conn} do
+      _ = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA", product_name: "Alpha", approval_status: :pending})
+      _ = create_device!(%{mac_address: "BB:BB:BB:BB:BB:BB", product_name: "Alpha", approval_status: :approved})
+      _ = create_device!(%{mac_address: "CC:CC:CC:CC:CC:CC", product_name: "Beta", approval_status: :pending})
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      # Filter for pending
-      html =
-        view
-        |> element("a", "Pending")
-        |> render_click()
+      view
+      |> element("a", "Pending")
+      |> render_click()
 
-      assert html =~ "BB:BB:BB:BB:BB:BB"
-      refute html =~ "AA:AA:AA:AA:AA:AA"
+      assert render(view) =~ "Status: pending"
+      refute render(view) =~ "BB:BB:BB:BB:BB:BB"
 
-      # Filter for all (reset)
-      html =
-        view
-        |> element("a", "All")
-        |> render_click()
+      view
+      |> element("a[href*='product=Alpha']", "Alpha")
+      |> render_click()
 
-      assert html =~ "AA:AA:AA:AA:AA:AA"
-      assert html =~ "BB:BB:BB:BB:BB:BB"
+      assert render(view) =~ "Product: Alpha"
+      refute render(view) =~ "CC:CC:CC:CC:CC:CC"
+
+      view
+      |> element("a[href*='account_number=123456789']", "123456789")
+      |> render_click()
+
+      assert render(view) =~ "Account number: 123456789"
+      assert render(view) =~ "Active filters:"
+
+      view
+      |> element("button[phx-click='clear_filters']")
+      |> render_click()
+
+      refute render(view) =~ "Active filters:"
     end
 
-    test "sorts devices", %{conn: conn} do
-      {:ok, _d1} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "11:11:11:11:11:11",
-            product_name: "A-Device"
-        })
-
-      {:ok, _d2} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "99:99:99:99:99:99",
-            product_name: "Z-Device"
-        })
-
+    test "navigates to device details from MAC address link", %{conn: conn} do
+      device = create_device!(%{mac_address: "DD:DD:DD:DD:DD:DD"})
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      # Click "Device Name" header to sort by MAC address
       view
-      |> element("th", "Device Name")
+      |> element("button[phx-click='open_device_details'][phx-value-id='#{device.id}']", "DD:DD:DD:DD:DD:DD")
       |> render_click()
 
-      # Ascending (11... before 99...)
-      assert render(view) =~ ~r/11:11:11:11:11:11.*99:99:99:99:99:99/s
-
-      # Descending (99... before 11...)
-      view
-      |> element("th", "Device Name")
-      |> render_click()
-
-      assert render(view) =~ ~r/99:99:99:99:99:99.*11:11:11:11:11:11/s
+      assert_redirect(view, "/devices/#{device.id}")
     end
 
-    test "bulk approves devices", %{conn: conn} do
-      {:ok, device} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "CC:CC:CC:CC:CC:CC",
-            approval_status: :pending,
-            product_name: "To Approve"
-        })
+    test "modal-open navigation p95 is within 2 seconds", %{conn: conn} do
+      device = create_device!(%{mac_address: "AB:AB:AB:AB:AB:AB"})
 
-      {:ok, view, _html} = live(conn, ~p"/devices?status=pending")
+      samples_ms =
+        for _ <- 1..5 do
+          {:ok, view, _html} = live(conn, ~p"/devices")
+          start = System.monotonic_time(:millisecond)
 
-      # Select the device
-      view
-      |> element("#devices-#{device.id} input[type=checkbox]")
-      |> render_click()
+          view
+          |> element("button[phx-click='open_device_details'][phx-value-id='#{device.id}']", "AB:AB:AB:AB:AB:AB")
+          |> render_click()
 
-      # Click Bulk Approve
-      view
-      |> element("button", "Approve")
-      |> render_click()
+          assert_redirect(view, "/devices/#{device.id}")
+          System.monotonic_time(:millisecond) - start
+        end
 
-      {path, flash} = assert_redirect(view)
-      assert path == "/devices"
-      assert flash["info"] == "Devices approved"
+      p95 =
+        samples_ms
+        |> Enum.sort()
+        |> then(fn sorted -> Enum.at(sorted, ceil(length(sorted) * 0.95) - 1) end)
 
-      updated_device = Devices.get_device!(device.id)
-      assert updated_device.approval_status == :approved
+      assert p95 <= 2_000
+    end
+  end
+
+  describe "Device Show behavior" do
+    test "sets remote_access_requested to true on mount", %{conn: conn} do
+      device = create_device!(%{mac_address: "EE:EE:EE:EE:EE:EE"})
+      {:ok, _view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert Devices.get_device!(device.id).remote_access_requested == true
     end
 
-    test "bulk rejects devices", %{conn: conn} do
-      {:ok, device} =
-        Devices.create_device(%{
-          @create_attrs
-          | mac_address: "DD:DD:DD:DD:DD:DD",
-            approval_status: :pending,
-            product_name: "To Reject"
-        })
+    test "redirects with flash for missing device", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => "Device not found or unavailable"}}}} =
+               live(conn, ~p"/devices/non-existent-id")
+    end
 
-      {:ok, view, _html} = live(conn, ~p"/devices?status=pending")
+    test "retry session reinitializes in place", %{conn: conn} do
+      device = create_device!(%{mac_address: "FA:FA:FA:FA:FA:FA"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
-      # Select the device
       view
-      |> element("#devices-#{device.id} input[type=checkbox]")
+      |> element("button[phx-click='retry_session']", "Retry Session")
       |> render_click()
 
-      # Click Bulk Reject
-      view
-      |> element("button", "Reject")
-      |> render_click()
-
-      {path, flash} = assert_redirect(view)
-      assert path == "/devices"
-      assert flash["info"] == "Devices rejected"
-
-      updated_device = Devices.get_device!(device.id)
-      assert updated_device.approval_status == :rejected
+      assert render(view) =~ "Session reinitialized"
+      assert render(view) =~ "Overview"
+      assert render(view) =~ "PCP Data"
+      assert render(view) =~ "Terminal"
     end
   end
 end

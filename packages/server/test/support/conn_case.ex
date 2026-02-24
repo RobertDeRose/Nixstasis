@@ -28,6 +28,7 @@ defmodule NixstasisWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import NixstasisWeb.ConnCase
+      import NixstasisWeb.LiveViewTestHelpers
     end
   end
 

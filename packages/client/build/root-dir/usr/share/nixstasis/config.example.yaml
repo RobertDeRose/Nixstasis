@@ -4,8 +4,8 @@ api:
 poll:
   interval: 30s
 
-plugins:
-  dir: "/usr/libexec/nixstasis"
+scripts:
+  dir: "/usr/libexec/nixstasis/scripts"
 
 log:
   level: "info"

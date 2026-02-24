@@ -1,0 +1,5 @@
+id: dashboard
+description: "View primary dashboard data"
+steps:
+  - action: "fetch_dashboard"
+    expect: "dashboard_payload"

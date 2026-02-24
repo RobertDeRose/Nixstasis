@@ -1,0 +1,5 @@
+id: update_record
+description: "Update primary business record"
+steps:
+  - action: "update_record"
+    expect: "record_updated"
