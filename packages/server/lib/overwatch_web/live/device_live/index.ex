@@ -10,6 +10,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
      socket
      |> stream(:devices, [])
      |> assign(:selected_ids, [])
+     |> assign(:active_filters, %{})
      # Placeholder for pagination if needed
      |> assign(:meta, %{page: 1, per_page: 50})}
   end
@@ -18,13 +19,28 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_params(params, _url, socket) do
     sort_by = safe_to_existing_atom(params["sort_by"] || "inserted_at", :inserted_at)
     sort_order = safe_to_existing_atom(params["sort_order"] || "desc", :desc)
-    filter_status = if params["status"] == "", do: nil, else: params["status"] || :approved
+    filter_status = normalize_blank(params["status"])
+    filter_product = normalize_blank(params["product"])
+    filter_account_number = normalize_blank(params["account_number"])
     search = params["search"]
+
+    active_filters =
+      %{
+        "status" => filter_status,
+        "product" => filter_product,
+        "account_number" => filter_account_number
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
 
     opts = [
       sort_by: sort_by,
       sort_order: sort_order,
-      filter: %{status: filter_status},
+      filter: %{
+        status: filter_status,
+        product: filter_product,
+        account_number: filter_account_number
+      },
       search: search
     ]
 
@@ -35,7 +51,11 @@ defmodule NixstasisWeb.DeviceLive.Index do
       |> assign(:sort_by, sort_by)
       |> assign(:sort_order, sort_order)
       |> assign(:filter_status, filter_status)
+      |> assign(:filter_product, filter_product)
+      |> assign(:filter_account_number, filter_account_number)
+      |> assign(:active_filters, active_filters)
       |> assign(:search, search)
+      |> then(fn s -> assign(s, :current_params, get_params(s.assigns)) end)
       |> assign(:total_count, length(devices))
       |> stream(:devices, devices, reset: true)
 
@@ -81,6 +101,39 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
 
+  def handle_event("add_filter", %{"key" => key, "value" => value}, socket) do
+    value = normalize_blank(value)
+
+    if is_nil(value) do
+      {:noreply, put_flash(socket, :info, "No value available for this filter")}
+    else
+      params =
+        socket.assigns
+        |> get_params()
+        |> Map.put(key, value)
+
+      {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
+    end
+  end
+
+  def handle_event("remove_filter", %{"key" => key}, socket) do
+    params =
+      socket.assigns
+      |> get_params()
+      |> Map.delete(key)
+
+    {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
+  end
+
+  def handle_event("clear_filters", _params, socket) do
+    params =
+      socket.assigns
+      |> get_params()
+      |> Map.drop(["status", "product", "account_number"])
+
+    {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
+  end
+
   def handle_event("sort", %{"sort_by" => sort_by}, socket) do
     order =
       if socket.assigns.sort_by == String.to_atom(sort_by) and socket.assigns.sort_order == :asc,
@@ -96,6 +149,28 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
 
+  def handle_event("open_device_details", %{"id" => id}, socket) do
+    case Devices.get_device!(id) do
+      %Device{} ->
+        :telemetry.execute(
+          [:nixstasis, :devices, :modal_open],
+          %{count: 1},
+          %{result: :ok, source: :devices_index, device_id: id}
+        )
+
+        {:noreply, push_navigate(socket, to: ~p"/devices/#{id}")}
+    end
+  rescue
+    _ ->
+      :telemetry.execute(
+        [:nixstasis, :devices, :modal_open],
+        %{count: 1},
+        %{result: :error, source: :devices_index, device_id: id}
+      )
+
+      {:noreply, put_flash(socket, :error, "Unable to open device details")}
+  end
+
   def handle_event("toggle_selection", %{"id" => id}, socket) do
     selected = socket.assigns.selected_ids
     new_selected = if id in selected, do: List.delete(selected, id), else: [id | selected]
@@ -104,7 +179,11 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   def handle_event("toggle_all", _params, socket) do
     opts = [
-      filter: %{status: socket.assigns.filter_status},
+      filter: %{
+        status: socket.assigns.filter_status,
+        product: socket.assigns.filter_product,
+        account_number: socket.assigns.filter_account_number
+      },
       search: socket.assigns.search
     ]
 
@@ -157,9 +236,22 @@ defmodule NixstasisWeb.DeviceLive.Index do
       "sort_by" => assigns[:sort_by],
       "sort_order" => assigns[:sort_order],
       "status" => assigns[:filter_status],
+      "product" => assigns[:filter_product],
+      "account_number" => assigns[:filter_account_number],
       "search" => assigns[:search]
     }
     |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
     |> Map.new()
   end
+
+  defp normalize_blank(nil), do: nil
+
+  defp normalize_blank(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp normalize_blank(value), do: value
 end

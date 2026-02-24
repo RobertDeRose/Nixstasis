@@ -14,20 +14,20 @@
       </.form>
       <div class="join">
         <.link
-          patch={~p"/devices?#{%{status: :approved}}"}
-          class={"btn btn-sm join-item #{@filter_status == :approved && "btn-active"}"}
+          patch={~p"/devices?#{%{status: "approved"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "approved" && "btn-active"}"}
         >
           Approved
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: :pending}}"}
-          class={"btn btn-sm join-item #{@filter_status == :pending && "btn-active"}"}
+          patch={~p"/devices?#{%{status: "pending"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "pending" && "btn-active"}"}
         >
           Pending
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: :rejected}}"}
-          class={"btn btn-sm join-item #{@filter_status == :rejected && "btn-active"}"}
+          patch={~p"/devices?#{%{status: "rejected"}}"}
+          class={"btn btn-sm join-item #{@filter_status == "rejected" && "btn-active"}"}
         >
           Rejected
         </.link>
@@ -52,6 +52,23 @@
     </div>
   <% end %>
 
+  <%= if map_size(@active_filters) > 0 do %>
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <span class="text-sm font-semibold">Active filters:</span>
+      <%= for {key, value} <- @active_filters do %>
+        <button
+          class="badge badge-outline gap-2 px-3 py-3"
+          phx-click="remove_filter"
+          phx-value-key={key}
+        >
+          <span>{Phoenix.Naming.humanize(key)}: {value}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      <% end %>
+      <button class="btn btn-xs btn-ghost" phx-click="clear_filters">Clear all</button>
+    </div>
+  <% end %>
+
   <div class="overflow-x-auto">
     <table class="table table-zebra">
       <thead>
@@ -72,7 +89,15 @@
             phx-value-sort_by="mac_address"
             class="cursor-pointer hover:text-primary"
           >
-            Device Name {if @sort_by == :mac_address,
+            MAC Address {if @sort_by == :mac_address,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th
+            phx-click="sort"
+            phx-value-sort_by="product_name"
+            class="cursor-pointer hover:text-primary"
+          >
+            Product {if @sort_by == :product_name,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
           <th
@@ -110,25 +135,49 @@
             />
           </td>
           <td class="font-mono">
-            <%= if Nixstasis.Devices.online?(device) do %>
-              <.link navigate={~p"/devices/#{device.id}"} class="hover:underline">
-                {device.mac_address}
-              </.link>
+            <button
+              class="link link-hover"
+              phx-click="open_device_details"
+              phx-value-id={device.id}
+            >
+              {device.mac_address}
+            </button>
+          </td>
+          <td>
+            <%= if is_nil(device.product_name) or device.product_name == "" do %>
+              <span class="text-base-content/60">N/A</span>
             <% else %>
-              <span class="text-gray-400 cursor-not-allowed" title="Device Offline">
-                {device.mac_address}
-              </span>
+              <.link
+                patch={~p"/devices?#{Map.put(@current_params, "product", to_string(device.product_name))}"}
+                class="link link-hover text-left"
+              >
+                {device.product_name}
+              </.link>
             <% end %>
           </td>
-          <td class="font-mono">{device.account_number || "N/A"}</td>
+          <td class="font-mono">
+            <%= if is_nil(device.account_number) or device.account_number == "" do %>
+              <span class="text-base-content/60">N/A</span>
+            <% else %>
+              <.link
+                patch={~p"/devices?#{Map.put(@current_params, "account_number", to_string(device.account_number))}"}
+                class="link link-hover text-left"
+              >
+                {device.account_number}
+              </.link>
+            <% end %>
+          </td>
           <td>
-            <div class={"badge badge-soft w-24 #{case device.approval_status do
-              :approved -> "badge-success"
-              :rejected -> "badge-error"
-              _ -> "badge-warning"
-            end}"}>
+            <.link
+              patch={~p"/devices?#{Map.put(@current_params, "status", to_string(device.approval_status))}"}
+              class={"badge w-24 #{case device.approval_status do
+                :approved -> "badge-success text-success-content"
+                :rejected -> "badge-error text-error-content"
+                _ -> "bg-amber-200 text-amber-900 border-amber-300 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/40"
+              end}"}
+            >
               {device.approval_status}
-            </div>
+            </.link>
           </td>
           <td>
             <%= if Nixstasis.Devices.online?(device) do %>

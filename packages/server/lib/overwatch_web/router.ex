@@ -50,7 +50,10 @@ defmodule NixstasisWeb.Router do
     get("/builder-schemas/:schema_id/versions/:schema_version/options", BuilderSchemaController, :options)
     post("/builder-configurations/validate", BuilderConfigValidationController, :create)
 
+    get("/devices", DeviceController, :index)
     post("/devices/register", DeviceController, :register)
+    post("/devices/:device_id/modal", DeviceController, :open_modal)
+    delete("/devices/:device_id/modal", DeviceController, :close_modal)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
     post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)

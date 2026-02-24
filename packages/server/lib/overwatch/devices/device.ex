@@ -132,4 +132,19 @@ defmodule Nixstasis.Devices.Device do
   identities do
     identity :unique_mac_address, [:mac_address]
   end
+
+  @doc """
+  Normalizes a filter input value.
+  Returns trimmed binary values and `nil` for empty/non-binary inputs.
+  """
+  def normalize_filter_value(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  def normalize_filter_value(_), do: nil
 end
