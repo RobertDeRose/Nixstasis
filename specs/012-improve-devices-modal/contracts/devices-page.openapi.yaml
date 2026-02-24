@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: Devices Page Filtering and Modal Launch Contract
+  version: 1.0.0
+  description: |
+    Contract for Devices page filtering interactions and MAC-address modal launch,
+    reusing modal capabilities introduced in spec 005 (PCP data views and terminal session).
+servers:
+  - url: https://nixstasis.local
+paths:
+  /api/v1/devices:
+    get:
+      summary: List devices with optional additive filters
+      parameters:
+        - in: query
+          name: product
+          schema:
+            type: string
+          description: Exact product filter.
+        - in: query
+          name: account_number
+          schema:
+            type: string
+          description: Exact account number filter.
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Exact device status filter.
+      responses:
+        "200":
+          description: Filtered devices list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceListRow'
+                  meta:
+                    $ref: '#/components/schemas/FilterMeta'
+
+  /api/v1/devices/{device_id}/modal:
+    post:
+      summary: Open device modal session for selected device
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Modal session initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceModalSession'
+        "404":
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Close modal session and release remote access resources
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Modal session closed
+
+components:
+  schemas:
+    DeviceListRow:
+      type: object
+      required:
+        - device_id
+        - mac_address
+        - status
+      properties:
+        device_id:
+          type: string
+        mac_address:
+          type: string
+        product:
+          type: string
+          nullable: true
+        account_number:
+          type: string
+          nullable: true
+        status:
+          type: string
+
+    FilterMeta:
+      type: object
+      required: [active_filters]
+      properties:
+        active_filters:
+          type: object
+          properties:
+            product:
+              type: string
+              nullable: true
+            account_number:
+              type: string
+              nullable: true
+            status:
+              type: string
+              nullable: true
+
+    DeviceModalSession:
+      type: object
+      required:
+        - selected_device_id
+        - remote_access_requested
+        - pcp_data_ready
+        - terminal_ready
+      properties:
+        selected_device_id:
+          type: string
+        remote_access_requested:
+          type: boolean
+        pcp_data_ready:
+          type: boolean
+        terminal_ready:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string

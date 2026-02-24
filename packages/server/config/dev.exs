@@ -112,5 +112,8 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
+config :live_debugger,
+  disabled?: String.downcase(System.get_env("LIVE_DEBUGGER", "false")) not in ["1", "true", "yes"]
+
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
