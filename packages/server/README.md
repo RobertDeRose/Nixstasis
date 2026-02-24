@@ -29,6 +29,16 @@ mix phx.server
 
 Visit [http://localhost:4000](http://localhost:4000).
 
+### LiveDebugger (optional)
+
+LiveDebugger is disabled by default to keep dev startup fast.
+
+Enable it only when needed:
+
+```bash
+LIVE_DEBUGGER=true mix phx.server
+```
+
 ## Tests
 
 ```bash

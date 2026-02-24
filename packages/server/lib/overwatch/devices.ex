@@ -118,6 +118,8 @@ defmodule Nixstasis.Devices do
 
     Device
     |> filter_by_status(filter[:status])
+    |> filter_by_product(filter[:product])
+    |> filter_by_account_number(filter[:account_number])
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
     |> Ash.read!(domain: Domain)
@@ -137,7 +139,28 @@ defmodule Nixstasis.Devices do
   defp filter_by_status(query, nil), do: query
 
   defp filter_by_status(query, status) do
-    Ash.Query.filter(query, approval_status == ^status)
+    case normalize_status_filter(status) do
+      nil -> query
+      normalized_status -> Ash.Query.filter(query, approval_status == ^normalized_status)
+    end
+  end
+
+  defp filter_by_product(query, nil), do: query
+
+  defp filter_by_product(query, product) do
+    case Device.normalize_filter_value(product) do
+      nil -> query
+      value -> Ash.Query.filter(query, product_name == ^value)
+    end
+  end
+
+  defp filter_by_account_number(query, nil), do: query
+
+  defp filter_by_account_number(query, account_number) do
+    case Device.normalize_filter_value(account_number) do
+      nil -> query
+      value -> Ash.Query.filter(query, account_number == ^value)
+    end
   end
 
   defp search_devices(query, nil), do: query
@@ -151,6 +174,24 @@ defmodule Nixstasis.Devices do
       Ash.Query.filter(query, contains(mac_address, ^term) or contains(account_number, ^term))
     end
   end
+
+  defp normalize_status_filter(status) when is_atom(status), do: status
+
+  defp normalize_status_filter(status) when is_binary(status) do
+    case String.trim(status) do
+      "" ->
+        nil
+
+      value ->
+        try do
+          String.to_existing_atom(value)
+        rescue
+          ArgumentError -> nil
+        end
+    end
+  end
+
+  defp normalize_status_filter(_), do: nil
 
   @doc """
   Approves multiple devices by ID.
