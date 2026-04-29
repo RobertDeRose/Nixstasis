@@ -15,7 +15,7 @@ repos:
     rev: v1.43.1
     hooks:
       - id: typos
-        exclude: ".*/vendor/.*"
+        exclude: "(^\\.specify/.*|.*/vendor/.*)"
 
   - repo: https://codeberg.org/frnmst/md-toc
     rev: "9.0.0"
