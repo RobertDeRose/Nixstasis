@@ -60,3 +60,4 @@ vendor/
 
 # chunkhound
 .chunkhound*
+.specify
