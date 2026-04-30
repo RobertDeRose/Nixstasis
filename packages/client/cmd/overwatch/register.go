@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/sfero-nixstasis/client/internal/config"
 	"github.com/sfero-nixstasis/client/internal/identity"
 	"github.com/sfero-nixstasis/client/internal/transport"
 	"github.com/spf13/cobra"
@@ -81,7 +82,7 @@ func runRegister() {
 	slog.Info("Registration successful", "uuid", uuid)
 
 	// 4. Save UUID
-	store := identity.NewStore("/etc/nixstasis/id") // TODO: Make configurable via cfg
+	store := identity.NewStore(config.IdentityPath())
 	if err := store.SaveUUID(uuid); err != nil {
 		slog.Error("Failed to save UUID", "error", err)
 		return

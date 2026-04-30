@@ -1,0 +1,66 @@
+project_name: nixstasis
+
+before:
+  hooks:
+    - ./scripts/fetch_frpc.sh
+
+builds:
+  - id: nixstasis
+    binary: nixstasis
+    main: ./cmd/nixstasis
+    env:
+      - CGO_ENABLED=0
+      - GOEXPERIMENT=jsonv2
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: nixstasis-archive
+    builds:
+      - nixstasis
+    formats: [tar.gz]
+    files:
+      - src: build/root-dir/etc/nixstasis/frpc.toml
+        dst: etc/nixstasis/frpc.toml
+      - src: build/root-dir/usr/share/nixstasis/config.example.yaml
+        dst: usr/share/nixstasis/config.example.yaml
+      - src: build/root-dir/usr/libexec/nixstasis/frpc
+        dst: usr/libexec/nixstasis/frpc
+
+nfpms:
+  - id: nixstasis
+    package_name: nixstasis
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Sfero
+    homepage: https://github.com/sfero-nixstasis/sfero-nixstasis
+    description: Nixstasis client with bundled frpc
+    maintainer: Sfero <support@example.com>
+    license: Proprietary
+    formats:
+      - deb
+      - rpm
+    contents:
+      - src: ./dist/nixstasis_linux_{{ .Arch }}/nixstasis
+        dst: /usr/bin/nixstasis
+        file_info:
+          mode: 0755
+      - src: build/root-dir/etc/nixstasis/frpc.toml
+        dst: /etc/nixstasis/frpc.toml
+      - src: build/root-dir/usr/share/nixstasis/config.example.yaml
+        dst: /usr/share/nixstasis/config.example.yaml
+      - src: build/root-dir/usr/libexec/nixstasis/frpc
+        dst: /usr/libexec/nixstasis/frpc
+        file_info:
+          mode: 0755
+      - src: build/root-dir/lib/systemd/system/nixstasis-poll.service
+        dst: /lib/systemd/system/nixstasis-poll.service
+      - src: build/root-dir/lib/systemd/system/nixstasis-poll.path
+        dst: /lib/systemd/system/nixstasis-poll.path
+      - src: build/root-dir/lib/systemd/system/nixstasis-registration.service
+        dst: /lib/systemd/system/nixstasis-registration.service
+
+release:
+  disable: true

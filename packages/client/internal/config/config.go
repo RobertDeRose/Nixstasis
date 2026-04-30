@@ -4,10 +4,19 @@ package config
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/viper"
+)
+
+const (
+	defaultConfigRoot = "/etc/nixstasis"
+	defaultUserConfig = "$HOME/.config/nixstasis"
+	defaultScriptsDir = "/usr/libexec/nixstasis/scripts"
+	defaultFRPCBinary = "/usr/libexec/nixstasis/frpc"
+	defaultFRPCConfig = "/etc/nixstasis/frpc.toml"
 )
 
 // Config holds the top-level configuration structure.
@@ -45,7 +54,7 @@ func setDefaults() *viper.Viper {
 	// Defaults
 	v.SetDefault("api.url", "http://localhost:4000")
 	v.SetDefault("poll.interval", 10*time.Second)
-	v.SetDefault("scripts.dir", "/usr/libexec/nixstasis/scripts")
+	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")
 
@@ -71,8 +80,8 @@ func Load() (*Config, error) {
 	// Config File
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
-	v.AddConfigPath("/etc/nixstasis")
-	v.AddConfigPath("$HOME/.config/nixstasis")
+	v.AddConfigPath(defaultConfigRoot)
+	v.AddConfigPath(defaultUserConfig)
 	v.AddConfigPath(".")
 
 	// Environment Variables
@@ -94,4 +103,24 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// IdentityPath returns the canonical identity file path.
+func IdentityPath() string {
+	return filepath.Join(defaultConfigRoot, "id")
+}
+
+// FRPCConfigPath returns the canonical frpc config path.
+func FRPCConfigPath() string {
+	return defaultFRPCConfig
+}
+
+// FRPCBinaryPath returns the canonical bundled frpc path.
+func FRPCBinaryPath() string {
+	return defaultFRPCBinary
+}
+
+// DefaultScriptsDir returns the canonical scripts directory.
+func DefaultScriptsDir() string {
+	return defaultScriptsDir
 }

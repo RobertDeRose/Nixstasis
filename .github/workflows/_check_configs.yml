@@ -1,6 +1,11 @@
 name: Check Config
 on:
   workflow_call:
+    inputs:
+      mode:
+        required: false
+        type: string
+        default: package
     outputs:
       package:
         value: ${{ jobs.check-configs.outputs.package }}
@@ -35,6 +40,32 @@ jobs:
       - name: Get Parameters
         id: parameters
         run: |
+          mode="${{ inputs.mode }}"
+
+          if [ "$mode" = "images" ]; then
+            {
+              echo 'distros=["ubuntu-24.04"]'
+              echo 'arches=["amd64"]'
+              echo 'package=images'
+              echo "version=${GITHUB_REF_NAME#*/[vV]}"
+              echo 'os-independent=true'
+              echo 'arch-independent=false'
+            } | tee -a "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [ "$mode" = "client-release" ]; then
+            {
+              echo 'distros=["ubuntu-24.04"]'
+              echo 'arches=["amd64","arm64"]'
+              echo 'package=packages/client'
+              echo "version=${GITHUB_REF_NAME#*/[vV]}"
+              echo 'os-independent=false'
+              echo 'arch-independent=false'
+            } | tee -a "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           package="packages/${GITHUB_REF_NAME%/*}"
 
           if grep -qP "packages/v(\d+\.){2,3}(\d+)?" <<< "${package}"; then

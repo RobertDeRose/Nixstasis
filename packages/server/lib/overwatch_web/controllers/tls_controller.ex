@@ -1,26 +1,16 @@
 defmodule NixstasisWeb.TLSController do
   use NixstasisWeb, :controller
-  import Nixstasis.Utilities, only: [format_mac_address: 1]
 
-  alias Nixstasis.Devices
+  alias Nixstasis.Deployment
   require Logger
 
-  # Compiled once at load time
-  @domain_pattern ~r/^(auth|frp-router|atom-.*?)\.ab\.test-device\.com$/
-
   def check_domain(conn, %{"domain" => domain}) do
-    case Regex.run(@domain_pattern, domain) do
-      [_, type] when type in ["auth", "frp-router"] -> approve(conn, domain)
-      [_, subdomain] -> if valid_subdomain?(subdomain), do: approve(conn, domain), else: deny(conn, domain)
-      _ -> deny(conn, domain)
+    if Deployment.approved_tls_domain?(domain) do
+      approve(conn, domain)
+    else
+      deny(conn, domain)
     end
   end
-
-  defp valid_subdomain?("atom-" <> subdomain) do
-    subdomain |> format_mac_address() |> Devices.requesting_remote_access?()
-  end
-
-  defp valid_subdomain?(_), do: false
 
   defp approve(conn, domain) do
     Logger.info("[APPROVING] #{domain} for TLS")

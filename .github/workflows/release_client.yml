@@ -1,0 +1,22 @@
+name: Release Client
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - packages/client/**
+      - .github/workflows/release_client.yml
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/client
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: packages/client/go.mod
+      - name: Snapshot release
+        run: goreleaser release --snapshot --clean
