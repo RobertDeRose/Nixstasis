@@ -1,7 +1,8 @@
 # Nixstasis Server (Elixir/Phoenix)
 
-The Nixstasis server is a Phoenix + LiveView application that provides the web UI and API for device monitoring,
-approvals, alerts, and reporting.
+The server application is the Phoenix + LiveView control plane for the Nixstasis
+deployment. The supported production path for this feature is the Compose stack
+under `deploy/compose`.
 
 ## Features
 
@@ -14,7 +15,7 @@ approvals, alerts, and reporting.
   - `POST /api/v1/builder-configurations/validate`
 - Integrates with Caddy/AuthCrunch and FRP for secure remote access.
 
-## Prerequisites
+## Local development
 
 - Elixir `~> 1.19`
 - Erlang/OTP (compatible with Elixir 1.19)
@@ -28,6 +29,14 @@ mix phx.server
 ```
 
 Visit [http://localhost:4000](http://localhost:4000).
+
+## Supported deployment
+
+- Build the runtime image with `docker build -f packages/server/Dockerfile -t nixstasis-server:test packages/server`.
+- Run the supported stack from `deploy/compose`.
+- Run migrations explicitly with `bin/migrate` inside the release container.
+- The abandoned Debian packaging path is not part of the supported deployment
+  surface for this feature.
 
 ### LiveDebugger (optional)
 
@@ -50,6 +59,8 @@ mix test
 - Runtime config: `config/runtime.exs`
 - App config: `config/config.exs`
 - Database config: `config/dev.exs`, `config/test.exs`
+- Canonical runtime inputs for supported deployments: `DATABASE_URL`,
+  `SECRET_KEY_BASE`, `PHX_HOST`, `PORT`, and `BASE_DOMAIN`
 
 ## Rewrite Status
 

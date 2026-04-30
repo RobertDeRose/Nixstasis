@@ -1,7 +1,8 @@
 # Welcome to Nixstasis
 
-Nixstasis is an IoT monitoring and remote access platform. This repository is a monorepo with multiple codebases and
-packaging workflows.
+Nixstasis is being migrated to Nixstasis packaging and deployment surfaces. The
+current supported server deployment path for this feature is Docker Compose via
+`deploy/compose`.
 
 The client and server have been rewritten from their original Bash and Python/Reflex implementations into Go and
 Elixir/Phoenix, respectively.
@@ -10,7 +11,9 @@ Elixir/Phoenix, respectively.
 
 - **Client (Go)**: Lightweight agent that registers devices, polls telemetry plugins, and manages FRP tunnels.
 - **Server (Elixir/Phoenix + LiveView)**: API and web UI for device monitoring, approvals, alerts, and reporting.
-- **Packaging (Debian)**: Custom GitHub Actions/workflows for building Caddy and FRP Debian packages.
+- **Packaging and Release**: OCI image builds for server/Caddy and a GoReleaser
+  client packaging flow are being introduced as the supported path for this
+  migration.
 - **Infrastructure**: [`FRP`](https://gofrp.org/en/), [`Caddy`](https://caddyserver.com/), and
   [`AuthCrunch`](https://authcrunch.com) integrate to provide secure, on-demand remote access.
 
@@ -18,7 +21,8 @@ Elixir/Phoenix, respectively.
 
 - `packages/client`: Go-based client agent.
 - `packages/server`: Phoenix server application.
-- `packages/caddy`: Debian packaging for Caddy (with AuthCrunch).
+- `deploy/compose`: Supported server deployment assets for this migration.
+- `packages/caddy`: Caddy image and legacy packaging assets.
 - `packages/frp`: Debian packaging for FRP.
 - `specs`: Feature specs and task checklists for the rewrites and ongoing work.
 
@@ -26,6 +30,12 @@ Elixir/Phoenix, respectively.
 
 - Client: [`packages/client/README.md`](packages/client/README.md)
 - Server: [`packages/server/README.md`](packages/server/README.md)
+
+## Deployment status
+
+- Supported server deployment path: `deploy/compose`
+- Abandoned server package deployment assets are not part of the supported
+  release path for this migration.
 
 ## E2E Tests (Client ↔ Server)
 
