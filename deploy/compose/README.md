@@ -9,6 +9,16 @@ This directory is the supported server deployment path for this feature.
 - Database migrations are explicit and are not part of container startup.
 - All external runtime artifacts must be pinned immutably.
 
+## Supported operation
+
+- The supported server deployment flow is `deploy/compose` only.
+- Bring up the default bundled database stack with:
+  `docker compose --profile bundled-db up -d --build`
+- To use an external PostgreSQL instance, omit the `bundled-db` profile and point
+  `DATABASE_URL` at the managed database.
+- Run migrations explicitly with:
+  `docker compose run --rm nixstasis bin/migrate`
+
 ## Pinned artifacts
 
 - `frps` must use an image digest via `FRPS_IMAGE_DIGEST`.
@@ -18,7 +28,7 @@ This directory is the supported server deployment path for this feature.
 ## First run
 
 1. Copy `.env.example` to `.env` and fill every required value.
-2. Start the stack with `docker compose up -d --build`.
+2. Start the stack with `docker compose --profile bundled-db up -d --build`.
 3. Run migrations with `docker compose run --rm nixstasis bin/migrate`.
 4. Confirm the `caddy`, `nixstasis`, `frps`, and `postgres` services are healthy.
 
@@ -27,3 +37,8 @@ This directory is the supported server deployment path for this feature.
 When using an external PostgreSQL service, keep the same application contract and
 point `DATABASE_URL` at the external server. The bundled `postgres` service
 becomes optional for that deployment.
+
+## Validation
+
+- Run `deploy/compose/scripts/validate_stack.sh` to verify the compose file and
+  required services before deployment.
