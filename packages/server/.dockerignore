@@ -1,0 +1,9 @@
+_build/
+deps/
+tmp/
+.elixir_ls/
+erl_crash.dump
+node_modules/
+assets/node_modules/
+test/
+build/

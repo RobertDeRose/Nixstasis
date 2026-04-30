@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/sfero-nixstasis/client/internal/config"
 )
 
 // execCommandContext allows mocking the command execution in tests.
@@ -51,7 +53,7 @@ func (m *Manager) Start(_ context.Context, configPath string) error {
 
 	// -c configPath is standard for frpc
 	//nolint:contextcheck // Intentional creation of new context for background process
-	cmd := execCommandContext(cmdCtx, "frpc", "-c", configPath)
+	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", configPath)
 	m.cmd = cmd
 
 	if err := cmd.Start(); err != nil {

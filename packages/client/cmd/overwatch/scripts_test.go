@@ -42,7 +42,7 @@ func TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds(t *testing.
 		t.Fatalf("install script: %v", err)
 	}
 
-	installDir := filepath.Join(tempDir, ".nixstasis", "scripts")
+	installDir := filepath.Join(tempDir, ".config", "nixstasis", "scripts")
 	installedPath := filepath.Join(installDir, "test_script.stary")
 	if _, err := os.Stat(installedPath); err != nil {
 		t.Fatalf("expected installed script, got %v", err)

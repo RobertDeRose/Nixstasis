@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	"github.com/sfero-nixstasis/client/internal/config"
 )
 
 // TestHelperProcess isn't a real test; it's used to mock exec.Command
@@ -105,5 +107,24 @@ func TestManager_RealStatus(t *testing.T) {
 	s := mgr.GetStatus()
 	if s.Active {
 		t.Error("New manager should be inactive")
+	}
+}
+
+func TestManagerUsesBundledFRPCPath(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+
+	mgr := NewManager()
+	if err := mgr.Start(context.Background(), "/tmp/frpc.toml"); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = mgr.Stop() }()
+
+	if mgr.cmd == nil {
+		t.Fatal("expected command to be initialized")
+	}
+
+	if got := mgr.cmd.Args[3]; got != config.FRPCBinaryPath() {
+		t.Fatalf("frpc binary = %q", got)
 	}
 }

@@ -10,7 +10,7 @@ import (
 
 const (
 	systemScriptsDir = "/usr/libexec/nixstasis/scripts"
-	userScriptsDir   = "$HOME/.nixstasis/scripts"
+	userScriptsDir   = "$HOME/.config/nixstasis/scripts"
 )
 
 // DefaultScriptDirs returns the search paths for stary scripts.
