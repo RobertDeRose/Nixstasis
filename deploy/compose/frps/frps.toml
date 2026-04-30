@@ -1,0 +1,10 @@
+bindPort = 7000
+
+webServer.port = 8081
+
+log.to = "console"
+log.level = "info"
+
+tcpmuxHTTPConnectPort = 2022
+vhostHTTPPort = 8080
+subDomainHost = "example.com"

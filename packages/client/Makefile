@@ -53,9 +53,12 @@ check: fmt mod lint test ## Run all formatting, linting, and tests
 # 1. This target always runs because it is .PHONY
 check-golangci-version:
 	@if [ -x $(GOLANGCI_LINT) ]; then \
-		INSTALLED_VER=$$($(GOLANGCI_LINT) --version | awk '{print $$4}'); \
-		if [ "v$$INSTALLED_VER" != "$(GOLANGCI_VERSION)" ]; then \
-			echo "Version mismatch: expected $(GOLANGCI_VERSION), got $$INSTALLED_VER. Reinstalling..."; \
+		VERSION_OUTPUT=$$($(GOLANGCI_LINT) version); \
+		INSTALLED_VER=$$(printf '%s\n' "$$VERSION_OUTPUT" | awk '{print $$4}'); \
+		INSTALLED_GO=$$(printf '%s\n' "$$VERSION_OUTPUT" | awk '{print $$8}'); \
+		CURRENT_GO=$$(go env GOVERSION); \
+		if [ "v$$INSTALLED_VER" != "$(GOLANGCI_VERSION)" ] || [ "$$INSTALLED_GO" != "$$CURRENT_GO" ]; then \
+			echo "golangci-lint mismatch: expected $(GOLANGCI_VERSION) built with $$CURRENT_GO, got $$INSTALLED_VER built with $$INSTALLED_GO. Reinstalling..."; \
 			rm -f $(GOLANGCI_LINT); \
 		fi; \
 	fi
@@ -63,8 +66,8 @@ check-golangci-version:
 # 2. The binary target now depends on the version check
 $(GOLANGCI_LINT): check-golangci-version
 	@if [ ! -f $(GOLANGCI_LINT) ]; then \
-		echo "Installing golangci-lint v$(GOLANGCI_VERSION)..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) $(GOLANGCI_VERSION); \
+		echo "Installing golangci-lint $(GOLANGCI_VERSION) with local Go toolchain..."; \
+		GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION); \
 	fi
 
 $(GOFUMPT):

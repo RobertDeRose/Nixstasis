@@ -1,0 +1,16 @@
+name: Build Caddy Image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - packages/caddy/**
+      - .github/workflows/build_caddy_image.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build caddy image
+        run: docker build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy

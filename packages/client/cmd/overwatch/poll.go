@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sfero-nixstasis/client/internal/commands"
+	"github.com/sfero-nixstasis/client/internal/config"
 	"github.com/sfero-nixstasis/client/internal/frp"
 	"github.com/sfero-nixstasis/client/internal/identity"
 	"github.com/sfero-nixstasis/client/internal/script"
@@ -34,7 +35,7 @@ func runPoll() {
 	slog.Info("Starting polling service")
 
 	// 1. Load Identity
-	store := identity.NewStore("/etc/nixstasis/id") // TODO: Config
+	store := identity.NewStore(config.IdentityPath())
 	uuid, err := store.LoadUUID()
 	if err != nil {
 		slog.Warn("No device identity found. Please run 'nixstasis register' first.", "error", err)
@@ -135,7 +136,7 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 		if !frpStatus.Active {
 			slog.Info("Server requested remote access, starting FRP")
 			// Assuming default config location for now
-			configPath := "/etc/nixstasis/frpc.toml"
+			configPath := config.FRPCConfigPath()
 			// Check if config exists, if not, maybe we can't start?
 			// Or we assume it's there.
 			if err := frpManager.Start(ctx, configPath); err != nil {
