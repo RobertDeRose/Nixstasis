@@ -18,7 +18,7 @@ var cfg *config.Config
 
 var rootCmd = &cobra.Command{
 	Use:           "nixstasis",
-	Short:         "Nixstasis Client for IoT Monitoring",
+	Short:         "Nixstasis client for IoT monitoring",
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		var err error

@@ -1,0 +1,16 @@
+name: Build Server Image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - packages/server/**
+      - .github/workflows/build_server_image.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build server image
+        run: docker build -f packages/server/Dockerfile -t nixstasis-server:test packages/server
