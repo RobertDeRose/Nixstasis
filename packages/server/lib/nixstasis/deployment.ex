@@ -59,8 +59,12 @@ defmodule Nixstasis.Deployment do
     suffix = "." <> normalized_base_domain
 
     cond do
-      normalized_base_domain == "" -> :error
-      not String.ends_with?(normalized_domain, suffix) -> :error
+      normalized_base_domain == "" ->
+        :error
+
+      not String.ends_with?(normalized_domain, suffix) ->
+        :error
+
       true ->
         subdomain = String.replace_suffix(normalized_domain, suffix, "")
 
