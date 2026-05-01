@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 )
 
 func TestRegisterDevice(t *testing.T) {

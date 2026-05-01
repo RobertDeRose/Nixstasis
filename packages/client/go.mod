@@ -1,4 +1,4 @@
-module github.com/sfero-nixstasis/client
+module github.com/RobertDeRose/Nixstasis/packages/client
 
 go 1.25.4
 

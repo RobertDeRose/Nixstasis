@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/frp"
-	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/telemetry"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 )
 
 func TestPollUsesHeartbeatContract(t *testing.T) {

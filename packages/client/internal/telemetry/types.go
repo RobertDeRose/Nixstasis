@@ -4,7 +4,7 @@ package telemetry
 import (
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 )
 
 // DeviceStatus represents dynamic status information about the device.

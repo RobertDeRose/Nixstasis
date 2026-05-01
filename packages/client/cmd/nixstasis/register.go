@@ -6,10 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/transport"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 var registerCmd = &cobra.Command{
@@ -37,7 +38,7 @@ func runRegister() {
 		return
 	}
 
-	ip, err := identity.GetPrimaryIP()
+	ip, err := identity.GetPrimaryIP(context.Background())
 	if err != nil {
 		slog.Warn("Failed to detect IP address", "error", err)
 		ip = "0.0.0.0" // Fallback
