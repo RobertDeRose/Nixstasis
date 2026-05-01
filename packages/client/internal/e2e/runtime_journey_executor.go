@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/commands"
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/frp"
-	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/script"
-	"github.com/sfero-nixstasis/client/internal/telemetry"
-	"github.com/sfero-nixstasis/client/internal/transport"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commands"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {

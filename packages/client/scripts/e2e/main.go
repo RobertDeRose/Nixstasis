@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sfero-nixstasis/client/internal/e2e"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/e2e"
 )
 
 type cliOptions struct {

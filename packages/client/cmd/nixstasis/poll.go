@@ -7,14 +7,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/commands"
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/frp"
-	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/script"
-	"github.com/sfero-nixstasis/client/internal/telemetry"
-	"github.com/sfero-nixstasis/client/internal/transport"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commands"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 var pollCmd = &cobra.Command{
@@ -88,7 +89,7 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 	if err != nil {
 		slog.Warn("Failed to get primary MAC", "error", err)
 	}
-	ip, err := identity.GetPrimaryIP()
+	ip, err := identity.GetPrimaryIP(ctx)
 	if err != nil {
 		slog.Warn("Failed to get primary IP", "error", err)
 	}
