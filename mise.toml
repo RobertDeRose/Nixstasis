@@ -1,4 +1,5 @@
 [tools]
-elixir = "1.19.5"
+elixir = "latest"
+erlang = "latest"
 go = "latest"
 golangci-lint = "latest"

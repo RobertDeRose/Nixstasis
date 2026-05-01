@@ -1,7 +1,7 @@
 # Research: Server-Client End-to-End Tests
 
 **Date**: 2026-02-10
-**Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/008-server-client-e2e-tests/spec.md`
+**Spec**: `specs/008-server-client-e2e-tests/spec.md`
 
 ## Decisions
 

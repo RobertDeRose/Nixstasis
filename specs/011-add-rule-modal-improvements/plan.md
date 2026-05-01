@@ -1,6 +1,6 @@
 # Implementation Plan: Add Rule Modal Improvements
 
-**Branch**: `011-add-rule-modal-improvements` | **Date**: 2026-02-16 | **Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/spec.md`
+**Branch**: `011-add-rule-modal-improvements` | **Date**: 2026-02-16 | **Spec**: `specs/011-add-rule-modal-improvements/spec.md`
 **Input**: Feature specification from `/specs/011-add-rule-modal-improvements/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command.
@@ -79,14 +79,14 @@ packages/
 
 ## Phase 0: Research Output
 
-Research completed in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/research.md`.
+Research completed in `specs/011-add-rule-modal-improvements/research.md`.
 All clarification-derived unknowns are resolved and translated into concrete interaction decisions.
 
 ## Phase 1: Design Output
 
-- Data model artifact: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/data-model.md`
-- Contract artifact: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/contracts/add-rule-modal.openapi.yaml`
-- Validation runbook: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
+- Data model artifact: `specs/011-add-rule-modal-improvements/data-model.md`
+- Contract artifact: `specs/011-add-rule-modal-improvements/contracts/add-rule-modal.openapi.yaml`
+- Validation runbook: `specs/011-add-rule-modal-improvements/quickstart.md`
 
 ## Complexity Tracking
 

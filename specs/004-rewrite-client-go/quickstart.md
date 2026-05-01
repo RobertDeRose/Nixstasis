@@ -10,8 +10,8 @@
 
 ### From Source
 ```bash
-git clone https://github.com/checkpoint/sfero-nixstasis.git
-cd sfero-nixstasis/packages/client-go
+git clone https://github.com/RobertDeRose/Nixstasis.git
+cd Nixstasis/packages/client
 go build -o nixstasis cmd/nixstasis/main.go
 sudo mv nixstasis /usr/local/bin/
 ```

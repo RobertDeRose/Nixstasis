@@ -99,7 +99,7 @@ Avoid red as a brand color. Reserve red/pink hues for validation errors, destruc
 
 ## 5. File Locations
 
-* **CSS Config:** `packages/nixstasis/server/assets/css/app.css`
-* **Layouts:** `packages/nixstasis/server/lib/nixstasis_web/components/layouts/`
-* **Core Components:** `packages/nixstasis/server/lib/nixstasis_web/components/core_components.ex`
-* **Logo:** `packages/nixstasis/server/priv/static/images/logo.svg`
+* **CSS Config:** `packages/server/assets/css/app.css`
+* **Layouts:** `packages/server/lib/nixstasis_web/components/layouts/`
+* **Core Components:** `packages/server/lib/nixstasis_web/components/core_components.ex`
+* **Logo:** `packages/server/priv/static/images/logo.svg`

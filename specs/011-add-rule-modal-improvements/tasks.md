@@ -1,7 +1,7 @@
 # Tasks: Add Rule Modal Improvements
 
-**Input**: Design documents from `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/`
-**Prerequisites**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/plan.md`, `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/spec.md`, `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/research.md`, `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/data-model.md`, `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/contracts/add-rule-modal.openapi.yaml`
+**Input**: Design documents from `specs/011-add-rule-modal-improvements/`
+**Prerequisites**: `specs/011-add-rule-modal-improvements/plan.md`, `specs/011-add-rule-modal-improvements/spec.md`, `specs/011-add-rule-modal-improvements/research.md`, `specs/011-add-rule-modal-improvements/data-model.md`, `specs/011-add-rule-modal-improvements/contracts/add-rule-modal.openapi.yaml`
 
 **Tests**: Tests are MANDATORY for modal interaction logic and save/cancel behavior changes in this feature.
 
@@ -17,9 +17,9 @@
 
 **Purpose**: Align task scaffolding and test harness for Add Rule modal parity work.
 
-- [X] T001 Verify Add Rule modal baseline behavior and existing event handlers in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T002 Capture Create Report modal parity references to reuse interaction patterns in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/form_component.ex`
-- [X] T003 [P] Prepare/extend shared LiveView test helpers for modal open/edit flows in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/support/live_view_test_helpers.ex`
+- [X] T001 Verify Add Rule modal baseline behavior and existing event handlers in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T002 Capture Create Report modal parity references to reuse interaction patterns in `packages/server/lib/nixstasis_web/live/reports/form_component.ex`
+- [X] T003 [P] Prepare/extend shared LiveView test helpers for modal open/edit flows in `packages/server/test/support/live_view_test_helpers.ex`
 
 ---
 
@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [X] T004 Implement Add Rule draft-state normalization and dirty-tracking helpers in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T005 [P] Add reusable rule form validation mapping and issue shaping for inline feedback in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/monitoring/alert_rule.ex`
-- [X] T006 [P] Add modal feedback state helpers for success auto-dismiss and persistent error behavior in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T007 Wire foundational tests for draft dirty-state and validation retention in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T004 Implement Add Rule draft-state normalization and dirty-tracking helpers in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T005 [P] Add reusable rule form validation mapping and issue shaping for inline feedback in `packages/server/lib/nixstasis/monitoring/alert_rule.ex`
+- [X] T006 [P] Add modal feedback state helpers for success auto-dismiss and persistent error behavior in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T007 Wire foundational tests for draft dirty-state and validation retention in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
 
 **Nixstasis**: Foundation ready; user story implementation can proceed.
 
@@ -46,16 +46,16 @@
 
 ### Tests for User Story 1
 
-- [X] T008 [P] [US1] Add LiveView test coverage for Add Rule modal layout/action parity with Create Report in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T009 [P] [US1] Add create-flow save success/error behavior tests (auto-dismiss success, persistent error) in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T010 [P] [US1] Add edit-flow tests ensuring only rule name is immutable while other fields remain editable in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T008 [P] [US1] Add LiveView test coverage for Add Rule modal layout/action parity with Create Report in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T009 [P] [US1] Add create-flow save success/error behavior tests (auto-dismiss success, persistent error) in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T010 [P] [US1] Add edit-flow tests ensuring only rule name is immutable while other fields remain editable in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
 
 ### Implementation for User Story 1
 
-- [X] T011 [US1] Refactor Add Rule modal markup/sections/actions to mirror Create Report modal conventions in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T012 [US1] Ensure create-mode submit path enforces validation-gated primary action and single-submit behavior in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T013 [US1] Ensure edit-mode submit path preserves rule identity and allows updating non-name fields in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T014 [US1] Implement post-save outcome messaging behavior (success auto-dismiss, persistent error) in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T011 [US1] Refactor Add Rule modal markup/sections/actions to mirror Create Report modal conventions in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T012 [US1] Ensure create-mode submit path enforces validation-gated primary action and single-submit behavior in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T013 [US1] Ensure edit-mode submit path preserves rule identity and allows updating non-name fields in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T014 [US1] Implement post-save outcome messaging behavior (success auto-dismiss, persistent error) in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
 
 **Nixstasis**: User Story 1 is independently functional and testable.
 
@@ -69,16 +69,16 @@
 
 ### Tests for User Story 2
 
-- [X] T015 [P] [US2] Add keyboard navigation/focus-order assertions for Add Rule modal in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T016 [P] [US2] Add Escape/cancel behavior tests for pristine vs dirty forms in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T017 [P] [US2] Add keyboard submit tests for Ctrl/Cmd+Enter and non-submitting plain Enter in text inputs in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T015 [P] [US2] Add keyboard navigation/focus-order assertions for Add Rule modal in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T016 [P] [US2] Add Escape/cancel behavior tests for pristine vs dirty forms in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T017 [P] [US2] Add keyboard submit tests for Ctrl/Cmd+Enter and non-submitting plain Enter in text inputs in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
 
 ### Implementation for User Story 2
 
-- [X] T018 [US2] Set initial focus on modal open to first actionable rule-building control in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T019 [US2] Implement modal keyboard event handling for Escape through cancel path and dirty confirmation in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T020 [US2] Implement Ctrl/Cmd+Enter save shortcut while preventing unintended plain Enter modal submission in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T021 [P] [US2] Validate current modal keyboard hooks satisfy US2 acceptance criteria and document the result in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
+- [X] T018 [US2] Set initial focus on modal open to first actionable rule-building control in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T019 [US2] Implement modal keyboard event handling for Escape through cancel path and dirty confirmation in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T020 [US2] Implement Ctrl/Cmd+Enter save shortcut while preventing unintended plain Enter modal submission in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T021 [P] [US2] Validate current modal keyboard hooks satisfy US2 acceptance criteria and document the result in `specs/011-add-rule-modal-improvements/quickstart.md`
 
 **Nixstasis**: User Stories 1 and 2 are both independently functional and testable.
 
@@ -92,16 +92,16 @@
 
 ### Tests for User Story 3
 
-- [X] T022 [P] [US3] Add validation error rendering/clearing tests with persisted user input state in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T023 [P] [US3] Add no-available-field edge-case tests ensuring guidance and blocked save in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T024 [P] [US3] Add operator/value compatibility transition tests for invalid-to-valid recovery in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T022 [P] [US3] Add validation error rendering/clearing tests with persisted user input state in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T023 [P] [US3] Add no-available-field edge-case tests ensuring guidance and blocked save in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T024 [P] [US3] Add operator/value compatibility transition tests for invalid-to-valid recovery in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
 
 ### Implementation for User Story 3
 
-- [X] T025 [US3] Implement inline validation issue rendering and actionable messaging in Add Rule modal in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T026 [US3] Preserve draft values across failed validation/save attempts and clear issues on corrective edits in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T027 [US3] Handle no-schema-field and invalid operator/value combination edge cases in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- [X] T028 [US3] Ensure validation issue generation and operator/type checks remain consistent with domain expectations in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/monitoring/alert_rule.ex`
+- [X] T025 [US3] Implement inline validation issue rendering and actionable messaging in Add Rule modal in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T026 [US3] Preserve draft values across failed validation/save attempts and clear issues on corrective edits in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T027 [US3] Handle no-schema-field and invalid operator/value combination edge cases in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
+- [X] T028 [US3] Ensure validation issue generation and operator/type checks remain consistent with domain expectations in `packages/server/lib/nixstasis/monitoring/alert_rule.ex`
 
 **Nixstasis**: All user stories are independently functional.
 
@@ -111,15 +111,15 @@
 
 **Purpose**: Final quality pass across behavior, accessibility, and documentation.
 
-- [X] T029 [P] Execute quickstart validation steps and capture implementation verification notes in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
-- [X] T030 [P] Add/refresh accessibility-oriented assertions for focus visibility, labels, and error announcement behavior in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/alerts_live_test.exs`
-- [X] T031 Run lint/format/test quality gates for touched server code (`mix format`, `mix credo`, targeted `mix test`) from `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server`
-- [X] T032 Update feature completion notes and dependency confirmation in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/plan.md`
-- [X] T033 Define and document baseline measurement method for SC-001, SC-002, and SC-004 in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
-- [ ] T034 [P] Capture pre-change baseline for validation-related failed save attempts (SC-004) in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
-- [ ] T035 [P] Execute timed Add Rule flow checks and record results against SC-001 in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
-- [ ] T036 Execute first-attempt save success sampling and record results against SC-002 in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
-- [ ] T037 Compare post-change validation-failure rate against baseline and record SC-004 pass/fail in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/quickstart.md`
+- [X] T029 [P] Execute quickstart validation steps and capture implementation verification notes in `specs/011-add-rule-modal-improvements/quickstart.md`
+- [X] T030 [P] Add/refresh accessibility-oriented assertions for focus visibility, labels, and error announcement behavior in `packages/server/test/nixstasis_web/live/alerts_live_test.exs`
+- [X] T031 Run lint/format/test quality gates for touched server code (`mix format`, `mix credo`, targeted `mix test`) from `packages/server`
+- [X] T032 Update feature completion notes and dependency confirmation in `specs/011-add-rule-modal-improvements/plan.md`
+- [X] T033 Define and document baseline measurement method for SC-001, SC-002, and SC-004 in `specs/011-add-rule-modal-improvements/quickstart.md`
+- [ ] T034 [P] Capture pre-change baseline for validation-related failed save attempts (SC-004) in `specs/011-add-rule-modal-improvements/quickstart.md`
+- [ ] T035 [P] Execute timed Add Rule flow checks and record results against SC-001 in `specs/011-add-rule-modal-improvements/quickstart.md`
+- [ ] T036 Execute first-attempt save success sampling and record results against SC-002 in `specs/011-add-rule-modal-improvements/quickstart.md`
+- [ ] T037 Compare post-change validation-failure rate against baseline and record SC-004 pass/fail in `specs/011-add-rule-modal-improvements/quickstart.md`
 
 ---
 

@@ -17,8 +17,8 @@
 
 **Purpose**: Prepare baseline docs and fixtures for implementation and validation.
 
- - [X] T001 Align feature documentation cross-links in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/spec.md and /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/quickstart.md
- - [X] T002 [P] Add reusable Devices LiveView test fixture helpers for product/account/status combinations in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/support/live_view_test_helpers.ex
+ - [X] T001 Align feature documentation cross-links in specs/012-improve-devices-modal/spec.md and specs/012-improve-devices-modal/quickstart.md
+ - [X] T002 [P] Add reusable Devices LiveView test fixture helpers for product/account/status combinations in packages/server/test/support/live_view_test_helpers.ex
 
 ---
 
@@ -28,11 +28,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
- - [X] T003 Implement additive filter-state merge and clear helpers in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T004 [P] Extend device list query API to accept product/account_number/status filter map in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/devices.ex
- - [X] T005 [P] Add filter validation and nil-safe matching logic in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/devices/device.ex
- - [X] T006 Wire foundational filter params through Devices LiveView mount/handle_params in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T007 Add foundational unit/integration coverage for filter-state transitions and query filtering in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/devices_test.exs
+ - [X] T003 Implement additive filter-state merge and clear helpers in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T004 [P] Extend device list query API to accept product/account_number/status filter map in packages/server/lib/nixstasis/devices.ex
+ - [X] T005 [P] Add filter validation and nil-safe matching logic in packages/server/lib/nixstasis/devices/device.ex
+ - [X] T006 Wire foundational filter params through Devices LiveView mount/handle_params in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T007 Add foundational unit/integration coverage for filter-state transitions and query filtering in packages/server/test/nixstasis/devices_test.exs
 
 **Nixstasis**: Foundation ready - user story implementation can now begin.
 
@@ -46,19 +46,19 @@
 
 ### Tests for User Story 1
 
- - [X] T008 [P] [US1] Add LiveView test coverage for column labels and Product column rendering in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T009 [P] [US1] Add LiveView test coverage for additive click-to-filter behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T010 [P] [US1] Add LiveView test coverage for per-filter chip removal and clear-all behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T030 [P] [US1] Add BDD-style contract test for GET /api/v1/devices filtering in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/controllers/device_controller_test.exs
- - [X] T031 [P] [US1] Add responsive behavior coverage for mobile and desktop filter interactions in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T008 [P] [US1] Add LiveView test coverage for column labels and Product column rendering in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T009 [P] [US1] Add LiveView test coverage for additive click-to-filter behavior in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T010 [P] [US1] Add LiveView test coverage for per-filter chip removal and clear-all behavior in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T030 [P] [US1] Add BDD-style contract test for GET /api/v1/devices filtering in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
+ - [X] T031 [P] [US1] Add responsive behavior coverage for mobile and desktop filter interactions in packages/server/test/nixstasis_web/live/device_live_test.exs
 
 ### Implementation for User Story 1
 
- - [X] T011 [US1] Rename `Device Name` header to `MAC Address` and add `Product` column markup in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.html.heex
- - [X] T012 [US1] Implement clickable Product/Account Number/Status cell events in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.html.heex
- - [X] T013 [US1] Implement filter chip UI with per-chip remove actions and `Clear all` control in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.html.heex
- - [X] T014 [US1] Implement filter click/clear event handlers and assigns updates in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T015 [US1] Ensure list refresh preserves deterministic ordering and empty-state messaging under active filters in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T011 [US1] Rename `Device Name` header to `MAC Address` and add `Product` column markup in packages/server/lib/nixstasis_web/live/device_live/index.html.heex
+ - [X] T012 [US1] Implement clickable Product/Account Number/Status cell events in packages/server/lib/nixstasis_web/live/device_live/index.html.heex
+ - [X] T013 [US1] Implement filter chip UI with per-chip remove actions and `Clear all` control in packages/server/lib/nixstasis_web/live/device_live/index.html.heex
+ - [X] T014 [US1] Implement filter click/clear event handlers and assigns updates in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T015 [US1] Ensure list refresh preserves deterministic ordering and empty-state messaging under active filters in packages/server/lib/nixstasis_web/live/device_live/index.ex
 
 **Nixstasis**: User Story 1 is independently functional and testable.
 
@@ -72,19 +72,19 @@
 
 ### Tests for User Story 2
 
- - [X] T016 [P] [US2] Add LiveView test for MAC Address link opening selected device modal in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T017 [P] [US2] Add LiveView test for modal close returning to prior filter context in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T032 [P] [US2] Add BDD-style contract test for POST /api/v1/devices/{device_id}/modal in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/controllers/device_controller_test.exs
- - [X] T033 [P] [US2] Add BDD-style contract test for DELETE /api/v1/devices/{device_id}/modal in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/controllers/device_controller_test.exs
- - [X] T034 [US2] Add modal-open latency verification for SC-002 (p95 <= 2s) in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T016 [P] [US2] Add LiveView test for MAC Address link opening selected device modal in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T017 [P] [US2] Add LiveView test for modal close returning to prior filter context in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T032 [P] [US2] Add BDD-style contract test for POST /api/v1/devices/{device_id}/modal in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
+ - [X] T033 [P] [US2] Add BDD-style contract test for DELETE /api/v1/devices/{device_id}/modal in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
+ - [X] T034 [US2] Add modal-open latency verification for SC-002 (p95 <= 2s) in packages/server/test/nixstasis_web/live/device_live_test.exs
 
 ### Implementation for User Story 2
 
- - [X] T018 [US2] Render MAC Address cell as modal-opening link with selected device binding in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.html.heex
- - [X] T019 [US2] Wire MAC-link modal open events to existing device show flow in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T020 [US2] Preserve filter/query and scroll context on modal open/close route transitions in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T035 [US2] Implement GET /api/v1/devices filter parameter handling contract in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/controllers/device_controller.ex
- - [X] T036 [US2] Implement POST and DELETE /api/v1/devices/{device_id}/modal contract endpoints in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/controllers/device_controller.ex
+ - [X] T018 [US2] Render MAC Address cell as modal-opening link with selected device binding in packages/server/lib/nixstasis_web/live/device_live/index.html.heex
+ - [X] T019 [US2] Wire MAC-link modal open events to existing device show flow in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T020 [US2] Preserve filter/query and scroll context on modal open/close route transitions in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T035 [US2] Implement GET /api/v1/devices filter parameter handling contract in packages/server/lib/nixstasis_web/controllers/device_controller.ex
+ - [X] T036 [US2] Implement POST and DELETE /api/v1/devices/{device_id}/modal contract endpoints in packages/server/lib/nixstasis_web/controllers/device_controller.ex
 
 **Nixstasis**: User Stories 1 and 2 work independently, with modal access integrated from Devices page.
 
@@ -98,17 +98,17 @@
 
 ### Tests for User Story 3
 
- - [X] T021 [P] [US3] Add LiveView test coverage for modal error and retry messaging when details fail to load in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T022 [P] [US3] Add channel-level resilience test for terminal interruption/recovery expectations in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/channels/terminal_channel_test.exs
- - [X] T023 [P] [US3] Add domain test coverage for unauthorized or missing-device modal access in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/devices_test.exs
+ - [X] T021 [P] [US3] Add LiveView test coverage for modal error and retry messaging when details fail to load in packages/server/test/nixstasis_web/live/device_live_test.exs
+ - [X] T022 [P] [US3] Add channel-level resilience test for terminal interruption/recovery expectations in packages/server/test/nixstasis_web/channels/terminal_channel_test.exs
+ - [X] T023 [P] [US3] Add domain test coverage for unauthorized or missing-device modal access in packages/server/test/nixstasis/devices_test.exs
 
 ### Implementation for User Story 3
 
- - [X] T024 [US3] Harden modal open path for missing/unauthorized devices with user-visible feedback in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/show.ex
- - [X] T025 [US3] Ensure modal PCP and terminal tabs show degraded/retry states without crashing view in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/show.html.heex
- - [X] T026 [US3] Align remote access session cleanup and stale-state refresh on modal close/reopen in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/show.ex
- - [X] T037 [US3] Add telemetry events for device-discovery and modal-open failure paths in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/device_live/index.ex
- - [X] T038 [US3] Add support-ticket reduction measurement procedure for SC-004 in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/quickstart.md
+ - [X] T024 [US3] Harden modal open path for missing/unauthorized devices with user-visible feedback in packages/server/lib/nixstasis_web/live/device_live/show.ex
+ - [X] T025 [US3] Ensure modal PCP and terminal tabs show degraded/retry states without crashing view in packages/server/lib/nixstasis_web/live/device_live/show.html.heex
+ - [X] T026 [US3] Align remote access session cleanup and stale-state refresh on modal close/reopen in packages/server/lib/nixstasis_web/live/device_live/show.ex
+ - [X] T037 [US3] Add telemetry events for device-discovery and modal-open failure paths in packages/server/lib/nixstasis_web/live/device_live/index.ex
+ - [X] T038 [US3] Add support-ticket reduction measurement procedure for SC-004 in specs/012-improve-devices-modal/quickstart.md
 
 **Nixstasis**: All user stories are functional and independently testable.
 
@@ -118,9 +118,9 @@
 
 **Purpose**: Final verification and cleanup across all stories.
 
- - [X] T027 [P] Run and stabilize targeted test suites for devices LiveView and terminal channel in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs and /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/channels/terminal_channel_test.exs
- - [X] T028 [P] Update feature verification notes with final behavior checks in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/quickstart.md
- - [X] T029 Execute full quickstart validation flow and capture completion notes in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/tasks.md
+ - [X] T027 [P] Run and stabilize targeted test suites for devices LiveView and terminal channel in packages/server/test/nixstasis_web/live/device_live_test.exs and packages/server/test/nixstasis_web/channels/terminal_channel_test.exs
+ - [X] T028 [P] Update feature verification notes with final behavior checks in specs/012-improve-devices-modal/quickstart.md
+ - [X] T029 Execute full quickstart validation flow and capture completion notes in specs/012-improve-devices-modal/tasks.md
 
 ---
 
@@ -160,24 +160,24 @@
 ## Parallel Example: User Story 1
 
 ```bash
-Task: "Add LiveView test coverage for column labels and Product column rendering in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
-Task: "Add LiveView test coverage for additive click-to-filter behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
-Task: "Add LiveView test coverage for per-filter chip removal and clear-all behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add LiveView test coverage for column labels and Product column rendering in packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add LiveView test coverage for additive click-to-filter behavior in packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add LiveView test coverage for per-filter chip removal and clear-all behavior in packages/server/test/nixstasis_web/live/device_live_test.exs"
 ```
 
 ## Parallel Example: User Story 2
 
 ```bash
-Task: "Add LiveView test for MAC Address link opening selected device modal in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
-Task: "Add LiveView test for modal close returning to prior filter context in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add LiveView test for MAC Address link opening selected device modal in packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add LiveView test for modal close returning to prior filter context in packages/server/test/nixstasis_web/live/device_live_test.exs"
 ```
 
 ## Parallel Example: User Story 3
 
 ```bash
-Task: "Add LiveView test coverage for modal error and retry messaging when details fail to load in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/device_live_test.exs"
-Task: "Add channel-level resilience test for terminal interruption/recovery expectations in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/channels/terminal_channel_test.exs"
-Task: "Add domain test coverage for unauthorized or missing-device modal access in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/devices_test.exs"
+Task: "Add LiveView test coverage for modal error and retry messaging when details fail to load in packages/server/test/nixstasis_web/live/device_live_test.exs"
+Task: "Add channel-level resilience test for terminal interruption/recovery expectations in packages/server/test/nixstasis_web/channels/terminal_channel_test.exs"
+Task: "Add domain test coverage for unauthorized or missing-device modal access in packages/server/test/nixstasis/devices_test.exs"
 ```
 
 ---

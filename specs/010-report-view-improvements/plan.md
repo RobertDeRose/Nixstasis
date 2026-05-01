@@ -1,6 +1,6 @@
 # Implementation Plan: Report View Improvements
 
-**Branch**: `010-report-view-improvements` | **Date**: 2026-02-15 | **Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/spec.md`
+**Branch**: `010-report-view-improvements` | **Date**: 2026-02-15 | **Spec**: `specs/010-report-view-improvements/spec.md`
 **Input**: Feature specification from `/specs/010-report-view-improvements/spec.md` with additional user scope for sortable/filterable custom-report list and sortable/filterable report results with edit/delete actions.
 
 **Note**: This template is filled in by the `/speckit.plan` command.
