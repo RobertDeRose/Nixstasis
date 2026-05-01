@@ -40,11 +40,14 @@ nfpms:
     vendor: Sfero
     homepage: https://github.com/sfero-nixstasis/sfero-nixstasis
     description: Nixstasis client with bundled frpc
-    maintainer: Sfero <support@example.com>
+    maintainer: Robert DeRose <RobertDeRose@users.noreply.github.com>
     license: Proprietary
     formats:
       - deb
       - rpm
+    scripts:
+      postinstall: ./scripts/release/postinstall.sh
+      preremove: ./scripts/release/preremove.sh
     contents:
       - src: ./dist/nixstasis_linux_{{ .Arch }}/nixstasis
         dst: /usr/bin/nixstasis
