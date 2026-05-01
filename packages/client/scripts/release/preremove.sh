@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 action=("disable")
 [[ -d /run/systemd/system/ ]] && action+=("--now")
 
