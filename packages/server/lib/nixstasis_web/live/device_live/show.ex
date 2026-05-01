@@ -109,7 +109,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
       |> String.downcase()
       |> String.replace(":", "")
 
-    domain_suffix = Application.get_env(:nixstasis, :cockpit_domain_suffix, "device.<domain>")
+    domain_suffix =
+      Application.get_env(
+        :nixstasis,
+        :cockpit_domain_suffix,
+        Application.get_env(:nixstasis, :base_domain, "example.com")
+      )
+
     domain_prefix = Application.get_env(:nixstasis, :cockpit_domain_prefix, "atom-")
 
     "https://#{domain_prefix}#{normalized_mac}.#{domain_suffix}"
