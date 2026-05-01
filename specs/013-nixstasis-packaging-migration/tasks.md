@@ -50,20 +50,20 @@
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T012 [P] [US1] Add deployment smoke validation for the Compose stack in `deploy/compose/scripts/validate_stack.sh`
-- [ ] T013 [P] [US1] Add ExUnit coverage for explicit migration entrypoints and runtime port expectations in `packages/server/test/nixstasis/releases/` and `packages/server/test/nixstasis_web/`
+- [X] T012 [P] [US1] Add deployment smoke validation for the Compose stack in `deploy/compose/scripts/validate_stack.sh`
+- [X] T013 [P] [US1] Add ExUnit coverage for explicit migration entrypoints and runtime port expectations in `packages/server/test/nixstasis/releases/` and `packages/server/test/nixstasis_web/`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Implement the Compose stack definition in `deploy/compose/docker-compose.yml`
-- [ ] T015 [P] [US1] Add the operator runtime template in `deploy/compose/.env.example`
-- [ ] T016 [P] [US1] Create the Compose Caddy configuration in `deploy/compose/caddy/Caddyfile`
-- [ ] T017 [P] [US1] Create the Compose FRPS configuration in `deploy/compose/frps/frps.toml`
-- [ ] T018 [US1] Write first-run and operations guidance in `deploy/compose/README.md`
-- [ ] T019 [US1] Implement the multi-stage Phoenix release image in `packages/server/Dockerfile` and supporting scripts in `packages/server/bin/`
-- [ ] T020 [US1] Implement the AuthCrunch-enabled Caddy image build in `packages/caddy/Dockerfile` and `packages/caddy/bin/build_caddy.sh`
-- [ ] T021 [US1] Update server release operations and runtime assumptions in `packages/server/README.md`
-- [ ] T022 [US1] Restrict legacy server package assets from being presented as the supported path in `README.md`, `packages/server/package_options.yml`, and `packages/server/build/pre_package.sh`
+- [X] T014 [P] [US1] Implement the Compose stack definition in `deploy/compose/docker-compose.yml`
+- [X] T015 [P] [US1] Add the operator runtime template in `deploy/compose/.env.example`
+- [X] T016 [P] [US1] Create the Compose Caddy configuration in `deploy/compose/caddy/Caddyfile`
+- [X] T017 [P] [US1] Create the Compose FRPS configuration in `deploy/compose/frps/frps.toml`
+- [X] T018 [US1] Write first-run and operations guidance in `deploy/compose/README.md`
+- [X] T019 [US1] Implement the multi-stage Phoenix release image in `packages/server/Dockerfile` and supporting scripts in `packages/server/bin/`
+- [X] T020 [US1] Implement the AuthCrunch-enabled Caddy image build in `packages/caddy/Dockerfile` and `packages/caddy/bin/build_caddy.sh`
+- [X] T021 [US1] Update server release operations and runtime assumptions in `packages/server/README.md`
+- [X] T022 [US1] Remove abandoned server package assets and stop presenting them as the supported path in `README.md`, `packages/server/package_options.yml`, and `packages/server/build/pre_package.sh`
 
 **Nixstasis**: User Story 1 should produce a fully documented, independently runnable Compose deployment path.
 
@@ -84,10 +84,10 @@
 
 - [ ] T025 [P] [US2] Implement the GoReleaser configuration in `packages/client/.goreleaser.yaml`
 - [ ] T026 [P] [US2] Add pinned `frpc` fetch and staging scripts in `packages/client/scripts/fetch_frpc.sh` and `packages/client/scripts/release/`
-- [ ] T027 [US2] Rename the client command and packaging metadata in `packages/client/cmd/nixstasis/`, `packages/client/package_options.yml`, and `packages/client/Makefile`
+- [X] T027 [US2] Rename the client command and packaging metadata in `packages/client/cmd/nixstasis/` and `packages/client/Makefile`, removing the abandoned `package_options.yml` path
 - [ ] T028 [US2] Update client runtime defaults to `nixstasis` paths in `packages/client/internal/config/config.go`, `packages/client/internal/frp/manager.go`, and `packages/client/internal/script/discovery.go`
 - [ ] T029 [US2] Update polling and registration flows to use bundled `frpc` and renamed config paths in `packages/client/cmd/nixstasis/poll.go` and `packages/client/cmd/nixstasis/register.go`
-- [ ] T030 [US2] Replace legacy package install-time assumptions in `packages/client/bin/pre_package.sh` and `packages/client/build/root-dir/**` with GoReleaser-managed layouts
+- [X] T030 [US2] Remove abandoned package install-time assumptions in `packages/client/bin/pre_package.sh` and `packages/client/build/root-dir/**` with GoReleaser-managed layouts
 - [ ] T031 [US2] Update client installation and release documentation in `packages/client/README.md` and `README.md`
 
 **Nixstasis**: User Story 2 should yield native client artifacts that install and run independently of legacy FRP packaging.
@@ -143,7 +143,7 @@
 
 **Purpose**: Finish workflow migration, retire legacy release surfaces, and run end-to-end validation.
 
-- [ ] T045 [P] Demote or restrict legacy package publication logic in `.github/workflows/build_package.yml` and `.github/workflows/publish_package.yml`
+- [X] T045 [P] Remove abandoned package publication logic in `.github/workflows/build_package.yml` and `.github/workflows/publish_package.yml`
 - [ ] T046 [P] Implement OCI image publication logic in `.github/workflows/build_server_image.yml` and `.github/workflows/build_caddy_image.yml`
 - [ ] T047 [P] Implement client snapshot/release publication logic in `.github/workflows/release_client.yml`
 - [ ] T048 Add final operator validation notes and release-readiness checklist updates in `specs/013-nixstasis-packaging-migration/quickstart.md` and `deploy/compose/README.md`
@@ -207,7 +207,7 @@ Task: "Add pinned frpc fetch and staging scripts in packages/client/scripts/fetc
 # Client runtime path updates
 Task: "Update client runtime defaults to nixstasis paths in packages/client/internal/config/config.go, packages/client/internal/frp/manager.go, and packages/client/internal/script/discovery.go"
 Task: "Update polling and registration flows to use bundled frpc and renamed config paths in packages/client/cmd/nixstasis/poll.go and packages/client/cmd/nixstasis/register.go"
-Task: "Replace legacy package install-time assumptions in packages/client/bin/pre_package.sh and packages/client/build/root-dir/** with GoReleaser-managed layouts"
+Task: "Replace abandoned package install-time assumptions in packages/client/bin/pre_package.sh and packages/client/build/root-dir/** with GoReleaser-managed layouts"
 ```
 
 ## Parallel Example: User Story 3
