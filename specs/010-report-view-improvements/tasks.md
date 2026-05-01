@@ -17,9 +17,9 @@
 
 **Purpose**: Align report feature scaffolding and test data for upcoming story work
 
-- [X] T001 Document feature scope and interaction expectations in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/README.md
-- [X] T002 Add reusable report test fixtures for sortable/filterable datasets in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/support/fixtures/report_fixtures.ex
-- [X] T003 [P] Add helper assertions for report row ordering and filter outcomes in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/support/report_assertions.ex
+- [X] T001 Document feature scope and interaction expectations in packages/server/README.md
+- [X] T002 Add reusable report test fixtures for sortable/filterable datasets in packages/server/test/support/fixtures/report_fixtures.ex
+- [X] T003 [P] Add helper assertions for report row ordering and filter outcomes in packages/server/test/support/report_assertions.ex
 
 ---
 
@@ -29,12 +29,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T004 Create shared comparator and coercion utilities for report tables in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/reporting/table_filters.ex
-- [X] T005 [P] Add unit tests for comparator mapping (`gt`,`gte`,`eq`,`lte`,`lt`) and type coercion edge cases in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/reporting/table_filters_test.exs
-- [X] T006 Extend reporting context with list-level sort/filter query helpers in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/reporting.ex
-- [X] T007 [P] Add context tests for custom report list sort/filter behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/reporting/custom_report_list_test.exs
-- [X] T008 Extend query execution pipeline to accept results sort/filter state in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/reporting/query_builder.ex
-- [X] T009 [P] Add query-builder tests for report result sorting/filtering and invalid value handling in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis/reporting/query_builder_test.exs
+- [X] T004 Create shared comparator and coercion utilities for report tables in packages/server/lib/nixstasis/reporting/table_filters.ex
+- [X] T005 [P] Add unit tests for comparator mapping (`gt`,`gte`,`eq`,`lte`,`lt`) and type coercion edge cases in packages/server/test/nixstasis/reporting/table_filters_test.exs
+- [X] T006 Extend reporting context with list-level sort/filter query helpers in packages/server/lib/nixstasis/reporting.ex
+- [X] T007 [P] Add context tests for custom report list sort/filter behavior in packages/server/test/nixstasis/reporting/custom_report_list_test.exs
+- [X] T008 Extend query execution pipeline to accept results sort/filter state in packages/server/lib/nixstasis/reporting/query_builder.ex
+- [X] T009 [P] Add query-builder tests for report result sorting/filtering and invalid value handling in packages/server/test/nixstasis/reporting/query_builder_test.exs
 
 **Nixstasis**: Foundation ready - user story implementation can now begin in parallel
 
@@ -48,17 +48,17 @@
 
 ### Tests for User Story 1
 
-- [X] T010 [P] [US1] Add LiveView test coverage for detail-table column sorting controls in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T011 [P] [US1] Add LiveView test coverage for detail-table filter operators and validation messaging in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T012 [P] [US1] Add LiveView tests for unauthorized access to report detail sorting/filtering controls in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T010 [P] [US1] Add LiveView test coverage for detail-table column sorting controls in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T011 [P] [US1] Add LiveView test coverage for detail-table filter operators and validation messaging in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T012 [P] [US1] Add LiveView tests for unauthorized access to report detail sorting/filtering controls in packages/server/test/nixstasis_web/live/reports_live_test.exs
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Implement report detail sort/filter state assigns and events in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T014 [US1] Apply shared table filter/comparator logic when loading report detail results in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T015 [US1] Add report detail filter UI controls (column, operator, value) with clear empty/error states in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T016 [US1] Add sort affordances to report detail table headers and preserve active sort state in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T017 [US1] Enforce permission checks for report detail sorting/filtering interactions in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T013 [US1] Implement report detail sort/filter state assigns and events in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T014 [US1] Apply shared table filter/comparator logic when loading report detail results in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T015 [US1] Add report detail filter UI controls (column, operator, value) with clear empty/error states in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T016 [US1] Add sort affordances to report detail table headers and preserve active sort state in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T017 [US1] Enforce permission checks for report detail sorting/filtering interactions in packages/server/lib/nixstasis_web/live/reports/show_live.ex
 
 **Nixstasis**: User Story 1 should be fully functional and testable independently
 
@@ -72,20 +72,20 @@
 
 ### Tests for User Story 2
 
-- [X] T018 [P] [US2] Add LiveView tests for custom report list sorting/filtering interactions in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T019 [P] [US2] Add LiveView tests for row actions (`View`,`Edit`,`Delete`) and delete confirmation flows in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T020 [P] [US2] Add LiveView tests to assert edit action preloads query modal with existing config and persists updates in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T021 [P] [US2] Add LiveView tests for unauthorized list actions (`View`,`Edit`,`Delete`) and restricted list filtering behavior in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T018 [P] [US2] Add LiveView tests for custom report list sorting/filtering interactions in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T019 [P] [US2] Add LiveView tests for row actions (`View`,`Edit`,`Delete`) and delete confirmation flows in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T020 [P] [US2] Add LiveView tests to assert edit action preloads query modal with existing config and persists updates in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T021 [P] [US2] Add LiveView tests for unauthorized list actions (`View`,`Edit`,`Delete`) and restricted list filtering behavior in packages/server/test/nixstasis_web/live/reports_live_test.exs
 
 ### Implementation for User Story 2
 
-- [X] T022 [US2] Add list-level sort/filter params and assign handling for reports index in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T023 [US2] Implement list table sort/filter controls and bind them to reporting context queries in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T024 [US2] Replace current single row action with clearly styled `View`, `Edit`, and `Delete` action links in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T025 [US2] Implement delete-confirmation modal state/events and wire confirmed deletion to reporting context in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T026 [US2] Add edit route/action handling so row `Edit` opens existing query modal with selected report in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T027 [US2] Add or adjust shared action-link styling classes for clarity and destructive emphasis in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/components/core_components.ex
-- [X] T028 [US2] Enforce permission checks for report list sort/filter and row actions in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T022 [US2] Add list-level sort/filter params and assign handling for reports index in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T023 [US2] Implement list table sort/filter controls and bind them to reporting context queries in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T024 [US2] Replace current single row action with clearly styled `View`, `Edit`, and `Delete` action links in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T025 [US2] Implement delete-confirmation modal state/events and wire confirmed deletion to reporting context in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T026 [US2] Add edit route/action handling so row `Edit` opens existing query modal with selected report in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T027 [US2] Add or adjust shared action-link styling classes for clarity and destructive emphasis in packages/server/lib/nixstasis_web/components/core_components.ex
+- [X] T028 [US2] Enforce permission checks for report list sort/filter and row actions in packages/server/lib/nixstasis_web/live/reports/index_live.ex
 
 **Nixstasis**: User Stories 1 and 2 should be independently functional
 
@@ -99,15 +99,15 @@
 
 ### Tests for User Story 3
 
-- [X] T029 [P] [US3] Add LiveView tests for persistence of report list/detail sort-filter state during navigation in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
-- [X] T030 [P] [US3] Add LiveView tests for invalid restored state fallback messaging in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T029 [P] [US3] Add LiveView tests for persistence of report list/detail sort-filter state during navigation in packages/server/test/nixstasis_web/live/reports_live_test.exs
+- [X] T030 [P] [US3] Add LiveView tests for invalid restored state fallback messaging in packages/server/test/nixstasis_web/live/reports_live_test.exs
 
 ### Implementation for User Story 3
 
-- [X] T031 [US3] Persist report list sort/filter state to saved user view preferences and rehydrate in mount/handle_params in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T032 [US3] Persist report detail sort/filter state to saved user view preferences and rehydrate on reload in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T033 [US3] Add invalid-state detection and safe default fallback messaging for restored sort/filter state in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/show_live.ex
-- [X] T034 [US3] Implement reporting-context persistence API for per-user report view preferences in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis/reporting.ex
+- [X] T031 [US3] Persist report list sort/filter state to saved user view preferences and rehydrate in mount/handle_params in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T032 [US3] Persist report detail sort/filter state to saved user view preferences and rehydrate on reload in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T033 [US3] Add invalid-state detection and safe default fallback messaging for restored sort/filter state in packages/server/lib/nixstasis_web/live/reports/show_live.ex
+- [X] T034 [US3] Implement reporting-context persistence API for per-user report view preferences in packages/server/lib/nixstasis/reporting.ex
 
 **Nixstasis**: All user stories should now be independently functional
 
@@ -117,14 +117,14 @@
 
 **Purpose**: Validate end-to-end quality, performance, and documentation across all stories
 
-- [X] T035 [P] Perform contract conformance review for custom report list/results interactions (reference-only contract) in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/contracts/custom-reports-view.openapi.yaml
-- [X] T036 Capture pre-change baseline median report review time for SC-002 in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/quickstart.md
-- [X] T037 Run quickstart validation scenarios and record outcomes in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/quickstart.md
-- [X] T038 [P] Perform final UX copy/style consistency pass for report list/detail actions and messages in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/lib/nixstasis_web/live/reports/index_live.ex
-- [X] T039 Capture release-note summary for report view improvements in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server/README.md
-- [X] T040 [P] Define support-ticket baseline and post-release comparison method for SC-004 in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/quickstart.md
-- [X] T041 Capture pre-release support-ticket baseline values for report-view issues in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/quickstart.md
-- [X] T042 Mark custom-reports OpenAPI contract as deferred/reference-only for this feature increment in /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/contracts/custom-reports-view.openapi.yaml
+- [X] T035 [P] Perform contract conformance review for custom report list/results interactions (reference-only contract) in specs/010-report-view-improvements/contracts/custom-reports-view.openapi.yaml
+- [X] T036 Capture pre-change baseline median report review time for SC-002 in specs/010-report-view-improvements/quickstart.md
+- [X] T037 Run quickstart validation scenarios and record outcomes in specs/010-report-view-improvements/quickstart.md
+- [X] T038 [P] Perform final UX copy/style consistency pass for report list/detail actions and messages in packages/server/lib/nixstasis_web/live/reports/index_live.ex
+- [X] T039 Capture release-note summary for report view improvements in packages/server/README.md
+- [X] T040 [P] Define support-ticket baseline and post-release comparison method for SC-004 in specs/010-report-view-improvements/quickstart.md
+- [X] T041 Capture pre-release support-ticket baseline values for report-view issues in specs/010-report-view-improvements/quickstart.md
+- [X] T042 Mark custom-reports OpenAPI contract as deferred/reference-only for this feature increment in specs/010-report-view-improvements/contracts/custom-reports-view.openapi.yaml
 
 ---
 

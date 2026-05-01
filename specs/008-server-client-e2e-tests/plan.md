@@ -1,7 +1,7 @@
 # Implementation Plan: Server-Client End-to-End Tests
 
-**Branch**: `008-server-client-e2e-tests` | **Date**: 2026-02-10 | **Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/008-server-client-e2e-tests/spec.md`
-**Input**: Feature specification from `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/008-server-client-e2e-tests/spec.md`
+**Branch**: `008-server-client-e2e-tests` | **Date**: 2026-02-10 | **Spec**: `specs/008-server-client-e2e-tests/spec.md`
+**Input**: Feature specification from `specs/008-server-client-e2e-tests/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command.
 See `.specify/templates/commands/plan.md` for the execution workflow.

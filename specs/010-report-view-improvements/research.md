@@ -1,7 +1,7 @@
 # Research: Report View Improvements
 
 **Date**: 2026-02-15
-**Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/010-report-view-improvements/spec.md`
+**Spec**: `specs/010-report-view-improvements/spec.md`
 
 ## Decisions
 

@@ -1,7 +1,7 @@
 # Research: Devices Page and Device Modal Improvements
 
 **Date**: 2026-02-20
-**Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/spec.md`
+**Spec**: `specs/012-improve-devices-modal/spec.md`
 
 ## Decisions
 

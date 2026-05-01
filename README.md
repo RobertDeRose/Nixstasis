@@ -1,8 +1,7 @@
 # Welcome to Nixstasis
 
-Nixstasis is being migrated to Nixstasis packaging and deployment surfaces. The
-current supported server deployment path for this feature is Docker Compose via
-`deploy/compose`.
+Nixstasis is an IoT monitoring and remote access platform. The current supported
+server deployment path for this feature is Docker Compose via `deploy/compose`.
 
 The client and server have been rewritten from their original Bash and Python/Reflex implementations into Go and
 Elixir/Phoenix, respectively.
@@ -34,8 +33,22 @@ Elixir/Phoenix, respectively.
 ## Deployment status
 
 - Supported server deployment path: `deploy/compose`
+- Supported client release path: GoReleaser from `packages/client`
 - Abandoned server package deployment assets are not part of the supported
   release path for this migration.
+
+## Client release status
+
+Build client snapshot artifacts from `packages/client` with a pinned bundled `frpc` source:
+
+```bash
+export FRPC_SOURCE_BINARY=/absolute/path/to/frpc
+export FRPC_SOURCE_SHA256=<sha256>
+goreleaser release --snapshot --clean
+./scripts/release/verify_artifacts.sh
+```
+
+The supported client artifacts install `nixstasis` to `/usr/bin/nixstasis` and the bundled `frpc` runtime to `/usr/libexec/nixstasis/frpc`.
 
 ## E2E Tests (Client ↔ Server)
 

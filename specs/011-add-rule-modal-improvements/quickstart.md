@@ -6,7 +6,7 @@ Validate that Add Rule modal behavior matches Create Report modal quality for st
 
 ## Prerequisites
 
-- Repo root: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis`
+- Repo root: `.`
 - Phoenix app dependencies installed under `packages/server`
 - At least one schema-enabled device available for alert field selection
 - Existing alert rule present for edit-mode checks
@@ -14,7 +14,7 @@ Validate that Add Rule modal behavior matches Create Report modal quality for st
 ## 1) Run automated tests for alert/report modal interaction coverage
 
 ```bash
-cd /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server
+cd packages/server
 mix test test/nixstasis_web/live/alerts_live_test.exs test/nixstasis_web/live/reports_live_test.exs
 ```
 
