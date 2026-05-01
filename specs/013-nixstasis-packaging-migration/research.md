@@ -6,7 +6,7 @@
 ## Decisions
 
 ### 1) Supported server deployment model
-- **Decision**: Make Docker Compose the single supported server deployment path and treat existing Debian-based server packaging assets as legacy migration leftovers only.
+- **Decision**: Make Docker Compose the single supported server deployment path and remove abandoned Debian-based server packaging assets instead of preserving them as leftovers.
 - **Rationale**: The repo currently has multiple package-based server deployment surfaces, but the feature requires one operator-facing source of truth and a simpler runtime contract.
 - **Alternatives considered**: Continue dual support for package and Compose deployment; defer the cutover until after container support lands.
 
@@ -61,6 +61,6 @@
 - **Alternatives considered**: Preserve old paths for compatibility; require operators to configure the bundled helper path manually.
 
 ### 12) Workflow split
-- **Decision**: Add dedicated image workflows for `packages/server` and `packages/caddy`, add a GoReleaser-based client workflow, and demote existing package workflows to legacy or client-only use.
+- **Decision**: Add dedicated image workflows for `packages/server` and `packages/caddy`, add a GoReleaser-based client workflow, and remove abandoned server package workflows that no longer serve the supported release path.
 - **Rationale**: Current CI/CD is package-oriented and does not express the desired server/container delivery model.
 - **Alternatives considered**: Reuse current package workflows for image publication; keep one mixed workflow for all deliverables.
