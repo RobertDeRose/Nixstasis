@@ -1,7 +1,7 @@
 # FRP Client Configuration Template
 # This file is processed by 'gomplate' or similar (implied by {{ ... }} syntax) before being used by frpc.
 
-serverAddr = "nixstasis.device.<domain>"
+serverAddr = "nixstasis.example.com"
 serverPort = 7000
 webServer.addr = "127.0.0.1"
 webServer.port = 7400

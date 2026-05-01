@@ -42,6 +42,9 @@ nfpms:
     formats:
       - deb
       - rpm
+    scripts:
+      postinstall: ./scripts/release/postinstall.sh
+      preremove: ./scripts/release/preremove.sh
     contents:
       - src: ./dist/nixstasis_linux_{{ .Arch }}/nixstasis
         dst: /usr/bin/nixstasis
