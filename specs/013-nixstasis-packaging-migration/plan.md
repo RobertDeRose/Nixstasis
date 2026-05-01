@@ -80,22 +80,18 @@ packages/
 │   └── README.md
 ├── caddy/
 │   ├── Dockerfile
-│   ├── bin/
-│   └── package_options.yml
+│   └── bin/
 └── frp/
-    ├── bin/
-    └── package_options.yml
+    └── bin/
 
 .github/
 └── workflows/
     ├── build_server_image.yml
     ├── build_caddy_image.yml
-    ├── release_client.yml
-    ├── build_package.yml
-    └── publish_package.yml
+    └── release_client.yml
 ```
 
-**Structure Decision**: Keep the feature aligned with the repo's monorepo structure. New deployment assets live under `deploy/compose`, server and Caddy containerization stay with their package directories, client packaging remains inside `packages/client`, and workflow migration happens in `.github/workflows`. Legacy server package assets may remain temporarily, but only as migration leftovers rather than source-of-truth inputs.
+**Structure Decision**: Keep the feature aligned with the repo's monorepo structure. New deployment assets live under `deploy/compose`, server and Caddy containerization stay with their package directories, client packaging remains inside `packages/client`, and workflow migration happens in `.github/workflows`. Abandoned server package assets do not need to remain in the repository once the new path replaces them.
 
 ## Baseline Decisions
 
@@ -109,7 +105,7 @@ packages/
 
 - Rename boundaries must include package names, binary names, service names, config paths, image names, container names, and all deployment/release documentation touched by this feature.
 - Rename boundaries also include full server and client code namespace updates where required to complete the Nixstasis cutover.
-- Compose is the supported deployment contract; package-based server deployment docs and workflows become legacy and must no longer be presented as the current path.
+- Compose is the supported deployment contract; abandoned package-based server deployment docs and workflows should be removed rather than preserved.
 - Server image design must expose explicit migration execution separate from application startup.
 - Client packaging must install a bundled `frpc` to `/usr/libexec/nixstasis/frpc` and default runtime execution to that path.
 - Workflow changes should preserve validation quality gates while splitting server/container delivery from client/package delivery.
