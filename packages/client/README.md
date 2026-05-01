@@ -1,6 +1,6 @@
 # Nixstasis Client (Go)
 
-The Nixstasis Client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
+The Nixstasis client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
 now provides embedded Starlark scripting for telemetry, durable identity, and FRP tunnel control.
 
 ## Features
@@ -12,7 +12,7 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ## Project Layout
 
-- `cmd/nixstasis`: CLI entry point (`register`, `poll`, etc.).
+- `cmd/nixstasis`: CLI entry point for the `nixstasis` binary (`register`, `poll`, etc.).
 - `internal`: Core packages (config, identity, transport, telemetry, script, frp).
 - `bin`: Packaging scripts and helper utilities.
 
@@ -26,10 +26,10 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 ### Commands
 
 ```bash
-make build    # Build binary locally (bin/nixstasis)
-make install  # Used by `pre_package.sh` for Debian package
-make test     # Run unit tests
-make lint     # Run linters and formatters
+mise run build      # Build binary locally (bin/nixstasis)
+mise run build:local # Run the client CLI locally
+mise run test       # Run unit tests with race detector and coverage
+mise run test:coverage # Print coverage summary from coverage.out
 ```
 
 ## Usage
@@ -111,7 +111,7 @@ Configuration is loaded from `/etc/nixstasis/config.yaml`.
 
 ```yaml
 api:
-  url: "http://localhost:4000" # Nixstasis Server URL
+  url: "http://localhost:4000" # Nixstasis server URL
 
 poll:
   interval: 10s
@@ -122,10 +122,10 @@ scripts:
 
 ## Packaging
 
-This project uses a custom packaging framework.
+This project is migrating to GoReleaser for archive, `.deb`, and `.rpm` outputs.
 
-1. `bin/pre_package.sh` prepares the `build/root-dir` with artifacts (binary, config, service).
-2. The GitHub Actions workflow invokes this script defined in `package_options.yml` before building the Debian package.
+1. `scripts/fetch_frpc.sh` stages the bundled `frpc` binary.
+2. `.goreleaser.yaml` packages the binary, config, and service assets under `nixstasis` paths.
 
 ## Rewrite Status
 

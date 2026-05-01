@@ -1,5 +1,5 @@
 api:
-  url: "http://nixstasis.device.<domain>"
+  url: "https://nixstasis.example.com"
 
 poll:
   interval: 30s
