@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/sfero-nixstasis/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 )
 
 // TestHelperProcess isn't a real test; it's used to mock exec.Command

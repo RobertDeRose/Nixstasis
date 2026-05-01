@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sfero-nixstasis/client/internal/transport"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 type fakeCommandHandler struct {

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/script"
-	"github.com/sfero-nixstasis/client/internal/transport"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 const commandTimeout = 5 * time.Second

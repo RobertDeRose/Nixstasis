@@ -30,7 +30,7 @@ install: build ## Build and install the binary to BUILD_ROOT
 fmt: $(GOFUMPT) $(GOIMPORTS) ## Format code with gofumpt and goimports
 	@echo "Formatting code..."
 	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOFUMPT) -l -w
-	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/RobertDeRose/sfero-nixstasis
+	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/RobertDeRose/Nixstasis/packages/client
 
 lint: $(GOLANGCI_LINT) ## Run golangci-lint
 	@echo "Running golangci-lint..."

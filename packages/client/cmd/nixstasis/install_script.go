@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sfero-nixstasis/client/internal/script"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
 )
 
 var installForce bool

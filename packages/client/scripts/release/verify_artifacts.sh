@@ -2,5 +2,90 @@
 
 set -eu
 
-test -d dist
-find dist -type f | grep -Eq 'nixstasis.*(deb|rpm|tar.gz)$'
+DIST_DIR="dist"
+
+fail() {
+  echo "$1" >&2
+  exit 1
+}
+
+require_dir() {
+  [ -d "$1" ] || fail "missing directory: $1"
+}
+
+require_file() {
+  [ -f "$1" ] || fail "missing artifact: $1"
+}
+
+require_member() {
+  members="$1"
+  path="$2"
+
+  printf '%s\n' "$members" | grep -Eq "^(\./|/)?${path}$" || fail "missing packaged path: $path"
+}
+
+list_deb_members() {
+  dpkg-deb -c "$1" | awk '{print $NF}'
+}
+
+list_rpm_members() {
+  if command -v rpm >/dev/null 2>&1; then
+    rpm -qlp "$1"
+    return
+  fi
+
+  if command -v bsdtar >/dev/null 2>&1; then
+    bsdtar -tf "$1"
+    return
+  fi
+
+  fail "rpm or bsdtar is required to inspect RPM artifacts"
+}
+
+verify_common_members() {
+  members="$1"
+  binary_path="$2"
+
+  require_member "$members" "$binary_path"
+  require_member "$members" "etc/nixstasis/frpc.toml"
+  require_member "$members" "usr/share/nixstasis/config.example.yaml"
+  require_member "$members" "usr/libexec/nixstasis/frpc"
+}
+
+require_dir "$DIST_DIR"
+
+ARCHIVE_COUNT=0
+for archive in "$DIST_DIR"/*.tar.gz; do
+  require_file "$archive"
+  ARCHIVE_COUNT=$((ARCHIVE_COUNT + 1))
+  case "$archive" in
+    *nixstasis*) ;;
+    *) fail "artifact name must use nixstasis naming: $archive" ;;
+  esac
+  verify_common_members "$(tar -tzf "$archive")" "nixstasis"
+done
+[ "$ARCHIVE_COUNT" -gt 0 ] || fail "no tar.gz artifacts found in $DIST_DIR"
+
+DEB_COUNT=0
+for package in "$DIST_DIR"/*.deb; do
+  require_file "$package"
+  DEB_COUNT=$((DEB_COUNT + 1))
+  case "$package" in
+    *nixstasis*) ;;
+    *) fail "artifact name must use nixstasis naming: $package" ;;
+  esac
+  verify_common_members "$(list_deb_members "$package")" "usr/bin/nixstasis"
+done
+[ "$DEB_COUNT" -gt 0 ] || fail "no deb artifacts found in $DIST_DIR"
+
+RPM_COUNT=0
+for package in "$DIST_DIR"/*.rpm; do
+  require_file "$package"
+  RPM_COUNT=$((RPM_COUNT + 1))
+  case "$package" in
+    *nixstasis*) ;;
+    *) fail "artifact name must use nixstasis naming: $package" ;;
+  esac
+  verify_common_members "$(list_rpm_members "$package")" "usr/bin/nixstasis"
+done
+[ "$RPM_COUNT" -gt 0 ] || fail "no rpm artifacts found in $DIST_DIR"

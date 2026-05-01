@@ -12,7 +12,7 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ## Project Layout
 
-- `cmd/nixstasis`: CLI entry point for the `nixstasis` binary (`register`, `poll`, etc.).
+- `cmd/nixstasis`: Source directory for the `nixstasis` CLI (`register`, `poll`, etc.).
 - `internal`: Core packages (config, identity, transport, telemetry, script, frp).
 - `bin`: Packaging scripts and helper utilities.
 
@@ -122,10 +122,36 @@ scripts:
 
 ## Packaging
 
-This project is migrating to GoReleaser for archive, `.deb`, and `.rpm` outputs.
+GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs.
 
-1. `scripts/fetch_frpc.sh` stages the bundled `frpc` binary.
-2. `.goreleaser.yaml` packages the binary, config, and service assets under `nixstasis` paths.
+1. Export a pinned `frpc` source and checksum:
+
+```bash
+export FRPC_SOURCE_BINARY=/absolute/path/to/frpc
+export FRPC_SOURCE_SHA256=<sha256>
+```
+
+1. Build snapshot artifacts from `packages/client`:
+
+```bash
+goreleaser release --snapshot --clean
+```
+
+1. Verify deliverables and release naming:
+
+```bash
+./scripts/release/verify_artifacts.sh
+```
+
+The generated archive and native packages install these client assets:
+
+- `nixstasis` at `/usr/bin/nixstasis`
+- bundled `frpc` at `/usr/libexec/nixstasis/frpc`
+- config template at `/usr/share/nixstasis/config.example.yaml`
+- systemd units `nixstasis-registration.service`, `nixstasis-poll.service`, and `nixstasis-poll.path`
+
+On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
+from the example template if the host does not already have one.
 
 ## Rewrite Status
 
