@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/script"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
 )
 
 const (

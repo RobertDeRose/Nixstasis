@@ -8,10 +8,11 @@ import (
 	"os"
 	"runtime/trace"
 
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/logging"
 )
 
 var cfg *config.Config

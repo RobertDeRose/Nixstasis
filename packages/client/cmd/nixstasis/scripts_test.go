@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sfero-nixstasis/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 )
 
 const testScript = `---

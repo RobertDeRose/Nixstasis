@@ -4,7 +4,7 @@
 *.out
 vendor/
 bin/nixstasis
-built/root-dir/usr/bin/nixstasis
+build/root-dir/usr/bin/nixstasis
 tmp
 *.log
 

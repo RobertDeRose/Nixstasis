@@ -35,7 +35,7 @@ nfpms:
     package_name: nixstasis
     file_name_template: "{{ .ConventionalFileName }}"
     vendor: Sfero
-    homepage: https://github.com/sfero-nixstasis/sfero-nixstasis
+    homepage: https://github.com/RobertDeRose/Nixstasis
     description: Nixstasis client with bundled frpc
     maintainer: Sfero <support@example.com>
     license: Proprietary

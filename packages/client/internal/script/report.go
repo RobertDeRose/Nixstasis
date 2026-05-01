@@ -1,6 +1,6 @@
 package script
 
-import "github.com/sfero-nixstasis/client/internal/telemetry"
+import "github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 
 // ToReport maps a ScriptResult into the telemetry report payload.
 func ToReport(result ScriptResult) telemetry.Report {

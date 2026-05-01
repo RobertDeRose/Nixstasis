@@ -6,10 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/sfero-nixstasis/client/internal/config"
-	"github.com/sfero-nixstasis/client/internal/identity"
-	"github.com/sfero-nixstasis/client/internal/transport"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 var registerCmd = &cobra.Command{
