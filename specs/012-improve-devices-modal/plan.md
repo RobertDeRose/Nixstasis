@@ -1,6 +1,6 @@
 # Implementation Plan: Devices Page and Device Modal Improvements
 
-**Branch**: `012-improve-devices-modal` | **Date**: 2026-02-20 | **Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/spec.md`
+**Branch**: `012-improve-devices-modal` | **Date**: 2026-02-20 | **Spec**: `specs/012-improve-devices-modal/spec.md`
 **Input**: Feature specification from `/specs/012-improve-devices-modal/spec.md` plus user planning directives for column updates, additive filters, and spec-005 modal reuse.
 
 **Note**: This template is filled in by the `/speckit.plan` command.
@@ -86,14 +86,14 @@ packages/
 
 ## Phase 0: Research Output
 
-Research completed in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/research.md`.
+Research completed in `specs/012-improve-devices-modal/research.md`.
 All technical unknowns, including filter removal behavior, were resolved.
 
 ## Phase 1: Design Output
 
-- Data model artifact: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/data-model.md`
-- Contract artifact: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/contracts/devices-page.openapi.yaml`
-- Validation runbook: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/quickstart.md`
+- Data model artifact: `specs/012-improve-devices-modal/data-model.md`
+- Contract artifact: `specs/012-improve-devices-modal/contracts/devices-page.openapi.yaml`
+- Validation runbook: `specs/012-improve-devices-modal/quickstart.md`
 
 ## Complexity Tracking
 

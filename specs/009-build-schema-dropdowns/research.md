@@ -1,7 +1,7 @@
 # Research: Schema-Driven Builder Dropdowns
 
 **Date**: 2026-02-14
-**Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/spec.md`
+**Spec**: `specs/009-build-schema-dropdowns/spec.md`
 
 ## Decisions
 

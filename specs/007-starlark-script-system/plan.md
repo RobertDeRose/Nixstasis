@@ -1,6 +1,6 @@
 # Implementation Plan: Stary Script Support
 
-**Branch**: `007-starlark-script-system` | **Date**: February 8, 2026 | **Spec**: /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/007-starlark-script-system/spec.md
+**Branch**: `007-starlark-script-system` | **Date**: February 8, 2026 | **Spec**: specs/007-starlark-script-system/spec.md
 **Input**: Feature specification from `/specs/007-starlark-script-system/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command.

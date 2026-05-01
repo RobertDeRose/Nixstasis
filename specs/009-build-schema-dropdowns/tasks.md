@@ -1,6 +1,6 @@
 # Tasks: Schema-Driven Builder Dropdowns
 
-**Input**: Design documents from `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/`
+**Input**: Design documents from `specs/009-build-schema-dropdowns/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/schema-builder-options.openapi.yaml, quickstart.md
 
 **Tests**: Tests are MANDATORY for APIs and complex logic (per Constitution). Include test tasks unless explicitly exempted.
@@ -118,13 +118,13 @@
 **Purpose**: Finish performance, documentation, and end-to-end quickstart verification.
 
 - [ ] T035 [P] Add telemetry/performance assertions for schema option load timing in `packages/server/test/nixstasis_web/live/alerts_live_test.exs` and `packages/server/test/nixstasis_web/live/reports_live_test.exs`
-- [x] T036 Update schema-driven builder documentation in `packages/server/README.md` and `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/quickstart.md`
-- [ ] T037 Run quickstart verification flow and record implementation notes in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/plan.md`
-- [ ] T038 [P] Measure alert builder task-completion time against the 90-second target and record results in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/quickstart.md`
-- [ ] T039 [P] Measure report builder task-completion time against the 90-second target and record results in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/quickstart.md`
-- [x] T040 Define baseline metric queries for invalid-save rate, first-attempt completion, and support-ticket volume in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/plan.md`
+- [x] T036 Update schema-driven builder documentation in `packages/server/README.md` and `specs/009-build-schema-dropdowns/quickstart.md`
+- [ ] T037 Run quickstart verification flow and record implementation notes in `specs/009-build-schema-dropdowns/plan.md`
+- [ ] T038 [P] Measure alert builder task-completion time against the 90-second target and record results in `specs/009-build-schema-dropdowns/quickstart.md`
+- [ ] T039 [P] Measure report builder task-completion time against the 90-second target and record results in `specs/009-build-schema-dropdowns/quickstart.md`
+- [x] T040 Define baseline metric queries for invalid-save rate, first-attempt completion, and support-ticket volume in `specs/009-build-schema-dropdowns/plan.md`
 - [x] T041 [P] Add instrumentation events for invalid-save attempts and first-attempt completion in `packages/server/lib/nixstasis_web/live/alerts/index_live.ex` and `packages/server/lib/nixstasis_web/live/reports/form_component.ex`
-- [x] T042 Add post-release validation checklist for SC-003/SC-004/SC-005 in `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/quickstart.md`
+- [x] T042 Add post-release validation checklist for SC-003/SC-004/SC-005 in `specs/009-build-schema-dropdowns/quickstart.md`
 
 ---
 

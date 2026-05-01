@@ -1,7 +1,7 @@
 # Research: Add Rule Modal Improvements
 
 **Date**: 2026-02-16
-**Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/011-add-rule-modal-improvements/spec.md`
+**Spec**: `specs/011-add-rule-modal-improvements/spec.md`
 
 ## Decisions
 

@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-02-14
-**Feature**: [/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/spec.md](/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/spec.md)
+**Feature**: [specs/009-build-schema-dropdowns/spec.md](specs/009-build-schema-dropdowns/spec.md)
 
 ## Content Quality
 

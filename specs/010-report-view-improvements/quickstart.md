@@ -6,7 +6,7 @@ Validate Custom Reports list sorting/filtering, explicit `View/Edit/Delete` row 
 
 ## Prerequisites
 
-- Run from repo root: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis`
+- Run from repo root: `.`
 - Server dependencies installed for `packages/server`
 - At least three custom reports with varied names, sources, and column counts
 - At least one report with numeric result columns (for comparator checks)
@@ -14,7 +14,7 @@ Validate Custom Reports list sorting/filtering, explicit `View/Edit/Delete` row 
 ## 1) Run automated test suite for reports flows
 
 ```bash
-cd /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server
+cd packages/server
 mix test test/nixstasis_web/live/reports_live_test.exs
 ```
 
