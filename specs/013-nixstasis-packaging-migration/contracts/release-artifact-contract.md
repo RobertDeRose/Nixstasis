@@ -45,4 +45,4 @@ Define the required release outputs, naming rules, and sourcing guarantees for t
 
 - Server and Caddy publication workflows build and publish OCI images.
 - Client publication workflow runs GoReleaser and emits archive, `.deb`, and `.rpm` assets.
-- Existing package workflows become legacy or client-only helpers and must no longer represent the supported server release path.
+- Abandoned server package workflows should be removed when they no longer serve the supported release path.
