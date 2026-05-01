@@ -1,6 +1,6 @@
 # Implementation Plan: Schema-Driven Builder Dropdowns
 
-**Branch**: `009-build-schema-dropdowns` | **Date**: 2026-02-14 | **Spec**: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/009-build-schema-dropdowns/spec.md`
+**Branch**: `009-build-schema-dropdowns` | **Date**: 2026-02-14 | **Spec**: `specs/009-build-schema-dropdowns/spec.md`
 **Input**: Feature specification from `/specs/009-build-schema-dropdowns/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command.

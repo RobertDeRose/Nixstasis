@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-02-20
-**Feature**: [/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/spec.md](/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/012-improve-devices-modal/spec.md)
+**Feature**: [specs/012-improve-devices-modal/spec.md](specs/012-improve-devices-modal/spec.md)
 
 ## Content Quality
 

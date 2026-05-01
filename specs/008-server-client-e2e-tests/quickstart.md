@@ -11,11 +11,11 @@
 ## Local Manual Run (Developer)
 
 1. Start the server:
-   - `cd /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server`
+   - `cd packages/server`
    - `mix setup`
    - `mix phx.server`
 2. Build or run the client:
-   - `cd /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/client`
+   - `cd packages/client`
    - `make build`
 3. Configure the client to point at the local server (`api.url: http://localhost:4000`).
 4. Run the E2E harness (full suite or a single journey):

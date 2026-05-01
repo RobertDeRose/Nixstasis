@@ -5,7 +5,7 @@ description: "Task list for server-client end-to-end tests"
 
 # Tasks: Server-Client End-to-End Tests
 
-**Input**: Design documents from `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/specs/008-server-client-e2e-tests/`
+**Input**: Design documents from `specs/008-server-client-e2e-tests/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
 **Tests**: Tests are MANDATORY for APIs and complex logic (per Constitution). Include test tasks unless explicitly exempted.

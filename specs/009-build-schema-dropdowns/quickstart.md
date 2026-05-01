@@ -7,7 +7,7 @@ automatic invalid-selection clearing, permission-loss handling, and <=2s option-
 
 ## Prerequisites
 
-- Run from repo root: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis`
+- Run from repo root: `.`
 - Server app dependencies available for `packages/server`
 - At least two schemas available for test user:
   - `schema-A` with field `temperature`
@@ -16,7 +16,7 @@ automatic invalid-selection clearing, permission-loss handling, and <=2s option-
 ## 1) Start server test loop
 
 ```bash
-cd /Users/DeRoseR/workspace/checkpoint/sfero-nixstasis/packages/server
+cd packages/server
 mix test
 ```
 

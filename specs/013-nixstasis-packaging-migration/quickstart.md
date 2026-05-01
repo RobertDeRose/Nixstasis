@@ -6,7 +6,7 @@ Validate the new Compose deployment flow, pinned artifact policy, renamed runtim
 
 ## Prerequisites
 
-- Run from repo root: `/Users/DeRoseR/workspace/checkpoint/sfero-nixstasis`
+- Run from repo root: `.`
 - Docker with Compose support installed
 - Elixir and Erlang installed for `packages/server`
 - Go and GoReleaser installed for `packages/client`

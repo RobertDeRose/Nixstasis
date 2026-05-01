@@ -77,18 +77,18 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T023 [P] [US2] Add Go unit tests for bundled `frpc` path resolution and config-root defaults in `packages/client/internal/config/config_test.go` and `packages/client/internal/frp/manager_test.go`
-- [ ] T024 [P] [US2] Add release artifact verification for package contents in `packages/client/scripts/release/verify_artifacts.sh`
+- [X] T023 [P] [US2] Add Go unit tests for bundled `frpc` path resolution and config-root defaults in `packages/client/internal/config/config_test.go` and `packages/client/internal/frp/manager_test.go`
+- [X] T024 [P] [US2] Add release artifact verification for package contents in `packages/client/scripts/release/verify_artifacts.sh`
 
 ### Implementation for User Story 2
 
-- [ ] T025 [P] [US2] Implement the GoReleaser configuration in `packages/client/.goreleaser.yaml`
-- [ ] T026 [P] [US2] Add pinned `frpc` fetch and staging scripts in `packages/client/scripts/fetch_frpc.sh` and `packages/client/scripts/release/`
+- [X] T025 [P] [US2] Implement the GoReleaser configuration in `packages/client/.goreleaser.yaml`
+- [X] T026 [P] [US2] Add pinned `frpc` fetch and staging scripts in `packages/client/scripts/fetch_frpc.sh` and `packages/client/scripts/release/`
 - [X] T027 [US2] Rename the client command and packaging metadata in `packages/client/cmd/nixstasis/` and `packages/client/Makefile`, removing the abandoned `package_options.yml` path
-- [ ] T028 [US2] Update client runtime defaults to `nixstasis` paths in `packages/client/internal/config/config.go`, `packages/client/internal/frp/manager.go`, and `packages/client/internal/script/discovery.go`
-- [ ] T029 [US2] Update polling and registration flows to use bundled `frpc` and renamed config paths in `packages/client/cmd/nixstasis/poll.go` and `packages/client/cmd/nixstasis/register.go`
+- [X] T028 [US2] Update client runtime defaults to `nixstasis` paths in `packages/client/internal/config/config.go`, `packages/client/internal/frp/manager.go`, and `packages/client/internal/script/discovery.go`
+- [X] T029 [US2] Update polling and registration flows to use bundled `frpc` and renamed config paths in `packages/client/cmd/nixstasis/poll.go` and `packages/client/cmd/nixstasis/register.go`
 - [X] T030 [US2] Remove abandoned package install-time assumptions in `packages/client/bin/pre_package.sh` and `packages/client/build/root-dir/**` with GoReleaser-managed layouts
-- [ ] T031 [US2] Update client installation and release documentation in `packages/client/README.md` and `README.md`
+- [X] T031 [US2] Update client installation and release documentation in `packages/client/README.md` and `README.md`
 
 **Nixstasis**: User Story 2 should yield native client artifacts that install and run independently of legacy FRP packaging.
 
@@ -96,21 +96,19 @@
 
 ## Phase 5: User Story 3 - Use the new Nixstasis product identity consistently (Priority: P2)
 
-**Goal**: Remove `Nixstasis` naming from all assets touched by this feature and present `Nixstasis` consistently across release, runtime, and deployment surfaces.
+**Goal**: Remove legacy placeholder naming from all assets touched by this feature and present `Nixstasis` consistently across release, runtime, and deployment surfaces.
 
-**Independent Test**: Review all changed deployment assets, package metadata, binaries, service files, paths, and docs touched by this feature and confirm they present `Nixstasis` with no remaining `Nixstasis` naming.
+**Independent Test**: Review all changed deployment assets, package metadata, binaries, service files, paths, and docs touched by this feature and confirm they present `Nixstasis` with no remaining legacy placeholder naming.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T032 [P] [US3] Add a repository naming audit script for touched assets in `packages/client/scripts/release/check_naming.sh`
-- [ ] T033 [P] [US3] Add CI validation for renamed deliverables and docs in `.github/workflows/_check_configs.yml`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [P] [US3] Rename server-facing identifiers, including code namespaces where required, in `packages/server/mix.exs`, `packages/server/config/`, and `packages/server/lib/`
-- [ ] T035 [P] [US3] Rename Caddy and FRP deployment identifiers in `packages/caddy/`, `packages/frp/`, and `deploy/compose/`
-- [ ] T036 [P] [US3] Rename client-facing config, service, package, and code identifiers where required in `packages/client/build/root-dir/`, `packages/client/scripts/`, `packages/client/cmd/`, and `packages/client/internal/`
-- [ ] T037 [US3] Update repo-level product naming and migration messaging in `README.md`, `package.md`, and `specs/013-nixstasis-packaging-migration/quickstart.md`
+- [X] T034 [P] [US3] Rename server-facing identifiers, including code namespaces where required, in `packages/server/mix.exs`, `packages/server/config/`, and `packages/server/lib/`
+- [X] T035 [P] [US3] Rename Caddy and FRP deployment identifiers in `packages/caddy/`, `packages/frp/`, and `deploy/compose/`
+- [X] T036 [P] [US3] Rename client-facing config, service, package, and code identifiers where required in `packages/client/build/root-dir/`, `packages/client/scripts/`, `packages/client/cmd/`, and `packages/client/internal/`
+- [X] T037 [US3] Update repo-level product naming and migration messaging in `README.md`, `package.md`, and `specs/013-nixstasis-packaging-migration/quickstart.md`
 
 **Nixstasis**: User Story 3 should leave all feature-scoped assets consistently branded as `Nixstasis`.
 
