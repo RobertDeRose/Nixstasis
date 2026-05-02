@@ -56,3 +56,5 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 - Missing required operator inputs must fail fast through deployment documentation, templates, or startup validation.
 - All externally sourced runtime artifacts used by the stack must be pinned and reproducible.
 - No supported deployment path may bypass Caddy as the public ingress/authentication layer.
+- Client-facing examples should target the public `nixstasis.<base-domain>` host
+  while FRP device hosts use `atom-<normalized-device-id>.<base-domain>`.

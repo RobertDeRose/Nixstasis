@@ -6,13 +6,20 @@ This directory is the supported server deployment path for this feature.
 
 - Public ingress always terminates at `caddy`.
 - Phoenix runs internally on `PORT=4000` by default.
+- The canonical TLS approval path is `GET /api/v1/check_domain`.
+- Reserved public hosts are `nixstasis.<base-domain>`,
+  `auth.<base-domain>`, and `frp-admin.<base-domain>`.
 - Database migrations are explicit and are not part of container startup.
 - All external runtime artifacts must be pinned immutably.
+- Required operator inputs are `DATABASE_URL`, `SECRET_KEY_BASE`,
+  `PHX_HOST`, `PORT`, `BASE_DOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`,
+  `TENANT_ID`, `JWT_KEY`, `FRPS_BIND_PORT`, `FRPS_HTTP_PORT`,
+  `FRPS_DASHBOARD_PORT`, and `FRPS_TCPMUX_PORT`.
 
 ## Supported operation
 
 - The supported server deployment flow is `deploy/compose` only.
-- Bring up the default bundled database stack with:
+- Bring up the default bundled PostgreSQL stack with:
   `docker compose --profile bundled-db up -d --build`
 - To use an external PostgreSQL instance, omit the `bundled-db` profile and point
   `DATABASE_URL` at the managed database.
@@ -37,6 +44,11 @@ This directory is the supported server deployment path for this feature.
 When using an external PostgreSQL service, keep the same application contract and
 point `DATABASE_URL` at the external server. The bundled `postgres` service
 becomes optional for that deployment.
+
+## Contract validation
+
+- Run `deploy/compose/scripts/check_runtime_contract.sh` to verify the runtime
+  contract stays aligned across Compose assets, package examples, and docs.
 
 ## Validation
 
