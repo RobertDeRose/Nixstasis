@@ -50,6 +50,7 @@ if config_env() == :prod do
 
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain
+
   config :nixstasis, :deployment,
     base_domain: base_domain,
     phoenix_host: host,
