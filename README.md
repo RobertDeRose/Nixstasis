@@ -39,11 +39,11 @@ Elixir/Phoenix, respectively.
 
 ## Client release status
 
-Build client snapshot artifacts from `packages/client` with a pinned bundled `frpc` source:
+Build client snapshot artifacts from `packages/client` with the tracked
+production version pins:
 
 ```bash
-export FRPC_SOURCE_BINARY=/absolute/path/to/frpc
-export FRPC_SOURCE_SHA256=<sha256>
+grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' prod.env
 goreleaser release --snapshot --clean
 ./scripts/release/verify_artifacts.sh
 ```

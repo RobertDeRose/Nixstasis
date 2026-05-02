@@ -31,27 +31,6 @@ jobs:
           install-only: true
       - name: Validate runtime contract
         run: ../../deploy/compose/scripts/check_runtime_contract.sh
-      - name: Download pinned frpc source
-        env:
-          FRPC_SOURCE_URL: ${{ vars.FRPC_SOURCE_URL }}
-          FRPC_SOURCE_SHA256: ${{ vars.FRPC_SOURCE_SHA256 }}
-        run: |
-          if [ -z "${FRPC_SOURCE_URL:-}" ]; then
-            echo "FRPC_SOURCE_URL repository variable is required" >&2
-            exit 1
-          fi
-
-          if [ -z "${FRPC_SOURCE_SHA256:-}" ]; then
-            echo "FRPC_SOURCE_SHA256 repository variable is required" >&2
-            exit 1
-          fi
-
-          mkdir -p tmp/release
-          curl -fsSL "$FRPC_SOURCE_URL" -o tmp/release/frpc
-          chmod +x tmp/release/frpc
-
-          echo "FRPC_SOURCE_BINARY=$PWD/tmp/release/frpc" >> "$GITHUB_ENV"
-          echo "FRPC_SOURCE_SHA256=$FRPC_SOURCE_SHA256" >> "$GITHUB_ENV"
       - name: Build snapshot artifacts
         if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
         run: goreleaser release --snapshot --clean

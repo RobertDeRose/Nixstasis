@@ -124,11 +124,10 @@ scripts:
 
 GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs.
 
-1. Export a pinned `frpc` source and checksum:
+1. Review the shared production version pins:
 
 ```bash
-export FRPC_SOURCE_BINARY=/absolute/path/to/frpc
-export FRPC_SOURCE_SHA256=<sha256>
+grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' ../../prod.env
 ```
 
 1. Build snapshot artifacts from `packages/client`:
@@ -155,6 +154,14 @@ from the example template if the host does not already have one.
 
 The bundled FRP client template defaults to `serverAddr = "nixstasis.example.com"`
 and requests device subdomains under `atom-<normalized-device-id>.<base-domain>`.
+
+For local-only packaging experiments, you can still override the bundled binary:
+
+```bash
+export FRPC_SOURCE_BINARY=/absolute/path/to/frpc
+export FRPC_SOURCE_SHA256=<sha256>
+goreleaser release --snapshot --clean
+```
 
 ## Rewrite Status
 

@@ -166,7 +166,7 @@ Expected:
 | 10 | PASS | Bundled PostgreSQL profile remains supported through the validated Compose definition. |
 | 11 | PASS | External PostgreSQL mode remains documented without requiring Compose file changes. |
 | 12 | PASS | `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` are now the canonical operator overrides. |
-| 13 | PASS | `container-compose` build validation succeeded with pinned `FRPS_IMAGE_DIGEST` and `POSTGRES_IMAGE_DIGEST`. |
+| 13 | PASS | `container-compose` build validation succeeded with repo-built `frps` and pinned `POSTGRES_IMAGE_DIGEST`. |
 | 14 | PASS | Release docs now reflect actual Apple Container command shapes instead of unsupported `container-compose config/run` forms. |
 | 15 | PASS | OCI server workflow context was corrected to `packages` so CI matches the local successful build. |
 | 16 | PASS | Compose validation remained non-destructive and did not require startup of the full stack on this machine. |
@@ -199,22 +199,23 @@ Deployment success rate: `20/20`
 | 16 | PASS | Client artifacts install systemd units for poll and registration services. |
 | 17 | PASS | The verification script now works on macOS without requiring `dpkg-deb`. |
 | 18 | PASS | Snapshot packaging validation completed fully in the local workspace without relying on GitHub Actions. |
-| 19 | PASS | Tag-based publication still remains gated on GitHub repository variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`. |
+| 19 | PASS | Tag-based publication now reads the tracked `prod.env` version pins instead of mutable repository variables. |
 | 20 | PASS | Local Phase 7 client artifact validation completed end-to-end. |
 
 Client installation success rate: `20/20`
 
 ## 12) Release readiness checklist
 
-- Confirm `build_server_image.yml` and `build_caddy_image.yml` build on branch
-  pushes and publish on `v*` tags.
+- Confirm `build_server_image.yml`, `build_caddy_image.yml`, and
+  `build_frps_image.yml` build on branch pushes and publish on `v*` tags.
 - Confirm `release_client.yml` produces snapshot artifacts on branch pushes or
   manual dispatch.
 - Confirm `release_client.yml` publishes client assets on `v*` tags.
-- Confirm GitHub repository variables `FRPC_SOURCE_URL` and
-  `FRPC_SOURCE_SHA256` are set before tag-based client releases.
-- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` if
-  operators need a registry namespace other than the default examples.
+- Confirm `prod.env` carries the intended `FRP_VERSION`, `CADDY_VERSION`, and
+  `POSTGRES_VERSION` values before tag-based releases.
+- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE_REF`,
+  `NIXSTASIS_CADDY_IMAGE_REF`, and `NIXSTASIS_FRPS_IMAGE_REF` if operators
+  need a registry namespace other than the default examples.
 
 ## 13) Validation execution notes
 
@@ -223,6 +224,7 @@ Client installation success rate: `20/20`
 - `deploy/compose/scripts/validate_stack.sh /tmp/nixstasis-compose.env`: PASS
 - `container build -f packages/server/Dockerfile -t nixstasis-server:test packages`: PASS
 - `container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy`: PASS
+- `container build --build-arg FRP_VERSION=0.68.1 -f packages/frp/Dockerfile -t nixstasis-frps:test packages/frp`: PASS
 - `FRPC_SOURCE_BINARY=/usr/local/bin/container FRPC_SOURCE_SHA256=<pinned> goreleaser release --snapshot --clean`: PASS
 - `packages/client/scripts/release/verify_artifacts.sh`: PASS
 - Workflow definitions now match the documented delivery contract:
@@ -231,8 +233,8 @@ Client installation success rate: `20/20`
 - Local image builds can be validated with Apple `container`; GoReleaser snapshot
   validation requires a pinned local `FRPC_SOURCE_BINARY` plus
   `FRPC_SOURCE_SHA256`.
-- Tag-based release validation on GitHub Actions still requires repository
-  variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`.
+- Tag-based release validation on GitHub Actions now uses the tracked
+  `prod.env` version pins.
 
 ### Validation Results
 
@@ -244,7 +246,8 @@ Client installation success rate: `20/20`
 | Compose stack bring-up | PASS | `deploy/compose/scripts/validate_stack.sh /tmp/nixstasis-compose.env` passed with Apple `container-compose` using a rendered Compose file |
 | Server OCI image build | PASS | `container build -f packages/server/Dockerfile -t nixstasis-server:test packages` |
 | Caddy OCI image build | PASS | `container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy` |
+| FRPS OCI image build | PASS | `container build --build-arg FRP_VERSION=0.68.1 -f packages/frp/Dockerfile -t nixstasis-frps:test packages/frp` |
 | Client snapshot packaging | PASS | `goreleaser release --snapshot --clean` passed with pinned local `FRPC_SOURCE_BINARY` and checksum |
 | Client artifact verification | PASS | `packages/client/scripts/release/verify_artifacts.sh` passed locally on macOS |
 | OCI image publication workflows | BLOCKED | Validate on GitHub Actions with `v*` tag or manual push run |
-| Client release publication workflow | BLOCKED | Validate on GitHub Actions with repository variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256` |
+| Client release publication workflow | BLOCKED | Validate on GitHub Actions with the tracked `prod.env` version pins |
