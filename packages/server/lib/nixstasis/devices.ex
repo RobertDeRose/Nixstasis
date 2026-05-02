@@ -297,27 +297,31 @@ defmodule Nixstasis.Devices do
 
   def acknowledge_command_results(%Device{} = device, results) when is_list(results) do
     now = DateTime.utc_now()
-
-    acknowledged_count =
-      Enum.reduce(results, 0, fn result, count ->
-        command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
-
-        case fetch_pending_command(device.id, command_id) do
-          nil ->
-            count
-
-          command ->
-            status = command_result_status(result)
-            updated_payload = merge_command_result(command.command_payload, result, now, status)
-            {:ok, _} = Domain.update_pending_command(command, %{status: :acked, command_payload: updated_payload})
-            count + 1
-        end
-      end)
+    acknowledged_count = Enum.reduce(results, 0, &acknowledge_command_result(device, &1, &2, now))
 
     {:ok, acknowledged_count}
   end
 
   def acknowledge_command_results(_device, _results), do: {:error, "results must be a list"}
+
+  defp acknowledge_command_result(device, result, count, now) do
+    command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
+
+    case fetch_pending_command(device.id, command_id) do
+      nil -> count
+      command -> update_acknowledged_command(command, result, count, now)
+    end
+  end
+
+  defp update_acknowledged_command(command, result, count, now) do
+    status = command_result_status(result)
+    updated_payload = merge_command_result(command.command_payload, result, now, status)
+
+    case Domain.update_pending_command(command, %{status: :acked, command_payload: updated_payload}) do
+      {:ok, _} -> count + 1
+      {:error, _reason} -> count
+    end
+  end
 
   def get_command_payload(%Device{} = device, ref) when is_binary(ref) do
     with {:ok, command_payload} <- find_payload_by_ref(device.id, ref),

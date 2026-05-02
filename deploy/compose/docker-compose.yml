@@ -1,6 +1,6 @@
 services:
   nixstasis:
-    image: ghcr.io/sfero-nixstasis/nixstasis-server:${NIXSTASIS_SERVER_IMAGE_TAG:-latest}
+    image: ghcr.io/RobertDeRose/nixstasis-server:${NIXSTASIS_SERVER_IMAGE_TAG:-latest}
     build:
       context: ../../packages/server
       dockerfile: Dockerfile
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: ghcr.io/sfero-nixstasis/nixstasis-caddy:${NIXSTASIS_CADDY_IMAGE_TAG:-latest}
+    image: ghcr.io/RobertDeRose/nixstasis-caddy:${NIXSTASIS_CADDY_IMAGE_TAG:-latest}
     build:
       context: ../../packages/caddy
       dockerfile: Dockerfile

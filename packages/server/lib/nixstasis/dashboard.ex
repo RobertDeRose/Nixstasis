@@ -3,9 +3,9 @@ defmodule Nixstasis.Dashboard do
   Context module for the Dashboard.
   """
 
-  alias Nixstasis.Devices
   alias Nixstasis.Alerts
   alias Nixstasis.Dashboard.Stats
+  alias Nixstasis.Devices
 
   @doc """
   Retrieves the current aggregated statistics for the dashboard.

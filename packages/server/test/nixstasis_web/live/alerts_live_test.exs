@@ -384,7 +384,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert render(view) =~ "Deprecated"
 
-    assert has_element?(view, "span.badge.badge-xs.border-amber-500.text-amber-800", "Deprecated")
+    assert has_element?(view, "span.badge.badge-warning.badge-xs", "Deprecated")
     refute has_element?(view, "button[aria-label='Edit rule #{rule.id}']")
   end
 

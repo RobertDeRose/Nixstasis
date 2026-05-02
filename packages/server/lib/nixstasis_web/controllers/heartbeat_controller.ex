@@ -1,8 +1,8 @@
 defmodule NixstasisWeb.HeartbeatController do
   use NixstasisWeb, :controller
 
-  alias Nixstasis.Monitoring
   alias Nixstasis.Devices
+  alias Nixstasis.Monitoring
 
   def create(conn, %{"device_id" => device_id} = params) do
     # We use get_device! which raises when the record is missing.

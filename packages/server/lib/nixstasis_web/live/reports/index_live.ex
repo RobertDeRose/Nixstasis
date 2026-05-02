@@ -4,6 +4,7 @@ defmodule NixstasisWeb.ReportLive.Index do
   alias Nixstasis.Reporting
   alias Nixstasis.Reporting.CustomReport
   alias Nixstasis.SchemaOptions
+  alias NixstasisWeb.Permissions
 
   @default_filters %{"name" => "", "field_query" => "", "field_queries" => []}
 

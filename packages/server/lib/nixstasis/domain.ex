@@ -6,6 +6,8 @@ defmodule Nixstasis.Domain do
   use Ash.Domain,
     extensions: [AshJsonApi.Domain, AshPhoenix]
 
+  alias Nixstasis.CommandAllowlists.PolicyResolver
+
   json_api do
     authorize? false
     prefix "/api/json"
