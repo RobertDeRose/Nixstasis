@@ -4,7 +4,7 @@
 # bindPort = 7000
 
 # The port for the FRPS dashboard/admin interface
-# Accessed via frp-router.device.<domain> (proxied by Caddy)
+# Accessed via the configured FRPS dashboard host (proxied by Caddy)
 webServer.port = 8081
 
 # Log configuration
@@ -18,9 +18,9 @@ tcpmuxHTTPConnectPort = 2022
 
 # Support for HTTP proxying (AlarmBox web interface)
 # The port where the server listens for HTTP traffic to tunnel to clients
-# Caddy proxies *.device.<domain> to this port (localhost:8080)
+# Caddy proxies device subdomains for the configured base domain to this port (localhost:8080)
 vhostHTTPPort = 8080
 
 # The root domain for virtual hosts
-# Subdomains (e.g., atom-123.ab...) will be matched against this
-subDomainHost = "device.<domain>"
+# Subdomains (e.g., atom-<normalized-device-id>.<base-domain>) will be matched against this
+subDomainHost = "example.com"
