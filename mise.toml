@@ -1,6 +1,6 @@
 [tools]
-elixir = "latest"
-erlang = "latest"
-go = "latest"
-golangci-lint = "latest"
+elixir = "1.19.5-otp-28"
+erlang = "28.5"
+go = "1.26.2"
+golangci-lint = "2.12.0"
 goreleaser = "2.15.4"
