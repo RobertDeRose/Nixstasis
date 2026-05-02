@@ -19,7 +19,7 @@ under `deploy/compose`.
 
 - Elixir `~> 1.19`
 - Erlang/OTP (compatible with Elixir 1.19)
-- Postgres
+- Postgres, Apple Container, Docker, or Podman
 
 ## Setup
 
@@ -30,7 +30,21 @@ mix phx.server
 
 Visit [http://localhost:4000](http://localhost:4000).
 
-## Supported deployment
+If nothing is already listening on the configured local Postgres port, DB-backed
+Mix tasks such as `mix phx.server`, `mix test`, `mix ash.setup`, and common Ecto
+tasks will try to start a local `postgres:16-alpine` container automatically by
+using `container`, `docker`, or finally `podman`.
+
+`mix phx.server` also runs `mix ecto.migrate`, which ensures the database is
+available and applies pending migrations before Phoenix boots.
+
+The underlying helper task is `mix db.ensure`.
+
+- Disable auto-start with `NIXSTASIS_DB_AUTOSTART=false`.
+- Override the container name with `NIXSTASIS_DB_CONTAINER`.
+- Override the image with `NIXSTASIS_DB_IMAGE`.
+
+## Supported Deployment
 
 - Build the runtime image with `docker build -f packages/server/Dockerfile -t nixstasis-server:test packages`.
 - Run the supported stack from `deploy/compose`.
