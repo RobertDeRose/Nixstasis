@@ -3,9 +3,16 @@ name: Release Client
 on:
   workflow_dispatch:
   push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
     paths:
       - packages/client/**
       - .github/workflows/release_client.yml
+
+permissions:
+  contents: write
 
 jobs:
   release:
@@ -18,7 +25,50 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: packages/client/go.mod
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
       - name: Validate runtime contract
-        run: deploy/compose/scripts/check_runtime_contract.sh
-      - name: Snapshot release
+        run: ../../deploy/compose/scripts/check_runtime_contract.sh
+      - name: Download pinned frpc source
+        env:
+          FRPC_SOURCE_URL: ${{ vars.FRPC_SOURCE_URL }}
+          FRPC_SOURCE_SHA256: ${{ vars.FRPC_SOURCE_SHA256 }}
+        run: |
+          if [ -z "${FRPC_SOURCE_URL:-}" ]; then
+            echo "FRPC_SOURCE_URL repository variable is required" >&2
+            exit 1
+          fi
+
+          if [ -z "${FRPC_SOURCE_SHA256:-}" ]; then
+            echo "FRPC_SOURCE_SHA256 repository variable is required" >&2
+            exit 1
+          fi
+
+          mkdir -p tmp/release
+          curl -fsSL "$FRPC_SOURCE_URL" -o tmp/release/frpc
+          chmod +x tmp/release/frpc
+
+          echo "FRPC_SOURCE_BINARY=$PWD/tmp/release/frpc" >> "$GITHUB_ENV"
+          echo "FRPC_SOURCE_SHA256=$FRPC_SOURCE_SHA256" >> "$GITHUB_ENV"
+      - name: Build snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
         run: goreleaser release --snapshot --clean
+      - name: Verify snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        run: ./scripts/release/verify_artifacts.sh
+      - name: Upload snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixstasis-client-snapshot
+          path: packages/client/dist
+      - name: Publish release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goreleaser release --clean
+      - name: Verify published artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: ./scripts/release/verify_artifacts.sh
