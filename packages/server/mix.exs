@@ -94,6 +94,7 @@ defmodule Nixstasis.MixProject do
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind nixstasis", "esbuild nixstasis"],
       "assets.deploy": [
+        "compile",
         "tailwind nixstasis --minify",
         "esbuild nixstasis --minify",
         "phx.digest"

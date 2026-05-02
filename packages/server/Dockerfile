@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.19.5-erlang-28.1.1-debian-bookworm-20251006 AS builder
+FROM hexpm/elixir:1.19.3-erlang-28.5-ubuntu-noble-20260410 AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential git nodejs npm && \
@@ -10,14 +10,15 @@ ENV MIX_ENV=prod
 
 RUN mix local.hex --force && mix local.rebar --force
 
-COPY mix.exs mix.lock ./
-COPY config config
+COPY server/mix.exs server/mix.lock ./
+COPY server/config config
 RUN mix deps.get --only prod
 RUN mix deps.compile
 
-COPY lib lib
-COPY priv priv
-COPY assets assets
+COPY server/lib lib
+COPY server/priv priv
+COPY server/assets assets
+COPY shared ../shared
 
 RUN mix assets.deploy
 RUN mix compile
@@ -37,7 +38,7 @@ ENV MIX_ENV=prod \
     PORT=4000
 
 COPY --from=builder /app/_build/prod/rel/nixstasis ./
-COPY bin ./bin
+COPY server/bin ./bin
 
 RUN chmod +x ./bin/migrate ./bin/server && chown -R app:app /app
 

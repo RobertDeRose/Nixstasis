@@ -1,0 +1,11 @@
+server/_build/
+server/deps/
+server/tmp/
+server/.elixir_ls/
+server/erl_crash.dump
+server/node_modules/
+server/assets/node_modules/
+server/test/
+server/build/
+client/dist/
+client/build/
