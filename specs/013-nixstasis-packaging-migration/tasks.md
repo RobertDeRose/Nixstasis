@@ -142,9 +142,9 @@
 **Purpose**: Finish workflow migration, retire legacy release surfaces, and run end-to-end validation.
 
 - [X] T045 [P] Remove abandoned package publication logic in `.github/workflows/build_package.yml` and `.github/workflows/publish_package.yml`
-- [ ] T046 [P] Implement OCI image publication logic in `.github/workflows/build_server_image.yml` and `.github/workflows/build_caddy_image.yml`
-- [ ] T047 [P] Implement client snapshot/release publication logic in `.github/workflows/release_client.yml`
-- [ ] T048 Add final operator validation notes and release-readiness checklist updates in `specs/013-nixstasis-packaging-migration/quickstart.md` and `deploy/compose/README.md`
+- [X] T046 [P] Implement OCI image publication logic in `.github/workflows/build_server_image.yml` and `.github/workflows/build_caddy_image.yml`
+- [X] T047 [P] Implement client snapshot/release publication logic in `.github/workflows/release_client.yml`
+- [X] T048 Add final operator validation notes and release-readiness checklist updates in `specs/013-nixstasis-packaging-migration/quickstart.md` and `deploy/compose/README.md`
 - [ ] T049 Record operator deployment trial results for SC-002 in `specs/013-nixstasis-packaging-migration/quickstart.md`
 - [ ] T050 Record client installation trial results for SC-003 in `specs/013-nixstasis-packaging-migration/quickstart.md`
 - [ ] T051 Run the full validation flow from `specs/013-nixstasis-packaging-migration/quickstart.md` and record the results in `specs/013-nixstasis-packaging-migration/quickstart.md`

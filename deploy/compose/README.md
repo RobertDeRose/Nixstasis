@@ -31,6 +31,8 @@ This directory is the supported server deployment path for this feature.
 - `frps` must use an image digest via `FRPS_IMAGE_DIGEST`.
 - `postgres` must use an image digest via `POSTGRES_IMAGE_DIGEST`.
 - Server and Caddy images should be published as `nixstasis`-named OCI images.
+- Override `NIXSTASIS_SERVER_IMAGE` and `NIXSTASIS_CADDY_IMAGE` if operators need
+  to consume a different GHCR namespace than the default deployment examples.
 
 ## First run
 
@@ -54,3 +56,15 @@ becomes optional for that deployment.
 
 - Run `deploy/compose/scripts/validate_stack.sh` to verify the compose file and
   required services before deployment.
+
+## Release readiness
+
+- OCI image workflows build on branch changes and publish to GHCR on `v*` tags.
+- Manual image workflow runs can push only when the `push` input is enabled.
+- Client snapshot workflow runs on branch changes or manual dispatch.
+- Client release publication runs on `v*` tags only.
+- Client workflow requires pinned `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`
+  repository variables before a release run can succeed.
+- Local validation in this workspace is limited because `docker` and `goreleaser`
+  are not installed; validate image publication and client release publication on
+  GitHub Actions when exercising the `v*` tag flows.
