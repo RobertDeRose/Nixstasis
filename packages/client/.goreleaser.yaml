@@ -38,7 +38,7 @@ archives:
         dst: etc/nixstasis/frpc.toml
       - src: build/root-dir/usr/share/nixstasis/config.example.yaml
         dst: usr/share/nixstasis/config.example.yaml
-      - src: build/root-dir/usr/libexec/nixstasis/frpc
+      - src: build/root-dir/usr/libexec/nixstasis/frpc_{{ .Arch }}
         dst: usr/libexec/nixstasis/frpc
 
 nfpms:
@@ -63,7 +63,7 @@ nfpms:
         dst: /etc/nixstasis/frpc.toml
       - src: build/root-dir/usr/share/nixstasis/config.example.yaml
         dst: /usr/share/nixstasis/config.example.yaml
-      - src: build/root-dir/usr/libexec/nixstasis/frpc
+      - src: build/root-dir/usr/libexec/nixstasis/frpc_{{ .Arch }}
         dst: /usr/libexec/nixstasis/frpc
         file_info:
           mode: 0755

@@ -36,10 +36,10 @@ This directory is the supported server deployment path for this feature.
 
 ## Pinned artifacts
 
-- `frps` must use an image digest via `FRPS_IMAGE_DIGEST`.
+- `frps` is built from this repo and must use the tracked `FRP_VERSION` from `prod.env`.
 - `postgres` must use an image digest via `POSTGRES_IMAGE_DIGEST`.
 - Server and Caddy images should be published as `nixstasis`-named OCI images.
-- Override `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` if operators need
+- Override `NIXSTASIS_SERVER_IMAGE_REF`, `NIXSTASIS_CADDY_IMAGE_REF`, and `NIXSTASIS_FRPS_IMAGE_REF` if operators need
   to consume a different GHCR namespace than the default deployment examples.
 
 ## First run
@@ -75,8 +75,7 @@ becomes optional for that deployment.
 - Manual image workflow runs can push only when the `push` input is enabled.
 - Client snapshot workflow runs on branch changes or manual dispatch.
 - Client release publication runs on `v*` tags only.
-- Client workflow requires pinned `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`
-  repository variables before a release run can succeed.
+- Client workflow reads shared release versions from the tracked `prod.env` file.
 - Local validation in this workspace uses Apple `container` and a pinned local
   `FRPC_SOURCE_BINARY`; validate image publication and client release publication
   on GitHub Actions when exercising the `v*` tag flows.

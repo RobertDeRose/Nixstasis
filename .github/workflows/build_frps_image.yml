@@ -1,4 +1,4 @@
-name: Build Caddy Image
+name: Build FRPS Image
 
 on:
   workflow_dispatch:
@@ -14,9 +14,10 @@ on:
     tags:
       - "v*"
     paths:
-      - packages/caddy/**
+      - packages/frp/**
       - deploy/compose/**
-      - .github/workflows/build_caddy_image.yml
+      - prod.env
+      - .github/workflows/build_frps_image.yml
 
 permissions:
   contents: read
@@ -44,19 +45,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/nixstasis-caddy
+          images: ghcr.io/${{ github.repository_owner }}/nixstasis-frps
           tags: |
             type=ref,event=branch
             type=sha
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-      - name: Build and optionally push caddy image
+      - name: Build and optionally push frps image
         uses: docker/build-push-action@v6
         with:
-          context: packages/caddy
-          file: packages/caddy/Dockerfile
+          context: packages/frp
+          file: packages/frp/Dockerfile
           build-args: |
-            CADDY_VERSION=${{ env.CADDY_VERSION }}
+            FRP_VERSION=${{ env.FRP_VERSION }}
           push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
