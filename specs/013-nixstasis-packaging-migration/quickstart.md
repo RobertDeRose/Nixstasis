@@ -57,6 +57,10 @@ Expected:
 3. Confirm the TLS approval path is `/api/v1/check_domain`.
 4. Confirm all required operator-supplied settings are documented from one source.
 
+```bash
+deploy/compose/scripts/check_runtime_contract.sh
+```
+
 Expected:
 - No conflicting variable names or mismatched ports remain.
 - No required operator input is discoverable only by source inspection.
@@ -129,3 +133,57 @@ Expected:
 - Record at least 20 client installation trials for SC-003.
 - Mark each trial as success or failure with a short reason.
 - Compute the success rate as successful trials divided by total trials.
+
+### SC-002 Deployment Trial Log
+
+| Trial | Result | Notes |
+| --- | --- | --- |
+| 1 | TODO | |
+| 2 | TODO | |
+| 3 | TODO | |
+| 4 | TODO | |
+| 5 | TODO | |
+| 6 | TODO | |
+| 7 | TODO | |
+| 8 | TODO | |
+| 9 | TODO | |
+| 10 | TODO | |
+| 11 | TODO | |
+| 12 | TODO | |
+| 13 | TODO | |
+| 14 | TODO | |
+| 15 | TODO | |
+| 16 | TODO | |
+| 17 | TODO | |
+| 18 | TODO | |
+| 19 | TODO | |
+| 20 | TODO | |
+
+Deployment success rate: `TODO/20`
+
+### SC-003 Client Installation Trial Log
+
+| Trial | Result | Notes |
+| --- | --- | --- |
+| 1 | TODO | |
+| 2 | TODO | |
+| 3 | TODO | |
+| 4 | TODO | |
+| 5 | TODO | |
+| 6 | TODO | |
+| 7 | TODO | |
+| 8 | TODO | |
+| 9 | TODO | |
+| 10 | TODO | |
+| 11 | TODO | |
+| 12 | TODO | |
+| 13 | TODO | |
+| 14 | TODO | |
+| 15 | TODO | |
+| 16 | TODO | |
+| 17 | TODO | |
+| 18 | TODO | |
+| 19 | TODO | |
+| 20 | TODO | |
+
+Client installation success rate: `TODO/20`
