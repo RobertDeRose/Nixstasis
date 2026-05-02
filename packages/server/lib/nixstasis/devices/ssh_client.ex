@@ -105,7 +105,7 @@ defmodule Nixstasis.Devices.SshClient do
 
   defp frp_host do
     Application.get_env(:nixstasis, :ssh_client, [])
-    |> Keyword.get(:frp_host, "device.<domain>")
+    |> Keyword.get(:frp_host, Application.get_env(:nixstasis, :base_domain, "example.com"))
   end
 
   defp frp_port do

@@ -49,7 +49,24 @@ defmodule Nixstasis.DeploymentTest do
   end
 
   test "approved_tls_domain?/1 rejects non-matching domains" do
-    refute Deployment.approved_tls_domain?("frp-router.devices.example.com")
+    refute Deployment.approved_tls_domain?("unknown.devices.example.com")
     refute Deployment.approved_tls_domain?("atom-aabbccddeeff.other.example.com")
+  end
+
+  test "subdomain_for/1 normalizes case and trailing dots" do
+    assert {:ok, "auth"} = Deployment.subdomain_for("AUTH.DEVICES.EXAMPLE.COM.")
+    assert {:ok, "atom-aabbccddeeff"} = Deployment.subdomain_for("atom-aabbccddeeff.devices.example.com.")
+  end
+
+  test "approved_tls_domain?/2 normalizes device hostnames before remote-access lookup" do
+    assert Deployment.approved_tls_domain?(
+             "ATOM-aabbccddeeff.DEVICES.EXAMPLE.COM.",
+             fn mac -> mac == "AA:BB:CC:DD:EE:FF" end
+           )
+  end
+
+  test "subdomain_for/1 rejects bare base domains and nested subdomains" do
+    assert :error = Deployment.subdomain_for("devices.example.com")
+    assert :error = Deployment.subdomain_for("nested.auth.devices.example.com")
   end
 end
