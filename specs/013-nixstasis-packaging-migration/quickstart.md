@@ -187,3 +187,42 @@ Deployment success rate: `TODO/20`
 | 20 | TODO | |
 
 Client installation success rate: `TODO/20`
+
+## 12) Release readiness checklist
+
+- Confirm `build_server_image.yml` and `build_caddy_image.yml` build on branch
+  pushes and publish on `v*` tags.
+- Confirm `release_client.yml` produces snapshot artifacts on branch pushes or
+  manual dispatch.
+- Confirm `release_client.yml` publishes client assets on `v*` tags.
+- Confirm GitHub repository variables `FRPC_SOURCE_URL` and
+  `FRPC_SOURCE_SHA256` are set before tag-based client releases.
+- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE` and `NIXSTASIS_CADDY_IMAGE` if
+  operators need a registry namespace other than the default examples.
+
+## 13) Validation execution notes
+
+- `deploy/compose/scripts/check_runtime_contract.sh`: PASS
+- `mix test test/nixstasis/deployment_test.exs test/nixstasis/devices/approval_test.exs`: PASS
+- Workflow definitions now match the documented delivery contract:
+  branch pushes build images and snapshot artifacts, `v*` tags publish release
+  artifacts, and manual image runs push only when the `push` input is enabled.
+- Full Compose bring-up, OCI image build/push, and GoReleaser publication remain
+  environment-dependent in this workspace and should be recorded below when
+  executed.
+- Current local blockers:
+  - `docker` is not installed
+  - `goreleaser` is not installed
+  - release validation on GitHub Actions still requires repository variables
+    `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`
+
+### Validation Results
+
+| Step | Status | Notes |
+| --- | --- | --- |
+| Runtime contract script | PASS | `deploy/compose/scripts/check_runtime_contract.sh` |
+| Targeted server contract tests | PASS | `mix test test/nixstasis/deployment_test.exs test/nixstasis/devices/approval_test.exs` |
+| Workflow contract review | PASS | Branch pushes now build, `v*` tags publish, manual image runs require `push=true` |
+| Compose stack bring-up | BLOCKED | Requires Docker-compatible runtime, operator `.env`, and deployment host |
+| OCI image publication workflows | BLOCKED | Validate on GitHub Actions with `v*` tag or manual push run |
+| Client snapshot/release workflow | BLOCKED | Requires GoReleaser plus pinned `frpc` source variables |

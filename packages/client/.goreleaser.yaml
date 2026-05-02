@@ -64,6 +64,3 @@ nfpms:
         dst: /lib/systemd/system/nixstasis-poll.path
       - src: build/root-dir/lib/systemd/system/nixstasis-registration.service
         dst: /lib/systemd/system/nixstasis-registration.service
-
-release:
-  disable: true
