@@ -76,7 +76,7 @@ The administrator needs direct access to the device via Cockpit or Terminal for 
 
 **Acceptance Scenarios**:
 
-1. **Given** the detail modal is open, **When** the user clicks the "Open Cockpit" button (airplane icon), **Then** a new browser tab should open to `https://{atom-device-name}.device.<domain>`.
+1. **Given** the detail modal is open, **When** the user clicks the "Open Cockpit" button (airplane icon), **Then** a new browser tab should open to `https://{atom-device-name}.<base-domain>`.
 2. **Given** the detail modal is open, **When** the user selects the "Terminal" tab, **Then** an in-browser terminal (e.g., xterm.js) should initialize.
 3. **Given** the terminal tab is active, **When** the user types, **Then** the input should be sent to the device via SSH over the `frps` proxy.
 
@@ -104,7 +104,7 @@ The administrator needs direct access to the device via Cockpit or Terminal for 
 - **FR-009**: Closing the detail Modal MUST set the device's `remote_access_requested` flag to `false`.
 - **FR-010**: Detail Modal MUST display Gauge visualizations for CPU, Memory, and Disk usage.
 - **FR-011**: Detail Modal MUST provide a tabbed interface including a view for Performance Co-Pilot (PCP) data, visualized using **Time-Series Charts** (e.g., Line/Area) for historical trends.
-- **FR-012**: Detail Modal MUST include an "Open Cockpit" button that opens `https://{device_name}.device.<domain>` in a new tab.
+- **FR-012**: Detail Modal MUST include an "Open Cockpit" button that opens `https://{device_name}.<base-domain>` in a new tab.
 - **FR-013**: Detail Modal MUST include a "Terminal" tab that establishes an SSH session via `frps` proxy using a web-based terminal emulator (**xterm.js**) powered by **Phoenix Channels** and a backend Elixir SSH client.
 
 ### Assumptions

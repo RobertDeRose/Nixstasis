@@ -122,16 +122,16 @@
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T038 [P] [US4] Add server tests for domain normalization and approval matching in `packages/server/test/nixstasis/devices/approval_test.exs` and related files
-- [ ] T039 [P] [US4] Add contract validation for compose/runtime docs alignment in `deploy/compose/scripts/check_runtime_contract.sh`
+- [X] T038 [P] [US4] Add server tests for domain normalization and approval matching in `packages/server/test/nixstasis/devices/approval_test.exs` and related files
+- [X] T039 [P] [US4] Add contract validation for compose/runtime docs alignment in `deploy/compose/scripts/check_runtime_contract.sh`
 
 ### Implementation for User Story 4
 
-- [ ] T040 [P] [US4] Align Compose runtime inputs with the canonical contract in `deploy/compose/.env.example`, `deploy/compose/caddy/Caddyfile`, and `deploy/compose/frps/frps.toml`
-- [ ] T041 [P] [US4] Align server runtime and endpoint documentation with the canonical contract in `packages/server/config/runtime.exs` and `packages/server/README.md`
-- [ ] T042 [P] [US4] Align client-facing remote-access host and config examples in `packages/client/README.md` and `packages/client/build/root-dir/**`
-- [ ] T043 [US4] Document external database mode and explicit migration operations in `deploy/compose/README.md` and `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
-- [ ] T044 [US4] Update workflow inputs and release documentation to reference the canonical runtime contract in `.github/workflows/build_server_image.yml`, `.github/workflows/build_caddy_image.yml`, and `.github/workflows/release_client.yml`
+- [X] T040 [P] [US4] Align Compose runtime inputs with the canonical contract in `deploy/compose/.env.example`, `deploy/compose/caddy/Caddyfile`, and `deploy/compose/frps/frps.toml`
+- [X] T041 [P] [US4] Align server runtime and endpoint documentation with the canonical contract in `packages/server/config/runtime.exs` and `packages/server/README.md`
+- [X] T042 [P] [US4] Align client-facing remote-access host and config examples in `packages/client/README.md` and `packages/client/build/root-dir/**`
+- [X] T043 [US4] Document external database mode and explicit migration operations in `deploy/compose/README.md` and `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
+- [X] T044 [US4] Update workflow inputs and release documentation to reference the canonical runtime contract in `.github/workflows/build_server_image.yml`, `.github/workflows/build_caddy_image.yml`, and `.github/workflows/release_client.yml`
 
 **Nixstasis**: User Story 4 should leave the runtime contract complete, testable, and consistent across all touched assets.
 

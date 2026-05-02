@@ -111,7 +111,7 @@ Configuration is loaded from `/etc/nixstasis/config.yaml`.
 
 ```yaml
 api:
-  url: "http://localhost:4000" # Nixstasis server URL
+  url: "https://nixstasis.example.com" # Public Caddy host for the Nixstasis server
 
 poll:
   interval: 10s
@@ -152,6 +152,9 @@ The generated archive and native packages install these client assets:
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
+
+The bundled FRP client template defaults to `serverAddr = "nixstasis.example.com"`
+and requests device subdomains under `atom-<normalized-device-id>.<base-domain>`.
 
 ## Rewrite Status
 
