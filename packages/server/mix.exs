@@ -90,7 +90,12 @@ defmodule Nixstasis.MixProject do
       setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ash.setup --quiet", "test"],
+      "ecto.create": ["db.ensure", "ecto.create"],
+      "ecto.migrate": ["db.ensure", "ecto.migrate"],
+      "ecto.drop": ["db.ensure", "ecto.drop"],
+      "ash.setup": ["db.ensure", "ash.setup"],
+      test: ["db.ensure", "ash.setup --quiet", "test"],
+      "phx.server": ["ecto.migrate", "phx.server"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind nixstasis", "esbuild nixstasis"],
       "assets.deploy": [
