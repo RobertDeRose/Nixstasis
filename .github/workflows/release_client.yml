@@ -18,5 +18,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: packages/client/go.mod
+      - name: Validate runtime contract
+        run: deploy/compose/scripts/check_runtime_contract.sh
       - name: Snapshot release
         run: goreleaser release --snapshot --clean
