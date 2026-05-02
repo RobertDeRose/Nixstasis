@@ -1,4 +1,16 @@
+version: 2
+
 project_name: nixstasis
+
+git:
+  ignore_tags:
+    - "caddy/*"
+    - "client/*"
+    - "frp/*"
+    - "server/*"
+
+snapshot:
+  version_template: "0.0.0-snapshot-{{ .ShortCommit }}"
 
 before:
   hooks:
@@ -19,7 +31,7 @@ builds:
 
 archives:
   - id: nixstasis-archive
-    builds:
+    ids:
       - nixstasis
     formats: [tar.gz]
     files:
@@ -32,6 +44,8 @@ archives:
 
 nfpms:
   - id: nixstasis
+    ids:
+      - nixstasis
     package_name: nixstasis
     file_name_template: "{{ .ConventionalFileName }}"
     vendor: Sfero
@@ -46,10 +60,6 @@ nfpms:
       postinstall: ./scripts/release/postinstall.sh
       preremove: ./scripts/release/preremove.sh
     contents:
-      - src: ./dist/nixstasis_linux_{{ .Arch }}/nixstasis
-        dst: /usr/bin/nixstasis
-        file_info:
-          mode: 0755
       - src: build/root-dir/etc/nixstasis/frpc.toml
         dst: /etc/nixstasis/frpc.toml
       - src: build/root-dir/usr/share/nixstasis/config.example.yaml
