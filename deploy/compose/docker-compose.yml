@@ -1,25 +1,21 @@
 services:
   nixstasis:
-    image: ${NIXSTASIS_SERVER_IMAGE:-ghcr.io/RobertDeRose/nixstasis-server}:${NIXSTASIS_SERVER_IMAGE_TAG:-latest}
+    image: ${NIXSTASIS_SERVER_IMAGE_REF}
     build:
-      context: ../../packages/server
-      dockerfile: Dockerfile
+      context: ../../packages
+      dockerfile: ../../packages/server/Dockerfile
     env_file:
       - .env
     environment:
       PHX_SERVER: "true"
       PORT: ${PORT:-4000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-        required: false
     restart: unless-stopped
 
   caddy:
-    image: ${NIXSTASIS_CADDY_IMAGE:-ghcr.io/RobertDeRose/nixstasis-caddy}:${NIXSTASIS_CADDY_IMAGE_TAG:-latest}
+    image: ${NIXSTASIS_CADDY_IMAGE_REF}
     build:
       context: ../../packages/caddy
-      dockerfile: Dockerfile
+      dockerfile: ../../packages/caddy/Dockerfile
     env_file:
       - .env
     ports:

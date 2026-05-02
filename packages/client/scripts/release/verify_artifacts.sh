@@ -25,7 +25,26 @@ require_member() {
 }
 
 list_deb_members() {
-  dpkg-deb -c "$1" | awk '{print $NF}'
+  if command -v dpkg-deb >/dev/null 2>&1; then
+    dpkg-deb -c "$1" | awk '{print $NF}'
+    return
+  fi
+
+  if command -v bsdtar >/dev/null 2>&1; then
+    data_archive=$(bsdtar -tf "$1" | grep '^data\.tar\.')
+    [ -n "$data_archive" ] || fail "missing data archive in deb: $1"
+
+    case "$data_archive" in
+      *.tar.gz) bsdtar -xOf "$1" "$data_archive" | tar -tzf - ;;
+      *.tar.xz) bsdtar -xOf "$1" "$data_archive" | tar -tJf - ;;
+      *.tar.zst) bsdtar -xOf "$1" "$data_archive" | tar --zstd -tf - ;;
+      *.tar) bsdtar -xOf "$1" "$data_archive" | tar -tf - ;;
+      *) fail "unsupported deb data archive: $data_archive" ;;
+    esac
+    return
+  fi
+
+  fail "dpkg-deb or bsdtar is required to inspect deb artifacts"
 }
 
 list_rpm_members() {
