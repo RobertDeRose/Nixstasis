@@ -1,6 +1,9 @@
 [tools]
-elixir = "latest"
-erlang = "latest"
-go = "latest"
-golangci-lint = "latest"
+"github:RobertDeRose/mdbook-mermaid" = "1.0"
+"github:joshrotenberg/mdbook-lint" = "0.14.3"
+"github:rust-lang/mdbook" = "0.5.2"
+"npm:@commitlint/cli" = "20.5.3"
+elixir = "1.19.5-otp-28"
+erlang = "28.5"
+go = "1.26.2"
 goreleaser = "2.15.4"
