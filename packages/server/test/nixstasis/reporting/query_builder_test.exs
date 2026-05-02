@@ -1,9 +1,9 @@
 defmodule Nixstasis.Reporting.QueryBuilderTest do
   use Nixstasis.DataCase, async: true
-  alias Nixstasis.Reporting.QueryBuilder
-  alias Nixstasis.E2E.Run
   alias Nixstasis.Devices
+  alias Nixstasis.E2E.Run
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Reporting.QueryBuilder
 
   setup do
     {:ok, device} =

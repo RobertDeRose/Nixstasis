@@ -2,7 +2,11 @@ defmodule NixstasisWeb.DeviceLiveTest do
   use NixstasisWeb.ConnCase
   import Phoenix.LiveViewTest
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.RemoteAccessLeases
+  alias Nixstasis.Repo
+  alias NixstasisWeb.DeviceLive.FormComponent
 
   @base_attrs %{
     account_number: "123456789",

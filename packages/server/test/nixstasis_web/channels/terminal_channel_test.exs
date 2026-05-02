@@ -45,7 +45,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     assert_push("output", %{data: "\r\n[Session timed out due to inactivity.]\r\n"})
 
-    # Channel process should stop (we can't easily assert stop in this helper without trapping exit, but the push confirms logic reached)
+    # Channel process should stop. We cannot easily assert that in this helper
+    # without trapping exits, but the push confirms the logic was reached.
   end
 
   test "disconnects on max duration", %{socket: socket} do

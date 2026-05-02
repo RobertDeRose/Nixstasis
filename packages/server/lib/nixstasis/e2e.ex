@@ -398,12 +398,10 @@ defmodule Nixstasis.E2E do
   end
 
   defp run_seed_script(path) do
-    try do
-      Code.eval_file(path)
-      :ok
-    rescue
-      error -> {:error, {:seed_failed, "Failed to reset baseline data: #{Exception.message(error)}"}}
-    end
+    Code.eval_file(path)
+    :ok
+  rescue
+    error -> {:error, {:seed_failed, "Failed to reset baseline data: #{Exception.message(error)}"}}
   end
 
   defp validate_results_payload(%Run{} = run, results) do

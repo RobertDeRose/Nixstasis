@@ -29,6 +29,9 @@ defmodule NixstasisWeb.CoreComponents do
   use Phoenix.Component
   use Gettext, backend: NixstasisWeb.Gettext
 
+  alias Phoenix.Component
+  alias Phoenix.HTML.Form
+  alias Phoenix.HTML.FormField
   alias Phoenix.LiveView.JS
 
   @doc """
@@ -189,8 +192,8 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:rest, :global, include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
                 multiple pattern placeholder readonly required rows size step))
 
-  def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
-    errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
+  def input(%{field: %FormField{} = field} = assigns) do
+    errors = if Component.used_input?(field), do: field.errors, else: []
 
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
@@ -203,7 +206,7 @@ defmodule NixstasisWeb.CoreComponents do
   def input(%{type: "checkbox"} = assigns) do
     assigns =
       assign_new(assigns, :checked, fn ->
-        Phoenix.HTML.Form.normalize_value("checkbox", assigns[:value])
+        Form.normalize_value("checkbox", assigns[:value])
       end)
 
     ~H"""
