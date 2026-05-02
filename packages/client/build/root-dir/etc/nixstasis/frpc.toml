@@ -13,7 +13,7 @@ log.to = "console"
 # Unique name for this proxy, derived from the environment variable NAME (e.g., atom-12345)
 name = "{{ .Envs.NAME }}"
 type = "http"
-# The subdomain requested on the server (e.g., atom-12345.device.<domain>)
+# The subdomain requested on the server (e.g., atom-<normalized-device-id>.<base-domain>)
 subdomain = "{{ .Envs.NAME }}"
 
 [proxies.plugin]
