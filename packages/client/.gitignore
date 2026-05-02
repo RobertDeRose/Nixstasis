@@ -5,6 +5,8 @@
 vendor/
 bin/nixstasis
 build/root-dir/usr/bin/nixstasis
+build/root-dir/usr/libexec/
+dist/
 tmp
 *.log
 

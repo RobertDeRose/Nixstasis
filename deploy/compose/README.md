@@ -19,25 +19,37 @@ This directory is the supported server deployment path for this feature.
 ## Supported operation
 
 - The supported server deployment flow is `deploy/compose` only.
+- `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` must be set in
+  `.env` before Compose commands are run.
 - Bring up the default bundled PostgreSQL stack with:
   `docker compose --profile bundled-db up -d --build`
+- Apple Container equivalent:
+  `tmp_compose=$(mktemp deploy/compose/.nixstasis-compose.XXXXXX.yml)`
+  `&& deploy/compose/scripts/render_compose.sh deploy/compose/.env "$tmp_compose"`
+  `&& container-compose up -f "$tmp_compose" --env-file deploy/compose/.env -d --build`
 - To use an external PostgreSQL instance, omit the `bundled-db` profile and point
   `DATABASE_URL` at the managed database.
 - Run migrations explicitly with:
   `docker compose run --rm nixstasis bin/migrate`
+- Apple Container does not provide a `compose run` equivalent, so run the
+  migration command with `container run --env-file deploy/compose/.env --entrypoint /app/bin/migrate "$NIXSTASIS_SERVER_IMAGE_REF"`.
 
 ## Pinned artifacts
 
 - `frps` must use an image digest via `FRPS_IMAGE_DIGEST`.
 - `postgres` must use an image digest via `POSTGRES_IMAGE_DIGEST`.
 - Server and Caddy images should be published as `nixstasis`-named OCI images.
-- Override `NIXSTASIS_SERVER_IMAGE` and `NIXSTASIS_CADDY_IMAGE` if operators need
+- Override `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` if operators need
   to consume a different GHCR namespace than the default deployment examples.
 
 ## First run
 
 1. Copy `.env.example` to `.env` and fill every required value.
 2. Start the stack with `docker compose --profile bundled-db up -d --build`.
+   Apple Container equivalent:
+   `tmp_compose=$(mktemp deploy/compose/.nixstasis-compose.XXXXXX.yml)`
+   `&& deploy/compose/scripts/render_compose.sh deploy/compose/.env "$tmp_compose"`
+   `&& container-compose up -f "$tmp_compose" --env-file deploy/compose/.env -d --build`
 3. Run migrations with `docker compose run --rm nixstasis bin/migrate`.
 4. Confirm the `caddy`, `nixstasis`, `frps`, and `postgres` services are healthy.
 
@@ -65,6 +77,6 @@ becomes optional for that deployment.
 - Client release publication runs on `v*` tags only.
 - Client workflow requires pinned `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`
   repository variables before a release run can succeed.
-- Local validation in this workspace is limited because `docker` and `goreleaser`
-  are not installed; validate image publication and client release publication on
-  GitHub Actions when exercising the `v*` tag flows.
+- Local validation in this workspace uses Apple `container` and a pinned local
+  `FRPC_SOURCE_BINARY`; validate image publication and client release publication
+  on GitHub Actions when exercising the `v*` tag flows.

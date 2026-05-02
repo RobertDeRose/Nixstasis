@@ -32,7 +32,7 @@ Visit [http://localhost:4000](http://localhost:4000).
 
 ## Supported deployment
 
-- Build the runtime image with `docker build -f packages/server/Dockerfile -t nixstasis-server:test packages/server`.
+- Build the runtime image with `docker build -f packages/server/Dockerfile -t nixstasis-server:test packages`.
 - Run the supported stack from `deploy/compose`.
 - Run migrations explicitly with `bin/migrate` inside the release container.
 - The abandoned Debian packaging path is not part of the supported deployment

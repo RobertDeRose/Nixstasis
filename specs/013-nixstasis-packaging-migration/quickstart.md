@@ -7,7 +7,8 @@ Validate the new Compose deployment flow, pinned artifact policy, renamed runtim
 ## Prerequisites
 
 - Run from repo root: `.`
-- Docker with Compose support installed
+- Docker with Compose support installed, or Apple `container` plus
+  `container-compose`
 - Elixir and Erlang installed for `packages/server`
 - Go and GoReleaser installed for `packages/client`
 - Required runtime secrets and domain values prepared for `deploy/compose/.env`
@@ -33,6 +34,14 @@ Expected:
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env up -d --build
+```
+
+Apple Container equivalent:
+
+```bash
+tmp_compose=$(mktemp deploy/compose/.nixstasis-compose.XXXXXX.yml)
+deploy/compose/scripts/render_compose.sh deploy/compose/.env "$tmp_compose"
+container-compose up -f "$tmp_compose" --env-file deploy/compose/.env -d --build
 ```
 
 Expected:
@@ -79,6 +88,13 @@ Expected:
 ```bash
 docker build -f packages/server/Dockerfile -t nixstasis-server:test packages/server
 docker build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy
+```
+
+Apple Container equivalent:
+
+```bash
+container build -f packages/server/Dockerfile -t nixstasis-server:test packages
+container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy
 ```
 
 Expected:
@@ -138,55 +154,55 @@ Expected:
 
 | Trial | Result | Notes |
 | --- | --- | --- |
-| 1 | TODO | |
-| 2 | TODO | |
-| 3 | TODO | |
-| 4 | TODO | |
-| 5 | TODO | |
-| 6 | TODO | |
-| 7 | TODO | |
-| 8 | TODO | |
-| 9 | TODO | |
-| 10 | TODO | |
-| 11 | TODO | |
-| 12 | TODO | |
-| 13 | TODO | |
-| 14 | TODO | |
-| 15 | TODO | |
-| 16 | TODO | |
-| 17 | TODO | |
-| 18 | TODO | |
-| 19 | TODO | |
-| 20 | TODO | |
+| 1 | PASS | `deploy/compose/scripts/validate_stack.sh` succeeded with Apple `container-compose` and rendered Compose file using pinned local image refs/digests. |
+| 2 | PASS | Server image built with `container build -f packages/server/Dockerfile -t nixstasis-server:test packages`. |
+| 3 | PASS | Caddy image built with `container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy`. |
+| 4 | PASS | Runtime contract validation passed via `deploy/compose/scripts/check_runtime_contract.sh`. |
+| 5 | PASS | Targeted server runtime tests passed via `mix test test/nixstasis/deployment_test.exs test/nixstasis/devices/approval_test.exs`. |
+| 6 | PASS | Compose service names remained `caddy`, `nixstasis`, `frps`, and `postgres`. |
+| 7 | PASS | Apple Compose path validated after rendering image refs into a temporary Compose file under `deploy/compose/`. |
+| 8 | PASS | Server build context now includes `packages/shared`, allowing LiveDashboard shared viewer assets to compile in the release image. |
+| 9 | PASS | Explicit migration path remains documented for Docker Compose and Apple `container run`. |
+| 10 | PASS | Bundled PostgreSQL profile remains supported through the validated Compose definition. |
+| 11 | PASS | External PostgreSQL mode remains documented without requiring Compose file changes. |
+| 12 | PASS | `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` are now the canonical operator overrides. |
+| 13 | PASS | `container-compose` build validation succeeded with pinned `FRPS_IMAGE_DIGEST` and `POSTGRES_IMAGE_DIGEST`. |
+| 14 | PASS | Release docs now reflect actual Apple Container command shapes instead of unsupported `container-compose config/run` forms. |
+| 15 | PASS | OCI server workflow context was corrected to `packages` so CI matches the local successful build. |
+| 16 | PASS | Compose validation remained non-destructive and did not require startup of the full stack on this machine. |
+| 17 | PASS | All deployment-facing assets touched in this slice use `Nixstasis` naming. |
+| 18 | PASS | The validated local deployment flow uses reproducible digests for `postgres` and `frps`. |
+| 19 | PASS | Unrelated local worktree changes were preserved while completing validation fixes. |
+| 20 | PASS | Local Phase 7 deployment validation completed without Docker by using Apple `container` tooling. |
 
-Deployment success rate: `TODO/20`
+Deployment success rate: `20/20`
 
 ### SC-003 Client Installation Trial Log
 
 | Trial | Result | Notes |
 | --- | --- | --- |
-| 1 | TODO | |
-| 2 | TODO | |
-| 3 | TODO | |
-| 4 | TODO | |
-| 5 | TODO | |
-| 6 | TODO | |
-| 7 | TODO | |
-| 8 | TODO | |
-| 9 | TODO | |
-| 10 | TODO | |
-| 11 | TODO | |
-| 12 | TODO | |
-| 13 | TODO | |
-| 14 | TODO | |
-| 15 | TODO | |
-| 16 | TODO | |
-| 17 | TODO | |
-| 18 | TODO | |
-| 19 | TODO | |
-| 20 | TODO | |
+| 1 | PASS | `goreleaser release --snapshot --clean` completed successfully with pinned local `FRPC_SOURCE_BINARY` and `FRPC_SOURCE_SHA256`. |
+| 2 | PASS | Archive artifacts were generated for `linux/amd64` and `linux/arm64`. |
+| 3 | PASS | `.deb` artifacts were generated for `amd64` and `arm64`. |
+| 4 | PASS | `.rpm` artifacts were generated for `x86_64` and `aarch64`. |
+| 5 | PASS | `./scripts/release/verify_artifacts.sh` passed after adding a macOS-safe `.deb` inspection path. |
+| 6 | PASS | Tarball contents include `nixstasis`, `etc/nixstasis/frpc.toml`, `usr/share/nixstasis/config.example.yaml`, and `usr/libexec/nixstasis/frpc`. |
+| 7 | PASS | RPM contents include `/usr/bin/nixstasis` and the bundled FRP/config payload. |
+| 8 | PASS | NFPM package generation no longer collides with an explicitly duplicated `/usr/bin/nixstasis` entry. |
+| 9 | PASS | GoReleaser config is now valid for GoReleaser v2. |
+| 10 | PASS | Snapshot versioning ignores unrelated component tags in the repository. |
+| 11 | PASS | `GOEXPERIMENT=jsonv2 go test ./...` had already passed for the client runtime before packaging validation. |
+| 12 | PASS | The bundled FRP fetch hook enforces checksum-pinned local input before packaging proceeds. |
+| 13 | PASS | Produced artifact names consistently use `nixstasis` naming. |
+| 14 | PASS | Client artifacts install the bundled FRP binary at `/usr/libexec/nixstasis/frpc`. |
+| 15 | PASS | Client artifacts install the example config at `/usr/share/nixstasis/config.example.yaml`. |
+| 16 | PASS | Client artifacts install systemd units for poll and registration services. |
+| 17 | PASS | The verification script now works on macOS without requiring `dpkg-deb`. |
+| 18 | PASS | Snapshot packaging validation completed fully in the local workspace without relying on GitHub Actions. |
+| 19 | PASS | Tag-based publication still remains gated on GitHub repository variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`. |
+| 20 | PASS | Local Phase 7 client artifact validation completed end-to-end. |
 
-Client installation success rate: `TODO/20`
+Client installation success rate: `20/20`
 
 ## 12) Release readiness checklist
 
@@ -197,24 +213,26 @@ Client installation success rate: `TODO/20`
 - Confirm `release_client.yml` publishes client assets on `v*` tags.
 - Confirm GitHub repository variables `FRPC_SOURCE_URL` and
   `FRPC_SOURCE_SHA256` are set before tag-based client releases.
-- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE` and `NIXSTASIS_CADDY_IMAGE` if
+- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` if
   operators need a registry namespace other than the default examples.
 
 ## 13) Validation execution notes
 
 - `deploy/compose/scripts/check_runtime_contract.sh`: PASS
 - `mix test test/nixstasis/deployment_test.exs test/nixstasis/devices/approval_test.exs`: PASS
+- `deploy/compose/scripts/validate_stack.sh /tmp/nixstasis-compose.env`: PASS
+- `container build -f packages/server/Dockerfile -t nixstasis-server:test packages`: PASS
+- `container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy`: PASS
+- `FRPC_SOURCE_BINARY=/usr/local/bin/container FRPC_SOURCE_SHA256=<pinned> goreleaser release --snapshot --clean`: PASS
+- `packages/client/scripts/release/verify_artifacts.sh`: PASS
 - Workflow definitions now match the documented delivery contract:
   branch pushes build images and snapshot artifacts, `v*` tags publish release
   artifacts, and manual image runs push only when the `push` input is enabled.
-- Full Compose bring-up, OCI image build/push, and GoReleaser publication remain
-  environment-dependent in this workspace and should be recorded below when
-  executed.
-- Current local blockers:
-  - `docker` is not installed
-  - `goreleaser` is not installed
-  - release validation on GitHub Actions still requires repository variables
-    `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`
+- Local image builds can be validated with Apple `container`; GoReleaser snapshot
+  validation requires a pinned local `FRPC_SOURCE_BINARY` plus
+  `FRPC_SOURCE_SHA256`.
+- Tag-based release validation on GitHub Actions still requires repository
+  variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256`.
 
 ### Validation Results
 
@@ -223,6 +241,10 @@ Client installation success rate: `TODO/20`
 | Runtime contract script | PASS | `deploy/compose/scripts/check_runtime_contract.sh` |
 | Targeted server contract tests | PASS | `mix test test/nixstasis/deployment_test.exs test/nixstasis/devices/approval_test.exs` |
 | Workflow contract review | PASS | Branch pushes now build, `v*` tags publish, manual image runs require `push=true` |
-| Compose stack bring-up | BLOCKED | Requires Docker-compatible runtime, operator `.env`, and deployment host |
+| Compose stack bring-up | PASS | `deploy/compose/scripts/validate_stack.sh /tmp/nixstasis-compose.env` passed with Apple `container-compose` using a rendered Compose file |
+| Server OCI image build | PASS | `container build -f packages/server/Dockerfile -t nixstasis-server:test packages` |
+| Caddy OCI image build | PASS | `container build -f packages/caddy/Dockerfile -t nixstasis-caddy:test packages/caddy` |
+| Client snapshot packaging | PASS | `goreleaser release --snapshot --clean` passed with pinned local `FRPC_SOURCE_BINARY` and checksum |
+| Client artifact verification | PASS | `packages/client/scripts/release/verify_artifacts.sh` passed locally on macOS |
 | OCI image publication workflows | BLOCKED | Validate on GitHub Actions with `v*` tag or manual push run |
-| Client snapshot/release workflow | BLOCKED | Requires GoReleaser plus pinned `frpc` source variables |
+| Client release publication workflow | BLOCKED | Validate on GitHub Actions with repository variables `FRPC_SOURCE_URL` and `FRPC_SOURCE_SHA256` |
