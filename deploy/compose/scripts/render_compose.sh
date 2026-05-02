@@ -23,12 +23,15 @@ set +a
 
 : "${NIXSTASIS_SERVER_IMAGE_REF:?NIXSTASIS_SERVER_IMAGE_REF must be set}"
 : "${NIXSTASIS_CADDY_IMAGE_REF:?NIXSTASIS_CADDY_IMAGE_REF must be set}"
+: "${NIXSTASIS_FRPS_IMAGE_REF:?NIXSTASIS_FRPS_IMAGE_REF must be set}"
 
 awk \
   -v server_ref="$NIXSTASIS_SERVER_IMAGE_REF" \
   -v caddy_ref="$NIXSTASIS_CADDY_IMAGE_REF" \
+  -v frps_ref="$NIXSTASIS_FRPS_IMAGE_REF" \
   '{
     gsub(/\$\{NIXSTASIS_SERVER_IMAGE_REF\}/, server_ref)
     gsub(/\$\{NIXSTASIS_CADDY_IMAGE_REF\}/, caddy_ref)
+    gsub(/\$\{NIXSTASIS_FRPS_IMAGE_REF\}/, frps_ref)
     print
   }' "$COMPOSE_FILE" > "$OUTPUT_FILE"
