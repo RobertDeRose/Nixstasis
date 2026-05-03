@@ -2,6 +2,7 @@ api:
   url: "http://localhost:4000"
 
 e2e:
+  base_domain: "devices.example.com"
   suite: "full"
   environment: "local"
   trigger: "manual"
