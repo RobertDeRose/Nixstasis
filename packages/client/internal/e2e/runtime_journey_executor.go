@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
@@ -103,10 +104,13 @@ func (e *journeyExecutor) runtimeCheckDomain(ctx context.Context, _ *journeyStat
 		return stepOutcome{}, expectationInvalidFailure("tls_domain_allowed", expect)
 	}
 
+	checkDomain := fmt.Sprintf("auth.%s", strings.TrimPrefix(e.cfg.BaseDomain, "."))
+	path := fmt.Sprintf("/api/v1/check_domain?domain=%s", url.QueryEscape(checkDomain))
+
 	_, _, err := e.doRequest(
 		ctx,
 		"GET",
-		"/api/v1/check_domain?domain=auth.ab.test-device.com",
+		path,
 		nil,
 		nil,
 		204,
