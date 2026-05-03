@@ -11,6 +11,7 @@ import (
 // Config defines configuration for E2E runs.
 type Config struct {
 	APIURL          string
+	BaseDomain      string
 	Suite           string
 	Environment     string
 	Trigger         string
@@ -27,6 +28,7 @@ type rawConfig struct {
 		URL string `yaml:"url"`
 	} `yaml:"api"`
 	E2E struct {
+		BaseDomain      string   `yaml:"base_domain"`
 		Suite           string   `yaml:"suite"`
 		Environment     string   `yaml:"environment"`
 		Trigger         string   `yaml:"trigger"`
@@ -57,8 +59,14 @@ func LoadConfig(path string) (Config, error) {
 		protocolVersion = "1"
 	}
 
+	baseDomain := raw.E2E.BaseDomain
+	if baseDomain == "" {
+		baseDomain = "devices.example.com"
+	}
+
 	cfg := Config{
 		APIURL:          raw.API.URL,
+		BaseDomain:      baseDomain,
 		Suite:           raw.E2E.Suite,
 		Environment:     raw.E2E.Environment,
 		Trigger:         raw.E2E.Trigger,

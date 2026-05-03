@@ -48,7 +48,7 @@ An entire suite of journeys can be run like the following:
 scripts/e2e/run --suite full --env local --trigger manual --protocol-version 1
 scripts/e2e/run --suite full --env local --trigger manual --protocol-version 1 --idempotency-key local-full-001
 scripts/e2e/run --suite runtime --env local --trigger manual --protocol-version 1
-scripts/e2e/run --suite runtime_step_labels --journey step_labels --env local --trigger manual --protocol-version 1
+scripts/e2e/run --suite runtime_step_labels --journey runtime_step_labels --env local --trigger manual --protocol-version 1
 ```
 
 An individual journey can be like the following:
@@ -84,6 +84,9 @@ Configuration lives in `scripts/e2e/config.example.yaml` and can be customized p
 results to the server; use the printed `RunID` to query `/e2e/runs/:id`, `/e2e/runs/:id/results`, and
 `/e2e/runs/:id/results/:journey_id/log`.
 
+For local runtime E2E, keep `e2e.base_domain` aligned with the server's dev/test base domain. The default local value
+is `devices.example.com`.
+
 Journey logs are JSONL records in schema `e2e_log.v1`:
 
 - journey start envelope with run metadata
@@ -102,8 +105,8 @@ Runtime suite journeys:
 - `runtime_transport_contract` (transport endpoint parity + command payload/result lifecycle)
 - `runtime_transport_negative` (transport negative-path assertions for 404/400 behavior)
 
-On non-Linux hosts, `scripts/e2e/run` automatically runs runtime E2E in an ephemeral Ubuntu Docker container using
-`host.docker.internal` to reach the host server.
+On non-Linux hosts, `scripts/e2e/run` automatically runs runtime E2E in an ephemeral Ubuntu container using Apple
+Container first, then Docker, then Podman. The script rewrites the API host for the selected runtime automatically.
 
 ## Configuration
 
