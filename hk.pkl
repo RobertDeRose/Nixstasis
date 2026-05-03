@@ -1,0 +1,72 @@
+amends "package://github.com/jdx/hk/releases/download/v1.41.0/hk@1.41.0#/Config.pkl"
+
+import "package://github.com/jdx/hk/releases/download/v1.41.0/hk@1.41.0#/Builtins.pkl"
+
+local commit_message_validation: Step = new Step {
+  check = #"""
+    perl -0pi -e "s/[ \t]+\$//mg; s/(?<=\S) {2,}/ /g" {{commit_msg_file}}
+    typos {{commit_msg_file}}
+    commitlint --edit {{commit_msg_file}}
+    """#
+}
+
+local linters = new Mapping<String, Step> {
+  ["check_byte_order_marker"] = Builtins.check_byte_order_marker
+  ["check_case_conflict"] = Builtins.check_case_conflict
+  ["check_executables_have_shebangs"] = Builtins.check_executables_have_shebangs
+  ["check_symlinks"] = Builtins.check_symlinks
+  ["check-added-large-files"] = Builtins.check_added_large_files
+  ["check-exec-shebangs"] = Builtins.check_executables_have_shebangs
+  ["check-merge-conflict"] = Builtins.check_merge_conflict
+  ["detect-private-key"] = Builtins.detect_private_key
+  ["mise"] = Builtins.mise
+  ["mixed-line-ending"] = Builtins.mixed_line_ending
+  ["newlines"] = Builtins.newlines
+  ["trailing-whitespace"] = Builtins.trailing_whitespace
+  ["go-fmt"] = new Step {
+    glob = List("**/*.go")
+    //check_first = false
+    check_diff = #"""
+      gofumpt -l {{ files }} | (! grep .)
+      goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client {{ files }} | (! grep .)
+      """#
+    fix = #"""
+      gofumpt -l -w {{ files }}
+      goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client {{ files }} | (! grep .)
+      """#
+  }
+  ["go-mod"] = new Step {
+    glob = List("**/go.mod", "**/go.sum")
+    check = "go mod tidy && go mod verify"
+  }
+  ["go-lint"] = new Step {
+    glob = List("**/*.go", "**/go.mod", "**/go.sum", "**/.golangci.yml")
+    check = "golangci-lint run ./..."
+    fix = "golangci-lint run --fix ./..."
+  }
+}
+
+local conformity = new Mapping<String, Step> {
+  ["commit_message_format"] = commit_message_validation
+}
+
+default_branch = "main"
+fail_fast = false
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps = linters
+  }
+  ["commit-msg"] {
+    steps = conformity
+  }
+  ["check"] {
+    steps = linters
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+}
