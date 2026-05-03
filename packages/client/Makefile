@@ -5,6 +5,7 @@ INSTALL_DIR=$(BUILD_ROOT)/usr/bin
 CMD_DIR=./cmd/nixstasis
 GOLANGCI_VERSION=v2.8.0
 GOBIN := $(shell go env GOPATH)/bin
+GENERATED_BIN := $(BIN_DIR)/$(NAME)
 
 export GOEXPERIMENT=jsonv2
 
@@ -21,11 +22,12 @@ all: clean check install ## Run all checks and install the binary
 build: ## Build the binary locally (for dev)
 	@mkdir -p $(BIN_DIR)
 	@echo "Building $(NAME)..."
-	go build -o $(BIN_DIR)/$(NAME) $(CMD_DIR)
+	go build -o $(GENERATED_BIN) $(CMD_DIR)
 
 install: build ## Build and install the binary to BUILD_ROOT
 	@echo "Installing $(NAME)..."
-	install -D $(BIN_DIR)/$(NAME) $(INSTALL_DIR)/$(NAME)
+	@mkdir -p $(INSTALL_DIR)
+	install $(GENERATED_BIN) $(INSTALL_DIR)/$(NAME)
 
 fmt: $(GOFUMPT) $(GOIMPORTS) ## Format code with gofumpt and goimports
 	@echo "Formatting code..."
@@ -82,7 +84,7 @@ install-tools: $(GOLANGCI_LINT) $(GOFUMPT) $(GOIMPORTS) ## Install all required 
 
 clean: ## Remove build artifacts
 	@echo "Cleaning..."
-	@rm -rf $(BIN_DIR)
+	@rm -f $(GENERATED_BIN)
 	@rm -f coverage.out
 
 run_mock_server: ## Run a mock api server for testing
