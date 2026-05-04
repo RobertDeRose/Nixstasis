@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      - name: Load production version pins
+        run: cat prod.env >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Validate runtime contract
@@ -53,6 +55,9 @@ jobs:
         with:
           context: packages
           file: packages/server/Dockerfile
+          build-args: |
+            ELIXIR_BUILDER_IMAGE_DIGEST=${{ env.ELIXIR_BUILDER_IMAGE_DIGEST }}
+            DEBIAN_RUNNER_IMAGE_DIGEST=${{ env.DEBIAN_RUNNER_IMAGE_DIGEST }}
           push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
