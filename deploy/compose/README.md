@@ -32,6 +32,8 @@ This directory is the supported server deployment path for this feature.
   `&& container-compose up -f "$tmp_compose" --env-file deploy/compose/.env -d --build`
 - To use an external PostgreSQL instance, omit the `bundled-db` profile and point
   `DATABASE_URL` at the managed database.
+- Server startup and explicit migrations wait for the `DATABASE_URL` host and
+  port before booting, which covers both bundled and external PostgreSQL.
 - Run migrations explicitly with:
   `docker compose run --rm nixstasis bin/migrate`
 - Apple Container does not provide a `compose run` equivalent, so run the

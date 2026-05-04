@@ -2,4 +2,8 @@
 
 set -eu
 
+if [ -n "${DATABASE_URL:-}" ]; then
+  /app/bin/wait-for-postgres "$DATABASE_URL"
+fi
+
 exec /app/bin/nixstasis start
