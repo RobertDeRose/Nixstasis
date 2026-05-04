@@ -14,6 +14,11 @@ defmodule NixstasisWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :e2e_api do
+    plug(:accepts, ["json"])
+    plug(NixstasisWeb.Plugs.E2EEnabled)
+  end
+
   scope "/api/json" do
     pipe_through [:api]
 
@@ -61,7 +66,7 @@ defmodule NixstasisWeb.Router do
   end
 
   scope "/e2e", NixstasisWeb do
-    pipe_through(:api)
+    pipe_through(:e2e_api)
 
     get("/suites", E2ERunController, :suites)
     get("/runs", E2ERunController, :index)
