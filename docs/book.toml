@@ -1,0 +1,20 @@
+[book]
+title = "Nixstasis Architecture"
+description = "Architecture and repository structure documentation for Nixstasis"
+authors = ["Nixstasis maintainers"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "../book"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/RobertDeRose/Nixstasis"
+edit-url-template = "https://github.com/RobertDeRose/Nixstasis/edit/main/docs/{path}"
+additional-css = ["theme/cobalt.css"]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]

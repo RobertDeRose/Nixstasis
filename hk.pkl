@@ -21,6 +21,11 @@ local linters = new Mapping<String, Step> {
   ["detect-private-key"] = Builtins.detect_private_key
   ["mise"] = Builtins.mise
   ["mixed-line-ending"] = Builtins.mixed_line_ending
+  ["mdbook-lint"] = new Step {
+    glob = List("docs/src/**/*.md")
+    check_diff = "mdbook-lint lint --config .mdbook-lint.toml {{ files }}"
+    fix = "mdbook-lint fix --config .mdbook-lint.toml {{ files }}"
+  }
   ["newlines"] = Builtins.newlines
   ["trailing-whitespace"] = Builtins.trailing_whitespace
   ["go-fmt"] = new Step {
@@ -51,6 +56,7 @@ local conformity = new Mapping<String, Step> {
 }
 
 default_branch = "main"
+exclude = List("**/mermaid.min.js")
 fail_fast = false
 
 hooks {
