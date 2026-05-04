@@ -126,6 +126,26 @@ defmodule NixstasisWeb.E2ERunControllerTest do
     assert message =~ "Missing required X-E2E-Protocol-Version"
   end
 
+  test "Given E2E endpoints are disabled, when POST /e2e/runs is requested, then not found is returned", %{
+    conn: conn
+  } do
+    previous = Application.get_env(:nixstasis, :e2e_enabled?)
+
+    Application.put_env(:nixstasis, :e2e_enabled?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :e2e_enabled?, previous) end)
+
+    params = %{
+      "suite_id" => "full",
+      "environment_label" => "local",
+      "trigger_source" => "manual"
+    }
+
+    conn = conn |> create_headers() |> post(~p"/e2e/runs", params)
+
+    assert response(conn, 404)
+  end
+
   test "Given legacy version fields, when POST /e2e/runs, then request is rejected", %{conn: conn} do
     params = %{
       "suite_id" => "full",

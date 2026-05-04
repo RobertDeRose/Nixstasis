@@ -10,6 +10,8 @@ This directory is the supported server deployment path for this feature.
 - Reserved public hosts are `nixstasis.<base-domain>`,
   `auth.<base-domain>`, and `frp-admin.<base-domain>`.
 - Database migrations are explicit and are not part of container startup.
+- E2E validation endpoints are disabled by default in production. Enable them
+  only for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
 - All external runtime artifacts must be pinned immutably.
 - Required operator inputs are `DATABASE_URL`, `SECRET_KEY_BASE`,
   `PHX_HOST`, `PORT`, `BASE_DOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`,

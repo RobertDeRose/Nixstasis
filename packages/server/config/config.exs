@@ -56,6 +56,7 @@ config :nixstasis,
   generators: [timestamp_type: :utc_datetime]
 
 config :nixstasis, :session_options, []
+config :nixstasis, :e2e_enabled?, true
 
 # Configures the endpoint
 config :nixstasis, NixstasisWeb.Endpoint,
