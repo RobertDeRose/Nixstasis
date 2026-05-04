@@ -44,10 +44,12 @@ defmodule Nixstasis.Monitoring.Telemetry do
 
     attribute :timestamp, :utc_datetime do
       allow_nil? false
+      public? true
     end
 
     attribute :payload, :map do
       allow_nil? false
+      public? true
       default %{}
     end
 
@@ -57,6 +59,7 @@ defmodule Nixstasis.Monitoring.Telemetry do
   relationships do
     belongs_to :device, Nixstasis.Devices.Device do
       allow_nil? false
+      public? true
     end
   end
 end

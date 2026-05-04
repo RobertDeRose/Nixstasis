@@ -43,20 +43,25 @@ defmodule Nixstasis.Devices.PendingCommand do
 
     attribute :command_payload, :map do
       allow_nil? false
+      public? true
       default %{}
     end
 
     attribute :status, Nixstasis.Types.PendingCommandStatus do
       allow_nil? false
+      public? true
       default :queued
     end
 
     attribute :queued_at, :utc_datetime do
       allow_nil? false
+      public? true
       default &DateTime.utc_now/0
     end
 
-    attribute :delivered_at, :utc_datetime
+    attribute :delivered_at, :utc_datetime do
+      public? true
+    end
 
     timestamps()
   end
@@ -64,6 +69,7 @@ defmodule Nixstasis.Devices.PendingCommand do
   relationships do
     belongs_to :device, Nixstasis.Devices.Device do
       allow_nil? false
+      public? true
     end
   end
 end
