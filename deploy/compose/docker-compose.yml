@@ -40,10 +40,16 @@ services:
       - -c
       - |
         : "$${FRPS_AUTH_TOKEN:?FRPS_AUTH_TOKEN is required}"
+        : "$${FRPS_DASHBOARD_USER:?FRPS_DASHBOARD_USER is required}"
+        : "$${FRPS_DASHBOARD_PASSWORD:?FRPS_DASHBOARD_PASSWORD is required}"
         escaped_frps_auth_token=$$(printf '%s' "$$FRPS_AUTH_TOKEN" | sed 's/[\/&]/\\&/g')
+        escaped_frps_dashboard_user=$$(printf '%s' "$$FRPS_DASHBOARD_USER" | sed 's/[\/&]/\\&/g')
+        escaped_frps_dashboard_password=$$(printf '%s' "$$FRPS_DASHBOARD_PASSWORD" | sed 's/[\/&]/\\&/g')
         sed \
           -e "s/\"__FRPS_BIND_PORT__\"/${FRPS_BIND_PORT}/g" \
           -e "s/\"__FRPS_DASHBOARD_PORT__\"/${FRPS_DASHBOARD_PORT}/g" \
+          -e "s/__FRPS_DASHBOARD_USER__/$${escaped_frps_dashboard_user}/g" \
+          -e "s/__FRPS_DASHBOARD_PASSWORD__/$${escaped_frps_dashboard_password}/g" \
           -e "s/\"__FRPS_TCPMUX_PORT__\"/${FRPS_TCPMUX_PORT}/g" \
           -e "s/\"__FRPS_HTTP_PORT__\"/${FRPS_HTTP_PORT}/g" \
           -e "s/__FRPS_AUTH_TOKEN__/$${escaped_frps_auth_token}/g" \
@@ -54,7 +60,6 @@ services:
     ports:
       - "${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"
       - "${FRPS_HTTP_PORT}:${FRPS_HTTP_PORT}"
-      - "${FRPS_DASHBOARD_PORT}:${FRPS_DASHBOARD_PORT}"
       - "${FRPS_TCPMUX_PORT}:${FRPS_TCPMUX_PORT}"
     volumes:
       - ./frps/frps.toml:/etc/frp/frps.toml.template:ro
