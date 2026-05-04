@@ -6,6 +6,7 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
 
   setup do
     previous = Application.get_env(:nixstasis, :e2e)
+    previous_context = Application.get_env(:nixstasis, :e2e_context)
 
     Application.put_env(:nixstasis, :e2e,
       allowed_env_labels: ["local"],
@@ -21,6 +22,12 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
         Application.delete_env(:nixstasis, :e2e)
       else
         Application.put_env(:nixstasis, :e2e, previous)
+      end
+
+      if is_nil(previous_context) do
+        Application.delete_env(:nixstasis, :e2e_context)
+      else
+        Application.put_env(:nixstasis, :e2e_context, previous_context)
       end
     end)
 
@@ -123,5 +130,31 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
 
     assert %{"data" => %{"run_id" => _, "journey_id" => "auth", "content" => content}} = json_response(conn, 200)
     assert content =~ "{\"status\":\"ok\"}"
+  end
+
+  test "Given a result database error, when POST results, then internal details are not exposed", %{conn: conn} do
+    Application.put_env(:nixstasis, :e2e_context, __MODULE__.SubmitErrorContext)
+
+    payload = %{
+      "results" => [
+        %{
+          "journey_id" => "auth",
+          "status" => "passed",
+          "duration_ms" => 1200
+        }
+      ]
+    }
+
+    conn = post(conn, ~p"/e2e/runs/run-123/results", payload)
+
+    assert %{"error" => %{"code" => "database_error", "message" => "Failed to update results."} = error} =
+             response = json_response(conn, 422)
+
+    refute Map.has_key?(error, "details")
+    refute inspect(response) =~ "not_null_violation"
+  end
+
+  defmodule SubmitErrorContext do
+    def submit_results(_run_id, _results), do: {:error, {:database_error, {:not_null_violation, :status}}}
   end
 end

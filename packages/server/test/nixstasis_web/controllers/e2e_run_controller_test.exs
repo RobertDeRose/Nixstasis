@@ -5,6 +5,7 @@ defmodule NixstasisWeb.E2ERunControllerTest do
 
   setup do
     previous = Application.get_env(:nixstasis, :e2e)
+    previous_context = Application.get_env(:nixstasis, :e2e_context)
 
     Application.put_env(:nixstasis, :e2e,
       allowed_env_labels: ["local"],
@@ -20,6 +21,12 @@ defmodule NixstasisWeb.E2ERunControllerTest do
         Application.delete_env(:nixstasis, :e2e)
       else
         Application.put_env(:nixstasis, :e2e, previous)
+      end
+
+      if is_nil(previous_context) do
+        Application.delete_env(:nixstasis, :e2e_context)
+      else
+        Application.put_env(:nixstasis, :e2e_context, previous_context)
       end
     end)
 
@@ -195,5 +202,43 @@ defmodule NixstasisWeb.E2ERunControllerTest do
 
     assert %{"error" => %{"code" => "environment_locked", "message" => message}} = json_response(conflict_conn, 409)
     assert message =~ "already has an active E2E run"
+  end
+
+  test "Given a database error, when POST /e2e/runs, then internal details are not exposed", %{conn: conn} do
+    Application.put_env(:nixstasis, :e2e_context, __MODULE__.CreateErrorContext)
+
+    params = %{
+      "suite_id" => "full",
+      "environment_label" => "local",
+      "trigger_source" => "manual"
+    }
+
+    conn = conn |> create_headers() |> post(~p"/e2e/runs", params)
+
+    assert %{"error" => %{"code" => "database_error", "message" => "Failed to create run."} = error} =
+             response = json_response(conn, 422)
+
+    refute Map.has_key?(error, "details")
+    refute inspect(response) =~ "not_null_violation"
+  end
+
+  test "Given a cancellation database error, when POST cancel, then internal details are not exposed", %{conn: conn} do
+    Application.put_env(:nixstasis, :e2e_context, __MODULE__.CancelErrorContext)
+
+    conn = post(conn, ~p"/e2e/runs/run-123/cancel")
+
+    assert %{"error" => %{"code" => "database_error", "message" => "Failed to cancel run."} = error} =
+             response = json_response(conn, 422)
+
+    refute Map.has_key?(error, "details")
+    refute inspect(response) =~ "stale"
+  end
+
+  defmodule CreateErrorContext do
+    def create_run(_params), do: {:error, {:database_error, {:not_null_violation, :environment_label}}}
+  end
+
+  defmodule CancelErrorContext do
+    def cancel_run(_id), do: {:error, {:stale, :e2e_run}}
   end
 end
