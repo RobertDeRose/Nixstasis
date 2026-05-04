@@ -152,13 +152,19 @@ defmodule Nixstasis.Reporting.TableFilters do
 
   defp value_for(row, key) do
     if is_map(row) do
-      Map.get(row, key) || Map.get(row, String.to_atom(key))
+      Map.get(row, key) || value_for_existing_atom_key(row, key)
     else
       nil
     end
-  rescue
-    ArgumentError -> Map.get(row, key)
   end
+
+  defp value_for_existing_atom_key(row, key) when is_binary(key) do
+    Map.get(row, String.to_existing_atom(key))
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp value_for_existing_atom_key(_row, _key), do: nil
 
   defp to_string_safe(nil), do: ""
   defp to_string_safe(value) when is_binary(value), do: value

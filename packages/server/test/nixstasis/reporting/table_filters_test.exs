@@ -65,4 +65,15 @@ defmodule Nixstasis.Reporting.TableFiltersTest do
                %{"column" => "status", "operator" => "doesn't contain", "value" => "or,ok"}
              ])
   end
+
+  test "reads existing atom keys without creating atoms for unknown keys" do
+    rows = [%{status: "ok"}]
+
+    assert rows == TableFilters.filter_rows(rows, [%{"column" => "status", "operator" => "is", "value" => "ok"}])
+
+    assert [] ==
+             TableFilters.filter_rows(rows, [
+               %{"column" => "this_atom_should_not_exist", "operator" => "is", "value" => "ok"}
+             ])
+  end
 end
