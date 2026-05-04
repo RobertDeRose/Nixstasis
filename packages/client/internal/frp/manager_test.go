@@ -34,7 +34,7 @@ func TestManager_Lifecycle(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
 
-	configPath := "/tmp/frpc.toml"
+	configPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
 	mgr := NewManager()
 
 	tests := []struct {
@@ -116,7 +116,8 @@ func TestManagerUsesBundledFRPCPath(t *testing.T) {
 	defer func() { execCommandContext = exec.CommandContext }()
 
 	mgr := NewManager()
-	if err := mgr.Start(context.Background(), "/tmp/frpc.toml"); err != nil {
+	configPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
+	if err := mgr.Start(context.Background(), configPath); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
@@ -135,7 +136,8 @@ func TestManagerPassesFRPAuthToken(t *testing.T) {
 	defer func() { execCommandContext = exec.CommandContext }()
 
 	mgr := NewManager()
-	if err := mgr.StartWithConfig(context.Background(), "/tmp/frpc.toml", config.FRPConfig{AuthToken: "secret-token"}); err != nil {
+	configPath := writeFRPConfig(t, "auth.token = \"{{ .Envs.FRPS_AUTH_TOKEN }}\"\n")
+	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{AuthToken: "secret-token"}); err != nil {
 		t.Fatalf("StartWithConfig() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
@@ -147,6 +149,45 @@ func TestManagerPassesFRPAuthToken(t *testing.T) {
 	if got := envValue(mgr.cmd.Env, "FRPS_AUTH_TOKEN"); got != "secret-token" {
 		t.Fatalf("FRPS_AUTH_TOKEN = %q", got)
 	}
+}
+
+func TestRenderConfigReplacesPackagedPlaceholders(t *testing.T) {
+	configPath := writeFRPConfig(t, strings.Join([]string{
+		`auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
+		`name = "{{ .Envs.NAME }}"`,
+		`subdomain = "{{ .Envs.NAME }}"`,
+	}, "\n"))
+
+	renderedPath, err := renderConfig(configPath, config.FRPConfig{AuthToken: "secret-token", Name: "atom-aabbcc"})
+	if err != nil {
+		t.Fatalf("renderConfig() error = %v", err)
+	}
+	defer func() { _ = os.Remove(renderedPath) }()
+
+	rendered, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("read rendered config: %v", err)
+	}
+
+	text := string(rendered)
+	if strings.Contains(text, "{{") {
+		t.Fatalf("rendered config still contains placeholders: %s", text)
+	}
+	if !strings.Contains(text, `auth.token = "secret-token"`) {
+		t.Fatalf("rendered config missing token: %s", text)
+	}
+	if !strings.Contains(text, `name = "atom-aabbcc"`) {
+		t.Fatalf("rendered config missing name: %s", text)
+	}
+}
+
+func writeFRPConfig(t *testing.T, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/frpc.toml"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write frpc config: %v", err)
+	}
+	return path
 }
 
 func envValue(env []string, key string) string {
