@@ -48,7 +48,7 @@ ENV MIX_ENV=prod \
 COPY --from=builder /app/_build/prod/rel/nixstasis ./
 COPY server/bin ./bin
 
-RUN chmod +x ./bin/migrate ./bin/server && chown -R app:app /app
+RUN chmod +x ./bin/migrate ./bin/server ./bin/wait-for-postgres && chown -R app:app /app
 
 USER app
 
