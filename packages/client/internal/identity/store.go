@@ -2,10 +2,14 @@ package identity
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 
 // Store handles persistence of the Device ID.
 type Store struct {
@@ -27,7 +31,14 @@ func (s *Store) LoadUUID() (string, error) {
 		}
 		return "", err
 	}
-	return strings.TrimSpace(string(data)), nil
+	uuid := strings.TrimSpace(string(data))
+	if uuid == "" {
+		return "", errors.New("identity file is empty")
+	}
+	if !uuidPattern.MatchString(uuid) {
+		return "", fmt.Errorf("identity file contains invalid UUID %q", uuid)
+	}
+	return strings.ToLower(uuid), nil
 }
 
 // SaveUUID writes the UUID to the storage file.
