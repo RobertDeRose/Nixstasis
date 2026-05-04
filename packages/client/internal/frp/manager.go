@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,7 +53,12 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 		return nil
 	}
 
-	slog.Info("Starting FRP tunnel", "config", configPath)
+	renderedConfigPath, err := renderConfig(configPath, frpConfig)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("Starting FRP tunnel", "config", renderedConfigPath)
 
 	// Create a context that we can cancel to kill the process
 	cmdCtx, cancel := context.WithCancel(context.Background())
@@ -59,7 +66,7 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 
 	// -c configPath is standard for frpc
 	//nolint:contextcheck // Intentional creation of new context for background process
-	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", configPath)
+	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", renderedConfigPath)
 	env := cmd.Env
 	if env == nil {
 		env = os.Environ()
@@ -69,16 +76,19 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 
 	if err := cmd.Start(); err != nil {
 		m.cancel()
+		_ = os.Remove(renderedConfigPath)
 		return fmt.Errorf("failed to start frpc: %w", err)
 	}
 
 	m.status.Active = true
 	m.status.PID = cmd.Process.Pid
 	m.status.StartTime = time.Now()
-	m.status.ConnectionString = configPath // Storing config path as proxy for connection string for now
+	m.status.ConnectionString = renderedConfigPath // Storing config path as proxy for connection string for now
 
 	// Wait for process in background to handle cleanup if it crashes
 	go func() {
+		defer func() { _ = os.Remove(renderedConfigPath) }()
+
 		err := cmd.Wait()
 		slog.Info("FRP process exited", "error", err)
 
@@ -97,6 +107,33 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	}()
 
 	return nil
+}
+
+func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error) {
+	template, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read frpc config: %w", err)
+	}
+
+	replacements := map[string]string{
+		"{{ .Envs.FRPS_AUTH_TOKEN }}": frpConfig.AuthToken,
+		"{{ .Envs.NAME }}":            frpConfig.Name,
+	}
+
+	rendered := string(template)
+	for placeholder, value := range replacements {
+		rendered = strings.ReplaceAll(rendered, placeholder, value)
+	}
+	if strings.Contains(rendered, "{{") {
+		return "", fmt.Errorf("frpc config contains unresolved template placeholders")
+	}
+
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("nixstasis-frpc-%d.toml", time.Now().UnixNano()))
+	if err := os.WriteFile(path, []byte(rendered), 0o600); err != nil {
+		return "", fmt.Errorf("failed to write rendered frpc config: %w", err)
+	}
+
+	return path, nil
 }
 
 // Stop terminates the frpc process.

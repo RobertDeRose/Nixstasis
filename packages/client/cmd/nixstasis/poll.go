@@ -136,11 +136,9 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 	if resp.RemoteAccessRequested {
 		if !frpStatus.Active {
 			slog.Info("Server requested remote access, starting FRP")
-			// Assuming default config location for now
-			configPath := config.FRPCConfigPath()
-			// Check if config exists, if not, maybe we can't start?
-			// Or we assume it's there.
-			if err := frpManager.StartWithConfig(ctx, configPath, cfg.FRP); err != nil {
+			frpConfig := cfg.FRP
+			frpConfig.Name = id.Name
+			if err := frpManager.StartWithConfig(ctx, config.FRPCConfigPath(), frpConfig); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
