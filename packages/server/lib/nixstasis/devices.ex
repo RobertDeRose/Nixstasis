@@ -9,6 +9,8 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
+  alias Nixstasis.Domain
+  alias Nixstasis.Repo
 
   @doc """
   Counts all devices.
@@ -271,28 +273,44 @@ defmodule Nixstasis.Devices do
   end
 
   def pop_pending_commands(%Device{} = device) do
-    Ash.transaction(PendingCommand, fn ->
-      query =
-        PendingCommand
-        |> Ash.Query.filter(device_id == ^device.id and status == :queued)
+    Repo.transaction(fn ->
+      ids = claim_pending_command_ids(device.id)
 
-      commands = Ash.read!(query, domain: Domain)
-
-      if commands != [] do
-        ids = Enum.map(commands, & &1.id)
-        now = DateTime.utc_now()
-
+      if ids == [] do
+        []
+      else
         PendingCommand
         |> Ash.Query.filter(id in ^ids)
-        |> Ash.bulk_update!(:update, %{status: :delivered, delivered_at: now}, domain: Domain)
+        |> Ash.read!(domain: Domain)
       end
-
-      commands
     end)
     |> case do
       {:ok, commands} -> commands
       _ -> []
     end
+  end
+
+  defp claim_pending_command_ids(device_id) do
+    now = DateTime.utc_now()
+
+    %{rows: rows} =
+      Repo.query!(
+        """
+        UPDATE pending_commands
+        SET status = 'delivered', delivered_at = $2, updated_at = $2
+        WHERE id IN (
+          SELECT id
+          FROM pending_commands
+          WHERE device_id = $1::uuid AND status = 'queued'
+          ORDER BY queued_at ASC, id ASC
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING id
+        """,
+        [Ecto.UUID.dump!(device_id), now]
+      )
+
+    Enum.map(rows, fn [id] -> id end)
   end
 
   def acknowledge_command_results(%Device{} = device, results) when is_list(results) do
