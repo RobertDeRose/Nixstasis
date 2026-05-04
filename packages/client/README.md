@@ -99,6 +99,10 @@ The runtime suite generates and executes 10+ Linux-oriented Starlark scripts (re
 - telemetry persistence and report queryability
 - alert triggering from script data
 
+Production `exec_cmd` usage is deny-by-default. Operators must explicitly
+allowlist commands in the client runtime configuration before scripts can run
+host commands.
+
 Runtime suite journeys:
 
 - `runtime_linux_telemetry` (full telemetry/report/alert flow)
