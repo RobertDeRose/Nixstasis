@@ -68,13 +68,15 @@ response = pub_and_get("sensors/request", "{\"type\": \"get\"}")
 
 ## Executing OS Commands
 
-Use the built-in `exec_cmd` to run allowed commands:
+Use the built-in `exec_cmd` to run commands that the operator has explicitly
+allowlisted in the client runtime configuration:
 
 ```text
 hostname = exec_cmd("hostname")
 ```
 
-Blocked commands (e.g., `rm`, `mkfs`) return an error.
+Commands are denied by default. Any command not present in the configured
+allowlist returns an error.
 
 ## Execution Behavior
 

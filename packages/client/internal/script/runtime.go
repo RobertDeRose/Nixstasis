@@ -36,10 +36,6 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 	if config.MQTTBroker == "" {
 		config.MQTTBroker = "tcp://localhost:1883"
 	}
-	if len(config.ExecBlacklist) == 0 {
-		config.ExecBlacklist = []string{"rm", "mkfs", "mkfs."}
-	}
-
 	r := &Runtime{config: config}
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),

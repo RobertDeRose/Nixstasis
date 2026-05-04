@@ -782,8 +782,9 @@ func executeScriptsForRuntime(
 	scripts []script.ScriptInfo,
 ) (reports map[string]telemetry.Report, scriptErrors []string, err error) {
 	executor := script.NewExecutor(script.RuntimeConfig{
-		Timeout:   5 * time.Second,
-		WarnAfter: 3 * time.Second,
+		Timeout:       5 * time.Second,
+		WarnAfter:     3 * time.Second,
+		ExecAllowlist: []string{"cat", "df", "nproc", "stat", "uname"},
 	})
 
 	scriptResults, err := executor.ExecuteScripts(ctx, scripts)
