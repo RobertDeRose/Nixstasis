@@ -61,7 +61,7 @@ As a client user, I want to test a `stary` script from the CLI and start a Starl
 **Acceptance Scenarios**:
 
 1. **Given** a valid `stary` file path, **When** the user runs `nixstasis script test <path>`, **Then** the client executes the script and prints its output in a pretty-printed format.
-2. **Given** the user runs `nixstasis script repl`, **When** the REPL starts, **Then** Starlark builtins (including `pub_and_get` and `exec_cmd`) are available for interactive use.
+2. **Given** the user runs `nixstasis script repl`, **When** the REPL starts, **Then** Starlark builtins (including `pub_and_get` and deny-by-default `exec_cmd`) are available for interactive use.
 
 ---
 

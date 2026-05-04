@@ -2,15 +2,21 @@ package script
 
 import "testing"
 
-func TestBlockedCommand(t *testing.T) {
-	blacklist := []string{"rm", "mkfs", "mkfs."}
-	if !blockedCommand("rm", blacklist) {
-		t.Fatalf("expected rm to be blocked")
+func TestAllowedCommand(t *testing.T) {
+	allowlist := []string{"echo", "smartctl", "nixstasis."}
+	if !allowedCommand("echo", allowlist) {
+		t.Fatalf("expected echo to be allowed")
 	}
-	if !blockedCommand("mkfs.ext4", blacklist) {
-		t.Fatalf("expected mkfs.ext4 to be blocked")
+	if !allowedCommand("/usr/bin/smartctl", allowlist) {
+		t.Fatalf("expected smartctl path to be allowed")
 	}
-	if blockedCommand("echo", blacklist) {
-		t.Fatalf("did not expect echo to be blocked")
+	if !allowedCommand("nixstasis.helper", allowlist) {
+		t.Fatalf("expected prefix match to be allowed")
+	}
+	if allowedCommand("rm", allowlist) {
+		t.Fatalf("did not expect rm to be allowed")
+	}
+	if allowedCommand("echo", nil) {
+		t.Fatalf("did not expect commands to be allowed by default")
 	}
 }

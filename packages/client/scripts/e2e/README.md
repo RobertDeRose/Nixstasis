@@ -28,7 +28,8 @@ The `runtime` suite validates runtime client APIs and Linux-oriented Starlark te
 - JSON:API resources used by runtime reporting/alerts (`devices`, `pending_commands`, `alert_rules`, `alerts`,
   `custom_reports`, `telemetry_events`)
 
-The runtime journey generates and executes 10+ `.stary` scripts using `exec_cmd` and validates:
+The runtime journey generates and executes 10+ `.stary` scripts using `exec_cmd`
+with a narrow test-only command allowlist and validates:
 
 - telemetry persistence to `telemetry_events`
 - report rendering from stored script payloads

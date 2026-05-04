@@ -108,7 +108,7 @@ type RuntimeConfig struct {
 	Timeout       time.Duration
 	WarnAfter     time.Duration
 	MQTTBroker    string
-	ExecBlacklist []string
+	ExecAllowlist []string
 	ExecUser      *ExecUser
 }
 
