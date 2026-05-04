@@ -35,8 +35,18 @@ defmodule NixstasisWeb.UserSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   @impl true
-  def connect(_params, socket, _connect_info) do
-    {:ok, socket}
+  def connect(%{"token" => token}, socket, _connect_info) do
+    case Phoenix.Token.verify(socket, "terminal_socket", token, max_age: 3600) do
+      {:ok, %{"device_id" => device_id}} ->
+        {:ok, assign(socket, :terminal_device_id, device_id)}
+
+      {:error, _reason} ->
+        :error
+    end
+  end
+
+  def connect(_params, _socket, _connect_info) do
+    :error
   end
 
   # Socket IDs are topics that allow you to identify all sockets for a given user:
@@ -50,5 +60,5 @@ defmodule NixstasisWeb.UserSocket do
   #
   # Returning `nil` makes this socket anonymous.
   @impl true
-  def id(_socket), do: nil
+  def id(socket), do: "terminal_socket:#{socket.assigns.terminal_device_id}"
 end

@@ -63,13 +63,21 @@ defmodule NixstasisWeb.DeviceLive.Show do
         {:ok, _} =
           Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => public_key})
 
-        # Generate a token with the private key for the terminal channel
-        token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "ssh_private_key", private_key)
+        token_payload = %{
+          "device_id" => device.id,
+          "device_mac" => device.mac_address,
+          "private_key" => private_key
+        }
+
+        socket_token_payload = %{"device_id" => device.id}
+        token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_session", token_payload)
+        socket_token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", socket_token_payload)
 
         {:noreply,
          socket
          |> assign(:ssh_session_started, true)
-         |> assign(:ssh_token, token)}
+         |> assign(:ssh_token, token)
+         |> assign(:terminal_socket_token, socket_token)}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to generate SSH keys: #{reason}")}
@@ -96,6 +104,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:active_tab, "overview")
     |> assign(:ssh_session_started, false)
     |> assign(:ssh_token, nil)
+    |> assign(:terminal_socket_token, nil)
     |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
     |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
     |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
