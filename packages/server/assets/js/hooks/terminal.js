@@ -56,8 +56,10 @@ export default {
     // For this hook, let's assume `window.userSocket` is available or we import it.
     // Since imports are static, I'll rely on `window.userSocket` which I will set up in app.js.
 
-    if (window.userSocket) {
-        this.joinChannel(window.userSocket)
+    const socketToken = this.el.dataset.socketToken
+
+    if (window.connectTerminalSocket && socketToken) {
+        this.joinChannel(window.connectTerminalSocket(socketToken))
     } else {
         console.error("UserSocket not available for Terminal")
         this.term.write("Error: Connection unavailable.\r\n")
