@@ -7,7 +7,7 @@
 ### Session 2026-02-04
 - Q: Do the IPv4 and Account Number fields already exist or need creation? → A: New fields & Migration - The fields do not exist; create a migration to add and index them.
 - Q: How should table sorting and filtering be implemented? → A: LiveView Streams - Use Phoenix LiveView streams for efficient list management and real-time updates.
-- Q: How should the PCP data be visualized in the Detail Modal? → A: Basic Time-Series Charts - Use line/area charts to show historical trends for key metrics (CPU/Mem/Disk/Net) instead of just tables.
+- Q: How should the PCP data be visualized in the device detail view? → A: Basic Time-Series Charts - Use line/area charts to show historical trends for key metrics (CPU/Mem/Disk/Net) instead of just tables.
 - Q: How should the "In-browser Terminal" be implemented? → A: Phoenix Channels + SSH Client - Backend uses Elixir SSH client to connect (via frps) and streams to xterm.js via Channels.
 - Q: Where should the new device logic reside in the codebase? → A: Dedicated Device Context - Create `Nixstasis.Devices` context for all device logic.
 
@@ -19,12 +19,12 @@ The administrator needs a clear, sortable, and filterable view of all devices to
 
 **Why this priority**: This is the core interface for the user. Without a usable list, management is impossible.
 
-**Independent Test**: Can be tested by navigating to the device list, adding a device, and verifying the table structure, sorting, filtering, and status indicators without interacting with the detail modal.
+**Independent Test**: Can be tested by navigating to the device list, adding a device, and verifying the table structure, sorting, filtering, and status indicators without interacting with the detail page.
 
 **Acceptance Scenarios**:
 
-1. **Given** a new device is added manually, **When** the confirmation toast appears, **Then** it should automatically disappear after 30 seconds if not dismissed.
-2. **Given** a device is added or pending, **When** viewing the "Status" or "Type" column, **Then** it should display "pending..." or be empty instead of "manual-entry".
+1. **Given** a new device is added manually, **When** the save succeeds, **Then** a confirmation flash is shown and the device appears in the list with approved status.
+2. **Given** a device is added manually, **When** viewing the Product and Status columns, **Then** the Product column shows `manual-entry` and the Status column shows the device approval status.
 3. **Given** a list of devices, **When** the user clicks column headers, **Then** the list should sort by that column (e.g., Device Name, Account Number).
 4. **Given** a large list of devices, **When** the user applies a filter, **Then** only matching devices should be shown.
 5. **Given** a device that hasn't polled in 6 minutes, **When** viewing the list, **Then** the status icon should indicate "Offline".
@@ -54,15 +54,15 @@ The administrator needs to see detailed performance metrics and connect to the d
 
 **Why this priority**: Provides the necessary depth for investigating issues identified in the main list.
 
-**Independent Test**: Can be tested by clicking a specific device and verifying the modal contents and triggering mechanisms.
+**Independent Test**: Can be tested by clicking a specific device and verifying the detail page contents and triggering mechanisms.
 
 **Acceptance Scenarios**:
 
-1. **Given** the device list, **When** a user clicks on a device row, **Then** a detail Modal should open.
-2. **Given** the detail modal is open, **When** it loads, **Then** `remote_access_requested` should be set to true for that device (triggering `frpc`).
-3. **Given** the detail modal is open, **When** data is received, **Then** Gauges for CPU, Memory, and Disk usage should display current values.
-4. **Given** the detail modal, **When** viewing the tabs, **Then** a "PCP Data" tab should be available showing metrics from the exposed API.
-5. **Given** the detail modal is closed, **When** the action completes, **Then** `remote_access_requested` should be set to false.
+1. **Given** the device list, **When** a user activates a device link, **Then** they navigate to `/devices/:id`.
+2. **Given** the detail page loads, **When** the device has not requested remote access, **Then** `remote_access_requested` is set to true for that device to trigger `frpc`.
+3. **Given** the detail page is open, **When** data is received, **Then** Gauges for CPU, Memory, and Disk usage should display current values.
+4. **Given** the detail page, **When** viewing the tabs, **Then** a "PCP Data" tab should be available showing metrics from the exposed API.
+5. **Given** the detail page process terminates, **When** cleanup completes, **Then** `remote_access_requested` should be set to false.
 
 ---
 
@@ -72,19 +72,19 @@ The administrator needs direct access to the device via Cockpit or Terminal for 
 
 **Why this priority**: Critical for deep-dive maintenance but relies on the monitoring connection being established (P2).
 
-**Independent Test**: Can be tested by clicking the specific action buttons in the detail modal.
+**Independent Test**: Can be tested by clicking the specific action buttons in the detail page.
 
 **Acceptance Scenarios**:
 
-1. **Given** the detail modal is open, **When** the user clicks the "Open Cockpit" button (airplane icon), **Then** a new browser tab should open to `https://{atom-device-name}.<base-domain>`.
-2. **Given** the detail modal is open, **When** the user selects the "Terminal" tab, **Then** an in-browser terminal (e.g., xterm.js) should initialize.
+1. **Given** the detail page is open, **When** the user clicks the "Open Cockpit" button (airplane icon), **Then** a new browser tab should open to `https://{atom-device-name}.<base-domain>`.
+2. **Given** the detail page is open, **When** the user selects the "Terminal" tab, **Then** an in-browser terminal (e.g., xterm.js) should initialize.
 3. **Given** the terminal tab is active, **When** the user types, **Then** the input should be sent to the device via SSH over the `frps` proxy.
 
 ---
 
 ### Edge Cases
 
-- **frpc Start Failure**: If the device fails to start the proxy, the Modal should display a timeout error toast ("Unable to establish connection") after 15 seconds.
+- **frpc Start Failure**: If the device fails to start the proxy, the detail page should display a timeout error toast ("Unable to establish connection") after 15 seconds.
 - **Missing Data**: Devices with missing `ipv4_address` or `account_number` must display "N/A" in the table cells; sorting should place these at the end.
 - **Cockpit Popup Blocked**: The "Open Cockpit" button should trigger a standard window open event; if blocked, the browser's native UI will handle the notification.
 - **SSH Connection Drop**: If the SSH socket disconnects, the terminal view should freeze and display a "Connection Lost - Refresh to retry" overlay.
@@ -97,15 +97,15 @@ The administrator needs direct access to the device via Cockpit or Terminal for 
 - **FR-002**: Device table MUST include columns for IPv4 Address and Account Number (stored as indexable fields).
 - **FR-003**: System MUST display an Online/Offline status icon based on polling activity (Offline = > 5 minutes since last poll).
 - **FR-004**: System MUST allow filtering for devices "awaiting approval" and support bulk Approve/Reject actions.
-- **FR-005**: When adding a manual device, the status text MUST be empty or "pending..." (replacing "manual-entry").
+- **FR-005**: When adding a manual device, the Product column shows `manual-entry` and the Status column shows the approval status.
 - **FR-006**: Success toasts for device addition MUST auto-dismiss after 30 seconds.
-- **FR-007**: Clicking a device MUST open a detail Modal.
-- **FR-008**: Opening the detail Modal MUST set the device's `remote_access_requested` flag to `true`.
-- **FR-009**: Closing the detail Modal MUST set the device's `remote_access_requested` flag to `false`.
-- **FR-010**: Detail Modal MUST display Gauge visualizations for CPU, Memory, and Disk usage.
-- **FR-011**: Detail Modal MUST provide a tabbed interface including a view for Performance Co-Pilot (PCP) data, visualized using **Time-Series Charts** (e.g., Line/Area) for historical trends.
-- **FR-012**: Detail Modal MUST include an "Open Cockpit" button that opens `https://{device_name}.<base-domain>` in a new tab.
-- **FR-013**: Detail Modal MUST include a "Terminal" tab that establishes an SSH session via `frps` proxy using a web-based terminal emulator (**xterm.js**) powered by **Phoenix Channels** and a backend Elixir SSH client.
+- **FR-007**: Clicking a device MUST navigate to `/devices/:id`.
+- **FR-008**: Opening the detail page MUST set the device's `remote_access_requested` flag to `true`.
+- **FR-009**: Terminating the detail page process MUST set the device's `remote_access_requested` flag to `false`.
+- **FR-010**: Detail page MUST display Gauge visualizations for CPU, Memory, and Disk usage.
+- **FR-011**: Detail page MUST provide a tabbed interface including a view for Performance Co-Pilot (PCP) data, visualized using **Time-Series Charts** (e.g., Line/Area) for historical trends.
+- **FR-012**: Detail page MUST include an "Open Cockpit" button that opens `https://{device_name}.<base-domain>` in a new tab.
+- **FR-013**: Detail page MUST include a "Terminal" tab that establishes an SSH session via `frps` proxy using a web-based terminal emulator (**xterm.js**) powered by **Phoenix Channels** and a backend Elixir SSH client.
 
 ### Assumptions
 
@@ -126,5 +126,5 @@ The administrator needs direct access to the device via Cockpit or Terminal for 
 
 - **SC-001**: Admin can filter the device list to show only "Offline" devices in under 5 seconds.
 - **SC-002**: Admin can approve 50+ pending devices in a single bulk action.
-- **SC-003**: Opening a device detail modal establishes a visible metric stream (CPU/Mem) within reasonable network latency (e.g., < 10s).
+- **SC-003**: Opening a device detail page establishes a visible metric stream (CPU/Mem) within reasonable network latency (e.g., < 10s).
 - **SC-004**: SSH terminal session connects and accepts input.
