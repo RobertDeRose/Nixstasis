@@ -57,8 +57,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.handleRoot)
-	mux.HandleFunc("/device/register", srv.handleRegister)
-	mux.HandleFunc("/device/", srv.handleDeviceRoutes)
+	mux.HandleFunc("/api/v1/devices/register", srv.handleRegister)
+	mux.HandleFunc("/api/v1/devices/", srv.handleDeviceRoutes)
 
 	server := &http.Server{
 		Addr:              *addr,
@@ -120,15 +120,15 @@ func (s *server) handleRoot(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"endpoints": []string{
-			"POST /device/register",
-			"POST /device/{id}/poll",
-			"POST /device/{id}/command_results",
-			"POST /device/{id}/commands",
-			"POST /device/{id}/command_payloads",
-			"POST /device/{id}/command_payloads/{ref}",
-			"GET  /device/{id}/command_payloads/{ref}",
-			"GET  /device/{id}/telemetry",
-			"GET  /device/{id}/command_results",
+			"POST /api/v1/devices/register",
+			"POST /api/v1/devices/{id}/heartbeat",
+			"POST /api/v1/devices/{id}/command_results",
+			"POST /api/v1/devices/{id}/commands",
+			"POST /api/v1/devices/{id}/command_payloads",
+			"POST /api/v1/devices/{id}/command_payloads/{ref}",
+			"GET  /api/v1/devices/{id}/command_payloads/{ref}",
+			"GET  /api/v1/devices/{id}/telemetry",
+			"GET  /api/v1/devices/{id}/command_results",
 		},
 	})
 }
@@ -144,11 +144,11 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	s.devices[id] = &deviceState{}
 	s.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, map[string]string{"uuid": id})
+	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]string{"id": id}})
 }
 
 func (s *server) handleDeviceRoutes(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/device/")
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/devices/")
 	if path == "" || path == r.URL.Path {
 		http.NotFound(w, r)
 		return
@@ -162,7 +162,7 @@ func (s *server) handleDeviceRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
-	case rest == "poll":
+	case rest == "heartbeat":
 		s.handlePoll(w, r, id)
 	case rest == "command_results":
 		s.handleCommandResults(w, r, id)
@@ -213,8 +213,10 @@ func (s *server) handlePoll(w http.ResponseWriter, r *http.Request, id string) {
 	log.Printf("poll: device=%s commands=%d", id, len(commands))
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"remote_access_requested": s.remoteAccessOn,
-		"commands":                commands,
+		"data": map[string]any{
+			"remote_access_requested": s.remoteAccessOn,
+			"commands":                commands,
+		},
 	})
 }
 
