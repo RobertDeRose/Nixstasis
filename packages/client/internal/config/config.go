@@ -46,6 +46,7 @@ type ScriptsConfig struct {
 // FRPConfig holds configuration for FRP tunnel connectivity.
 type FRPConfig struct {
 	AuthToken string `mapstructure:"auth_token"`
+	Name      string `mapstructure:"name"`
 }
 
 // LogConfig holds configuration for logging.
