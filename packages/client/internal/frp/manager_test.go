@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
@@ -127,4 +128,33 @@ func TestManagerUsesBundledFRPCPath(t *testing.T) {
 	if got := mgr.cmd.Args[3]; got != config.FRPCBinaryPath() {
 		t.Fatalf("frpc binary = %q", got)
 	}
+}
+
+func TestManagerPassesFRPAuthToken(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+
+	mgr := NewManager()
+	if err := mgr.StartWithConfig(context.Background(), "/tmp/frpc.toml", config.FRPConfig{AuthToken: "secret-token"}); err != nil {
+		t.Fatalf("StartWithConfig() error = %v", err)
+	}
+	defer func() { _ = mgr.Stop() }()
+
+	if mgr.cmd == nil {
+		t.Fatal("expected command to be initialized")
+	}
+
+	if got := envValue(mgr.cmd.Env, "FRPS_AUTH_TOKEN"); got != "secret-token" {
+		t.Fatalf("FRPS_AUTH_TOKEN = %q", got)
+	}
+}
+
+func envValue(env []string, key string) string {
+	for _, entry := range env {
+		if before, after, ok := strings.Cut(entry, "="); ok && before == key {
+			return after
+		}
+	}
+
+	return ""
 }

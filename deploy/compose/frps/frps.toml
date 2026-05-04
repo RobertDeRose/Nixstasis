@@ -1,5 +1,8 @@
 bindPort = "__FRPS_BIND_PORT__"
 
+auth.method = "token"
+auth.token = "__FRPS_AUTH_TOKEN__"
+
 webServer.port = "__FRPS_DASHBOARD_PORT__"
 
 log.to = "console"

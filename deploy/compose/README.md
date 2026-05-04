@@ -13,8 +13,8 @@ This directory is the supported server deployment path for this feature.
 - All external runtime artifacts must be pinned immutably.
 - Required operator inputs are `DATABASE_URL`, `SECRET_KEY_BASE`,
   `PHX_HOST`, `PORT`, `BASE_DOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`,
-  `TENANT_ID`, `JWT_KEY`, `FRPS_BIND_PORT`, `FRPS_HTTP_PORT`,
-  `FRPS_DASHBOARD_PORT`, and `FRPS_TCPMUX_PORT`.
+  `TENANT_ID`, `JWT_KEY`, `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`,
+  `FRPS_HTTP_PORT`, `FRPS_DASHBOARD_PORT`, and `FRPS_TCPMUX_PORT`.
 
 ## Supported operation
 
