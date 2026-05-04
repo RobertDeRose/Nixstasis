@@ -11,7 +11,7 @@
 
 - Q: Must the supported deployment include a required public ingress/authentication layer as part of the standard stack? → A: Yes, the supported deployment must include a required public ingress/authentication layer as part of the standard stack.
 - Q: Should this feature support both the bundled default database and an externally managed database? → A: Yes, this feature must support both the bundled default database and an externally managed database.
-- Q: May legacy Nixstasis naming remain anywhere in scope for this feature? → A: No, legacy Nixstasis naming may not remain anywhere in scope for this feature.
+- Q: May legacy or prototype product naming remain anywhere in scope for this feature? → A: No, legacy/prototype naming may not remain in packaging and deployment assets touched by this feature.
 - Q: Must all externally sourced runtime artifacts in scope be pinned and reproducible? → A: Yes, all externally sourced runtime artifacts in scope must be pinned and reproducible.
 - Q: Must the runtime contract fully define all operator-supplied settings needed for a supported deployment? → A: Yes, the runtime contract must fully define all operator-supplied settings needed for a supported deployment.
 
