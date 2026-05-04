@@ -55,6 +55,8 @@ config :nixstasis,
   ash_domains: [Nixstasis.Domain],
   generators: [timestamp_type: :utc_datetime]
 
+config :nixstasis, :session_options, []
+
 # Configures the endpoint
 config :nixstasis, NixstasisWeb.Endpoint,
   url: [host: "localhost"],
