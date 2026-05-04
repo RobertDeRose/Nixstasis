@@ -4,6 +4,18 @@ defmodule NixstasisWeb.DeviceLive.Index do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
 
+  @sort_fields %{
+    "account_number" => :account_number,
+    "approval_status" => :approval_status,
+    "inserted_at" => :inserted_at,
+    "last_seen_at" => :last_seen_at,
+    "mac_address" => :mac_address,
+    "product_name" => :product_name,
+    "remote_access_requested" => :remote_access_requested
+  }
+
+  @sort_orders %{"asc" => :asc, "desc" => :desc}
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -17,8 +29,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   @impl true
   def handle_params(params, _url, socket) do
-    sort_by = safe_to_existing_atom(params["sort_by"] || "inserted_at", :inserted_at)
-    sort_order = safe_to_existing_atom(params["sort_order"] || "desc", :desc)
+    sort_by = Map.get(@sort_fields, params["sort_by"] || "inserted_at", :inserted_at)
+    sort_order = Map.get(@sort_orders, params["sort_order"] || "desc", :desc)
     filter_status = normalize_blank(params["status"])
     filter_product = normalize_blank(params["product"])
     filter_account_number = normalize_blank(params["account_number"])
@@ -74,14 +86,6 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:device, nil)
   end
 
-  defp safe_to_existing_atom(value, default) do
-    try do
-      String.to_existing_atom(value)
-    rescue
-      ArgumentError -> default
-    end
-  end
-
   @impl true
   def handle_event("search", %{"search" => search}, socket) do
     params =
@@ -135,8 +139,10 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("sort", %{"sort_by" => sort_by}, socket) do
+    sort_by_atom = Map.get(@sort_fields, sort_by, :inserted_at)
+
     order =
-      if socket.assigns.sort_by == String.to_atom(sort_by) and socket.assigns.sort_order == :asc,
+      if socket.assigns.sort_by == sort_by_atom and socket.assigns.sort_order == :asc,
         do: :desc,
         else: :asc
 
