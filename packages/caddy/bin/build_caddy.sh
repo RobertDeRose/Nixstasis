@@ -13,7 +13,8 @@ if [ -f "$PROD_ENV_FILE" ]; then
 fi
 
 CADDY_VERSION="${CADDY_VERSION:-2.11.2}"
+CADDY_SECURITY_VERSION="${CADDY_SECURITY_VERSION:-v1.1.62}"
 
 mkdir -p "$OUTPUT_DIR"
 
-xcaddy build "v$CADDY_VERSION" --with github.com/greenpau/caddy-security --output "$OUTPUT_DIR/caddy"
+xcaddy build "v$CADDY_VERSION" --with "github.com/greenpau/caddy-security@$CADDY_SECURITY_VERSION" --output "$OUTPUT_DIR/caddy"
