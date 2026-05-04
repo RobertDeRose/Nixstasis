@@ -23,7 +23,7 @@ This directory is the supported server deployment path for this feature.
 
 - The supported server deployment flow is `deploy/compose` only.
 - `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` must be set in
-  `.env` before Compose commands are run.
+  `.env` as immutable digest references before Compose commands are run.
 - Bring up the default bundled PostgreSQL stack with:
   `docker compose --profile bundled-db up -d --build`
 - Apple Container equivalent:
@@ -41,6 +41,10 @@ This directory is the supported server deployment path for this feature.
 
 - `frps` is built from this repo and must use the tracked `FRP_VERSION` from `prod.env`.
 - `postgres` must use an image digest via `POSTGRES_IMAGE_DIGEST`.
+- Server, Caddy, and FRPS image refs must use digest form, such as
+  `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.
+- Server and Caddy Dockerfile base images are pinned by the digest values in
+  `prod.env`; update the matching version and digest together.
 - Server and Caddy images should be published as `nixstasis`-named OCI images.
 - Override `NIXSTASIS_SERVER_IMAGE_REF`, `NIXSTASIS_CADDY_IMAGE_REF`, and `NIXSTASIS_FRPS_IMAGE_REF` if operators need
   to consume a different GHCR namespace than the default deployment examples.
