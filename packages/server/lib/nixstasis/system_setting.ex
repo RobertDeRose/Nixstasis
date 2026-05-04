@@ -34,10 +34,12 @@ defmodule Nixstasis.SystemSetting do
 
     attribute :key, :string do
       allow_nil? false
+      public? true
     end
 
     attribute :value, :map do
       allow_nil? false
+      public? true
       default %{}
     end
 

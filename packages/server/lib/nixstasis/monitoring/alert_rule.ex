@@ -38,18 +38,22 @@ defmodule Nixstasis.Monitoring.AlertRule do
 
     attribute :product_name, :string do
       allow_nil? false
+      public? true
     end
 
     attribute :condition_field, :string do
       allow_nil? false
+      public? true
     end
 
     attribute :operator, Nixstasis.Types.RuleOperator do
       allow_nil? false
+      public? true
     end
 
     attribute :threshold_value, :string do
       allow_nil? false
+      public? true
     end
 
     timestamps()

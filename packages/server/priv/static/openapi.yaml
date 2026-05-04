@@ -8,14 +8,35 @@ components:
             $ref: '#/components/schemas/errors'
       description: General Error
   schemas:
-    alert:
+    telemetry_event:
       additionalProperties: false
-      description: A "Resource object" representing a alert
+      description: A "Resource object" representing a telemetry_event
       properties:
         attributes:
           additionalProperties: false
-          description: An attributes object for a alert
-          properties: {}
+          description: An attributes object for a telemetry_event
+          properties:
+            device_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            payload:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            timestamp:
+              description: Field included by default.
+              format: date-time
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - timestamp
+            - payload
+            - device_id
           type: object
           x-struct:
           x-validate:
@@ -23,8 +44,36 @@ components:
           type: string
         relationships:
           additionalProperties: false
-          description: A relationships object for a alert
-          properties: {}
+          description: A relationships object for a telemetry_event
+          properties:
+            device:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for device
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
           type: object
           x-struct:
           x-validate:
@@ -38,89 +87,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    alert-filter:
-      additionalProperties: false
-      description: Filters the query to results matching the given filter object
-      example: ''
-      properties:
-        and:
-          items:
-            $ref: '#/components/schemas/alert-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-        id:
-          $ref: '#/components/schemas/alert-filter-id'
-        not:
-          $ref: '#/components/schemas/alert-filter'
-        or:
-          items:
-            $ref: '#/components/schemas/alert-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-      type: deepObject
-      x-struct:
-      x-validate:
-    alert-filter-id:
-      additionalProperties: false
-      properties:
-        eq:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            format: uuid
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
     alert_rule:
       additionalProperties: false
       description: A "Resource object" representing a alert_rule
@@ -128,7 +94,43 @@ components:
         attributes:
           additionalProperties: false
           description: An attributes object for a alert_rule
-          properties: {}
+          properties:
+            condition_field:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            operator:
+              description: Field included by default.
+              enum:
+                - '>'
+                - <
+                - =
+                - '!='
+                - '>='
+                - <=
+                - contains
+                - doesn't contain
+                - is
+                - is not
+              type: string
+              x-struct:
+              x-validate:
+            product_name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            threshold_value:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - product_name
+            - condition_field
+            - operator
+            - threshold_value
           type: object
           x-struct:
           x-validate:
@@ -151,50 +153,24 @@ components:
       type: object
       x-struct:
       x-validate:
-    alert_rule-filter:
-      additionalProperties: false
-      description: Filters the query to results matching the given filter object
-      example: ''
-      properties:
-        and:
-          items:
-            $ref: '#/components/schemas/alert_rule-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-        id:
-          $ref: '#/components/schemas/alert_rule-filter-id'
-        not:
-          $ref: '#/components/schemas/alert_rule-filter'
-        or:
-          items:
-            $ref: '#/components/schemas/alert_rule-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-      type: deepObject
-      x-struct:
-      x-validate:
-    alert_rule-filter-id:
+    device-filter-metadata:
       additionalProperties: false
       properties:
         eq:
-          type: integer
+          type: object
           x-struct:
           x-validate:
         greater_than:
-          type: integer
+          type: object
           x-struct:
           x-validate:
         greater_than_or_equal:
-          type: integer
+          type: object
           x-struct:
           x-validate:
         in:
           items:
-            type: integer
+            type: object
             x-struct:
             x-validate:
           type: array
@@ -213,15 +189,15 @@ components:
           x-struct:
           x-validate:
         less_than:
-          type: integer
+          type: object
           x-struct:
           x-validate:
         less_than_or_equal:
-          type: integer
+          type: object
           x-struct:
           x-validate:
         not_eq:
-          type: integer
+          type: object
           x-struct:
           x-validate:
       type: object
@@ -234,7 +210,20 @@ components:
         attributes:
           additionalProperties: false
           description: An attributes object for a custom_report
-          properties: {}
+          properties:
+            config:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - name
+            - config
           type: object
           x-struct:
           x-validate:
@@ -257,117 +246,15 @@ components:
       type: object
       x-struct:
       x-validate:
-    custom_report-filter:
-      additionalProperties: false
-      description: Filters the query to results matching the given filter object
-      example: ''
-      properties:
-        and:
-          items:
-            $ref: '#/components/schemas/custom_report-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-        id:
-          $ref: '#/components/schemas/custom_report-filter-id'
-        not:
-          $ref: '#/components/schemas/custom_report-filter'
-        or:
-          items:
-            $ref: '#/components/schemas/custom_report-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-      type: deepObject
-      x-struct:
-      x-validate:
-    custom_report-filter-id:
-      additionalProperties: false
-      properties:
-        eq:
-          type: integer
-          x-struct:
-          x-validate:
-        greater_than:
-          type: integer
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: integer
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: integer
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: integer
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: integer
-          x-struct:
-          x-validate:
-        not_eq:
-          type: integer
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    device:
-      additionalProperties: false
-      description: A "Resource object" representing a device
-      properties:
-        attributes:
-          additionalProperties: false
-          description: An attributes object for a device
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        id:
-          type: string
-        relationships:
-          additionalProperties: false
-          description: A relationships object for a device
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        type:
-          type: string
-          x-struct:
-          x-validate:
-      required:
-        - type
-        - id
-      type: object
-      x-struct:
-      x-validate:
     device-filter:
       additionalProperties: false
       description: Filters the query to results matching the given filter object
       example: ''
       properties:
+        account_number:
+          $ref: '#/components/schemas/device-filter-account_number'
+        alerts:
+          $ref: '#/components/schemas/alert-filter'
         and:
           items:
             $ref: '#/components/schemas/device-filter'
@@ -375,8 +262,16 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
+        approval_status:
+          $ref: '#/components/schemas/device-filter-approval_status'
         id:
           $ref: '#/components/schemas/device-filter-id'
+        last_seen_at:
+          $ref: '#/components/schemas/device-filter-last_seen_at'
+        mac_address:
+          $ref: '#/components/schemas/device-filter-mac_address'
+        metadata:
+          $ref: '#/components/schemas/device-filter-metadata'
         not:
           $ref: '#/components/schemas/device-filter'
         or:
@@ -386,160 +281,17 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
+        pending_commands:
+          $ref: '#/components/schemas/pending_command-filter'
+        product_name:
+          $ref: '#/components/schemas/device-filter-product_name'
+        remote_access_requested:
+          $ref: '#/components/schemas/device-filter-remote_access_requested'
+        schema:
+          $ref: '#/components/schemas/device-filter-schema'
+        telemetry_events:
+          $ref: '#/components/schemas/telemetry_event-filter'
       type: deepObject
-      x-struct:
-      x-validate:
-    device-filter-id:
-      additionalProperties: false
-      properties:
-        eq:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            format: uuid
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          format: uuid
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    error:
-      additionalProperties: false
-      properties:
-        code:
-          description: An application-specific error code, expressed as a string value.
-          type: string
-          x-struct:
-          x-validate:
-        detail:
-          description: A human-readable explanation specific to this occurrence of the problem.
-          type: string
-          x-struct:
-          x-validate:
-        id:
-          description: A unique identifier for this particular occurrence of the problem.
-          type: string
-          x-struct:
-          x-validate:
-        links:
-          $ref: '#/components/schemas/links'
-        source:
-          properties:
-            parameter:
-              description: A string indicating which query parameter caused the error.
-              type: string
-              x-struct:
-              x-validate:
-            pointer:
-              description: A JSON Pointer [RFC6901] to the associated entity in the request document [e.g. "/data" for a primary data object, or "/data/attributes/title" for a specific attribute].
-              type: string
-              x-struct:
-              x-validate:
-          type: object
-          x-struct:
-          x-validate:
-        status:
-          description: The HTTP status code applicable to this problem, expressed as a string value.
-          type: string
-          x-struct:
-          x-validate:
-        title:
-          description: A short, human-readable summary of the problem. It SHOULD NOT change from occurrence to occurrence of the problem, except for purposes of localization.
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    errors:
-      items:
-        $ref: '#/components/schemas/error'
-      type: array
-      uniqueItems: true
-      x-struct:
-      x-validate:
-    link:
-      description: "A link MUST be represented as either: a string containing the link's URL or a link object."
-      type: string
-      x-struct:
-      x-validate:
-    links:
-      additionalProperties:
-        $ref: '#/components/schemas/link'
-      type: object
-      x-struct:
-      x-validate:
-    pending_command:
-      additionalProperties: false
-      description: A "Resource object" representing a pending_command
-      properties:
-        attributes:
-          additionalProperties: false
-          description: An attributes object for a pending_command
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        id:
-          type: string
-        relationships:
-          additionalProperties: false
-          description: A relationships object for a pending_command
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        type:
-          type: string
-          x-struct:
-          x-validate:
-      required:
-        - type
-        - id
-      type: object
       x-struct:
       x-validate:
     pending_command-filter:
@@ -554,6 +306,14 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
+        command_payload:
+          $ref: '#/components/schemas/pending_command-filter-command_payload'
+        delivered_at:
+          $ref: '#/components/schemas/pending_command-filter-delivered_at'
+        device:
+          $ref: '#/components/schemas/device-filter'
+        device_id:
+          $ref: '#/components/schemas/pending_command-filter-device_id'
         id:
           $ref: '#/components/schemas/pending_command-filter-id'
         not:
@@ -565,10 +325,44 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
+        queued_at:
+          $ref: '#/components/schemas/pending_command-filter-queued_at'
+        status:
+          $ref: '#/components/schemas/pending_command-filter-status'
       type: deepObject
       x-struct:
       x-validate:
-    pending_command-filter-id:
+    custom_report-filter:
+      additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        and:
+          items:
+            $ref: '#/components/schemas/custom_report-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        config:
+          $ref: '#/components/schemas/custom_report-filter-config'
+        id:
+          $ref: '#/components/schemas/custom_report-filter-id'
+        name:
+          $ref: '#/components/schemas/custom_report-filter-name'
+        not:
+          $ref: '#/components/schemas/custom_report-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/custom_report-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+      type: deepObject
+      x-struct:
+      x-validate:
+    telemetry_event-filter-device_id:
       additionalProperties: false
       properties:
         eq:
@@ -623,62 +417,6 @@ components:
           x-struct:
           x-validate:
       type: object
-      x-struct:
-      x-validate:
-    system_setting:
-      additionalProperties: false
-      description: A "Resource object" representing a system_setting
-      properties:
-        attributes:
-          additionalProperties: false
-          description: An attributes object for a system_setting
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        id:
-          type: string
-        relationships:
-          additionalProperties: false
-          description: A relationships object for a system_setting
-          properties: {}
-          type: object
-          x-struct:
-          x-validate:
-        type:
-          type: string
-          x-struct:
-          x-validate:
-      required:
-        - type
-        - id
-      type: object
-      x-struct:
-      x-validate:
-    system_setting-filter:
-      additionalProperties: false
-      description: Filters the query to results matching the given filter object
-      example: ''
-      properties:
-        and:
-          items:
-            $ref: '#/components/schemas/system_setting-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-        id:
-          $ref: '#/components/schemas/system_setting-filter-id'
-        not:
-          $ref: '#/components/schemas/system_setting-filter'
-        or:
-          items:
-            $ref: '#/components/schemas/system_setting-filter'
-          type: array
-          uniqueItems: true
-          x-struct:
-          x-validate:
-      type: deepObject
       x-struct:
       x-validate:
     system_setting-filter-id:
@@ -738,14 +476,186 @@ components:
       type: object
       x-struct:
       x-validate:
-    telemetry_event:
+    telemetry_event-filter:
       additionalProperties: false
-      description: A "Resource object" representing a telemetry_event
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        and:
+          items:
+            $ref: '#/components/schemas/telemetry_event-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        device:
+          $ref: '#/components/schemas/device-filter'
+        device_id:
+          $ref: '#/components/schemas/telemetry_event-filter-device_id'
+        id:
+          $ref: '#/components/schemas/telemetry_event-filter-id'
+        not:
+          $ref: '#/components/schemas/telemetry_event-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/telemetry_event-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        payload:
+          $ref: '#/components/schemas/telemetry_event-filter-payload'
+        timestamp:
+          $ref: '#/components/schemas/telemetry_event-filter-timestamp'
+      type: deepObject
+      x-struct:
+      x-validate:
+    alert-filter-status:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - active
+              - resolved
+              - acknowledged
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - active
+            - resolved
+            - acknowledged
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device:
+      additionalProperties: false
+      description: A "Resource object" representing a device
       properties:
         attributes:
           additionalProperties: false
-          description: An attributes object for a telemetry_event
-          properties: {}
+          description: An attributes object for a device
+          properties:
+            account_number:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            approval_status:
+              description: Field included by default.
+              enum:
+                - pending
+                - approved
+                - rejected
+              type: string
+              x-struct:
+              x-validate:
+            last_seen_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            mac_address:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            metadata:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            product_name:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            remote_access_requested:
+              description: Field included by default.
+              type: boolean
+              x-struct:
+              x-validate:
+            schema:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+          required:
+            - mac_address
+            - approval_status
+            - schema
+            - metadata
+            - remote_access_requested
           type: object
           x-struct:
           x-validate:
@@ -753,8 +663,101 @@ components:
           type: string
         relationships:
           additionalProperties: false
-          description: A relationships object for a telemetry_event
-          properties: {}
+          description: A relationships object for a device
+          properties:
+            alerts:
+              properties:
+                data:
+                  description: Relationship data for alerts
+                  items:
+                    additionalProperties: false
+                    description: Resource identifiers for alerts
+                    properties:
+                      id:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      meta:
+                        additionalProperties: true
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type:
+                        type: string
+                        x-struct:
+                        x-validate:
+                    required:
+                      - type
+                      - id
+                    type: object
+                  type: array
+                  uniqueItems: true
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+            pending_commands:
+              properties:
+                data:
+                  description: Relationship data for pending_commands
+                  items:
+                    additionalProperties: false
+                    description: Resource identifiers for pending_commands
+                    properties:
+                      id:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      meta:
+                        additionalProperties: true
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type:
+                        type: string
+                        x-struct:
+                        x-validate:
+                    required:
+                      - type
+                      - id
+                    type: object
+                  type: array
+                  uniqueItems: true
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+            telemetry_events:
+              properties:
+                data:
+                  description: Relationship data for telemetry_events
+                  items:
+                    additionalProperties: false
+                    description: Resource identifiers for telemetry_events
+                    properties:
+                      id:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      meta:
+                        additionalProperties: true
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type:
+                        type: string
+                        x-struct:
+                        x-validate:
+                    required:
+                      - type
+                      - id
+                    type: object
+                  type: array
+                  uniqueItems: true
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
           type: object
           x-struct:
           x-validate:
@@ -768,29 +771,310 @@ components:
       type: object
       x-struct:
       x-validate:
-    telemetry_event-filter:
+    pending_command:
+      additionalProperties: false
+      description: A "Resource object" representing a pending_command
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a pending_command
+          properties:
+            command_payload:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            delivered_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            device_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            queued_at:
+              description: Field included by default.
+              format: date-time
+              type: string
+              x-struct:
+              x-validate:
+            status:
+              description: Field included by default.
+              enum:
+                - queued
+                - delivered
+                - acked
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - command_payload
+            - status
+            - queued_at
+            - device_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a pending_command
+          properties:
+            device:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for device
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-mac_address:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: integer
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: integer
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        not_eq:
+          type: integer
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter:
       additionalProperties: false
       description: Filters the query to results matching the given filter object
       example: ''
       properties:
         and:
           items:
-            $ref: '#/components/schemas/telemetry_event-filter'
+            $ref: '#/components/schemas/alert-filter'
           type: array
           uniqueItems: true
           x-struct:
           x-validate:
+        device:
+          $ref: '#/components/schemas/device-filter'
+        device_id:
+          $ref: '#/components/schemas/alert-filter-device_id'
         id:
-          $ref: '#/components/schemas/telemetry_event-filter-id'
+          $ref: '#/components/schemas/alert-filter-id'
+        message:
+          $ref: '#/components/schemas/alert-filter-message'
         not:
-          $ref: '#/components/schemas/telemetry_event-filter'
+          $ref: '#/components/schemas/alert-filter'
         or:
           items:
-            $ref: '#/components/schemas/telemetry_event-filter'
+            $ref: '#/components/schemas/alert-filter'
           type: array
           uniqueItems: true
           x-struct:
           x-validate:
+        rule_id:
+          $ref: '#/components/schemas/alert-filter-rule_id'
+        status:
+          $ref: '#/components/schemas/alert-filter-status'
+        triggered_at:
+          $ref: '#/components/schemas/alert-filter-triggered_at'
+        type:
+          $ref: '#/components/schemas/alert-filter-type'
       type: deepObject
       x-struct:
       x-validate:
@@ -851,6 +1135,2048 @@ components:
       type: object
       x-struct:
       x-validate:
+    errors:
+      items:
+        $ref: '#/components/schemas/error'
+      type: array
+      uniqueItems: true
+      x-struct:
+      x-validate:
+    error:
+      additionalProperties: false
+      properties:
+        code:
+          description: An application-specific error code, expressed as a string value.
+          type: string
+          x-struct:
+          x-validate:
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          type: string
+          x-struct:
+          x-validate:
+        id:
+          description: A unique identifier for this particular occurrence of the problem.
+          type: string
+          x-struct:
+          x-validate:
+        links:
+          $ref: '#/components/schemas/links'
+        source:
+          properties:
+            parameter:
+              description: A string indicating which query parameter caused the error.
+              type: string
+              x-struct:
+              x-validate:
+            pointer:
+              description: A JSON Pointer [RFC6901] to the associated entity in the request document [e.g. "/data" for a primary data object, or "/data/attributes/title" for a specific attribute].
+              type: string
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        status:
+          description: The HTTP status code applicable to this problem, expressed as a string value.
+          type: string
+          x-struct:
+          x-validate:
+        title:
+          description: A short, human-readable summary of the problem. It SHOULD NOT change from occurrence to occurrence of the problem, except for purposes of localization.
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    custom_report-filter-name:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter-type:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - offline
+              - threshold
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - offline
+            - threshold
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-last_seen_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    system_setting-filter-value:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-device_id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter:
+      additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        and:
+          items:
+            $ref: '#/components/schemas/alert_rule-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        condition_field:
+          $ref: '#/components/schemas/alert_rule-filter-condition_field'
+        id:
+          $ref: '#/components/schemas/alert_rule-filter-id'
+        not:
+          $ref: '#/components/schemas/alert_rule-filter'
+        operator:
+          $ref: '#/components/schemas/alert_rule-filter-operator'
+        or:
+          items:
+            $ref: '#/components/schemas/alert_rule-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        product_name:
+          $ref: '#/components/schemas/alert_rule-filter-product_name'
+        threshold_value:
+          $ref: '#/components/schemas/alert_rule-filter-threshold_value'
+      type: deepObject
+      x-struct:
+      x-validate:
+    alert-filter-message:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter-threshold_value:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-schema:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-remote_access_requested:
+      additionalProperties: false
+      properties:
+        eq:
+          type: boolean
+          x-struct:
+          x-validate:
+        greater_than:
+          type: boolean
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: boolean
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: boolean
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: boolean
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: boolean
+          x-struct:
+          x-validate:
+        not_eq:
+          type: boolean
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    telemetry_event-filter-payload:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    link:
+      description: "A link MUST be represented as either: a string containing the link's URL or a link object."
+      type: string
+      x-struct:
+      x-validate:
+    alert_rule-filter-product_name:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    custom_report-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: integer
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: integer
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        not_eq:
+          type: integer
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert:
+      additionalProperties: false
+      description: A "Resource object" representing a alert
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a alert
+          properties:
+            device_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            message:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            rule_id:
+              anyOf:
+                - nullable: true
+                  type: integer
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            status:
+              description: Field included by default.
+              enum:
+                - active
+                - resolved
+                - acknowledged
+              type: string
+              x-struct:
+              x-validate:
+            triggered_at:
+              description: Field included by default.
+              format: date-time
+              type: string
+              x-struct:
+              x-validate:
+            type:
+              description: Field included by default.
+              enum:
+                - offline
+                - threshold
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - type
+            - status
+            - message
+            - triggered_at
+            - device_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a alert
+          properties:
+            device:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for device
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
+    system_setting-filter-key:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter-device_id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-account_number:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-delivered_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-status:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - queued
+              - delivered
+              - acked
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - queued
+            - delivered
+            - acked
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-queued_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-approval_status:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - pending
+              - approved
+              - rejected
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - pending
+            - approved
+            - rejected
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    system_setting:
+      additionalProperties: false
+      description: A "Resource object" representing a system_setting
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a system_setting
+          properties:
+            key:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            value:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+          required:
+            - key
+            - value
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a system_setting
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
+    custom_report-filter-config:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter-rule_id:
+      additionalProperties: false
+      properties:
+        eq:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: integer
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: integer
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        not_eq:
+          type: integer
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    links:
+      additionalProperties:
+        $ref: '#/components/schemas/link'
+      type: object
+      x-struct:
+      x-validate:
+    system_setting-filter:
+      additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        and:
+          items:
+            $ref: '#/components/schemas/system_setting-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        id:
+          $ref: '#/components/schemas/system_setting-filter-id'
+        key:
+          $ref: '#/components/schemas/system_setting-filter-key'
+        not:
+          $ref: '#/components/schemas/system_setting-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/system_setting-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        value:
+          $ref: '#/components/schemas/system_setting-filter-value'
+      type: deepObject
+      x-struct:
+      x-validate:
+    telemetry_event-filter-timestamp:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-product_name:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert-filter-triggered_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter-condition_field:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    pending_command-filter-command_payload:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter-operator:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - '>'
+              - <
+              - =
+              - '!='
+              - '>='
+              - <=
+              - contains
+              - doesn't contain
+              - is
+              - is not
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -881,7 +3207,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value)(,(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value))*$
             type: string
             x-struct:
             x-validate:
@@ -939,11 +3265,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id
+              alert_rule: id,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id
+                example: id,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -1011,11 +3337,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id
+              alert_rule: id,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id
+                example: id,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -1034,7 +3360,39 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        condition_field:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        operator:
+                          enum:
+                            - '>'
+                            - <
+                            - =
+                            - '!='
+                            - '>='
+                            - <=
+                            - contains
+                            - doesn't contain
+                            - is
+                            - is not
+                          type: string
+                          x-struct:
+                          x-validate:
+                        product_name:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        threshold_value:
+                          type: string
+                          x-struct:
+                          x-validate:
+                      required:
+                        - product_name
+                        - condition_field
+                        - operator
+                        - threshold_value
                       type: object
                       x-struct:
                       x-validate:
@@ -1058,7 +3416,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /alert_rules operation on alert_rule resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -1121,11 +3479,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id
+              alert_rule: id,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id
+                example: id,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -1171,11 +3529,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id
+              alert_rule: id,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id
+                example: id,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -1244,11 +3602,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id
+              alert_rule: id,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id
+                example: id,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -1267,7 +3625,42 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        condition_field:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        operator:
+                          anyOf:
+                            - enum:
+                                - '>'
+                                - <
+                                - =
+                                - '!='
+                                - '>='
+                                - <=
+                                - contains
+                                - doesn't contain
+                                - is
+                                - is not
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        product_name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        threshold_value:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                       type: object
                       x-struct:
                       x-validate:
@@ -1347,7 +3740,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|type|-type|\+\+type|--type|status|-status|\+\+status|--status|message|-message|\+\+message|--message|triggered_at|-triggered_at|\+\+triggered_at|--triggered_at|rule_id|-rule_id|\+\+rule_id|--rule_id|device_id|-device_id|\+\+device_id|--device_id)(,(id|-id|\+\+id|--id|type|-type|\+\+type|--type|status|-status|\+\+status|--status|message|-message|\+\+message|--message|triggered_at|-triggered_at|\+\+triggered_at|--triggered_at|rule_id|-rule_id|\+\+rule_id|--rule_id|device_id|-device_id|\+\+device_id|--device_id))*$
             type: string
             x-struct:
             x-validate:
@@ -1405,11 +3798,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert: id
+              alert: id,type,status,message,triggered_at,rule_id,device_id
             properties:
               alert:
                 description: Comma separated field names for alert
-                example: id
+                example: id,type,status,message,triggered_at,rule_id,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -1477,11 +3870,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert: id
+              alert: id,type,status,message,triggered_at,rule_id,device_id
             properties:
               alert:
                 description: Comma separated field names for alert
-                example: id
+                example: id,type,status,message,triggered_at,rule_id,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -1500,7 +3893,48 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        device_id:
+                          format: uuid
+                          type: string
+                          x-struct:
+                          x-validate:
+                        message:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        rule_id:
+                          anyOf:
+                            - type: integer
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        status:
+                          anyOf:
+                            - enum:
+                                - active
+                                - resolved
+                                - acknowledged
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        triggered_at:
+                          anyOf:
+                            - x-struct:
+                              x-validate:
+                            - type: 'null'
+                        type:
+                          enum:
+                            - offline
+                            - threshold
+                          type: string
+                          x-struct:
+                          x-validate:
+                      required:
+                        - type
+                        - message
+                        - device_id
                       type: object
                       x-struct:
                       x-validate:
@@ -1524,7 +3958,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /alerts operation on alert resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -1587,11 +4021,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert: id
+              alert: id,type,status,message,triggered_at,rule_id,device_id
             properties:
               alert:
                 description: Comma separated field names for alert
-                example: id
+                example: id,type,status,message,triggered_at,rule_id,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -1637,11 +4071,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert: id
+              alert: id,type,status,message,triggered_at,rule_id,device_id
             properties:
               alert:
                 description: Comma separated field names for alert
-                example: id
+                example: id,type,status,message,triggered_at,rule_id,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -1710,11 +4144,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert: id
+              alert: id,type,status,message,triggered_at,rule_id,device_id
             properties:
               alert:
                 description: Comma separated field names for alert
-                example: id
+                example: id,type,status,message,triggered_at,rule_id,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -1733,7 +4167,23 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        message:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        status:
+                          anyOf:
+                            - enum:
+                                - active
+                                - resolved
+                                - acknowledged
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                       type: object
                       x-struct:
                       x-validate:
@@ -1813,7 +4263,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|name|-name|\+\+name|--name|config|-config|\+\+config|--config)(,(id|-id|\+\+id|--id|name|-name|\+\+name|--name|config|-config|\+\+config|--config))*$
             type: string
             x-struct:
             x-validate:
@@ -1871,11 +4321,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              custom_report: id
+              custom_report: id,name,config
             properties:
               custom_report:
                 description: Comma separated field names for custom_report
-                example: id
+                example: id,name,config
                 type: string
                 x-struct:
                 x-validate:
@@ -1943,11 +4393,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              custom_report: id
+              custom_report: id,name,config
             properties:
               custom_report:
                 description: Comma separated field names for custom_report
-                example: id
+                example: id,name,config
                 type: string
                 x-struct:
                 x-validate:
@@ -1966,7 +4416,18 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        config:
+                          type: object
+                          x-struct:
+                          x-validate:
+                        name:
+                          type: string
+                          x-struct:
+                          x-validate:
+                      required:
+                        - name
+                        - config
                       type: object
                       x-struct:
                       x-validate:
@@ -1990,7 +4451,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /custom_reports operation on custom_report resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -2053,11 +4514,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              custom_report: id
+              custom_report: id,name,config
             properties:
               custom_report:
                 description: Comma separated field names for custom_report
-                example: id
+                example: id,name,config
                 type: string
                 x-struct:
                 x-validate:
@@ -2103,11 +4564,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              custom_report: id
+              custom_report: id,name,config
             properties:
               custom_report:
                 description: Comma separated field names for custom_report
-                example: id
+                example: id,name,config
                 type: string
                 x-struct:
                 x-validate:
@@ -2176,11 +4637,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              custom_report: id
+              custom_report: id,name,config
             properties:
               custom_report:
                 description: Comma separated field names for custom_report
-                example: id
+                example: id,name,config
                 type: string
                 x-struct:
                 x-validate:
@@ -2199,7 +4660,19 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        config:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                       type: object
                       x-struct:
                       x-validate:
@@ -2279,7 +4752,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested))*$
             type: string
             x-struct:
             x-validate:
@@ -2337,11 +4810,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id
+              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id
+                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -2409,11 +4882,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id
+              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id
+                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -2570,11 +5043,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id
+              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id
+                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -2620,11 +5093,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id
+              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id
+                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -2693,11 +5166,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id
+              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id
+                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -2847,7 +5320,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|command_payload|-command_payload|\+\+command_payload|--command_payload|status|-status|\+\+status|--status|queued_at|-queued_at|\+\+queued_at|--queued_at|delivered_at|-delivered_at|\+\+delivered_at|--delivered_at|device_id|-device_id|\+\+device_id|--device_id)(,(id|-id|\+\+id|--id|command_payload|-command_payload|\+\+command_payload|--command_payload|status|-status|\+\+status|--status|queued_at|-queued_at|\+\+queued_at|--queued_at|delivered_at|-delivered_at|\+\+delivered_at|--delivered_at|device_id|-device_id|\+\+device_id|--device_id))*$
             type: string
             x-struct:
             x-validate:
@@ -2905,11 +5378,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              pending_command: id
+              pending_command: id,command_payload,status,queued_at,delivered_at,device_id
             properties:
               pending_command:
                 description: Comma separated field names for pending_command
-                example: id
+                example: id,command_payload,status,queued_at,delivered_at,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -2977,11 +5450,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              pending_command: id
+              pending_command: id,command_payload,status,queued_at,delivered_at,device_id
             properties:
               pending_command:
                 description: Comma separated field names for pending_command
-                example: id
+                example: id,command_payload,status,queued_at,delivered_at,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3000,7 +5473,40 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        command_payload:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        delivered_at:
+                          anyOf:
+                            - x-struct:
+                              x-validate:
+                            - type: 'null'
+                        device_id:
+                          format: uuid
+                          type: string
+                          x-struct:
+                          x-validate:
+                        queued_at:
+                          anyOf:
+                            - x-struct:
+                              x-validate:
+                            - type: 'null'
+                        status:
+                          anyOf:
+                            - enum:
+                                - queued
+                                - delivered
+                                - acked
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                      required:
+                        - device_id
                       type: object
                       x-struct:
                       x-validate:
@@ -3024,7 +5530,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /pending_commands operation on pending_command resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -3087,11 +5593,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              pending_command: id
+              pending_command: id,command_payload,status,queued_at,delivered_at,device_id
             properties:
               pending_command:
                 description: Comma separated field names for pending_command
-                example: id
+                example: id,command_payload,status,queued_at,delivered_at,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3137,11 +5643,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              pending_command: id
+              pending_command: id,command_payload,status,queued_at,delivered_at,device_id
             properties:
               pending_command:
                 description: Comma separated field names for pending_command
-                example: id
+                example: id,command_payload,status,queued_at,delivered_at,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3210,11 +5716,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              pending_command: id
+              pending_command: id,command_payload,status,queued_at,delivered_at,device_id
             properties:
               pending_command:
                 description: Comma separated field names for pending_command
-                example: id
+                example: id,command_payload,status,queued_at,delivered_at,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3233,7 +5739,28 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        command_payload:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        delivered_at:
+                          anyOf:
+                            - x-struct:
+                              x-validate:
+                            - type: 'null'
+                        status:
+                          anyOf:
+                            - enum:
+                                - queued
+                                - delivered
+                                - acked
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                       type: object
                       x-struct:
                       x-validate:
@@ -3313,7 +5840,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|key|-key|\+\+key|--key|value|-value|\+\+value|--value)(,(id|-id|\+\+id|--id|key|-key|\+\+key|--key|value|-value|\+\+value|--value))*$
             type: string
             x-struct:
             x-validate:
@@ -3371,11 +5898,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              system_setting: id
+              system_setting: id,key,value
             properties:
               system_setting:
                 description: Comma separated field names for system_setting
-                example: id
+                example: id,key,value
                 type: string
                 x-struct:
                 x-validate:
@@ -3443,11 +5970,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              system_setting: id
+              system_setting: id,key,value
             properties:
               system_setting:
                 description: Comma separated field names for system_setting
-                example: id
+                example: id,key,value
                 type: string
                 x-struct:
                 x-validate:
@@ -3466,7 +5993,19 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        key:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        value:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                      required:
+                        - key
                       type: object
                       x-struct:
                       x-validate:
@@ -3490,7 +6029,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /system_settings operation on system_setting resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -3553,11 +6092,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              system_setting: id
+              system_setting: id,key,value
             properties:
               system_setting:
                 description: Comma separated field names for system_setting
-                example: id
+                example: id,key,value
                 type: string
                 x-struct:
                 x-validate:
@@ -3603,11 +6142,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              system_setting: id
+              system_setting: id,key,value
             properties:
               system_setting:
                 description: Comma separated field names for system_setting
-                example: id
+                example: id,key,value
                 type: string
                 x-struct:
                 x-validate:
@@ -3676,11 +6215,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              system_setting: id
+              system_setting: id,key,value
             properties:
               system_setting:
                 description: Comma separated field names for system_setting
-                example: id
+                example: id,key,value
                 type: string
                 x-struct:
                 x-validate:
@@ -3699,7 +6238,13 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        value:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                       type: object
                       x-struct:
                       x-validate:
@@ -3779,7 +6324,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
+            pattern: ^(id|-id|\+\+id|--id|timestamp|-timestamp|\+\+timestamp|--timestamp|payload|-payload|\+\+payload|--payload|device_id|-device_id|\+\+device_id|--device_id)(,(id|-id|\+\+id|--id|timestamp|-timestamp|\+\+timestamp|--timestamp|payload|-payload|\+\+payload|--payload|device_id|-device_id|\+\+device_id|--device_id))*$
             type: string
             x-struct:
             x-validate:
@@ -3837,11 +6382,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              telemetry_event: id
+              telemetry_event: id,timestamp,payload,device_id
             properties:
               telemetry_event:
                 description: Comma separated field names for telemetry_event
-                example: id
+                example: id,timestamp,payload,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3909,11 +6454,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              telemetry_event: id
+              telemetry_event: id,timestamp,payload,device_id
             properties:
               telemetry_event:
                 description: Comma separated field names for telemetry_event
-                example: id
+                example: id,timestamp,payload,device_id
                 type: string
                 x-struct:
                 x-validate:
@@ -3932,7 +6477,24 @@ paths:
                   properties:
                     attributes:
                       additionalProperties: false
-                      properties: {}
+                      properties:
+                        device_id:
+                          format: uuid
+                          type: string
+                          x-struct:
+                          x-validate:
+                        payload:
+                          anyOf:
+                            - type: object
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        timestamp:
+                          x-struct:
+                          x-validate:
+                      required:
+                        - timestamp
+                        - device_id
                       type: object
                       x-struct:
                       x-validate:
@@ -3956,7 +6518,7 @@ paths:
               x-struct:
               x-validate:
         description: Request body for the /telemetry_events operation on telemetry_event resource
-        required: false
+        required: true
       responses:
         '201':
           content:
@@ -4019,11 +6581,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              telemetry_event: id
+              telemetry_event: id,timestamp,payload,device_id
             properties:
               telemetry_event:
                 description: Comma separated field names for telemetry_event
-                example: id
+                example: id,timestamp,payload,device_id
                 type: string
                 x-struct:
                 x-validate:
