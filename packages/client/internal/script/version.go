@@ -2,10 +2,13 @@ package script
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 )
+
+var scriptIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
 
 // ParseVersionNumber converts a version string like "v3" or "3" into an integer.
 func ParseVersionNumber(version string) (int, error) {
@@ -32,6 +35,18 @@ func InstallFilename(name, version string) string {
 		return name + ".stary"
 	}
 	return fmt.Sprintf("%s_%s.stary", name, version)
+}
+
+// ValidateInstallIdentifier rejects path separators and unsafe script metadata.
+func ValidateInstallIdentifier(field, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if !scriptIdentifierPattern.MatchString(value) || strings.Contains(value, "..") {
+		return fmt.Errorf("invalid %s %q", field, value)
+	}
+	return nil
 }
 
 // SelectLatestScripts returns only the newest version per script name.

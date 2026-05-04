@@ -146,6 +146,9 @@ func (h *Handler) installScript(ctx context.Context, commandID string, args []st
 	if _, err := script.CompileSchema(fm.Schema); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	if err := validateScriptTarget(fm.Name, fm.Version); err != nil {
+		return failureResult(commandID, err.Error())
+	}
 
 	if ctx.Err() != nil {
 		return failureResult(commandID, "timeout")
@@ -276,7 +279,17 @@ func resolveRemoveTarget(args []string, payload *transport.CommandPayload) (name
 	if name == "" {
 		return "", "", fmt.Errorf("missing name")
 	}
+	if err := validateScriptTarget(name, version); err != nil {
+		return "", "", err
+	}
 	return name, version, nil
+}
+
+func validateScriptTarget(name, version string) error {
+	if err := script.ValidateInstallIdentifier("script name", name); err != nil {
+		return err
+	}
+	return script.ValidateInstallIdentifier("script version", version)
 }
 
 func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (script.ScriptInfo, error) {
