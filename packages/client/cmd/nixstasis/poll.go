@@ -60,12 +60,7 @@ func runPoll() {
 	frpManager := frp.NewManager()
 	cmdHandler := commands.NewHandler(cfg.Scripts.Dir)
 
-	// 4. Polling Loop
-	interval := 30 * time.Second
-	// TODO: Configurable interval
-	// if cfg.PollInterval > 0 { interval = cfg.PollInterval }
-
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(pollInterval(cfg))
 	defer ticker.Stop()
 
 	// Run immediately once
@@ -78,6 +73,13 @@ func runPoll() {
 			slog.Error("Poll failed", "error", err)
 		}
 	}
+}
+
+func pollInterval(cfg *config.Config) time.Duration {
+	if cfg != nil && cfg.Poll.Interval > 0 {
+		return cfg.Poll.Interval
+	}
+	return 30 * time.Second
 }
 
 func pollOnce(client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string) error {
