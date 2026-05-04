@@ -19,6 +19,13 @@ defmodule Nixstasis.Deployment do
     System.get_env(name) || default
   end
 
+  def enabled?(name, default \\ false) do
+    case System.get_env(name) do
+      nil -> default
+      value -> String.downcase(String.trim(value)) in ~w(1 true yes on)
+    end
+  end
+
   def port do
     case Integer.parse(optional_env("PORT", Integer.to_string(@default_port))) do
       {port, ""} when port > 0 -> port
