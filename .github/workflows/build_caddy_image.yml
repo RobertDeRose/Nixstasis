@@ -57,6 +57,8 @@ jobs:
           file: packages/caddy/Dockerfile
           build-args: |
             CADDY_VERSION=${{ env.CADDY_VERSION }}
+            CADDY_BUILDER_IMAGE_DIGEST=${{ env.CADDY_BUILDER_IMAGE_DIGEST }}
+            CADDY_RUNNER_IMAGE_DIGEST=${{ env.CADDY_RUNNER_IMAGE_DIGEST }}
           push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
