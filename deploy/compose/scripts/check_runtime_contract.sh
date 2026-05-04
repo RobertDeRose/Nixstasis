@@ -10,6 +10,9 @@ FRPS_TOML="$COMPOSE_DIR/frps/frps.toml"
 COMPOSE_README="$COMPOSE_DIR/README.md"
 SERVER_RUNTIME="$ROOT_DIR/packages/server/config/runtime.exs"
 SERVER_README="$ROOT_DIR/packages/server/README.md"
+SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
+SERVER_MIGRATE="$ROOT_DIR/packages/server/bin/migrate"
+SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_CONFIG_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml"
 CLIENT_FRPC_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/etc/nixstasis/frpc.toml"
@@ -34,6 +37,9 @@ for file in \
   "$COMPOSE_README" \
   "$SERVER_RUNTIME" \
   "$SERVER_README" \
+  "$SERVER_ENTRYPOINT" \
+  "$SERVER_MIGRATE" \
+  "$SERVER_DB_WAIT" \
   "$CLIENT_README" \
   "$CLIENT_CONFIG_TEMPLATE" \
   "$CLIENT_FRPC_TEMPLATE" \
@@ -81,6 +87,11 @@ require_text "$COMPOSE_README" 'check_domain'
 require_text "$COMPOSE_README" 'bundled PostgreSQL'
 require_text "$COMPOSE_README" 'external PostgreSQL'
 require_text "$COMPOSE_README" 'ghcr.io/<owner>/nixstasis-server@sha256:<digest>'
+require_text "$COMPOSE_README" 'wait for the `DATABASE_URL` host and'
+
+require_text "$SERVER_ENTRYPOINT" 'wait-for-postgres'
+require_text "$SERVER_MIGRATE" 'wait-for-postgres'
+require_text "$SERVER_DB_WAIT" 'ncat -z'
 
 require_text "$SERVER_README" 'DATABASE_URL'
 require_text "$SERVER_README" 'SECRET_KEY_BASE'
