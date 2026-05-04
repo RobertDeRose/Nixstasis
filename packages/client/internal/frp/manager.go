@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -36,7 +37,12 @@ func NewManager() *Manager {
 // It is idempotent; if already running, it returns nil.
 // The provided context is ignored for the process lifecycle to ensure it persists
 // independent of the request context, but is kept for interface compatibility.
-func (m *Manager) Start(_ context.Context, configPath string) error {
+func (m *Manager) Start(ctx context.Context, configPath string) error {
+	return m.StartWithConfig(ctx, configPath, config.FRPConfig{})
+}
+
+// StartWithConfig launches the frpc process with additional runtime config.
+func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfig config.FRPConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -54,6 +60,11 @@ func (m *Manager) Start(_ context.Context, configPath string) error {
 	// -c configPath is standard for frpc
 	//nolint:contextcheck // Intentional creation of new context for background process
 	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", configPath)
+	env := cmd.Env
+	if env == nil {
+		env = os.Environ()
+	}
+	cmd.Env = append(env, "FRPS_AUTH_TOKEN="+frpConfig.AuthToken)
 	m.cmd = cmd
 
 	if err := cmd.Start(); err != nil {

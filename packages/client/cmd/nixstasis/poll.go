@@ -140,7 +140,7 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 			configPath := config.FRPCConfigPath()
 			// Check if config exists, if not, maybe we can't start?
 			// Or we assume it's there.
-			if err := frpManager.Start(ctx, configPath); err != nil {
+			if err := frpManager.StartWithConfig(ctx, configPath, cfg.FRP); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
