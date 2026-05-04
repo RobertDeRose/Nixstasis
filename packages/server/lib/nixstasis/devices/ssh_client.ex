@@ -45,7 +45,7 @@ defmodule Nixstasis.Devices.SshClient do
       "LogLevel=ERROR",
       # Force PTY
       "-tt",
-      "nixstasis@atomicnix-#{device_mac}-ssh"
+      "nixstasis@#{ssh_host(device_mac)}"
     ]
 
     Logger.info("Starting SSH connection to #{device_mac}...")
@@ -101,6 +101,16 @@ defmodule Nixstasis.Devices.SshClient do
     # SSH requires strict permissions
     File.chmod!(path, 0o600)
     path
+  end
+
+  def ssh_host(device_mac) do
+    normalized_mac =
+      device_mac
+      |> to_string()
+      |> String.downcase()
+      |> String.replace(":", "")
+
+    "atom-#{normalized_mac}-ssh"
   end
 
   defp frp_host do
