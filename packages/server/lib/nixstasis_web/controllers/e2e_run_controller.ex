@@ -1,18 +1,20 @@
 defmodule NixstasisWeb.E2ERunController do
   use NixstasisWeb, :controller
 
+  require Logger
+
   alias Nixstasis.E2E
   alias Nixstasis.E2E.Run
 
   @protocol_header "x-e2e-protocol-version"
 
   def index(conn, _params) do
-    runs = E2E.list_runs()
+    runs = e2e_context().list_runs()
     render(conn, :index, runs: runs)
   end
 
   def suites(conn, _params) do
-    suites = E2E.list_suites()
+    suites = e2e_context().list_suites()
     render(conn, :suites, suites: suites)
   end
 
@@ -24,7 +26,7 @@ defmodule NixstasisWeb.E2ERunController do
 
     params = Map.put(params, "protocol_version", protocol_version)
 
-    case E2E.create_run(params) do
+    case e2e_context().create_run(params) do
       {:ok, %Run{} = run} ->
         conn
         |> put_status(:created)
@@ -56,21 +58,23 @@ defmodule NixstasisWeb.E2ERunController do
         |> json(error_payload("invalid_request", message))
 
       {:error, {:database_error, reason}} ->
+        Logger.error("Failed to create E2E run: #{inspect(reason)}")
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(error_payload("database_error", "Failed to create run", inspect(reason)))
+        |> json(error_payload("database_error", "Failed to create run."))
     end
   end
 
   def show(conn, %{"id" => id}) do
-    case E2E.get_run(id) do
+    case e2e_context().get_run(id) do
       {:ok, run} -> render(conn, :show, run: run)
       {:error, :not_found} -> send_resp(conn, :not_found, "")
     end
   end
 
   def cancel(conn, %{"id" => id}) do
-    case E2E.cancel_run(id) do
+    case e2e_context().cancel_run(id) do
       {:ok, run} ->
         conn
         |> put_status(:accepted)
@@ -80,14 +84,15 @@ defmodule NixstasisWeb.E2ERunController do
         send_resp(conn, :not_found, "")
 
       {:error, changeset} ->
+        Logger.error("Failed to cancel E2E run #{id}: #{inspect(changeset)}")
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(error_payload("database_error", "Failed to cancel run", inspect(changeset)))
+        |> json(error_payload("database_error", "Failed to cancel run."))
     end
   end
 
-  defp error_payload(code, message, details \\ nil) do
-    payload = %{error: %{code: code, message: message}}
-    if details, do: put_in(payload, [:error, :details], details), else: payload
-  end
+  defp error_payload(code, message), do: %{error: %{code: code, message: message}}
+
+  defp e2e_context, do: Application.get_env(:nixstasis, :e2e_context, E2E)
 end

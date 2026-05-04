@@ -31,7 +31,8 @@
 
     authorization policy entra_policy {
       set auth url https://auth.{$BASE_DOMAIN}
-      allow roles *
+      allow roles {$AUTHORIZED_ROLES}
+      allow groups {$AUTHORIZED_GROUPS}
       crypto key verify {$JWT_KEY}
       validate bearer header
       inject headers with claims
