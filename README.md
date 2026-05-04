@@ -243,10 +243,10 @@ flowchart TB
         UI["Nixstasis UI"]
         API["Nixstasis API"]
         DB[("Database")]
-        Alembic["Alembic Migrations"]
+        Migrations["Ecto Migrations"]
         FRPS["FRPS Server"]
   end
- subgraph Device["<b>AlarmBox</b>"]
+  subgraph Device["<b>Managed Device</b>"]
         Client["Nixstasis Client"]
         WebUI["Cockpit"]
         SSH["SSH"]
@@ -260,7 +260,7 @@ flowchart TB
     Shell == |SSH Access| ==> FRPS
     UI <== State/Data ==> API
     API <== Queries ==> DB
-    Alembic == Migrations ==> DB
+    Migrations == Migrations ==> DB
     Client == |Events/Data| ==> API
     FRPC <== Secure Tunnel ==> FRPS
     Client ==> FRPC
@@ -277,7 +277,7 @@ flowchart TB
     style UI fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style API fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style DB fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
-    style Alembic fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
+    style Migrations fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style FRPS fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style Client fill:#E1BEE7,stroke:#4A148C,stroke-width:3px,color:#000
     style WebUI fill:#E1BEE7,stroke:#4A148C,stroke-width:3px,color:#000
@@ -290,10 +290,10 @@ flowchart TB
 
 ## Status Snapshot (from specs task checklists)
 
-- **Client rewrite (Go)**: Core functionality is implemented (registration, polling, FRP management, packaging). Two
-  items remain in progress: `internal/plugin` foundational structs (T006) and FRP lifecycle hooks (T027).
-- **Server rewrite (Elixir/Phoenix)**: Core monitoring, dashboard, and UI polish tasks are complete. The device list
-  enhancement spec (005) is pending.
+- **Client rewrite (Go)**: Core functionality is implemented, including registration, heartbeat polling, command polling,
+  FRP config rendering, script execution guardrails, and native packaging.
+- **Server rewrite (Elixir/Phoenix)**: Core monitoring, dashboard, device management, reporting, E2E control APIs, and
+  Compose-based deployment are implemented. The server uses Phoenix, Ash, and Ecto migrations.
 
 ## FRP (Fast Reverse Proxy)
 
@@ -329,10 +329,10 @@ upgrade requests (required for WebSockets) and lacks built-in ACME support. Cadd
 which is why it's used in front of FRPS.
 
 For on-demand certificates, Caddy requests approval the first time a subdomain is accessed. Nixstasis exposes the
-`/permit_tls` endpoint to authorize these requests. The endpoint expects a `domain` query parameter and only allows a
-certificate when the domain should be exposed for remote access. If no device matches the requested domain, or if remote
-access hasn't been requested, the request is denied. Requests for the `nixstasis`, `auth`, and `frp-admin` domains are
-always approved because Nixstasis depends on them.
+`/api/v1/check_domain` endpoint to authorize these requests. The endpoint expects a `domain` query parameter and only
+allows a certificate when the domain should be exposed for remote access. If no device matches the requested domain, or
+if remote access hasn't been requested, the request is denied. Requests for the `nixstasis`, `auth`, and `frp-admin`
+domains are always approved because Nixstasis depends on them.
 
 Caddy may be configured using its Caddyfile or JSON formats; the repo includes a deployable Caddyfile covering the
 current features.
