@@ -30,6 +30,30 @@ require_text() {
   rg -n "$pattern" "$file" >/dev/null || fail "missing contract text in $file: $pattern"
 }
 
+reject_text() {
+  file="$1"
+  pattern="$2"
+
+  if rg -n "$pattern" "$file" >/dev/null; then
+    fail "forbidden contract text in $file: $pattern"
+  fi
+}
+
+require_wildcard_authorize_before_proxy() {
+  awk '
+    /^\*\.\{\$BASE_DOMAIN\} \{/ { in_wildcard = 1; authorized = 0; saw_wildcard = 1; next }
+    in_wildcard && /^}/ {
+      if (!authorized) {
+        exit 1
+      }
+      in_wildcard = 0
+    }
+    in_wildcard && /authorize with entra_policy/ { authorized = 1 }
+    in_wildcard && /reverse_proxy frps:\{\$FRPS_HTTP_PORT\}/ && !authorized { exit 1 }
+    END { if (!saw_wildcard) exit 1 }
+  ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
+}
+
 for file in \
   "$ENV_EXAMPLE" \
   "$CADDYFILE" \
@@ -56,6 +80,8 @@ require_text "$ENV_EXAMPLE" '^CLIENT_ID='
 require_text "$ENV_EXAMPLE" '^CLIENT_SECRET='
 require_text "$ENV_EXAMPLE" '^TENANT_ID='
 require_text "$ENV_EXAMPLE" '^JWT_KEY='
+require_text "$ENV_EXAMPLE" '^AUTHORIZED_ROLES='
+require_text "$ENV_EXAMPLE" '^AUTHORIZED_GROUPS='
 require_text "$ENV_EXAMPLE" '^FRPS_BIND_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_HTTP_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_DASHBOARD_PORT='
@@ -69,6 +95,11 @@ require_text "$CADDYFILE" 'check_domain'
 require_text "$CADDYFILE" 'auth\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'nixstasis\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'frp-admin\.\{\$BASE_DOMAIN\}'
+require_text "$CADDYFILE" 'allow roles \{\$AUTHORIZED_ROLES\}'
+require_text "$CADDYFILE" 'allow groups \{\$AUTHORIZED_GROUPS\}'
+reject_text "$CADDYFILE" 'allow roles \*'
+reject_text "$CADDYFILE" 'allow groups \*'
+require_wildcard_authorize_before_proxy
 require_text "$FRPS_TOML" '__BASE_DOMAIN__'
 require_text "$FRPS_TOML" '__FRPS_BIND_PORT__'
 require_text "$FRPS_TOML" '__FRPS_HTTP_PORT__'
@@ -83,6 +114,8 @@ require_text "$SERVER_RUNTIME" 'Deployment\.port\(\)'
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'
+require_text "$COMPOSE_README" 'AUTHORIZED_ROLES'
+require_text "$COMPOSE_README" 'AUTHORIZED_GROUPS'
 require_text "$COMPOSE_README" 'check_domain'
 require_text "$COMPOSE_README" 'bundled PostgreSQL'
 require_text "$COMPOSE_README" 'external PostgreSQL'

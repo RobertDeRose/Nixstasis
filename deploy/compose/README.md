@@ -15,9 +15,15 @@ This directory is the supported server deployment path for this feature.
 - All external runtime artifacts must be pinned immutably.
 - Required operator inputs are `DATABASE_URL`, `SECRET_KEY_BASE`,
   `PHX_HOST`, `PORT`, `BASE_DOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`,
-  `TENANT_ID`, `JWT_KEY`, `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`,
-  `FRPS_HTTP_PORT`, `FRPS_DASHBOARD_PORT`, `FRPS_DASHBOARD_USER`,
+  `TENANT_ID`, `JWT_KEY`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`,
+  `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`, `FRPS_HTTP_PORT`,
+  `FRPS_DASHBOARD_PORT`, `FRPS_DASHBOARD_USER`,
   `FRPS_DASHBOARD_PASSWORD`, and `FRPS_TCPMUX_PORT`.
+- `AUTHORIZED_ROLES` maps to the OIDC `roles` claim and `AUTHORIZED_GROUPS`
+  maps to the OIDC `groups` claim. Configure least-privilege values for both;
+  wildcard values are rejected by the validation scripts.
+- The shared AuthCrunch policy protects `nixstasis.<base-domain>`,
+  `frp-admin.<base-domain>`, and wildcard FRP device hosts before proxying.
 
 ## Supported operation
 
