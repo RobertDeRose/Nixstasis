@@ -76,9 +76,9 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 	defer cancel()
 
 	resCh := make(chan result, 1)
+	thread := &starlark.Thread{Name: "stary"}
 
 	go func() {
-		thread := &starlark.Thread{Name: "stary"}
 		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, r.builtins)
 		if err != nil {
 			resCh <- result{err: err}
@@ -109,6 +109,8 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 
 	select {
 	case <-ctx.Done():
+		thread.Cancel(ErrTimeout.Error())
+		<-resCh
 		return nil, ErrTimeout
 	case res := <-resCh:
 		if res.err != nil {
