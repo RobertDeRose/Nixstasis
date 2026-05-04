@@ -17,13 +17,47 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-set -a
-. "$ENV_FILE"
-set +a
+env_value() {
+  key="$1"
+  value=$(
+    awk -v key="$key" '
+      /^[[:space:]]*(#|$)/ { next }
+      {
+        line = $0
+        sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+        if (line !~ "^[[:space:]]*" key "[[:space:]]*=") next
+        sub("^[[:space:]]*" key "[[:space:]]*=[[:space:]]*", "", line)
+        sub(/[[:space:]]+#.*$/, "", line)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+        if ((line ~ /^".*"$/) || (line ~ /^'\''.*'\''$/)) {
+          line = substr(line, 2, length(line) - 2)
+        }
+        print line
+        found = 1
+        exit
+      }
+      END { if (!found) exit 1 }
+    ' "$ENV_FILE"
+  ) || return 1
 
-: "${NIXSTASIS_SERVER_IMAGE_REF:?NIXSTASIS_SERVER_IMAGE_REF must be set}"
-: "${NIXSTASIS_CADDY_IMAGE_REF:?NIXSTASIS_CADDY_IMAGE_REF must be set}"
-: "${NIXSTASIS_FRPS_IMAGE_REF:?NIXSTASIS_FRPS_IMAGE_REF must be set}"
+  [ -n "$value" ] || return 1
+  printf '%s' "$value"
+}
+
+NIXSTASIS_SERVER_IMAGE_REF=$(env_value NIXSTASIS_SERVER_IMAGE_REF) || {
+  echo "NIXSTASIS_SERVER_IMAGE_REF must be set" >&2
+  exit 1
+}
+
+NIXSTASIS_CADDY_IMAGE_REF=$(env_value NIXSTASIS_CADDY_IMAGE_REF) || {
+  echo "NIXSTASIS_CADDY_IMAGE_REF must be set" >&2
+  exit 1
+}
+
+NIXSTASIS_FRPS_IMAGE_REF=$(env_value NIXSTASIS_FRPS_IMAGE_REF) || {
+  echo "NIXSTASIS_FRPS_IMAGE_REF must be set" >&2
+  exit 1
+}
 
 awk \
   -v server_ref="$NIXSTASIS_SERVER_IMAGE_REF" \
