@@ -23,7 +23,7 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 		return nil, err
 	}
 
-	if blockedCommand(cmdName, r.config.ExecBlacklist) {
+	if !allowedCommand(cmdName, r.config.ExecAllowlist) {
 		return nil, fmt.Errorf("command is not allowed: %s", cmdName)
 	}
 
@@ -44,7 +44,7 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
 	defer cancel()
 
-	// #nosec G204 -- command is validated against a blacklist and executed with optional user restrictions.
+	// #nosec G204 -- command is restricted to an operator-configured allowlist.
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Env = os.Environ()
 
@@ -63,13 +63,13 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 	return starlark.String(strings.TrimSpace(string(output))), nil
 }
 
-func blockedCommand(cmd string, blacklist []string) bool {
+func allowedCommand(cmd string, allowlist []string) bool {
 	base := filepath.Base(cmd)
-	for _, blocked := range blacklist {
-		if base == blocked {
+	for _, allowed := range allowlist {
+		if base == allowed {
 			return true
 		}
-		if strings.HasSuffix(blocked, ".") && strings.HasPrefix(base, blocked) {
+		if strings.HasSuffix(allowed, ".") && strings.HasPrefix(base, allowed) {
 			return true
 		}
 	}
