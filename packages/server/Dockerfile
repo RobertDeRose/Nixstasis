@@ -27,7 +27,7 @@ RUN mix release
 FROM debian:bookworm-slim AS runner
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libstdc++6 openssl ca-certificates && \
+    apt-get install -y --no-install-recommends libstdc++6 openssl ca-certificates openssh-client ncat && \
     rm -rf /var/lib/apt/lists/* && \
     useradd --system --create-home --home-dir /app app
 
