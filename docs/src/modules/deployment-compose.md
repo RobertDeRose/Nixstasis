@@ -1,0 +1,79 @@
+# Deployment Compose
+
+## Language
+
+- Docker Compose YAML and shell scripts.
+
+## Runtime Context
+
+- Supported production server deployment path.
+
+## Purpose
+
+- Defines and validates the deployable server stack composed of Phoenix, Caddy, FRPS, and optional PostgreSQL.
+
+## Key Files
+
+- `deploy/compose/docker-compose.yml`
+- `deploy/compose/.env.example`
+- `deploy/compose/README.md`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/render_compose.sh`
+- `deploy/compose/scripts/validate_stack.sh`
+- `prod.env`
+
+## Public Interfaces
+
+- Services:
+  - `nixstasis`
+  - `caddy`
+  - `frps`
+  - `postgres` under profile `bundled-db`
+- Public published ports:
+  - Caddy `80:80`
+  - Caddy `443:443`
+  - FRPS bind, HTTP vhost, and TCP mux ports.
+- Required operator inputs documented in `deploy/compose/README.md`:
+  - `DATABASE_URL`
+  - `SECRET_KEY_BASE`
+  - `PHX_HOST`
+  - `PORT`
+  - `BASE_DOMAIN`
+  - `CLIENT_ID`
+  - `CLIENT_SECRET`
+  - `TENANT_ID`
+  - `JWT_KEY`
+  - `FRPS_BIND_PORT`
+  - `FRPS_AUTH_TOKEN`
+  - `FRPS_HTTP_PORT`
+  - `FRPS_DASHBOARD_PORT`
+  - `FRPS_DASHBOARD_USER`
+  - `FRPS_DASHBOARD_PASSWORD`
+  - `FRPS_TCPMUX_PORT`
+
+## Dependencies
+
+### Internal
+
+- `packages/server/Dockerfile`
+- `packages/caddy/Dockerfile`
+- `packages/frp/Dockerfile`
+- `deploy/compose/caddy/Caddyfile`
+- `deploy/compose/frps/frps.toml`
+
+### External
+
+- Docker Compose or rendered config for Apple Container `container-compose`.
+- PostgreSQL image when `bundled-db` profile is used.
+
+## Client-Server Interaction Details
+
+- Compose deployment exposes the Phoenix app only through Caddy for HTTP ingress.
+- Client configuration points at the public Caddy host.
+- E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
+
+Traceable references:
+- `deploy/compose/docker-compose.yml:1-90`
+- `deploy/compose/README.md:5-90`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/render_compose.sh`
