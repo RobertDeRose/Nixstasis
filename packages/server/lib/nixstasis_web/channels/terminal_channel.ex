@@ -18,36 +18,35 @@ defmodule NixstasisWeb.TerminalChannel do
   # Join "terminal:DEVICE_ID"
   @impl true
   def join("terminal:" <> device_id, payload, socket) do
-    # Verify token
     token = payload["token"]
 
-    case Phoenix.Token.verify(NixstasisWeb.Endpoint, "ssh_private_key", token, max_age: 3600) do
-      {:ok, private_key} ->
-        device = Nixstasis.Devices.get_device!(device_id)
+    with ^device_id <- socket.assigns[:terminal_device_id],
+         {:ok, %{"device_id" => ^device_id, "device_mac" => device_mac, "private_key" => private_key}} <-
+           Phoenix.Token.verify(NixstasisWeb.Endpoint, "terminal_session", token, max_age: 3600),
+         device <- Nixstasis.Devices.get_device!(device_id),
+         ^device_mac <- device.mac_address do
+      # Start the SSH client process for this session
+      {:ok, pid} =
+        Nixstasis.Devices.SshClient.start_link(
+          device_mac: device.mac_address,
+          private_key: private_key,
+          channel_pid: self()
+        )
 
-        # Start the SSH client process for this session
-        {:ok, pid} =
-          Nixstasis.Devices.SshClient.start_link(
-            device_mac: device.mac_address,
-            private_key: private_key,
-            channel_pid: self()
-          )
+      Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
 
-        Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
+      # Schedule session limits
+      Process.send_after(self(), :max_duration_reached, @max_session_duration)
+      idle_timer = Process.send_after(self(), :idle_warning, @idle_warning_time)
 
-        # Schedule session limits
-        Process.send_after(self(), :max_duration_reached, @max_session_duration)
-        idle_timer = Process.send_after(self(), :idle_warning, @idle_warning_time)
+      socket =
+        socket
+        |> assign(:ssh_client, pid)
+        |> assign(:idle_timer, idle_timer)
 
-        socket =
-          socket
-          |> assign(:ssh_client, pid)
-          |> assign(:idle_timer, idle_timer)
-
-        {:ok, socket}
-
-      {:error, _reason} ->
-        {:error, %{reason: "unauthorized"}}
+      {:ok, socket}
+    else
+      _ -> {:error, %{reason: "unauthorized"}}
     end
   end
 
