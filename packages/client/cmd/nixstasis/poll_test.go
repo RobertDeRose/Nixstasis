@@ -3,13 +3,26 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 type fakeCommandHandler struct {
 	called  bool
 	results []transport.CommandResult
+}
+
+func TestPollIntervalUsesConfiguredValue(t *testing.T) {
+	configured := &config.Config{Poll: config.PollConfig{Interval: 45 * time.Second}}
+	if got := pollInterval(configured); got != 45*time.Second {
+		t.Fatalf("pollInterval() = %s", got)
+	}
+
+	if got := pollInterval(&config.Config{}); got != 30*time.Second {
+		t.Fatalf("pollInterval() fallback = %s", got)
+	}
 }
 
 func (f *fakeCommandHandler) ExecuteBatch(_ context.Context, _ []transport.CommandRequest) []transport.CommandResult {
