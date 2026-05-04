@@ -34,10 +34,12 @@ defmodule Nixstasis.Reporting.CustomReport do
 
     attribute :name, :string do
       allow_nil? false
+      public? true
     end
 
     attribute :config, :map do
       allow_nil? false
+      public? true
     end
 
     timestamps()
