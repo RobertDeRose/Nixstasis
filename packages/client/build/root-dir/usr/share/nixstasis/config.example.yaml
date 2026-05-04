@@ -7,6 +7,9 @@ poll:
 scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 
+frp:
+  auth_token: "replace-me-with-the-frps-auth-token"
+
 log:
   level: "info"
   format: "text"

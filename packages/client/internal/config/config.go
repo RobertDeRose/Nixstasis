@@ -24,6 +24,7 @@ type Config struct {
 	API     APIConfig     `mapstructure:"api"`
 	Poll    PollConfig    `mapstructure:"poll"`
 	Scripts ScriptsConfig `mapstructure:"scripts"`
+	FRP     FRPConfig     `mapstructure:"frp"`
 	Log     LogConfig     `mapstructure:"log"`
 }
 
@@ -42,6 +43,11 @@ type ScriptsConfig struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// FRPConfig holds configuration for FRP tunnel connectivity.
+type FRPConfig struct {
+	AuthToken string `mapstructure:"auth_token"`
+}
+
 // LogConfig holds configuration for logging.
 type LogConfig struct {
 	Level  string `mapstructure:"level"`
@@ -55,6 +61,7 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("api.url", "http://localhost:4000")
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
+	v.SetDefault("frp.auth_token", "")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")
 

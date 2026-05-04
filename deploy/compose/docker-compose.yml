@@ -39,11 +39,14 @@ services:
       - /bin/sh
       - -c
       - |
+        : "$${FRPS_AUTH_TOKEN:?FRPS_AUTH_TOKEN is required}"
+        escaped_frps_auth_token=$$(printf '%s' "$$FRPS_AUTH_TOKEN" | sed 's/[\/&]/\\&/g')
         sed \
           -e "s/\"__FRPS_BIND_PORT__\"/${FRPS_BIND_PORT}/g" \
           -e "s/\"__FRPS_DASHBOARD_PORT__\"/${FRPS_DASHBOARD_PORT}/g" \
           -e "s/\"__FRPS_TCPMUX_PORT__\"/${FRPS_TCPMUX_PORT}/g" \
           -e "s/\"__FRPS_HTTP_PORT__\"/${FRPS_HTTP_PORT}/g" \
+          -e "s/__FRPS_AUTH_TOKEN__/$${escaped_frps_auth_token}/g" \
           -e "s/__BASE_DOMAIN__/${BASE_DOMAIN}/g" \
           /etc/frp/frps.toml.template > /tmp/frps.toml && exec frps -c /tmp/frps.toml
     env_file:
