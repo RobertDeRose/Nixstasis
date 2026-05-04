@@ -70,5 +70,6 @@ frp-admin.{$BASE_DOMAIN} {
     on_demand
   }
 
+  authorize with entra_policy
   reverse_proxy frps:{$FRPS_HTTP_PORT}
 }
