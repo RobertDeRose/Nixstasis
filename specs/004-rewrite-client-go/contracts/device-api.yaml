@@ -5,7 +5,7 @@ info:
   description: Internal API contracts for Device-to-Server communication.
 
 paths:
-  /device/register:
+  /api/v1/devices/register:
     post:
       summary: Register a new device
       requestBody:
@@ -18,26 +18,29 @@ paths:
                 mac_address:
                   type: string
                   example: "00:11:22:33:44:55"
-                ip_address:
-                  type: string
-                  example: "192.168.1.10"
-                name:
+                product_name:
                   type: string
                   example: "atom-001122334455"
+                metadata:
+                  type: object
+                  additionalProperties: true
       responses:
-        '200':
+        '201':
           description: Registration successful
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: string
-                    format: uuid
-                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        example: "550e8400-e29b-41d4-a716-446655440000"
 
-  /device/{id}/poll:
+  /api/v1/devices/{id}/heartbeat:
     post:
       summary: Send telemetry heartbeat
       parameters:
@@ -77,6 +80,91 @@ paths:
               schema:
                 type: object
                 properties:
-                  remote_access_requested:
-                    type: boolean
-                    description: If true, client should start FRP
+                  data:
+                    type: object
+                    properties:
+                      remote_access_requested:
+                        type: boolean
+                        description: If true, client should start FRP
+                      commands:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            command_id:
+                              type: string
+                            type:
+                              type: string
+                            args:
+                              type: array
+                              items:
+                                type: string
+                            payload_ref:
+                              type: string
+                            payload:
+                              type: object
+
+  /api/v1/devices/{id}/command_results:
+    post:
+      summary: Return command execution results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      command_id:
+                        type: string
+                      status:
+                        type: string
+                        enum: [OK, FAILED]
+                      output:
+                        type: object
+                      error:
+                        type: string
+      responses:
+        '200':
+          description: Command results accepted
+
+  /api/v1/devices/{id}/command_payloads/{ref}:
+    get:
+      summary: Fetch a deferred command payload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: ref
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Command payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content_type:
+                    type: string
+                  name:
+                    type: string
+                  data:
+                    type: string
