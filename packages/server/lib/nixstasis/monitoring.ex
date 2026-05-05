@@ -3,6 +3,7 @@ defmodule Nixstasis.Monitoring do
   The Monitoring context.
   """
 
+  require Logger
   require Ash.Query
 
   alias Nixstasis.Devices
@@ -11,12 +12,17 @@ defmodule Nixstasis.Monitoring do
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.Monitoring.RuleEvaluator
+  alias Nixstasis.Notifications.Email
+  alias Nixstasis.Notifications.Webhook
+  alias Nixstasis.Settings
 
   def heartbeat(%Device{} = device, payload \\ %{}) do
     telemetry_payload = normalize_telemetry_payload(payload)
 
     with {:ok, device} <- Devices.update_last_seen(device),
          {:ok, _event} <- persist_telemetry_event(device, telemetry_payload) do
+      resolve_offline_alerts(device)
+
       # Evaluate telemetry against rules
       evaluate_telemetry(device, telemetry_payload)
 
@@ -57,7 +63,7 @@ defmodule Nixstasis.Monitoring do
 
       result.records
       |> List.wrap()
-      |> Enum.each(&broadcast_alert_created/1)
+      |> Enum.each(&handle_alert_created/1)
 
       result
     else
@@ -114,10 +120,22 @@ defmodule Nixstasis.Monitoring do
              message: "Rule Breach: #{rule.condition_field} #{rule.operator} #{rule.threshold_value}",
              triggered_at: DateTime.utc_now()
            }) do
-        {:ok, alert} -> broadcast_alert_created(alert)
+        {:ok, alert} -> handle_alert_created(alert)
         result -> result
       end
     end
+  end
+
+  defp resolve_offline_alerts(%Device{} = device) do
+    Alert
+    |> Ash.Query.filter(device_id == ^device.id and type == :offline and status == :active)
+    |> Ash.read!(domain: Domain)
+    |> Enum.each(fn alert ->
+      case Domain.update_alert(alert, %{status: :resolved, message: "Device heartbeat resumed"}) do
+        {:ok, _resolved_alert} -> :ok
+        _ -> :ok
+      end
+    end)
   end
 
   defp persist_telemetry_event(%Device{} = device, payload) do
@@ -154,6 +172,63 @@ defmodule Nixstasis.Monitoring do
 
   defp map_get(map, "connection_status") when is_map(map),
     do: Map.get(map, "connection_status") || Map.get(map, :connection_status)
+
+  defp handle_alert_created(%Alert{} = alert) do
+    broadcast_alert_created(alert)
+    notify_alert_created(alert)
+    {:ok, alert}
+  end
+
+  defp notify_alert_created(%Alert{} = alert) do
+    settings = Settings.get_notifications_config()
+    email = normalize_notification_target(Map.get(settings, "email"))
+    webhook_url = normalize_notification_target(Map.get(settings, "webhook_url"))
+
+    [
+      {:email, email, fn -> Email.send_alert_email(email, alert) end},
+      {:webhook, webhook_url, fn -> Webhook.send_alert_webhook(webhook_url, alert) end}
+    ]
+    |> Enum.each(fn
+      {_type, nil, _callback} -> :ok
+      {type, _target, callback} -> spawn_notification_task(type, alert, callback)
+    end)
+  end
+
+  defp spawn_notification_task(type, %Alert{} = alert, callback) when is_function(callback, 0) do
+    Task.start(fn ->
+      try do
+        case callback.() do
+          {:ok, _result} -> :ok
+          :ok -> :ok
+          {:error, reason} -> log_notification_failure(type, alert, reason)
+          other -> log_notification_failure(type, alert, other)
+        end
+      rescue
+        exception -> log_notification_failure(type, alert, Exception.message(exception))
+      catch
+        kind, reason -> log_notification_failure(type, alert, {kind, reason})
+      end
+    end)
+
+    :ok
+  end
+
+  defp log_notification_failure(type, %Alert{} = alert, reason) do
+    Logger.warning("alert #{type} notification failed for #{alert.id}: #{inspect(reason)}")
+
+    :ok
+  end
+
+  defp normalize_notification_target(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp normalize_notification_target(_value), do: nil
 
   defp broadcast_alert_created(%Alert{} = alert) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "alerts", {:alert_created, alert})

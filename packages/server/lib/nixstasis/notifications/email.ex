@@ -5,6 +5,8 @@ defmodule Nixstasis.Notifications.Email do
 
   import Swoosh.Email
 
+  def send_alert_email(to, _alert) when to in [nil, ""], do: :ok
+
   def send_alert_email(to, alert) do
     new()
     |> to(to)
