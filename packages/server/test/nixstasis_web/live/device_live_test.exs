@@ -17,12 +17,54 @@ defmodule NixstasisWeb.DeviceLiveTest do
   end
 
   describe "Device Index filters and table" do
+    test "manual device creation schedules a scoped success flash timeout", %{conn: conn} do
+      previous_timeout = Application.get_env(:nixstasis, :device_success_flash_timeout_ms)
+      assert NixstasisWeb.DeviceLive.FormComponent.success_flash_timeout_ms() == 30_000
+      Application.put_env(:nixstasis, :device_success_flash_timeout_ms, 60)
+
+      on_exit(fn ->
+        if is_nil(previous_timeout) do
+          Application.delete_env(:nixstasis, :device_success_flash_timeout_ms)
+        else
+          Application.put_env(:nixstasis, :device_success_flash_timeout_ms, previous_timeout)
+        end
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/devices/new")
+
+      render_submit(element(view, "#device-form"), %{
+        "device" => %{
+          "mac_address" => "12:34:56:78:9A:BC",
+          "account_number" => "987654321"
+        }
+      })
+
+      assert_patch(view, ~p"/devices")
+      assert render(view) =~ "Device created successfully"
+      refute render(view) =~ ~s(id="flash-info")
+      assert render(view) =~ ~s(id="flash-device-success")
+      refute render(view) =~ ~s(id="flash-device-success" phx-mounted=)
+
+      Process.sleep(25)
+      assert render(view) =~ "Device created successfully"
+      assert eventually_cleared?(view)
+      refute render(view) =~ "Device created successfully"
+    end
+
     test "renders MAC Address and Product columns", %{conn: conn} do
-      _ = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA", product_name: "Alpha"})
+      _ =
+        create_device!(%{
+          mac_address: "AA:AA:AA:AA:AA:AA",
+          product_name: "Alpha",
+          ipv4_address: "10.0.0.10"
+        })
+
       {:ok, _view, html} = live(conn, ~p"/devices")
 
       assert html =~ "MAC Address"
       assert html =~ "Product"
+      assert html =~ "IPv4"
+      assert html =~ "10.0.0.10"
     end
 
     test "adds additive filters by clicking product/approval/account and supports clear", %{conn: conn} do
@@ -82,6 +124,29 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, _view, html} = live(conn, ~p"/devices?connectivity_status=offline")
       assert html =~ "22:22:22:22:22:22"
       refute html =~ "11:11:11:11:11:11"
+    end
+
+    test "filters, searches, and sorts by dedicated IPv4 address", %{conn: conn} do
+      _ = create_device!(%{mac_address: "A1:A1:A1:A1:A1:A1", ipv4_address: "10.10.10.1"})
+      _ = create_device!(%{mac_address: "B2:B2:B2:B2:B2:B2", ipv4_address: "10.10.10.2"})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      view
+      |> element("a[href*='ipv4_address=10.10.10.1']", "10.10.10.1")
+      |> render_click()
+
+      assert render(view) =~ "Ipv4 address: 10.10.10.1"
+      assert render(view) =~ "A1:A1:A1:A1:A1:A1"
+      refute render(view) =~ "B2:B2:B2:B2:B2:B2"
+
+      {:ok, _view, search_html} = live(conn, ~p"/devices?search=10.10.10.2")
+      assert search_html =~ "B2:B2:B2:B2:B2:B2"
+      refute search_html =~ "A1:A1:A1:A1:A1:A1"
+
+      {:ok, _view, sort_html} = live(conn, ~p"/devices?sort_by=ipv4_address&sort_order=asc")
+      assert sort_html =~ "10.10.10.1"
+      assert sort_html =~ "10.10.10.2"
     end
 
     test "navigates to device details from MAC address link", %{conn: conn} do
@@ -220,4 +285,17 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "Terminal"
     end
   end
+
+  defp eventually_cleared?(view, attempts \\ 20)
+
+  defp eventually_cleared?(view, attempts) when attempts > 0 do
+    if render(view) =~ "Device created successfully" do
+      Process.sleep(5)
+      eventually_cleared?(view, attempts - 1)
+    else
+      true
+    end
+  end
+
+  defp eventually_cleared?(_view, 0), do: false
 end

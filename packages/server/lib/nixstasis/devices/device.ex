@@ -17,8 +17,10 @@ defmodule Nixstasis.Devices.Device do
 
     custom_indexes do
       index [:account_number]
+      index [:ipv4_address]
       index [:product_name]
       index [:approval_status]
+      index [:schema], using: "gin"
       index [:metadata], using: "gin"
     end
   end
@@ -35,6 +37,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :approval_status,
         :last_seen_at,
         :schema,
@@ -51,6 +54,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :last_seen_at,
         :schema,
         :metadata,
@@ -72,6 +76,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :approval_status,
         :last_seen_at,
         :schema,
@@ -96,6 +101,10 @@ defmodule Nixstasis.Devices.Device do
 
     attribute :account_number, :string do
       constraints min_length: 5, match: ~r/^\d+$/
+    end
+
+    attribute :ipv4_address, :string do
+      constraints match: ~r/^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
     end
 
     attribute :approval_status, Nixstasis.Types.ApprovalStatus do
