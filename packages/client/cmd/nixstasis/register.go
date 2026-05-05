@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"time"
@@ -55,20 +56,28 @@ func runRegister() {
 	client := transport.NewClient(cfg.API)
 
 	// 3. Register with Retries (T015)
-	var uuid string
-	maxRetries := 5
+	var credentials transport.DeviceCredentials
+	maxRetries := 8
 	baseDelay := 2 * time.Second
+	maxDelay := 30 * time.Second
 
 	for i := range maxRetries {
-		uuid, err = client.RegisterDevice(context.Background(), id)
+		credentials, err = client.RegisterDeviceCredentials(context.Background(), id)
 		if err == nil {
 			break
 		}
 
-		slog.Warn("Registration failed", "attempt", i+1, "error", err)
+		message := "Registration failed"
+		if errors.Is(err, transport.ErrDevicePendingApproval) {
+			message = "Registration pending approval"
+		}
+		slog.Warn(message, "attempt", i+1, "error", err)
 		if i < maxRetries-1 {
 			// Exponential backoff
 			sleepDuration := baseDelay * time.Duration(1<<i)
+			if sleepDuration > maxDelay {
+				sleepDuration = maxDelay
+			}
 			slog.Info("Retrying registration...", "wait_time", sleepDuration)
 			time.Sleep(sleepDuration)
 		}
@@ -80,14 +89,14 @@ func runRegister() {
 		os.Exit(1)
 	}
 
-	slog.Info("Registration successful", "uuid", uuid)
+	slog.Info("Registration successful", "uuid", credentials.UUID, "token_issued", credentials.Token != "")
 
-	// 4. Save UUID
+	// 4. Save credentials
 	store := identity.NewStore(config.IdentityPath())
-	if err := store.SaveUUID(uuid); err != nil {
-		slog.Error("Failed to save UUID", "error", err)
+	if err := store.Save(identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}); err != nil {
+		slog.Error("Failed to save credentials", "error", err)
 		return
 	}
 
-	slog.Info("UUID persisted successfully")
+	slog.Info("Credentials persisted successfully")
 }

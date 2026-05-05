@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -24,6 +25,20 @@ func TestGivenDuplicateCommandID_WhenExecuteBatch_ThenLaterDuplicateFails(t *tes
 	}
 	if results[1].Status != transport.CommandStatusFailed || results[1].Error != "duplicate_command_id" {
 		t.Fatalf("expected duplicate to fail with duplicate_command_id, got status=%s error=%s", results[1].Status, results[1].Error)
+	}
+}
+
+func TestGivenOversizedCommandList_WhenExecuteBatch_ThenOnlyMaxAccepted(t *testing.T) {
+	handler := NewHandler("")
+	commands := make([]transport.CommandRequest, MaxCommandsPerPoll+5)
+	for i := range commands {
+		commands[i] = transport.CommandRequest{CommandID: fmt.Sprintf("cmd-%d", i), Type: "list_scripts"}
+	}
+
+	results := handler.ExecuteBatch(context.Background(), commands)
+
+	if len(results) != MaxCommandsPerPoll {
+		t.Fatalf("expected %d results, got %d", MaxCommandsPerPoll, len(results))
 	}
 }
 

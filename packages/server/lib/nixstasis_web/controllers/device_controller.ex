@@ -30,9 +30,11 @@ defmodule NixstasisWeb.DeviceController do
 
   def register(conn, device_params) do
     with {:ok, %Device{} = device} <- Devices.register_device(device_params) do
+      {device, token} = maybe_issue_approved_token(device)
+
       conn
       |> put_status(:created)
-      |> render(:show, device: device)
+      |> json(%{data: device_data(device, token)})
     end
   end
 
@@ -67,4 +69,29 @@ defmodule NixstasisWeb.DeviceController do
   defp normalize_blank(nil), do: nil
   defp normalize_blank(""), do: nil
   defp normalize_blank(value), do: value
+
+  defp maybe_issue_approved_token(%Device{approval_status: :approved} = device) do
+    case Devices.issue_device_token(device) do
+      {:ok, updated_device, token} -> {updated_device, token}
+      {:error, _reason} -> {device, nil}
+    end
+  end
+
+  defp maybe_issue_approved_token(%Device{} = device), do: {device, nil}
+
+  defp device_data(%Device{} = device, token) do
+    data = %{
+      id: device.id,
+      mac_address: device.mac_address,
+      product_name: device.product_name,
+      account_number: device.account_number,
+      approval_status: device.approval_status,
+      last_seen_at: device.last_seen_at,
+      schema: device.schema,
+      metadata: device.metadata,
+      remote_access_requested: device.remote_access_requested
+    }
+
+    if is_binary(token), do: Map.put(data, :api_token, token), else: data
+  end
 end

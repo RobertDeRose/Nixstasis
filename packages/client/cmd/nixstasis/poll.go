@@ -37,13 +37,18 @@ func runPoll() {
 
 	// 1. Load Identity
 	store := identity.NewStore(config.IdentityPath())
-	uuid, err := store.LoadUUID()
+	credentials, err := store.Load()
 	if err != nil {
 		slog.Warn("No device identity found. Please run 'nixstasis register' first.", "error", err)
 		// We exit here because without a UUID we cannot report telemetry.
 		// In a production daemon, we might want to trigger registration or wait.
 		os.Exit(1)
 	}
+	if credentials.UUID == "" || credentials.Token == "" {
+		slog.Warn("Device credentials are incomplete. Please run 'nixstasis register' after approval.")
+		os.Exit(1)
+	}
+	uuid := credentials.UUID
 	slog.Info("Device identity loaded", "uuid", uuid)
 
 	// 2. Setup Components
@@ -52,6 +57,7 @@ func runPoll() {
 		os.Exit(1)
 	}
 	client := transport.NewClient(cfg.API)
+	client.SetAPIKey(credentials.Token)
 	executor := script.NewExecutor(script.RuntimeConfig{
 		Timeout:    5 * time.Second,
 		WarnAfter:  3 * time.Second,
@@ -138,9 +144,11 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 	if resp.RemoteAccessRequested {
 		if !frpStatus.Active {
 			slog.Info("Server requested remote access, starting FRP")
-			frpConfig := cfg.FRP
-			frpConfig.Name = id.Name
-			if err := frpManager.StartWithConfig(ctx, config.FRPCConfigPath(), frpConfig); err != nil {
+			// Assuming default config location for now
+			configPath := config.FRPCConfigPath()
+			// Check if config exists, if not, maybe we can't start?
+			// Or we assume it's there.
+			if err := frpManager.Start(ctx, configPath); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
@@ -198,6 +206,9 @@ type commandPayloadFetcher interface {
 func handleCommandResponses(ctx context.Context, client commandResultsClient, fetcher commandPayloadFetcher, handler commandExecutor, uuid string, cmds []transport.CommandRequest) error {
 	if len(cmds) == 0 {
 		return nil
+	}
+	if len(cmds) > commands.MaxCommandsPerPoll {
+		cmds = cmds[:commands.MaxCommandsPerPoll]
 	}
 
 	ready, preResults := hydrateCommandPayloads(ctx, fetcher, uuid, cmds)
