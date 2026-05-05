@@ -74,8 +74,8 @@
 
  - [X] T016 [P] [US2] Add LiveView test for MAC Address link opening selected device modal in packages/server/test/nixstasis_web/live/device_live_test.exs
  - [X] T017 [P] [US2] Add LiveView test for modal close returning to prior filter context in packages/server/test/nixstasis_web/live/device_live_test.exs
- - [X] T032 [P] [US2] Add BDD-style contract test for POST /api/v1/devices/{device_id}/modal in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
- - [X] T033 [P] [US2] Add BDD-style contract test for DELETE /api/v1/devices/{device_id}/modal in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
+ - [X] T032 [P] [US2] Add route-removal regression test proving the obsolete modal open REST endpoint is gone in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
+ - [X] T033 [P] [US2] Add route-removal regression test proving the obsolete modal close REST endpoint is gone in packages/server/test/nixstasis_web/controllers/device_controller_test.exs
  - [X] T034 [US2] Add modal-open latency verification for SC-002 (p95 <= 2s) in packages/server/test/nixstasis_web/live/device_live_test.exs
 
 ### Implementation for User Story 2
@@ -84,7 +84,7 @@
  - [X] T019 [US2] Wire MAC-link modal open events to existing device show flow in packages/server/lib/nixstasis_web/live/device_live/index.ex
  - [X] T020 [US2] Preserve filter/query and scroll context on modal open/close route transitions in packages/server/lib/nixstasis_web/live/device_live/index.ex
  - [X] T035 [US2] Implement GET /api/v1/devices filter parameter handling contract in packages/server/lib/nixstasis_web/controllers/device_controller.ex
- - [X] T036 [US2] Implement POST and DELETE /api/v1/devices/{device_id}/modal contract endpoints in packages/server/lib/nixstasis_web/controllers/device_controller.ex
+ - [X] T036 [US2] Remove obsolete modal REST contract endpoints from packages/server/lib/nixstasis_web/router.ex and packages/server/lib/nixstasis_web/controllers/device_controller.ex
 
 **Nixstasis**: User Stories 1 and 2 work independently, with modal access integrated from Devices page.
 

@@ -14,12 +14,34 @@ defmodule Nixstasis.Devices.SshClient do
     GenServer.cast(pid, {:send_data, data})
   end
 
+  def stop(pid) do
+    GenServer.stop(pid, :normal, 5_000)
+  end
+
+  def validate_executables(opts \\ []) do
+    ssh_executable = Keyword.get(opts, :ssh_executable, "ssh")
+    proxy_executable = Keyword.get(opts, :proxy_executable, "ncat")
+
+    with {:ok, ssh_path} <- find_required_executable(ssh_executable),
+         {:ok, proxy_path} <- find_required_executable(proxy_executable) do
+      {:ok, %{ssh: ssh_path, proxy: proxy_path}}
+    end
+  end
+
   @impl true
   def init(opts) do
     device_mac = Keyword.fetch!(opts, :device_mac)
     private_key = Keyword.fetch!(opts, :private_key)
     channel_pid = Keyword.fetch!(opts, :channel_pid)
 
+    with {:ok, executables} <- validate_executables(opts) do
+      start_ssh_port(device_mac, private_key, channel_pid, executables)
+    else
+      {:error, reason} -> {:stop, reason}
+    end
+  end
+
+  defp start_ssh_port(device_mac, private_key, channel_pid, executables) do
     # Write private key to a temporary file
     key_path = write_temp_key(private_key)
 
@@ -27,9 +49,7 @@ defmodule Nixstasis.Devices.SshClient do
     # We use -tt to force PTY allocation, which is needed for interactive shell
     # We use -o StrictHostKeyChecking=no because these are ephemeral connections to devices behind NAT
     # We use -o UserKnownHostsFile=/dev/null to avoid cluttering known_hosts
-    ssh_cmd = "ssh"
-
-    proxy_cmd = "ncat --proxy-type http --proxy #{frp_host()}:#{frp_port()} %h %p"
+    proxy_cmd = "#{executables.proxy} --proxy-type http --proxy #{frp_host()}:#{frp_port()} %h %p"
 
     args = [
       "-i",
@@ -45,7 +65,7 @@ defmodule Nixstasis.Devices.SshClient do
       "LogLevel=ERROR",
       # Force PTY
       "-tt",
-      "nixstasis@#{ssh_host(device_mac)}"
+      "nixstasis@atomicnix-#{device_mac}-ssh"
     ]
 
     Logger.info("Starting SSH connection to #{device_mac}...")
@@ -53,7 +73,7 @@ defmodule Nixstasis.Devices.SshClient do
     # Open the port
     # We use [:binary, :exit_status, :stderr_to_stdout] to handle data as binaries
     port =
-      Port.open({:spawn_executable, System.find_executable(ssh_cmd)}, [
+      Port.open({:spawn_executable, executables.ssh}, [
         :binary,
         :exit_status,
         :stderr_to_stdout,
@@ -103,14 +123,11 @@ defmodule Nixstasis.Devices.SshClient do
     path
   end
 
-  def ssh_host(device_mac) do
-    normalized_mac =
-      device_mac
-      |> to_string()
-      |> String.downcase()
-      |> String.replace(":", "")
-
-    "atom-#{normalized_mac}-ssh"
+  defp find_required_executable(executable) do
+    case System.find_executable(executable) do
+      nil -> {:error, %{reason: :missing_executable, executable: executable}}
+      path -> {:ok, path}
+    end
   end
 
   defp frp_host do
