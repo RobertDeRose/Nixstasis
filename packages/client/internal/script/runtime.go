@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"sync"
 	"time"
 
@@ -36,6 +37,10 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 	if config.MQTTBroker == "" {
 		config.MQTTBroker = "tcp://localhost:1883"
 	}
+	if config.ExecWorkDir == "" {
+		config.ExecWorkDir = os.TempDir()
+	}
+
 	r := &Runtime{config: config}
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),

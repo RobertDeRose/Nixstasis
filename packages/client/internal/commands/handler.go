@@ -21,12 +21,18 @@ const maxConcurrentNonSerialCommands = 8
 
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir string
+	scriptsDir         string
+	authorizedKeysPath string
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
 func NewHandler(scriptsDir string) *Handler {
 	return &Handler{scriptsDir: scriptsDir}
+}
+
+// NewHandlerWithAuthorizedKeys constructs a Handler with an explicit authorized_keys target.
+func NewHandlerWithAuthorizedKeys(scriptsDir, authorizedKeysPath string) *Handler {
+	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath}
 }
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
@@ -104,6 +110,8 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.installScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "remove_script":
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
+	case "ssh_authorize":
+		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Args, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
 	}
@@ -111,11 +119,54 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script":
+	case "install_script", "remove_script", "ssh_authorize":
 		return true
 	default:
 		return false
 	}
+}
+
+func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, args []string, payload *transport.CommandPayload) transport.CommandResult {
+	key, requestedPath, err := resolveSSHAuthorize(publicKey, args, payload)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	path, err := h.resolveAuthorizedKeysPath(requestedPath)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+	if err := appendAuthorizedKey(path, key); err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output:    map[string]any{"path": path},
+	}
+}
+
+func (h *Handler) resolveAuthorizedKeysPath(requestedPath string) (string, error) {
+	if h.authorizedKeysPath == "" {
+		return "", fmt.Errorf("authorized_keys path is not configured")
+	}
+	canonical, err := canonicalAuthorizedKeysPath(h.authorizedKeysPath)
+	if err != nil {
+		return "", err
+	}
+	if requestedPath == "" {
+		return canonical, nil
+	}
+	requested, err := canonicalAuthorizedKeysPath(requestedPath)
+	if err != nil {
+		return "", err
+	}
+	if requested != canonical {
+		return "", fmt.Errorf("authorized_keys path is not allowed")
+	}
+	return canonical, nil
 }
 
 func (h *Handler) listScripts(ctx context.Context, commandID string) transport.CommandResult {
@@ -335,7 +386,27 @@ func stringField(payload *transport.CommandPayload, key string) string {
 		return payload.Name
 	case "version":
 		return ""
+	case "path":
+		return payload.Name
 	default:
 		return ""
 	}
+}
+
+func resolveSSHAuthorize(publicKey string, args []string, payload *transport.CommandPayload) (key, path string, err error) {
+	key = publicKey
+	if key == "" {
+		key = stringField(payload, "content")
+	}
+	path = stringField(payload, "path")
+	if key == "" && len(args) > 0 {
+		key = args[0]
+	}
+	if path == "" && len(args) > 1 {
+		path = args[1]
+	}
+	if key == "" {
+		return "", "", fmt.Errorf("missing public key")
+	}
+	return key, path, nil
 }
