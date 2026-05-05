@@ -59,12 +59,17 @@ func runPoll() {
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
 	executor := script.NewExecutor(script.RuntimeConfig{
-		Timeout:    5 * time.Second,
-		WarnAfter:  3 * time.Second,
-		MQTTBroker: os.Getenv("NIXSTASIS_MQTT_BROKER"),
+		Timeout:              5 * time.Second,
+		WarnAfter:            3 * time.Second,
+		MQTTBroker:           runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
+		ExecCommandAllowlist: cfg.Runtime.ExecCommands,
+		ExecWorkDir:          cfg.Runtime.ExecWorkDir,
+		ExecEnv:              cfg.Runtime.ExecEnv,
+		MQTTPublishTopics:    cfg.Runtime.MQTTPublishTopics,
+		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
 	})
 	frpManager := frp.NewManager()
-	cmdHandler := commands.NewHandler(cfg.Scripts.Dir)
+	cmdHandler := commands.NewHandlerWithAuthorizedKeys(cfg.Scripts.Dir, cfg.Runtime.AuthorizedKeysPath)
 
 	ticker := time.NewTicker(pollInterval(cfg))
 	defer ticker.Stop()
@@ -79,6 +84,13 @@ func runPoll() {
 			slog.Error("Poll failed", "error", err)
 		}
 	}
+}
+
+func runtimeMQTTBroker(configured string) string {
+	if configured != "" {
+		return configured
+	}
+	return os.Getenv("NIXSTASIS_MQTT_BROKER")
 }
 
 func pollInterval(cfg *config.Config) time.Duration {

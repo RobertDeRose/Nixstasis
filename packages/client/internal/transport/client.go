@@ -184,6 +184,7 @@ type CommandRequest struct {
 	Args       []string        `json:"args,omitempty"`
 	Payload    *CommandPayload `json:"payload,omitempty"`
 	PayloadRef string          `json:"payload_ref,omitempty"`
+	PublicKey  string          `json:"public_key,omitempty"`
 }
 
 // CommandPayload describes the payload attached to a command.
