@@ -14,7 +14,18 @@ defmodule NixstasisWeb.DashboardLive.Index do
   end
 
   @impl true
-  def handle_info(_msg, socket) do
+  def handle_info({event, _device}, socket)
+      when event in [
+             :device_registered,
+             :device_created,
+             :device_last_seen_updated,
+             :device_approval_status_changed,
+             :device_remote_access_changed
+           ] do
+    {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+  end
+
+  def handle_info({:alert_created, _alert}, socket) do
     {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
   end
 
@@ -37,7 +48,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
             />
           </.link>
 
-          <.link navigate="/devices?status=online">
+          <.link navigate="/devices?connectivity_status=online">
             <NixstasisWeb.Components.StatsCard.stats_card
               title="Online"
               value={"#{@stats.online_devices}"}
@@ -46,7 +57,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
             />
           </.link>
 
-          <.link navigate="/devices?status=pending">
+          <.link navigate="/devices?approval_status=pending">
             <NixstasisWeb.Components.StatsCard.stats_card
               title="Pending Approvals"
               value={"#{@stats.pending_approvals}"}
@@ -71,7 +82,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
         </.link>
 
         <.link
-          navigate="/devices?status=pending"
+          navigate="/devices?approval_status=pending"
           class="btn btn-secondary h-auto py-4 flex flex-col gap-2"
         >
           <span class="text-lg">Pending Approvals</span>

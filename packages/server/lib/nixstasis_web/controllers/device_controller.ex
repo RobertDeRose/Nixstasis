@@ -10,7 +10,8 @@ defmodule NixstasisWeb.DeviceController do
     devices =
       Devices.list_devices(
         filter: %{
-          status: params["status"],
+          approval_status: params["approval_status"],
+          connectivity_status: params["connectivity_status"],
           product: params["product"],
           account_number: params["account_number"]
         }
@@ -18,7 +19,14 @@ defmodule NixstasisWeb.DeviceController do
 
     active_filters =
       %{
-        "status" => normalize_blank(params["status"]),
+        "approval_status" =>
+          params["approval_status"]
+          |> Devices.normalize_approval_status_filter()
+          |> normalize_filter_atom(),
+        "connectivity_status" =>
+          params["connectivity_status"]
+          |> Devices.normalize_connectivity_status_filter()
+          |> normalize_filter_atom(),
         "product" => normalize_blank(params["product"]),
         "account_number" => normalize_blank(params["account_number"])
       }
@@ -66,4 +74,7 @@ defmodule NixstasisWeb.DeviceController do
 
     if is_binary(token), do: Map.put(data, :api_token, token), else: data
   end
+
+  defp normalize_filter_atom(nil), do: nil
+  defp normalize_filter_atom(value) when is_atom(value), do: Atom.to_string(value)
 end

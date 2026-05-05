@@ -15,7 +15,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert %{"id" => _id, "approval_status" => "pending"} = json_response(conn, 201)["data"]
   end
 
-  test "GET /api/v1/devices filters by product/account/status", %{conn: conn} do
+  test "GET /api/v1/devices filters by product/account/approval status", %{conn: conn} do
     {:ok, _} =
       Devices.create_device(%{
         mac_address: "11:11:11:11:11:11",
@@ -32,12 +32,36 @@ defmodule NixstasisWeb.DeviceControllerTest do
         approval_status: :approved
       })
 
-    conn = get(conn, ~p"/api/v1/devices?product=Alpha&account_number=11111&status=pending")
+    conn = get(conn, ~p"/api/v1/devices?product=Alpha&account_number=11111&approval_status=pending")
     body = json_response(conn, 200)
 
     assert length(body["data"]) == 1
     assert hd(body["data"])["mac_address"] == "11:11:11:11:11:11"
     assert body["meta"]["active_filters"]["product"] == "Alpha"
+    assert body["meta"]["active_filters"]["approval_status"] == "pending"
+  end
+
+  test "GET /api/v1/devices filters by connectivity status", %{conn: conn} do
+    {:ok, _} =
+      Devices.create_device(%{
+        mac_address: "55:55:55:55:55:55",
+        product_name: "Alpha",
+        last_seen_at: DateTime.utc_now()
+      })
+
+    {:ok, _} =
+      Devices.create_device(%{
+        mac_address: "66:66:66:66:66:66",
+        product_name: "Beta",
+        last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)
+      })
+
+    conn = get(conn, ~p"/api/v1/devices?connectivity_status=offline")
+    body = json_response(conn, 200)
+
+    assert length(body["data"]) == 1
+    assert hd(body["data"])["mac_address"] == "66:66:66:66:66:66"
+    assert body["meta"]["active_filters"]["connectivity_status"] == "offline"
   end
 
   test "POST /api/v1/devices/:device_id/modal is obsolete", %{conn: conn} do

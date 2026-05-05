@@ -18,6 +18,10 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+    end
+
     {:ok,
      socket
      |> stream(:devices, [])
@@ -31,14 +35,25 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_params(params, _url, socket) do
     sort_by = Map.get(@sort_fields, params["sort_by"] || "inserted_at", :inserted_at)
     sort_order = Map.get(@sort_orders, params["sort_order"] || "desc", :desc)
-    filter_status = normalize_blank(params["status"])
+
+    filter_approval_status =
+      params["approval_status"]
+      |> Devices.normalize_approval_status_filter()
+      |> normalize_filter_atom()
+
+    filter_connectivity_status =
+      params["connectivity_status"]
+      |> Devices.normalize_connectivity_status_filter()
+      |> normalize_filter_atom()
+
     filter_product = normalize_blank(params["product"])
     filter_account_number = normalize_blank(params["account_number"])
     search = params["search"]
 
     active_filters =
       %{
-        "status" => filter_status,
+        "approval_status" => filter_approval_status,
+        "connectivity_status" => filter_connectivity_status,
         "product" => filter_product,
         "account_number" => filter_account_number
       }
@@ -49,7 +64,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
       sort_by: sort_by,
       sort_order: sort_order,
       filter: %{
-        status: filter_status,
+        approval_status: filter_approval_status,
+        connectivity_status: filter_connectivity_status,
         product: filter_product,
         account_number: filter_account_number
       },
@@ -62,7 +78,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
       socket
       |> assign(:sort_by, sort_by)
       |> assign(:sort_order, sort_order)
-      |> assign(:filter_status, filter_status)
+      |> assign(:filter_approval_status, filter_approval_status)
+      |> assign(:filter_connectivity_status, filter_connectivity_status)
       |> assign(:filter_product, filter_product)
       |> assign(:filter_account_number, filter_account_number)
       |> assign(:active_filters, active_filters)
@@ -96,11 +113,20 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
 
-  def handle_event("filter", %{"status" => status}, socket) do
+  def handle_event("filter", %{"approval_status" => status}, socket) do
     params =
       socket.assigns
       |> get_params()
-      |> Map.put("status", status)
+      |> Map.put("approval_status", status)
+
+    {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
+  end
+
+  def handle_event("filter", %{"connectivity_status" => status}, socket) do
+    params =
+      socket.assigns
+      |> get_params()
+      |> Map.put("connectivity_status", status)
 
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
@@ -133,7 +159,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
     params =
       socket.assigns
       |> get_params()
-      |> Map.drop(["status", "product", "account_number"])
+      |> Map.drop(["approval_status", "connectivity_status", "product", "account_number"])
 
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
@@ -186,7 +212,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_event("toggle_all", _params, socket) do
     opts = [
       filter: %{
-        status: socket.assigns.filter_status,
+        approval_status: socket.assigns.filter_approval_status,
+        connectivity_status: socket.assigns.filter_connectivity_status,
         product: socket.assigns.filter_product,
         account_number: socket.assigns.filter_account_number
       },
@@ -237,11 +264,23 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, stream_insert(socket, :devices, device)}
   end
 
+  def handle_info({event, _device}, socket)
+      when event in [
+             :device_registered,
+             :device_created,
+             :device_last_seen_updated,
+             :device_approval_status_changed,
+             :device_remote_access_changed
+           ] do
+    {:noreply, refresh_devices(socket)}
+  end
+
   defp get_params(assigns) do
     %{
       "sort_by" => assigns[:sort_by],
       "sort_order" => assigns[:sort_order],
-      "status" => assigns[:filter_status],
+      "approval_status" => assigns[:filter_approval_status],
+      "connectivity_status" => assigns[:filter_connectivity_status],
       "product" => assigns[:filter_product],
       "account_number" => assigns[:filter_account_number],
       "search" => assigns[:search]
@@ -260,4 +299,33 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp normalize_blank(value), do: value
+
+  defp normalize_filter_atom(nil), do: nil
+  defp normalize_filter_atom(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp refresh_devices(socket) do
+    opts = [
+      sort_by: socket.assigns.sort_by,
+      sort_order: socket.assigns.sort_order,
+      filter: %{
+        approval_status: socket.assigns.filter_approval_status,
+        connectivity_status: socket.assigns.filter_connectivity_status,
+        product: socket.assigns.filter_product,
+        account_number: socket.assigns.filter_account_number
+      },
+      search: socket.assigns.search
+    ]
+
+    devices = Devices.list_devices(opts)
+
+    selected_ids =
+      Enum.filter(socket.assigns.selected_ids, fn selected_id ->
+        Enum.any?(devices, fn device -> device.id == selected_id end)
+      end)
+
+    socket
+    |> assign(:selected_ids, selected_ids)
+    |> assign(:total_count, length(devices))
+    |> stream(:devices, devices, reset: true)
+  end
 end

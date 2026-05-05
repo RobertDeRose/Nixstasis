@@ -118,5 +118,29 @@ defmodule Nixstasis.Monitoring.RuleEvaluatorTest do
 
       assert RuleEvaluator.evaluate(payload, rule) == true
     end
+
+    test "returns false instead of raising for ordered comparisons with incompatible types" do
+      rule = %RuleStruct{
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "50"
+      }
+
+      payload = %{"temp" => %{"nested" => "value"}}
+
+      assert RuleEvaluator.evaluate(payload, rule) == false
+    end
+
+    test "returns false instead of raising for number thresholds and string telemetry" do
+      rule = %RuleStruct{
+        condition_field: "temp",
+        operator: "<=",
+        threshold_value: 50
+      }
+
+      payload = %{"temp" => "warm"}
+
+      assert RuleEvaluator.evaluate(payload, rule) == false
+    end
   end
 end

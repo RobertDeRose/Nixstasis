@@ -36,11 +36,97 @@ defmodule Nixstasis.DevicesTest do
           approval_status: :approved
         })
 
-      assert [res] = Devices.list_devices(filter: %{status: :pending})
+      rejected =
+        device_fixture(%{
+          mac_address: "88:88:88:88:88:88",
+          product_name: "k3",
+          approval_status: :rejected
+        })
+
+      assert [res] = Devices.list_devices(filter: %{approval_status: :pending})
       assert res.id == pending.id
 
-      assert [res] = Devices.list_devices(filter: %{status: :approved})
+      assert [res] = Devices.list_devices(filter: %{approval_status: :approved})
       assert res.id == approved.id
+
+      assert [res] = Devices.list_devices(filter: %{approval_status: "rejected"})
+      assert res.id == rejected.id
+    end
+
+    test "list_devices/1 does not treat status as an approval filter" do
+      pending =
+        device_fixture(%{
+          mac_address: "99:99:99:99:99:99",
+          product_name: "k1",
+          approval_status: :pending
+        })
+
+      approved =
+        device_fixture(%{
+          mac_address: "AA:AA:AA:AA:AA:AA",
+          product_name: "k2",
+          approval_status: :approved
+        })
+
+      ids =
+        Devices.list_devices(filter: %{status: :pending})
+        |> Enum.map(& &1.id)
+
+      assert pending.id in ids
+      assert approved.id in ids
+    end
+
+    test "create_device/1 broadcasts a sanitized device_created event" do
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+
+      {:ok, device} =
+        Devices.create_device(%{
+          mac_address: "AB:AB:AB:AB:AB:AB",
+          product_name: "k1",
+          metadata: %{"future_token" => "secret"}
+        })
+
+      assert_receive {:device_created, payload}
+      assert payload.id == device.id
+      assert payload.approval_status == device.approval_status
+      refute Map.has_key?(payload, :metadata)
+      refute Map.has_key?(payload, :schema)
+    end
+
+    test "list_devices/1 filters by connectivity_status" do
+      now = DateTime.utc_now()
+
+      online =
+        device_fixture(%{
+          mac_address: "55:55:55:55:55:55",
+          product_name: "k1",
+          last_seen_at: DateTime.add(now, -60, :second)
+        })
+
+      offline =
+        device_fixture(%{
+          mac_address: "66:66:66:66:66:66",
+          product_name: "k2",
+          last_seen_at: DateTime.add(now, -10, :minute)
+        })
+
+      never_seen =
+        device_fixture(%{
+          mac_address: "77:77:77:77:77:77",
+          product_name: "k3",
+          last_seen_at: nil
+        })
+
+      assert [res] = Devices.list_devices(filter: %{connectivity_status: :online})
+      assert res.id == online.id
+
+      offline_ids =
+        Devices.list_devices(filter: %{connectivity_status: "offline"})
+        |> Enum.map(& &1.id)
+
+      assert offline.id in offline_ids
+      assert never_seen.id in offline_ids
+      refute online.id in offline_ids
     end
 
     test "list_devices/1 filters by product and account number" do
@@ -61,7 +147,7 @@ defmodule Nixstasis.DevicesTest do
         })
 
       assert [res] =
-               Devices.list_devices(filter: %{product: "alpha", account_number: "77777", status: "approved"})
+               Devices.list_devices(filter: %{product: "alpha", account_number: "77777", approval_status: "approved"})
 
       assert res.id == wanted.id
     end
