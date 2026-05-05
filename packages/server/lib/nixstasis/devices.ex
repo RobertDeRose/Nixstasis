@@ -5,12 +5,17 @@ defmodule Nixstasis.Devices do
 
   require Ash.Query
 
-  alias Nixstasis.Domain
+  import Ecto.Query, only: [from: 2]
+
+  alias Ash.Error.Changes.InvalidAttribute
+  alias Ash.Error.Invalid
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
   alias Nixstasis.Domain
   alias Nixstasis.Repo
+
+  @default_pending_command_limit 50
 
   @doc """
   Counts all devices.
@@ -100,8 +105,41 @@ defmodule Nixstasis.Devices do
   Approves a device.
   """
   def approve_device(%Device{} = device) do
-    Domain.update_device(device, %{approval_status: :approved})
+    with {:ok, approved} <- Domain.update_device(device, %{approval_status: :approved}),
+         {:ok, updated} <- update_device_token_hash(approved.id, nil) do
+      {:ok, updated}
+    end
   end
+
+  def issue_device_token(%Device{approval_status: :approved} = device) do
+    token = generate_device_token()
+
+    case update_device_token_hash(device.id, hash_device_token(token)) do
+      {:ok, updated_device} -> {:ok, updated_device, token}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def issue_device_token(%Device{}), do: {:error, :device_not_approved}
+
+  def authenticate_device(%Device{approval_status: :approved, api_token_hash: hash}, token)
+      when is_binary(hash) and is_binary(token) do
+    candidate = hash_device_token(token)
+
+    if Plug.Crypto.secure_compare(hash, candidate) do
+      :ok
+    else
+      {:error, :invalid_token}
+    end
+  end
+
+  def authenticate_device(%Device{approval_status: status}, _token) when status != :approved,
+    do: {:error, :device_not_approved}
+
+  def authenticate_device(%Device{approval_status: :approved, api_token_hash: nil}, _token),
+    do: {:error, :missing_token}
+
+  def authenticate_device(%Device{}, _token), do: {:error, :missing_token}
 
   @doc """
   Returns the list of devices.
@@ -199,9 +237,13 @@ defmodule Nixstasis.Devices do
   Approves multiple devices by ID.
   """
   def approve_devices(ids) when is_list(ids) do
-    Device
-    |> Ash.Query.filter(id in ^ids)
-    |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
+    result =
+      Device
+      |> Ash.Query.filter(id in ^ids)
+      |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
+
+    clear_device_token_hashes(ids)
+    result
   end
 
   @doc """
@@ -226,6 +268,8 @@ defmodule Nixstasis.Devices do
   Raises `Ash.Error.Invalid` if the Device does not exist.
   """
   def get_device!(id), do: Domain.get_device!(id)
+
+  def get_device(id), do: Domain.get_device(id)
 
   @doc """
   Creates a device.
@@ -303,11 +347,12 @@ defmodule Nixstasis.Devices do
           FROM pending_commands
           WHERE device_id = $1::uuid AND status = 'queued'
           ORDER BY queued_at ASC, id ASC
+          LIMIT $3
           FOR UPDATE SKIP LOCKED
         )
         RETURNING id
         """,
-        [Ecto.UUID.dump!(device_id), now]
+        [Ecto.UUID.dump!(device_id), now, @default_pending_command_limit]
       )
 
     Enum.map(rows, fn [id] -> id end)
@@ -394,20 +439,56 @@ defmodule Nixstasis.Devices do
 
   defp find_payload_by_ref(device_id, ref) do
     payload_map =
-      PendingCommand
-      |> Ash.Query.filter(device_id == ^device_id)
-      |> Ash.read!(domain: Domain)
-      |> Enum.find_value(fn command ->
-        payload = command.command_payload || %{}
-        payload_ref = payload["payload_ref"] || payload[:payload_ref]
-        if payload_ref == ref, do: payload, else: nil
-      end)
+      Repo.one(
+        from command in PendingCommand,
+          where: command.device_id == ^device_id,
+          where: fragment("?->>? = ?", command.command_payload, "payload_ref", ^ref),
+          order_by: [desc: command.inserted_at],
+          limit: 1,
+          select: command.command_payload
+      )
 
     case payload_map do
       nil -> {:error, :not_found}
       payload when is_map(payload) -> {:ok, payload}
       _ -> {:error, :not_found}
     end
+  end
+
+  defp generate_device_token do
+    32
+    |> :crypto.strong_rand_bytes()
+    |> Base.url_encode64(padding: false)
+  end
+
+  defp update_device_token_hash(device_id, token_hash) do
+    {count, _} =
+      Repo.update_all(
+        from(device in Device, where: device.id == ^device_id),
+        set: [api_token_hash: token_hash]
+      )
+
+    if count == 1 do
+      get_device(device_id)
+    else
+      {:error, :not_found}
+    end
+  end
+
+  defp clear_device_token_hashes([]), do: :ok
+
+  defp clear_device_token_hashes(ids) do
+    Repo.update_all(
+      from(device in Device, where: device.id in ^ids),
+      set: [api_token_hash: nil]
+    )
+
+    :ok
+  end
+
+  defp hash_device_token(token) do
+    :crypto.hash(:sha256, token)
+    |> Base.encode16(case: :lower)
   end
 
   defp extract_command_payload(payload) do
