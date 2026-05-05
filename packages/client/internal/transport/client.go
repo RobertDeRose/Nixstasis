@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -18,10 +19,14 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 )
 
+// ErrDevicePendingApproval indicates registration succeeded but no runtime token has been issued yet.
+var ErrDevicePendingApproval = errors.New("device pending approval")
+
 // Client handles API requests.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	apiKey     string
 }
 
 // NewClient creates a new Client instance.
@@ -32,6 +37,11 @@ func NewClient(cfg config.APIConfig) *Client {
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// SetAPIKey configures the per-device API key used for runtime endpoints.
+func (c *Client) SetAPIKey(apiKey string) {
+	c.apiKey = apiKey
 }
 
 func (c *Client) doJSON(ctx context.Context, method, url string, reqBody, respBody any, expectedStatuses ...int) error {
@@ -81,9 +91,35 @@ func (c *Client) doJSON(ctx context.Context, method, url string, reqBody, respBo
 	return nil
 }
 
+func (c *Client) deviceURL(path string) string {
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil || c.apiKey == "" {
+		return c.baseURL + path
+	}
+	q := u.Query()
+	q.Set("api_key", c.apiKey)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// DeviceCredentials are issued once the server has approved a device.
+type DeviceCredentials struct {
+	UUID  string
+	Token string
+}
+
 // RegisterDevice registers the device with the Nixstasis API.
 // It returns the assigned UUID or an error.
 func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity) (string, error) {
+	credentials, err := c.RegisterDeviceCredentials(ctx, id)
+	if err != nil && !errors.Is(err, ErrDevicePendingApproval) {
+		return "", err
+	}
+	return credentials.UUID, nil
+}
+
+// RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
+func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.DeviceIdentity) (DeviceCredentials, error) {
 	url := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
 	reqBody := map[string]any{
 		"mac_address": id.MACAddress,
@@ -106,18 +142,22 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 
 	var response struct {
 		Data struct {
-			ID string `json:"id"`
+			ID       string `json:"id"`
+			APIToken string `json:"api_token"`
 		} `json:"data"`
 	}
 	if err := c.doJSON(ctx, http.MethodPost, url, reqBody, &response, http.StatusCreated); err != nil {
-		return "", err
+		return DeviceCredentials{}, err
 	}
 
 	if response.Data.ID == "" {
-		return "", fmt.Errorf("API returned empty device id")
+		return DeviceCredentials{}, fmt.Errorf("API returned empty device id")
+	}
+	if response.Data.APIToken == "" {
+		return DeviceCredentials{UUID: response.Data.ID}, ErrDevicePendingApproval
 	}
 
-	return response.Data.ID, nil
+	return DeviceCredentials{UUID: response.Data.ID, Token: response.Data.APIToken}, nil
 }
 
 // PollRequest represents the body of the poll request.
@@ -169,7 +209,7 @@ type PollResponse struct {
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
 func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/heartbeat", c.baseURL, uuid)
+	url := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid))
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
@@ -193,7 +233,7 @@ type CommandResultsRequest struct {
 
 // SendCommandResults posts aggregated command results to the API.
 func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []CommandResult) error {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/command_results", c.baseURL, uuid)
+	url := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_results", uuid))
 	reqBody := CommandResultsRequest{Results: results}
 
 	return c.doJSON(ctx, http.MethodPost, url, reqBody, nil, http.StatusOK, http.StatusAccepted)
@@ -201,7 +241,7 @@ func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []
 
 // FetchCommandPayload retrieves a payload by reference.
 func (c *Client) FetchCommandPayload(ctx context.Context, uuid, ref string) (*CommandPayload, error) {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/command_payloads/%s", c.baseURL, uuid, ref)
+	url := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", uuid, ref))
 
 	var payload CommandPayload
 	if err := c.doJSON(ctx, http.MethodGet, url, nil, &payload, http.StatusOK); err != nil {

@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,12 @@ import (
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+
+// Credentials contains the runtime identity assigned by the server.
+type Credentials struct {
+	UUID  string `json:"uuid"`
+	Token string `json:"token,omitempty"`
+}
 
 // Store handles persistence of the Device ID.
 type Store struct {
@@ -24,42 +31,89 @@ func NewStore(path string) *Store {
 // LoadUUID reads the UUID from the storage file.
 // Returns empty string if file doesn't exist.
 func (s *Store) LoadUUID() (string, error) {
+	credentials, err := s.Load()
+	if err != nil {
+		return "", err
+	}
+	return credentials.UUID, nil
+}
+
+// Load reads the persisted runtime credentials. Legacy plain UUID files are supported.
+func (s *Store) Load() (Credentials, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return Credentials{}, nil
 		}
-		return "", err
+		return Credentials{}, err
 	}
-	uuid := strings.TrimSpace(string(data))
-	if uuid == "" {
-		return "", errors.New("identity file is empty")
+
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" {
+		return Credentials{}, errors.New("identity file is empty")
 	}
-	if !uuidPattern.MatchString(uuid) {
-		return "", fmt.Errorf("identity file contains invalid UUID %q", uuid)
+
+	var credentials Credentials
+	if strings.HasPrefix(trimmed, "{") {
+		if err := json.Unmarshal([]byte(trimmed), &credentials); err != nil {
+			return Credentials{}, err
+		}
+		return normalizeCredentials(credentials)
 	}
-	return strings.ToLower(uuid), nil
+
+	return normalizeCredentials(Credentials{UUID: trimmed})
 }
 
 // SaveUUID writes the UUID to the storage file.
 // Creates directories if they don't exist.
 func (s *Store) SaveUUID(uuid string) error {
+	return s.Save(Credentials{UUID: uuid})
+}
+
+// Save writes runtime credentials using owner-only file permissions.
+func (s *Store) Save(credentials Credentials) error {
+	normalized, err := normalizeCredentials(credentials)
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(normalized)
+	if err != nil {
+		return err
+	}
+
+	return s.write(data)
+}
+
+func normalizeCredentials(credentials Credentials) (Credentials, error) {
+	uuid := strings.TrimSpace(credentials.UUID)
 	if uuid == "" {
-		return errors.New("cannot save empty UUID")
+		return Credentials{}, errors.New("identity file is empty")
 	}
+	if !uuidPattern.MatchString(uuid) {
+		return Credentials{}, fmt.Errorf("identity file contains invalid UUID %q", uuid)
+	}
+	credentials.UUID = strings.ToLower(uuid)
+	credentials.Token = strings.TrimSpace(credentials.Token)
+	return credentials, nil
+}
 
+func (s *Store) write(data []byte) error {
 	dir := filepath.Dir(s.path)
-	// Use 0750 for directory permissions (gosec G301)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
-	// Write to temp file and rename for atomic write
 	tmpFile := s.path + ".tmp"
-	// Use 0o644 octal literal (gocritic)
-	if err := os.WriteFile(tmpFile, []byte(uuid), 0o644); err != nil {
+	if err := os.WriteFile(tmpFile, data, 0o600); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpFile, 0o600); err != nil {
 		return err
 	}
 
-	return os.Rename(tmpFile, s.path)
+	if err := os.Rename(tmpFile, s.path); err != nil {
+		return err
+	}
+	return os.Chmod(s.path, 0o600)
 }
