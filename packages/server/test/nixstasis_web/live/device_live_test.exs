@@ -29,29 +29,10 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert html =~ "Product"
     end
 
-    test "adds additive filters by clicking product/status/account and supports clear", %{
-      conn: conn
-    } do
-      _ =
-        create_device!(%{
-          mac_address: "AA:AA:AA:AA:AA:AA",
-          product_name: "Alpha",
-          approval_status: :pending
-        })
-
-      _ =
-        create_device!(%{
-          mac_address: "BB:BB:BB:BB:BB:BB",
-          product_name: "Alpha",
-          approval_status: :approved
-        })
-
-      _ =
-        create_device!(%{
-          mac_address: "CC:CC:CC:CC:CC:CC",
-          product_name: "Beta",
-          approval_status: :pending
-        })
+    test "adds additive filters by clicking product/approval/account and supports clear", %{conn: conn} do
+      _ = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA", product_name: "Alpha", approval_status: :pending})
+      _ = create_device!(%{mac_address: "BB:BB:BB:BB:BB:BB", product_name: "Alpha", approval_status: :approved})
+      _ = create_device!(%{mac_address: "CC:CC:CC:CC:CC:CC", product_name: "Beta", approval_status: :pending})
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
@@ -59,7 +40,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       |> element("a", "Pending")
       |> render_click()
 
-      assert render(view) =~ "Status: pending"
+      assert render(view) =~ "Approval status: pending"
       refute render(view) =~ "BB:BB:BB:BB:BB:BB"
 
       view
@@ -81,6 +62,30 @@ defmodule NixstasisWeb.DeviceLiveTest do
       |> render_click()
 
       refute render(view) =~ "Active filters:"
+    end
+
+    test "filters by approval_status and connectivity_status params", %{conn: conn} do
+      _pending_online =
+        create_device!(%{
+          mac_address: "11:11:11:11:11:11",
+          approval_status: :pending,
+          last_seen_at: DateTime.utc_now()
+        })
+
+      _approved_offline =
+        create_device!(%{
+          mac_address: "22:22:22:22:22:22",
+          approval_status: :approved,
+          last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/devices?approval_status=pending")
+      assert html =~ "11:11:11:11:11:11"
+      refute html =~ "22:22:22:22:22:22"
+
+      {:ok, _view, html} = live(conn, ~p"/devices?connectivity_status=offline")
+      assert html =~ "22:22:22:22:22:22"
+      refute html =~ "11:11:11:11:11:11"
     end
 
     test "navigates to device details from MAC address link", %{conn: conn} do

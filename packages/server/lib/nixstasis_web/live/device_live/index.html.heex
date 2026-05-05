@@ -14,26 +14,38 @@
       </.form>
       <div class="join">
         <.link
-          patch={~p"/devices?#{%{status: "approved"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "approved" && "btn-active"}"}
+          patch={~p"/devices?#{%{approval_status: "approved"}}"}
+          class={"btn btn-sm join-item #{@filter_approval_status == "approved" && "btn-active"}"}
         >
           Approved
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: "pending"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "pending" && "btn-active"}"}
+          patch={~p"/devices?#{%{approval_status: "pending"}}"}
+          class={"btn btn-sm join-item #{@filter_approval_status == "pending" && "btn-active"}"}
         >
           Pending
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: "rejected"}}"}
-          class={"btn btn-sm join-item #{@filter_status == "rejected" && "btn-active"}"}
+          patch={~p"/devices?#{%{approval_status: "rejected"}}"}
+          class={"btn btn-sm join-item #{@filter_approval_status == "rejected" && "btn-active"}"}
         >
           Rejected
         </.link>
         <.link
-          patch={~p"/devices?#{%{status: nil}}"}
-          class={"btn btn-sm join-item #{is_nil(@filter_status) && "btn-active"}"}
+          patch={~p"/devices?#{%{connectivity_status: "online"}}"}
+          class={"btn btn-sm join-item #{@filter_connectivity_status == "online" && "btn-active"}"}
+        >
+          Online
+        </.link>
+        <.link
+          patch={~p"/devices?#{%{connectivity_status: "offline"}}"}
+          class={"btn btn-sm join-item #{@filter_connectivity_status == "offline" && "btn-active"}"}
+        >
+          Offline
+        </.link>
+        <.link
+          patch={~p"/devices"}
+          class={"btn btn-sm join-item #{is_nil(@filter_approval_status) && is_nil(@filter_connectivity_status) && "btn-active"}"}
         >
           All
         </.link>
@@ -169,7 +181,7 @@
           </td>
           <td>
             <.link
-              patch={~p"/devices?#{Map.put(@current_params, "status", to_string(device.approval_status))}"}
+              patch={~p"/devices?#{Map.put(@current_params, "approval_status", to_string(device.approval_status))}"}
               class={"badge w-24 #{case device.approval_status do
                 :approved -> "badge-success text-success-content"
                 :rejected -> "badge-error text-error-content"
@@ -181,13 +193,19 @@
           </td>
           <td>
             <%= if Nixstasis.Devices.online?(device) do %>
-              <div class="badge badge-success w-24">
+              <.link
+                patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "online")}"}
+                class="badge badge-success w-24"
+              >
                 online
-              </div>
+              </.link>
             <% else %>
-              <div class="badge badge-error w-24">
+              <.link
+                patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "offline")}"}
+                class="badge badge-error w-24"
+              >
                 offline
-              </div>
+              </.link>
             <% end %>
           </td>
         </tr>
