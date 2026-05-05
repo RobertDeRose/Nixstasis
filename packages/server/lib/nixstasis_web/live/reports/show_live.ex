@@ -1,9 +1,7 @@
 defmodule NixstasisWeb.ReportLive.Show do
   use NixstasisWeb, :live_view
 
-  alias Nixstasis.Repo
   alias Nixstasis.Reporting
-  alias Nixstasis.Reporting.QueryBuilder
   alias Nixstasis.SchemaOptions
 
   @number_operators [
@@ -38,11 +36,9 @@ defmodule NixstasisWeb.ReportLive.Show do
          |> push_navigate(to: ~p"/reports")}
 
       true ->
-        query = QueryBuilder.build(report.config)
-        base_results = Repo.all(query)
-        fields = QueryBuilder.fields_for_report(report.config)
+        fields = Reporting.report_fields(report)
         field_type_by_column = build_field_type_map(report, fields)
-        preference_key = session["report_pref_key"] || session["_csrf_token"] || "global"
+        preference_scope = Reporting.preference_scope(session)
         filter_column = first_field_key(fields)
         filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
 
@@ -51,9 +47,8 @@ defmodule NixstasisWeb.ReportLive.Show do
          |> assign(:report, report)
          |> assign(:fields, fields)
          |> assign(:field_type_by_column, field_type_by_column)
-         |> assign(:base_results, base_results)
-         |> assign(:results, base_results)
-         |> assign(:preference_key, preference_key)
+         |> assign(:results, [])
+         |> assign(:preference_scope, preference_scope)
          |> assign(:sort_by, "")
          |> assign(:sort_dir, "asc")
          |> assign(:filter_column, filter_column)
@@ -66,21 +61,23 @@ defmodule NixstasisWeb.ReportLive.Show do
   def handle_params(params, _url, socket) do
     view_state =
       params
-      |> merge_with_saved_show_preferences(socket.assigns.report.id, socket.assigns.preference_key)
+      |> merge_with_saved_show_preferences(socket.assigns.report.id, socket.assigns.preference_scope)
       |> normalize_show_view_state(socket.assigns.fields, socket.assigns.field_type_by_column)
 
     filters = to_filters(view_state)
 
     results =
-      QueryBuilder.apply_result_view(socket.assigns.base_results, %{
+      Reporting.run_custom_report(socket.assigns.report, %{
         "sort_by" => view_state["sort_by"],
         "sort_dir" => view_state["sort_dir"],
-        "filters" => filters
+        "filters" => filters,
+        "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
+        "limit" => 250
       })
 
     Reporting.save_view_preferences(
+      socket.assigns.preference_scope,
       "reports:show:#{socket.assigns.report.id}",
-      socket.assigns.preference_key,
       view_state
     )
 
@@ -139,8 +136,8 @@ defmodule NixstasisWeb.ReportLive.Show do
      )}
   end
 
-  defp merge_with_saved_show_preferences(params, report_id, preference_key) do
-    saved = Reporting.load_view_preferences("reports:show:#{report_id}", preference_key)
+  defp merge_with_saved_show_preferences(params, report_id, preference_scope) do
+    saved = Reporting.load_view_preferences(preference_scope, "reports:show:#{report_id}")
 
     %{
       "sort_by" => params["sort_by"] || saved["sort_by"],
@@ -262,6 +259,12 @@ defmodule NixstasisWeb.ReportLive.Show do
 
   defp field_type_for_column(field_type_by_column, column) do
     Map.get(field_type_by_column || %{}, column, :string)
+  end
+
+  defp numeric_field_keys(field_type_by_column) do
+    field_type_by_column
+    |> Enum.filter(fn {_field, type} -> type == :number end)
+    |> Enum.map(fn {field, _type} -> field end)
   end
 
   defp operators_for_type(:number), do: @number_operators
