@@ -14,6 +14,11 @@ import (
 
 const commandTimeout = 5 * time.Second
 
+// MaxCommandsPerPoll caps the command list accepted from a single poll response.
+const MaxCommandsPerPoll = 50
+
+const maxConcurrentNonSerialCommands = 8
+
 // Handler executes supported command types.
 type Handler struct {
 	scriptsDir string
@@ -26,6 +31,10 @@ func NewHandler(scriptsDir string) *Handler {
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
 func (h *Handler) ExecuteBatch(ctx context.Context, commands []transport.CommandRequest) []transport.CommandResult {
+	if len(commands) > MaxCommandsPerPoll {
+		commands = commands[:MaxCommandsPerPoll]
+	}
+
 	results := make([]transport.CommandResult, len(commands))
 	seen := make(map[string]bool)
 
@@ -36,11 +45,19 @@ func (h *Handler) ExecuteBatch(ctx context.Context, commands []transport.Command
 		if len(batch) == 0 {
 			return
 		}
+		sem := make(chan struct{}, maxConcurrentNonSerialCommands)
 		for _, idx := range batch {
 			cmd := commands[idx]
 			wg.Add(1)
 			go func(i int, command transport.CommandRequest) {
 				defer wg.Done()
+				select {
+				case sem <- struct{}{}:
+					defer func() { <-sem }()
+				case <-ctx.Done():
+					results[i] = failureResult(command.CommandID, "timeout")
+					return
+				}
 				cmdCtx, cancel := context.WithTimeout(ctx, commandTimeout)
 				defer cancel()
 				results[i] = h.executeOne(cmdCtx, command)

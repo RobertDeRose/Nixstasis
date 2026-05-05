@@ -62,7 +62,7 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:approval_status]}
+      upsert_fields {:replace_all_except, [:approval_status, :api_token_hash]}
     end
 
     update :update do
@@ -89,44 +89,36 @@ defmodule Nixstasis.Devices.Device do
 
     attribute :mac_address, :string do
       allow_nil? false
-      public? true
       constraints match: ~r/^([0-9A-F]{2}[:-]?){5}[0-9A-F]{2}$/i
     end
 
-    attribute :product_name, :string do
-      public? true
-    end
+    attribute :product_name, :string
 
     attribute :account_number, :string do
-      public? true
       constraints min_length: 5, match: ~r/^\d+$/
     end
 
     attribute :approval_status, Nixstasis.Types.ApprovalStatus do
       allow_nil? false
-      public? true
       default :pending
     end
 
-    attribute :last_seen_at, :utc_datetime do
-      public? true
-    end
+    attribute :api_token_hash, :string
+
+    attribute :last_seen_at, :utc_datetime
 
     attribute :schema, :map do
       allow_nil? false
-      public? true
       default %{}
     end
 
     attribute :metadata, :map do
       allow_nil? false
-      public? true
       default %{}
     end
 
     attribute :remote_access_requested, :boolean do
       allow_nil? false
-      public? true
       default false
     end
 
@@ -134,17 +126,9 @@ defmodule Nixstasis.Devices.Device do
   end
 
   relationships do
-    has_many :pending_commands, Nixstasis.Devices.PendingCommand do
-      public? true
-    end
-
-    has_many :telemetry_events, Nixstasis.Monitoring.Telemetry do
-      public? true
-    end
-
-    has_many :alerts, Nixstasis.Monitoring.Alert do
-      public? true
-    end
+    has_many :pending_commands, Nixstasis.Devices.PendingCommand
+    has_many :telemetry_events, Nixstasis.Monitoring.Telemetry
+    has_many :alerts, Nixstasis.Monitoring.Alert
   end
 
   identities do

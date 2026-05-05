@@ -12,6 +12,7 @@ defmodule NixstasisWeb.Router do
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug(NixstasisWeb.Plugs.RateLimiter)
   end
 
   pipeline :e2e_api do
