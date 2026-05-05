@@ -190,7 +190,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
     case Devices.get_device!(id) do
       %Device{} ->
         :telemetry.execute(
-          [:nixstasis, :devices, :modal_open],
+          [:nixstasis, :devices, :details_open],
           %{count: 1},
           %{result: :ok, source: :devices_index, device_id: id}
         )
@@ -200,7 +200,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   rescue
     _ ->
       :telemetry.execute(
-        [:nixstasis, :devices, :modal_open],
+        [:nixstasis, :devices, :details_open],
         %{count: 1},
         %{result: :error, source: :devices_index, device_id: id}
       )

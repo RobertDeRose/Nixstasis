@@ -163,7 +163,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert_redirect(view, "/devices/#{device.id}")
     end
 
-    test "modal-open navigation p95 is within 2 seconds", %{conn: conn} do
+    test "device-details navigation p95 is within 2 seconds", %{conn: conn} do
       device = create_device!(%{mac_address: "AB:AB:AB:AB:AB:AB"})
 
       samples_ms =
