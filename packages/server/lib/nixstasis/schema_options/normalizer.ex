@@ -41,6 +41,9 @@ defmodule Nixstasis.SchemaOptions.Normalizer do
       path = prefix ++ [key]
 
       cond do
+        schema_metadata_key?(key, prefix) ->
+          []
+
         is_map(value) and is_map(value["properties"]) ->
           flatten_properties(value["properties"], path)
 
@@ -118,7 +121,11 @@ defmodule Nixstasis.SchemaOptions.Normalizer do
 
   defp next_segment_map(acc, segment) when is_map(acc) do
     direct =
-      [get_nested_map(acc, "properties", segment), get_nested_map(acc, :properties, segment), get_map(acc, segment)]
+      [
+        get_nested_map(acc, "properties", segment),
+        get_nested_map(acc, :properties, segment),
+        get_map(acc, segment)
+      ]
       |> Enum.find(&is_map/1)
 
     direct || atom_segment_map(acc, segment)
@@ -150,4 +157,7 @@ defmodule Nixstasis.SchemaOptions.Normalizer do
     |> String.split(" ")
     |> Enum.map_join(" ", &String.capitalize/1)
   end
+
+  defp schema_metadata_key?(key, []), do: key in ["product", "version", "type"]
+  defp schema_metadata_key?(_key, _prefix), do: false
 end

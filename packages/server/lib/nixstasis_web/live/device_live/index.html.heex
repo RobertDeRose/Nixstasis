@@ -122,6 +122,14 @@
           </th>
           <th
             phx-click="sort"
+            phx-value-sort_by="ipv4_address"
+            class="cursor-pointer hover:text-primary"
+          >
+            IPv4 {if @sort_by == :ipv4_address,
+              do: if(@sort_order == :asc, do: "▲", else: "▼")}
+          </th>
+          <th
+            phx-click="sort"
             phx-value-sort_by="approval_status"
             class="cursor-pointer hover:text-primary"
           >
@@ -176,6 +184,18 @@
                 class="link link-hover text-left"
               >
                 {device.account_number}
+              </.link>
+            <% end %>
+          </td>
+          <td class="font-mono">
+            <%= if is_nil(device.ipv4_address) or device.ipv4_address == "" do %>
+              <span class="text-base-content/60">N/A</span>
+            <% else %>
+              <.link
+                patch={~p"/devices?#{Map.put(@current_params, "ipv4_address", to_string(device.ipv4_address))}"}
+                class="link link-hover text-left"
+              >
+                {device.ipv4_address}
               </.link>
             <% end %>
           </td>
