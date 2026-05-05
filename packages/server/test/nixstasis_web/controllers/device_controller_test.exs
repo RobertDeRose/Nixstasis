@@ -6,7 +6,11 @@ defmodule NixstasisWeb.DeviceControllerTest do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:FF",
       "product_name" => "prod_123",
-      "schema" => %{"temp" => "float"},
+      "schema" => %{
+        "product" => "prod_123",
+        "type" => "object",
+        "properties" => %{"temp" => %{"type" => "number"}}
+      },
       "metadata" => %{"fw" => "1.0"}
     }
 
@@ -39,6 +43,41 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert hd(body["data"])["mac_address"] == "11:11:11:11:11:11"
     assert body["meta"]["active_filters"]["product"] == "Alpha"
     assert body["meta"]["active_filters"]["approval_status"] == "pending"
+  end
+
+  test "POST /api/v1/devices/register rejects schema missing product", %{conn: conn} do
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:F1",
+      "product_name" => "prod_123",
+      "schema" => %{"type" => "object", "properties" => %{}}
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert json_response(conn, 422)["errors"]["detail"]
+  end
+
+  test "POST /api/v1/devices/register rejects missing schema", %{conn: conn} do
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:F2",
+      "product_name" => "prod_123"
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert json_response(conn, 422)["errors"]["detail"] =~ "product"
+  end
+
+  test "POST /api/v1/devices/register rejects empty schema_definition", %{conn: conn} do
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:F3",
+      "product_name" => "prod_123",
+      "schema_definition" => %{}
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert json_response(conn, 422)["errors"]["detail"] =~ "product"
   end
 
   test "GET /api/v1/devices filters by connectivity status", %{conn: conn} do

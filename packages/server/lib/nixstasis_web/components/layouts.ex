@@ -25,6 +25,7 @@ defmodule NixstasisWeb.Layouts do
     ~H"""
     <div id={@id} aria-live="polite">
       <.flash kind={:info} flash={@flash} />
+      <.flash id="flash-device-success" kind={:device_success} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
       <.flash

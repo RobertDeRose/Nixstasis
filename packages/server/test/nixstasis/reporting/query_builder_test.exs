@@ -10,7 +10,11 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:01",
         "product_name" => "sensor-v1",
-        "schema" => %{"type" => "object"}
+        "schema" => %{
+          "product" => "sensor-v1",
+          "type" => "object",
+          "properties" => %{}
+        }
       })
 
     # Manually insert telemetry to bypass context helpers if needed, or use Repo

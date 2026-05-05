@@ -13,7 +13,8 @@ defmodule NixstasisWeb.DeviceController do
           approval_status: params["approval_status"],
           connectivity_status: params["connectivity_status"],
           product: params["product"],
-          account_number: params["account_number"]
+          account_number: params["account_number"],
+          ipv4_address: params["ipv4_address"]
         }
       )
 
@@ -28,7 +29,8 @@ defmodule NixstasisWeb.DeviceController do
           |> Devices.normalize_connectivity_status_filter()
           |> normalize_filter_atom(),
         "product" => normalize_blank(params["product"]),
-        "account_number" => normalize_blank(params["account_number"])
+        "account_number" => normalize_blank(params["account_number"]),
+        "ipv4_address" => normalize_blank(params["ipv4_address"])
       }
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
@@ -37,12 +39,61 @@ defmodule NixstasisWeb.DeviceController do
   end
 
   def register(conn, device_params) do
-    with {:ok, %Device{} = device} <- Devices.register_device(device_params) do
+    with :ok <- validate_public_registration_schema(device_params),
+         {:ok, %Device{} = device} <- Devices.register_device(device_params) do
       {device, token} = maybe_issue_approved_token(device)
 
       conn
       |> put_status(:created)
       |> json(%{data: device_data(device, token)})
+    end
+  end
+
+  defp validate_public_registration_schema(params) when is_map(params) do
+    schema = params["schema"] || params[:schema] || params["schema_definition"] || params[:schema_definition]
+
+    if schema in [nil, %{}] do
+      {:error,
+       Ash.Error.Invalid.exception(
+         errors: [
+           Ash.Error.Changes.InvalidAttribute.exception(
+             field: :schema_definition,
+             message: "schema must include product"
+           )
+         ]
+       )}
+    else
+      :ok
+    end
+  end
+
+  defp validate_public_registration_schema(_params), do: :ok
+
+  def open_modal(conn, %{"device_id" => id}) do
+    try do
+      device = Devices.get_device!(id)
+      {:ok, _updated} = Devices.set_remote_access(device, true)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{
+        selected_device_id: device.id,
+        remote_access_requested: true,
+        pcp_data_ready: Devices.online?(device),
+        terminal_ready: Devices.online?(device)
+      })
+    rescue
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def close_modal(conn, %{"device_id" => id}) do
+    try do
+      device = Devices.get_device!(id)
+      {:ok, _updated} = Devices.set_remote_access(device, false)
+      send_resp(conn, :no_content, "")
+    rescue
+      _ -> {:error, :not_found}
     end
   end
 

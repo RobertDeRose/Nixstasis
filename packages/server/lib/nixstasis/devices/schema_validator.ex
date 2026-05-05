@@ -4,11 +4,69 @@ defmodule Nixstasis.Devices.SchemaValidator do
   """
 
   def validate(schema_def) when is_map(schema_def) do
-    # T018: ensure `product` exists (as per plan text, though ambiguous,
-    # possibly referring to a field definition for product info, or just that the schema itself is valid)
-    # For now, we just ensure it is a map (which the guard does).
-    :ok
+    with :ok <- require_json_schema_object(schema_def),
+         :ok <- validate_optional_properties(schema_def) do
+      :ok
+    end
   end
 
   def validate(_), do: {:error, "schema must be a JSON object"}
+
+  def validate_registration(schema_def) when is_map(schema_def) do
+    with :ok <- require_product(schema_def),
+         :ok <- require_json_schema_object(schema_def),
+         :ok <- require_properties_object(schema_def) do
+      :ok
+    end
+  end
+
+  def validate_registration(_), do: {:error, "schema must be a JSON object"}
+
+  defp require_product(schema_def) do
+    case fetch_string(schema_def, "product") do
+      value when is_binary(value) ->
+        if String.trim(value) == "",
+          do: {:error, "schema product must be a non-empty string"},
+          else: :ok
+
+      _ ->
+        {:error, "schema must include product"}
+    end
+  end
+
+  defp require_json_schema_object(schema_def) do
+    case fetch_string(schema_def, "type") do
+      nil -> :ok
+      "object" -> :ok
+      _ -> {:error, "schema type must be object"}
+    end
+  end
+
+  defp require_properties_object(schema_def) do
+    case fetch_key(schema_def, "properties") do
+      properties when is_map(properties) -> :ok
+      _ -> {:error, "schema properties must be a JSON object"}
+    end
+  end
+
+  defp validate_optional_properties(schema_def) do
+    case fetch_key(schema_def, "properties") do
+      nil -> :ok
+      properties when is_map(properties) -> :ok
+      _ -> {:error, "schema properties must be a JSON object"}
+    end
+  end
+
+  defp fetch_string(map, key) do
+    case fetch_key(map, key) do
+      value when is_binary(value) -> value
+      _ -> nil
+    end
+  end
+
+  defp fetch_key(map, key) do
+    Map.get(map, key) || Map.get(map, String.to_existing_atom(key))
+  rescue
+    ArgumentError -> Map.get(map, key)
+  end
 end

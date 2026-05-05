@@ -8,6 +8,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
     "account_number" => :account_number,
     "approval_status" => :approval_status,
     "inserted_at" => :inserted_at,
+    "ipv4_address" => :ipv4_address,
     "last_seen_at" => :last_seen_at,
     "mac_address" => :mac_address,
     "product_name" => :product_name,
@@ -48,6 +49,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
     filter_product = normalize_blank(params["product"])
     filter_account_number = normalize_blank(params["account_number"])
+    filter_ipv4_address = normalize_blank(params["ipv4_address"])
     search = params["search"]
 
     active_filters =
@@ -55,7 +57,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
         "approval_status" => filter_approval_status,
         "connectivity_status" => filter_connectivity_status,
         "product" => filter_product,
-        "account_number" => filter_account_number
+        "account_number" => filter_account_number,
+        "ipv4_address" => filter_ipv4_address
       }
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
@@ -67,7 +70,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
         approval_status: filter_approval_status,
         connectivity_status: filter_connectivity_status,
         product: filter_product,
-        account_number: filter_account_number
+        account_number: filter_account_number,
+        ipv4_address: filter_ipv4_address
       },
       search: search
     ]
@@ -82,6 +86,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       |> assign(:filter_connectivity_status, filter_connectivity_status)
       |> assign(:filter_product, filter_product)
       |> assign(:filter_account_number, filter_account_number)
+      |> assign(:filter_ipv4_address, filter_ipv4_address)
       |> assign(:active_filters, active_filters)
       |> assign(:search, search)
       |> then(fn s -> assign(s, :current_params, get_params(s.assigns)) end)
@@ -159,7 +164,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
     params =
       socket.assigns
       |> get_params()
-      |> Map.drop(["approval_status", "connectivity_status", "product", "account_number"])
+      |> Map.drop(["approval_status", "connectivity_status", "product", "account_number", "ipv4_address"])
 
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
@@ -215,7 +220,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
         approval_status: socket.assigns.filter_approval_status,
         connectivity_status: socket.assigns.filter_connectivity_status,
         product: socket.assigns.filter_product,
-        account_number: socket.assigns.filter_account_number
+        account_number: socket.assigns.filter_account_number,
+        ipv4_address: socket.assigns.filter_ipv4_address
       },
       search: socket.assigns.search
     ]
@@ -275,6 +281,10 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, refresh_devices(socket)}
   end
 
+  def handle_info({:clear_flash, key}, socket) do
+    {:noreply, clear_flash(socket, key)}
+  end
+
   defp get_params(assigns) do
     %{
       "sort_by" => assigns[:sort_by],
@@ -283,6 +293,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       "connectivity_status" => assigns[:filter_connectivity_status],
       "product" => assigns[:filter_product],
       "account_number" => assigns[:filter_account_number],
+      "ipv4_address" => assigns[:filter_ipv4_address],
       "search" => assigns[:search]
     }
     |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
