@@ -53,7 +53,13 @@ defmodule Nixstasis.Monitoring do
       end)
 
     if entries != [] do
-      Ash.bulk_create(entries, Alert, :create, domain: Domain)
+      result = Ash.bulk_create(entries, Alert, :create, domain: Domain, return_records?: true)
+
+      result.records
+      |> List.wrap()
+      |> Enum.each(&broadcast_alert_created/1)
+
+      result
     else
       %Ash.BulkResult{status: :success, errors: []}
     end
@@ -100,14 +106,17 @@ defmodule Nixstasis.Monitoring do
       |> Ash.exists?(domain: Domain)
 
     unless exists? do
-      Domain.create_alert(%{
-        device_id: device.id,
-        rule_id: rule.id,
-        type: :threshold,
-        status: :active,
-        message: "Rule Breach: #{rule.condition_field} #{rule.operator} #{rule.threshold_value}",
-        triggered_at: DateTime.utc_now()
-      })
+      case Domain.create_alert(%{
+             device_id: device.id,
+             rule_id: rule.id,
+             type: :threshold,
+             status: :active,
+             message: "Rule Breach: #{rule.condition_field} #{rule.operator} #{rule.threshold_value}",
+             triggered_at: DateTime.utc_now()
+           }) do
+        {:ok, alert} -> broadcast_alert_created(alert)
+        result -> result
+      end
     end
   end
 
@@ -145,4 +154,8 @@ defmodule Nixstasis.Monitoring do
 
   defp map_get(map, "connection_status") when is_map(map),
     do: Map.get(map, "connection_status") || Map.get(map, :connection_status)
+
+  defp broadcast_alert_created(%Alert{} = alert) do
+    Phoenix.PubSub.broadcast(Nixstasis.PubSub, "alerts", {:alert_created, alert})
+  end
 end

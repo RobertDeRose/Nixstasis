@@ -36,8 +36,8 @@ defmodule Nixstasis.Monitoring.RuleEvaluator do
 
   defp cast_threshold(_val, threshold), do: {:ok, threshold}
 
-  defp do_compare(val, ">", threshold), do: val > threshold
-  defp do_compare(val, "<", threshold), do: val < threshold
+  defp do_compare(val, ">", threshold), do: ordered_compare(val, threshold, &>/2)
+  defp do_compare(val, "<", threshold), do: ordered_compare(val, threshold, &</2)
   defp do_compare(val, "=", threshold), do: val == threshold
   # Just in case
   defp do_compare(val, "==", threshold), do: val == threshold
@@ -46,7 +46,17 @@ defmodule Nixstasis.Monitoring.RuleEvaluator do
   defp do_compare(val, "contains", threshold), do: String.contains?(to_string(val), to_string(threshold))
   defp do_compare(val, "doesn't contain", threshold), do: not String.contains?(to_string(val), to_string(threshold))
   defp do_compare(val, "!=", threshold), do: val != threshold
-  defp do_compare(val, ">=", threshold), do: val >= threshold
-  defp do_compare(val, "<=", threshold), do: val <= threshold
+  defp do_compare(val, ">=", threshold), do: ordered_compare(val, threshold, &>=/2)
+  defp do_compare(val, "<=", threshold), do: ordered_compare(val, threshold, &<=/2)
   defp do_compare(_, _, _), do: false
+
+  defp ordered_compare(val, threshold, compare) when is_number(val) and is_number(threshold) do
+    compare.(val, threshold)
+  end
+
+  defp ordered_compare(val, threshold, compare) when is_binary(val) and is_binary(threshold) do
+    compare.(val, threshold)
+  end
+
+  defp ordered_compare(_val, _threshold, _compare), do: false
 end

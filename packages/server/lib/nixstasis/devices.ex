@@ -165,7 +165,14 @@ defmodule Nixstasis.Devices do
 
     case SchemaValidator.validate(schema_def) do
       :ok ->
-        Domain.register_device(safe_attrs)
+        case Domain.register_device(safe_attrs) do
+          {:ok, device} = result ->
+            broadcast_device(:device_registered, device)
+            result
+
+          result ->
+            result
+        end
 
       {:error, msg} ->
         {:error,
@@ -178,7 +185,14 @@ defmodule Nixstasis.Devices do
   end
 
   def update_last_seen(%Device{} = device) do
-    Domain.update_device(device, %{last_seen_at: DateTime.utc_now()})
+    case Domain.update_device(device, %{last_seen_at: DateTime.utc_now()}) do
+      {:ok, device} = result ->
+        broadcast_device(:device_last_seen_updated, device)
+        result
+
+      result ->
+        result
+    end
   end
 
   @doc """
@@ -196,6 +210,7 @@ defmodule Nixstasis.Devices do
   def approve_device(%Device{} = device) do
     with {:ok, approved} <- Domain.update_device(device, %{approval_status: :approved}),
          {:ok, updated} <- update_device_token_hash(approved.id, nil) do
+      broadcast_device(:device_approval_status_changed, updated)
       {:ok, updated}
     end
   end
@@ -236,7 +251,7 @@ defmodule Nixstasis.Devices do
   ## Options
     * `:sort_by` - The field to sort by. Defaults to `:inserted_at`.
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
-    * `:filter` - A map of filters (e.g., `%{status: :pending}`).
+    * `:filter` - A map of filters (e.g., `%{approval_status: :pending}`).
     * `:search` - A search string for mac_address or account_number.
   """
   def list_devices(opts \\ []) do
@@ -246,9 +261,10 @@ defmodule Nixstasis.Devices do
     search = Keyword.get(opts, :search)
 
     Device
-    |> filter_by_status(filter[:status])
-    |> filter_by_product(filter[:product])
-    |> filter_by_account_number(filter[:account_number])
+    |> filter_by_approval_status(filter_value(filter, :approval_status))
+    |> filter_by_connectivity_status(filter_value(filter, :connectivity_status))
+    |> filter_by_product(filter_value(filter, :product))
+    |> filter_by_account_number(filter_value(filter, :account_number))
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
     |> Ash.read!(domain: Domain)
@@ -265,12 +281,55 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp filter_by_status(query, nil), do: query
+  @doc """
+  Normalizes approval status filters to known status atoms.
+  """
+  def normalize_approval_status_filter(status) when status in [:pending, :approved, :rejected], do: status
 
-  defp filter_by_status(query, status) do
-    case normalize_status_filter(status) do
+  def normalize_approval_status_filter(status) when is_binary(status) do
+    case String.trim(status) do
+      "pending" -> :pending
+      "approved" -> :approved
+      "rejected" -> :rejected
+      _ -> nil
+    end
+  end
+
+  def normalize_approval_status_filter(_), do: nil
+
+  @doc """
+  Normalizes connectivity filters to `:online` or `:offline`.
+  """
+  def normalize_connectivity_status_filter(status) when status in [:online, :offline], do: status
+
+  def normalize_connectivity_status_filter(status) when is_binary(status) do
+    case String.trim(status) do
+      "online" -> :online
+      "offline" -> :offline
+      _ -> nil
+    end
+  end
+
+  def normalize_connectivity_status_filter(_), do: nil
+
+  defp filter_by_approval_status(query, nil), do: query
+
+  defp filter_by_approval_status(query, status) do
+    case normalize_approval_status_filter(status) do
       nil -> query
       normalized_status -> Ash.Query.filter(query, approval_status == ^normalized_status)
+    end
+  end
+
+  defp filter_by_connectivity_status(query, nil), do: query
+
+  defp filter_by_connectivity_status(query, status) do
+    threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
+
+    case normalize_connectivity_status_filter(status) do
+      nil -> query
+      :online -> Ash.Query.filter(query, last_seen_at >= ^threshold)
+      :offline -> Ash.Query.filter(query, last_seen_at < ^threshold or is_nil(last_seen_at))
     end
   end
 
@@ -304,24 +363,6 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp normalize_status_filter(status) when is_atom(status), do: status
-
-  defp normalize_status_filter(status) when is_binary(status) do
-    case String.trim(status) do
-      "" ->
-        nil
-
-      value ->
-        try do
-          String.to_existing_atom(value)
-        rescue
-          ArgumentError -> nil
-        end
-    end
-  end
-
-  defp normalize_status_filter(_), do: nil
-
   @doc """
   Approves multiple devices by ID.
   """
@@ -332,6 +373,11 @@ defmodule Nixstasis.Devices do
       |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
 
     clear_device_token_hashes(ids)
+
+    ids
+    |> list_devices_by_ids()
+    |> Enum.each(&broadcast_device(:device_approval_status_changed, &1))
+
     result
   end
 
@@ -339,16 +385,30 @@ defmodule Nixstasis.Devices do
   Rejects multiple devices by ID.
   """
   def reject_devices(ids) when is_list(ids) do
-    Device
-    |> Ash.Query.filter(id in ^ids)
-    |> Ash.bulk_update!(:update, %{approval_status: :rejected}, domain: Domain, strategy: :stream)
+    result =
+      Device
+      |> Ash.Query.filter(id in ^ids)
+      |> Ash.bulk_update!(:update, %{approval_status: :rejected}, domain: Domain, strategy: :stream)
+
+    ids
+    |> list_devices_by_ids()
+    |> Enum.each(&broadcast_device(:device_approval_status_changed, &1))
+
+    result
   end
 
   @doc """
   Sets the remote_access_requested flag.
   """
   def set_remote_access(%Device{} = device, requested?) do
-    Domain.update_device(device, %{remote_access_requested: requested?})
+    case Domain.update_device(device, %{remote_access_requested: requested?}) do
+      {:ok, device} = result ->
+        broadcast_device(:device_remote_access_changed, device)
+        result
+
+      result ->
+        result
+    end
   end
 
   @doc """
@@ -445,14 +505,28 @@ defmodule Nixstasis.Devices do
   Creates a device.
   """
   def create_device(attrs \\ %{}) do
-    Domain.create_device(attrs)
+    case Domain.create_device(attrs) do
+      {:ok, device} = result ->
+        broadcast_device(:device_created, device)
+        result
+
+      result ->
+        result
+    end
   end
 
   @doc """
   Updates a device.
   """
   def update_device(%Device{} = device, attrs) do
-    Domain.update_device(device, attrs)
+    case Domain.update_device(device, attrs) do
+      {:ok, device} = result ->
+        broadcast_update_for_attrs(device, attrs)
+        result
+
+      result ->
+        result
+    end
   end
 
   @doc """
@@ -655,8 +729,52 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "",
-    do: nil
+  defp filter_value(filter, key) when is_map(filter) do
+    Map.get(filter, key) || Map.get(filter, to_string(key))
+  end
+
+  defp filter_value(_filter, _key), do: nil
+
+  defp list_devices_by_ids([]), do: []
+
+  defp list_devices_by_ids(ids) do
+    Device
+    |> Ash.Query.filter(id in ^ids)
+    |> Ash.read!(domain: Domain)
+  end
+
+  defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) do
+    cond do
+      Map.has_key?(attrs, :approval_status) or Map.has_key?(attrs, "approval_status") ->
+        broadcast_device(:device_approval_status_changed, device)
+
+      Map.has_key?(attrs, :last_seen_at) or Map.has_key?(attrs, "last_seen_at") ->
+        broadcast_device(:device_last_seen_updated, device)
+
+      Map.has_key?(attrs, :remote_access_requested) or Map.has_key?(attrs, "remote_access_requested") ->
+        broadcast_device(:device_remote_access_changed, device)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp broadcast_update_for_attrs(_device, _attrs), do: :ok
+
+  defp broadcast_device(event, %Device{} = device) do
+    Phoenix.PubSub.broadcast(Nixstasis.PubSub, "devices", {event, device_broadcast_payload(device)})
+  end
+
+  defp device_broadcast_payload(%Device{} = device) do
+    %{
+      id: device.id,
+      approval_status: device.approval_status,
+      last_seen_at: device.last_seen_at,
+      remote_access_requested: device.remote_access_requested
+    }
+  end
+
+  defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "", do: nil
 
   defp fetch_pending_command(device_id, command_id) do
     PendingCommand
