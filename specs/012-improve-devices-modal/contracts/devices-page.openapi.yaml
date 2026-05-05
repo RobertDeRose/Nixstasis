@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Devices Page Filtering and Modal Launch Contract
+  title: Devices Page Filtering Contract
   version: 1.0.0
   description: |
-    Contract for Devices page filtering interactions and MAC-address modal launch,
-    reusing modal capabilities introduced in spec 005 (PCP data views and terminal session).
+    Contract for Devices page filtering interactions. Device detail sessions are
+    launched through the Phoenix LiveView route, not modal REST endpoints.
 servers:
   - url: https://nixstasis.local
 paths:
@@ -42,40 +42,6 @@ paths:
                       $ref: '#/components/schemas/DeviceListRow'
                   meta:
                     $ref: '#/components/schemas/FilterMeta'
-
-  /api/v1/devices/{device_id}/modal:
-    post:
-      summary: Open device modal session for selected device
-      parameters:
-        - in: path
-          name: device_id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Modal session initialized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceModalSession'
-        "404":
-          description: Device not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      summary: Close modal session and release remote access resources
-      parameters:
-        - in: path
-          name: device_id
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: Modal session closed
 
 components:
   schemas:
@@ -115,23 +81,6 @@ components:
             status:
               type: string
               nullable: true
-
-    DeviceModalSession:
-      type: object
-      required:
-        - selected_device_id
-        - remote_access_requested
-        - pcp_data_ready
-        - terminal_ready
-      properties:
-        selected_device_id:
-          type: string
-        remote_access_requested:
-          type: boolean
-        pcp_data_ready:
-          type: boolean
-        terminal_ready:
-          type: boolean
 
     ErrorResponse:
       type: object

@@ -6,6 +6,9 @@ defmodule NixstasisWeb.TerminalChannel do
   use NixstasisWeb, :channel
   require Logger
 
+  alias Nixstasis.Devices
+  alias Nixstasis.Devices.SshKeyManager
+
   # 60 minutes hard limit
   @max_session_duration 60 * 60 * 1000
   # 10 minutes idle timeout
@@ -18,35 +21,33 @@ defmodule NixstasisWeb.TerminalChannel do
   # Join "terminal:DEVICE_ID"
   @impl true
   def join("terminal:" <> device_id, payload, socket) do
-    token = payload["token"]
+    session_ref = payload["token"]
 
-    with ^device_id <- socket.assigns[:terminal_device_id],
-         {:ok, %{"device_id" => ^device_id, "device_mac" => device_mac, "private_key" => private_key}} <-
-           Phoenix.Token.verify(NixstasisWeb.Endpoint, "terminal_session", token, max_age: 3600),
-         device <- Nixstasis.Devices.get_device!(device_id),
-         ^device_mac <- device.mac_address do
-      # Start the SSH client process for this session
-      {:ok, pid} =
-        Nixstasis.Devices.SshClient.start_link(
-          device_mac: device.mac_address,
-          private_key: private_key,
-          channel_pid: self()
-        )
+    with {:ok, %{private_key: private_key}} <-
+           SshKeyManager.fetch_terminal_session(session_ref, device_id),
+         {:ok, device} <- get_device(device_id),
+         {:ok, pid} <- start_ssh_client(device, private_key) do
+      SshKeyManager.clear_terminal_session(session_ref)
 
       Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
 
-      # Schedule session limits
       Process.send_after(self(), :max_duration_reached, @max_session_duration)
-      idle_timer = Process.send_after(self(), :idle_warning, @idle_warning_time)
+      idle_timer = schedule_idle_warning(0)
 
       socket =
         socket
+        |> assign(:terminal_session_ref, session_ref)
         |> assign(:ssh_client, pid)
+        |> assign(:ssh_client_module, ssh_client_module())
         |> assign(:idle_timer, idle_timer)
+        |> assign(:idle_generation, 0)
 
       {:ok, socket}
     else
-      _ -> {:error, %{reason: "unauthorized"}}
+      {:error, reason} ->
+        SshKeyManager.clear_terminal_session(session_ref)
+        Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
+        {:error, terminal_join_error(reason)}
     end
   end
 
@@ -54,17 +55,20 @@ defmodule NixstasisWeb.TerminalChannel do
   @impl true
   def handle_in("input", %{"data" => data}, socket) do
     if pid = socket.assigns[:ssh_client] do
-      Nixstasis.Devices.SshClient.send_data(pid, data)
+      socket.assigns.ssh_client_module.send_data(pid, data)
     end
 
-    # Reset idle timer
     if timer = socket.assigns[:idle_timer] do
       Process.cancel_timer(timer)
     end
 
-    idle_timer = Process.send_after(self(), :idle_warning, @idle_warning_time)
+    idle_generation = socket.assigns[:idle_generation] + 1
+    idle_timer = schedule_idle_warning(idle_generation)
 
-    {:noreply, assign(socket, :idle_timer, idle_timer)}
+    {:noreply,
+     socket
+     |> assign(:idle_timer, idle_timer)
+     |> assign(:idle_generation, idle_generation)}
   end
 
   # Session management callbacks
@@ -76,26 +80,31 @@ defmodule NixstasisWeb.TerminalChannel do
   end
 
   @impl true
-  def handle_info(:idle_warning, socket) do
-    # Push warning to client
-    push(socket, "session_warning", %{
-      message: "Session idle. Disconnecting in 30 seconds. Press any key to stay connected."
-    })
+  def handle_info({:idle_warning, generation}, socket) do
+    if socket.assigns[:idle_generation] == generation do
+      push(socket, "session_warning", %{
+        message: "Session idle. Disconnecting in 30 seconds. Press any key to stay connected."
+      })
 
-    push(socket, "output", %{data: "\r\n[Session idle. Disconnecting in 30s...]\r\n"})
+      push(socket, "output", %{data: "\r\n[Session idle. Disconnecting in 30s...]\r\n"})
 
-    # Schedule actual disconnect
-    disconnect_timer = Process.send_after(self(), :idle_timeout, @idle_warning_offset)
+      disconnect_timer =
+        Process.send_after(self(), {:idle_timeout, generation}, @idle_warning_offset)
 
-    # We update the idle_timer to the disconnect timer so input can cancel it too if needed
-    # (though standard input handler resets to full duration)
-    {:noreply, assign(socket, :idle_timer, disconnect_timer)}
+      {:noreply, assign(socket, :idle_timer, disconnect_timer)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
-  def handle_info(:idle_timeout, socket) do
-    push(socket, "output", %{data: "\r\n[Session timed out due to inactivity.]\r\n"})
-    {:stop, :normal, socket}
+  def handle_info({:idle_timeout, generation}, socket) do
+    if socket.assigns[:idle_generation] == generation do
+      push(socket, "output", %{data: "\r\n[Session timed out due to inactivity.]\r\n"})
+      {:stop, :normal, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Handle output from the SSH Client process
@@ -109,5 +118,64 @@ defmodule NixstasisWeb.TerminalChannel do
   def handle_info({:ssh_exit, status}, socket) do
     push(socket, "output", %{data: "\r\n[Session ended with status: #{status}]\r\n"})
     {:stop, :normal, socket}
+  end
+
+  @impl true
+  def terminate(_reason, socket) do
+    SshKeyManager.clear_terminal_session(socket.assigns[:terminal_session_ref])
+    stop_ssh_client(socket.assigns[:ssh_client_module], socket.assigns[:ssh_client])
+    :ok
+  end
+
+  defp get_device(device_id) do
+    {:ok, Devices.get_device!(device_id)}
+  rescue
+    _ -> {:error, :device_not_found}
+  end
+
+  defp start_ssh_client(device, private_key) do
+    case ssh_client_module().start_link(
+           device_mac: device.mac_address,
+           private_key: private_key,
+           channel_pid: self()
+         ) do
+      {:ok, pid} -> {:ok, pid}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp terminal_join_error(%{reason: :missing_executable, executable: executable}) do
+    %{
+      reason: "terminal_unavailable",
+      code: "missing_executable",
+      executable: executable
+    }
+  end
+
+  defp terminal_join_error(_reason), do: %{reason: "unauthorized"}
+
+  defp ssh_client_module do
+    Application.get_env(:nixstasis, :terminal_ssh_client, Nixstasis.Devices.SshClient)
+  end
+
+  defp schedule_idle_warning(generation) do
+    Process.send_after(self(), {:idle_warning, generation}, @idle_warning_time)
+  end
+
+  defp stop_ssh_client(_module, nil), do: :ok
+
+  defp stop_ssh_client(module, pid) do
+    cond do
+      function_exported?(module, :stop, 1) ->
+        module.stop(pid)
+
+      Process.alive?(pid) ->
+        Process.exit(pid, :shutdown)
+
+      true ->
+        :ok
+    end
+  catch
+    _, _ -> :ok
   end
 end

@@ -40,22 +40,19 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert body["meta"]["active_filters"]["product"] == "Alpha"
   end
 
-  test "POST /api/v1/devices/:device_id/modal enables remote access", %{conn: conn} do
+  test "POST /api/v1/devices/:device_id/modal is obsolete", %{conn: conn} do
     {:ok, device} =
       Devices.create_device(%{
         mac_address: "33:33:33:33:33:33",
         product_name: "Alpha"
       })
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/modal")
-    body = json_response(conn, 200)
-
-    assert body["selected_device_id"] == device.id
-    assert body["remote_access_requested"] == true
-    assert Devices.get_device!(device.id).remote_access_requested == true
+    conn = post(conn, "/api/v1/devices/#{device.id}/modal")
+    assert response(conn, 404)
+    assert Devices.get_device!(device.id).remote_access_requested == false
   end
 
-  test "DELETE /api/v1/devices/:device_id/modal disables remote access", %{conn: conn} do
+  test "DELETE /api/v1/devices/:device_id/modal is obsolete", %{conn: conn} do
     {:ok, device} =
       Devices.create_device(%{
         mac_address: "44:44:44:44:44:44",
@@ -63,8 +60,8 @@ defmodule NixstasisWeb.DeviceControllerTest do
         remote_access_requested: true
       })
 
-    conn = delete(conn, ~p"/api/v1/devices/#{device.id}/modal")
-    assert response(conn, 204)
-    assert Devices.get_device!(device.id).remote_access_requested == false
+    conn = delete(conn, "/api/v1/devices/#{device.id}/modal")
+    assert response(conn, 404)
+    assert Devices.get_device!(device.id).remote_access_requested == true
   end
 end

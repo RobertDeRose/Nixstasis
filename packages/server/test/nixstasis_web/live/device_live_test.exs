@@ -25,10 +25,29 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert html =~ "Product"
     end
 
-    test "adds additive filters by clicking product/status/account and supports clear", %{conn: conn} do
-      _ = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA", product_name: "Alpha", approval_status: :pending})
-      _ = create_device!(%{mac_address: "BB:BB:BB:BB:BB:BB", product_name: "Alpha", approval_status: :approved})
-      _ = create_device!(%{mac_address: "CC:CC:CC:CC:CC:CC", product_name: "Beta", approval_status: :pending})
+    test "adds additive filters by clicking product/status/account and supports clear", %{
+      conn: conn
+    } do
+      _ =
+        create_device!(%{
+          mac_address: "AA:AA:AA:AA:AA:AA",
+          product_name: "Alpha",
+          approval_status: :pending
+        })
+
+      _ =
+        create_device!(%{
+          mac_address: "BB:BB:BB:BB:BB:BB",
+          product_name: "Alpha",
+          approval_status: :approved
+        })
+
+      _ =
+        create_device!(%{
+          mac_address: "CC:CC:CC:CC:CC:CC",
+          product_name: "Beta",
+          approval_status: :pending
+        })
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
@@ -65,7 +84,10 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices")
 
       view
-      |> element("button[phx-click='open_device_details'][phx-value-id='#{device.id}']", "DD:DD:DD:DD:DD:DD")
+      |> element(
+        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
+        "DD:DD:DD:DD:DD:DD"
+      )
       |> render_click()
 
       assert_redirect(view, "/devices/#{device.id}")
@@ -80,7 +102,10 @@ defmodule NixstasisWeb.DeviceLiveTest do
           start = System.monotonic_time(:millisecond)
 
           view
-          |> element("button[phx-click='open_device_details'][phx-value-id='#{device.id}']", "AB:AB:AB:AB:AB:AB")
+          |> element(
+            "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
+            "AB:AB:AB:AB:AB:AB"
+          )
           |> render_click()
 
           assert_redirect(view, "/devices/#{device.id}")
@@ -102,6 +127,73 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, _view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       assert Devices.get_device!(device.id).remote_access_requested == true
+    end
+
+    test "explicit close clears remote access", %{conn: conn} do
+      device = create_device!(%{mac_address: "E1:E1:E1:E1:E1:E1"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert Devices.get_device!(device.id).remote_access_requested == true
+
+      render_hook(view, "close_remote_access", %{})
+
+      assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "lease expiration clears remote access", %{conn: conn} do
+      device = create_device!(%{mac_address: "E2:E2:E2:E2:E2:E2"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      %{remote_access_lease_ref: lease_ref} = :sys.get_state(view.pid).socket.assigns
+      send(view.pid, {:remote_access_lease_expired, lease_ref})
+
+      assert render(view) =~ "Remote access session expired"
+      assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "owner death clears remote access lease", %{conn: conn} do
+      device = create_device!(%{mac_address: "E3:E3:E3:E3:E3:E3"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert Devices.get_device!(device.id).remote_access_requested == true
+
+      Ecto.Adapters.SQL.Sandbox.allow(
+        Nixstasis.Repo,
+        self(),
+        Process.whereis(Nixstasis.Devices.RemoteAccessLeases)
+      )
+
+      ref = Process.monitor(view.pid)
+      GenServer.stop(view.pid)
+      assert_receive {:DOWN, ^ref, :process, _pid, _reason}
+      Devices.sync_remote_access_leases()
+
+      assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "starting ssh session renders terminal socket token", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E4"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      html =
+        view
+        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> render_click()
+
+      assert html =~ ~s(id="terminal-container")
+      assert html =~ ~s(data-token=)
+      assert html =~ ~s(data-socket-token=)
+
+      %{terminal_socket_token: socket_token} = :sys.get_state(view.pid).socket.assigns
+
+      assert {:ok, %{"device_id" => device_id}} =
+               Phoenix.Token.verify(NixstasisWeb.Endpoint, "terminal_socket", socket_token, max_age: 3600)
+
+      assert device_id == device.id
     end
 
     test "redirects with flash for missing device", %{conn: conn} do
