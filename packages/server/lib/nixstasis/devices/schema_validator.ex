@@ -12,7 +12,21 @@ defmodule Nixstasis.Devices.SchemaValidator do
 
   def validate(_), do: {:error, "schema must be a JSON object"}
 
-  def validate_registration(schema_def) when is_map(schema_def) do
+  def validate_registration(schema_def, scope \\ :public)
+
+  def validate_registration(schema_def, :public) when is_map(schema_def) do
+    with :ok <- require_non_empty_schema(schema_def),
+         :ok <- require_product(schema_def),
+         :ok <- require_json_schema_object(schema_def),
+         :ok <- require_properties_object(schema_def) do
+      :ok
+    end
+  end
+
+  def validate_registration(schema_def, :internal) when is_map(schema_def) and map_size(schema_def) == 0,
+    do: :ok
+
+  def validate_registration(schema_def, :internal) when is_map(schema_def) do
     with :ok <- require_product(schema_def),
          :ok <- require_json_schema_object(schema_def),
          :ok <- require_properties_object(schema_def) do
@@ -20,7 +34,15 @@ defmodule Nixstasis.Devices.SchemaValidator do
     end
   end
 
-  def validate_registration(_), do: {:error, "schema must be a JSON object"}
+  def validate_registration(_schema_def, scope) when scope in [:public, :internal],
+    do: {:error, "schema must be a JSON object"}
+
+  def validate_registration(schema_def, _scope), do: validate_registration(schema_def, :public)
+
+  defp require_non_empty_schema(schema_def) when map_size(schema_def) == 0,
+    do: {:error, "schema must include product"}
+
+  defp require_non_empty_schema(_schema_def), do: :ok
 
   defp require_product(schema_def) do
     case fetch_string(schema_def, "product") do

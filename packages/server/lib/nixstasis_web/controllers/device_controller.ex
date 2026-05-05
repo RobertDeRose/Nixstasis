@@ -39,8 +39,7 @@ defmodule NixstasisWeb.DeviceController do
   end
 
   def register(conn, device_params) do
-    with :ok <- validate_public_registration_schema(device_params),
-         {:ok, %Device{} = device} <- Devices.register_device(device_params) do
+    with {:ok, %Device{} = device} <- Devices.register_public_device(device_params) do
       {device, token} = maybe_issue_approved_token(device)
 
       conn
@@ -48,26 +47,6 @@ defmodule NixstasisWeb.DeviceController do
       |> json(%{data: device_data(device, token)})
     end
   end
-
-  defp validate_public_registration_schema(params) when is_map(params) do
-    schema = params["schema"] || params[:schema] || params["schema_definition"] || params[:schema_definition]
-
-    if schema in [nil, %{}] do
-      {:error,
-       Ash.Error.Invalid.exception(
-         errors: [
-           Ash.Error.Changes.InvalidAttribute.exception(
-             field: :schema_definition,
-             message: "schema must include product"
-           )
-         ]
-       )}
-    else
-      :ok
-    end
-  end
-
-  defp validate_public_registration_schema(_params), do: :ok
 
   defp normalize_blank(nil), do: nil
   defp normalize_blank(""), do: nil
