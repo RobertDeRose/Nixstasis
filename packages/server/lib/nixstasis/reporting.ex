@@ -134,8 +134,6 @@ defmodule Nixstasis.Reporting do
   def save_view_preferences(nil, _key, _preferences), do: :ok
 
   def save_view_preferences(scope, key, preferences) when is_binary(scope) and is_binary(key) and is_map(preferences) do
-    ensure_preference_store!()
-
     now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
 
     Repo.insert_all(
@@ -159,8 +157,6 @@ defmodule Nixstasis.Reporting do
   def load_view_preferences(nil, _key), do: %{}
 
   def load_view_preferences(scope, key) when is_binary(scope) and is_binary(key) do
-    ensure_preference_store!()
-
     query =
       from(p in "report_view_preferences",
         where: p.scope == ^scope and p.view_key == ^key,
@@ -168,7 +164,10 @@ defmodule Nixstasis.Reporting do
         limit: 1
       )
 
-    Repo.one(query) || %{}
+    case Repo.one(query) do
+      preferences when is_map(preferences) -> preferences
+      _ -> %{}
+    end
   end
 
   def change_custom_report(report, attrs \\ %{})
@@ -299,24 +298,4 @@ defmodule Nixstasis.Reporting do
   defp normalize_preference_scope_value(nil), do: ""
   defp normalize_preference_scope_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_preference_scope_value(_), do: ""
-
-  defp ensure_preference_store! do
-    Repo.query!("""
-    CREATE TABLE IF NOT EXISTS report_view_preferences (
-      id bigserial PRIMARY KEY,
-      scope text NOT NULL,
-      view_key text NOT NULL,
-      preferences jsonb NOT NULL DEFAULT '{}'::jsonb,
-      inserted_at timestamp without time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-      updated_at timestamp without time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
-    )
-    """)
-
-    Repo.query!("""
-    CREATE UNIQUE INDEX IF NOT EXISTS report_view_preferences_scope_view_key_index
-    ON report_view_preferences (scope, view_key)
-    """)
-
-    :ok
-  end
 end

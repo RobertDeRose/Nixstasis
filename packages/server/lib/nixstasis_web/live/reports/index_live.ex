@@ -9,39 +9,62 @@ defmodule NixstasisWeb.ReportLive.Index do
 
   def mount(_params, session, socket) do
     preference_scope = Reporting.preference_scope(session)
-    can_manage_reports = can_manage_reports?(session)
 
-    {:ok,
-     socket
-     |> assign(:preference_scope, preference_scope)
-     |> assign(:can_manage_reports, can_manage_reports)
-     |> assign(:schema_field_options, schema_field_options())
-     |> assign(:report_to_delete, nil)
-     |> assign(:sort_by, "name")
-     |> assign(:sort_dir, "asc")
-     |> assign(:filters, @default_filters)
-     |> assign(:reports, [])}
+    if can_view_reports?(session) do
+      {:ok,
+       socket
+       |> assign(:can_view_reports, true)
+       |> assign(:preference_scope, preference_scope)
+       |> assign(:preferences_enabled?, preference_scope != nil)
+       |> assign(:preferences_reset?, false)
+       |> assign(:can_manage_reports, can_manage_reports?(session))
+       |> assign(:schema_field_options, schema_field_options())
+       |> assign(:report_to_delete, nil)
+       |> assign(:sort_by, "name")
+       |> assign(:sort_dir, "asc")
+       |> assign(:filters, @default_filters)
+       |> assign(:reports, [])}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You are not authorized to view reports.")
+       |> push_navigate(to: ~p"/")}
+    end
   end
 
   def handle_params(params, _url, socket) do
-    view_state =
-      params
-      |> merge_with_saved_index_preferences(socket.assigns.preference_scope)
-      |> normalize_index_view_state()
+    if authorized_socket?(socket) do
+      if socket.assigns.live_action in [:new, :edit] and not socket.assigns.can_manage_reports do
+        {:noreply,
+         socket
+         |> put_flash(:error, "You are not authorized to manage reports.")
+         |> push_navigate(to: ~p"/reports")}
+      else
+        merged_view_state =
+          params
+          |> merge_with_saved_index_preferences(socket.assigns.preference_scope)
 
-    reports = load_reports(view_state)
+        view_state = normalize_index_view_state(merged_view_state)
+        preferences_reset? = meaningful_index_view_state?(merged_view_state) and merged_view_state != view_state
 
-    Reporting.save_view_preferences(socket.assigns.preference_scope, "reports:index", view_state)
+        reports = load_reports(view_state)
 
-    socket =
-      socket
-      |> assign(:sort_by, view_state["sort_by"])
-      |> assign(:sort_dir, view_state["sort_dir"])
-      |> assign(:filters, view_state["filters"])
-      |> assign(:reports, reports)
-      |> apply_action(socket.assigns.live_action, params)
+        Reporting.save_view_preferences(socket.assigns.preference_scope, "reports:index", view_state)
 
-    {:noreply, socket}
+        socket =
+          socket
+          |> assign(:sort_by, view_state["sort_by"])
+          |> assign(:sort_dir, view_state["sort_dir"])
+          |> assign(:filters, view_state["filters"])
+          |> assign(:preferences_reset?, preferences_reset?)
+          |> assign(:reports, reports)
+          |> apply_action(socket.assigns.live_action, params)
+
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("set_sort", %{"by" => by}, socket) do
@@ -169,6 +192,12 @@ defmodule NixstasisWeb.ReportLive.Index do
     }
   end
 
+  defp meaningful_index_view_state?(state) do
+    state["sort_by"] not in [nil, ""] or
+      state["sort_dir"] not in [nil, ""] or
+      state["filters"] not in [nil, %{}, @default_filters]
+  end
+
   defp merge_with_saved_index_preferences(params, preference_scope) do
     saved = Reporting.load_view_preferences(preference_scope, "reports:index")
     has_filters_param? = Map.has_key?(params, "filters")
@@ -233,8 +262,26 @@ defmodule NixstasisWeb.ReportLive.Index do
   end
 
   defp can_manage_reports?(session) do
-    permissions = session["report_permissions"] || %{}
-    permissions["can_manage"] != false
+    permissions = report_permissions(session)
+    permissions["can_manage"] == true
+  end
+
+  defp can_view_reports?(session) do
+    permissions = report_permissions(session)
+    permissions["can_view"] == true
+  end
+
+  defp report_permissions(session) when is_map(session) do
+    case Map.get(session, "report_permissions") do
+      permissions when is_map(permissions) -> permissions
+      _ -> %{}
+    end
+  end
+
+  defp report_permissions(_session), do: %{}
+
+  defp authorized_socket?(socket) do
+    socket.assigns[:can_view_reports] == true
   end
 
   defp normalize_filters(filters) when not is_map(filters), do: @default_filters
@@ -341,11 +388,19 @@ defmodule NixstasisWeb.ReportLive.Index do
       <.header>
         Custom Reports
         <:actions>
-          <.link patch={~p"/reports/new"}>
+          <.link :if={@can_manage_reports} patch={~p"/reports/new"}>
             <.button>Create Report</.button>
           </.link>
         </:actions>
       </.header>
+
+      <div :if={!@preferences_enabled?} class="alert alert-soft alert-info mb-4" role="status">
+        <span>Saved report view preferences are unavailable for this session.</span>
+      </div>
+
+      <div :if={@preferences_reset?} class="alert alert-soft alert-warning mb-4" role="status">
+        <span>Saved report view preferences were invalid and have been reset to safe defaults.</span>
+      </div>
 
       <div class="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,420px)_minmax(320px,1fr)_auto] lg:items-start">
         <form phx-change="filter_reports" class="w-full">
