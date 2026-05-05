@@ -3,6 +3,108 @@ defmodule Nixstasis.Devices.SshKeyManager do
   Manages the generation of ephemeral SSH keys for remote access sessions.
   """
 
+  use GenServer
+
+  @terminal_sessions_name __MODULE__.TerminalSessions
+  @terminal_session_ttl_ms 60 * 60 * 1000
+
+  @impl true
+  def init(:terminal_sessions), do: {:ok, %{sessions: %{}}}
+
+  @impl true
+  def handle_call({:create_terminal_session, device_id, private_key, ttl_ms}, _from, state) do
+    session_ref = Ecto.UUID.generate()
+    expires_at = DateTime.add(DateTime.utc_now(), ttl_ms, :millisecond)
+    timer = Process.send_after(self(), {:terminal_session_expired, session_ref}, max(ttl_ms, 0))
+
+    session = %{device_id: to_string(device_id), private_key: private_key, expires_at: expires_at, timer: timer}
+    state = put_in(state.sessions[session_ref], session)
+
+    {:reply, {:ok, session_ref}, state}
+  end
+
+  def handle_call({:fetch_terminal_session, session_ref, device_id}, _from, state) do
+    device_id = to_string(device_id)
+
+    case Map.get(state.sessions, session_ref) do
+      %{device_id: session_device_id, private_key: _private_key, expires_at: _expires_at}
+      when session_device_id != device_id ->
+        {:reply, {:error, :device_mismatch}, clear_terminal_session_state(state, session_ref)}
+
+      %{private_key: private_key, expires_at: expires_at} ->
+        if DateTime.compare(expires_at, DateTime.utc_now()) == :gt do
+          {:reply, {:ok, %{private_key: private_key, expires_at: expires_at}}, state}
+        else
+          {:reply, {:error, :expired}, clear_terminal_session_state(state, session_ref)}
+        end
+
+      nil ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:clear_terminal_session, session_ref}, _from, state) do
+    {:reply, :ok, clear_terminal_session_state(state, session_ref)}
+  end
+
+  def handle_call({:terminal_session_active?, session_ref}, _from, state) do
+    case Map.get(state.sessions, session_ref) do
+      %{expires_at: expires_at} ->
+        if DateTime.compare(expires_at, DateTime.utc_now()) == :gt do
+          {:reply, true, state}
+        else
+          {:reply, false, clear_terminal_session_state(state, session_ref)}
+        end
+
+      nil ->
+        {:reply, false, state}
+    end
+  end
+
+  @impl true
+  def handle_info({:terminal_session_expired, session_ref}, state) do
+    {:noreply, clear_terminal_session_state(state, session_ref)}
+  end
+
+  @doc """
+  Stores SSH key material server-side behind an opaque, expiring session ref.
+  """
+  def create_terminal_session(device_id, private_key, opts \\ []) when is_binary(private_key) do
+    ensure_terminal_sessions_manager!()
+    ttl_ms = Keyword.get(opts, :ttl_ms, @terminal_session_ttl_ms)
+    GenServer.call(@terminal_sessions_name, {:create_terminal_session, device_id, private_key, ttl_ms})
+  end
+
+  @doc """
+  Fetches key material for a matching, unexpired terminal session ref.
+  """
+  def fetch_terminal_session(session_ref, device_id) when is_binary(session_ref) do
+    ensure_terminal_sessions_manager!()
+    GenServer.call(@terminal_sessions_name, {:fetch_terminal_session, session_ref, device_id})
+  end
+
+  def fetch_terminal_session(_session_ref, _device_id), do: {:error, :not_found}
+
+  @doc """
+  Removes terminal SSH key material for a session ref.
+  """
+  def clear_terminal_session(session_ref) when is_binary(session_ref) do
+    ensure_terminal_sessions_manager!()
+    GenServer.call(@terminal_sessions_name, {:clear_terminal_session, session_ref})
+  end
+
+  def clear_terminal_session(_session_ref), do: :ok
+
+  @doc """
+  Returns true when terminal key material is still stored for the session ref.
+  """
+  def terminal_session_active?(session_ref) when is_binary(session_ref) do
+    ensure_terminal_sessions_manager!()
+    GenServer.call(@terminal_sessions_name, {:terminal_session_active?, session_ref})
+  end
+
+  def terminal_session_active?(_session_ref), do: false
+
   @doc """
   Generates an ephemeral SSH key pair.
 
@@ -51,6 +153,30 @@ defmodule Nixstasis.Devices.SshKeyManager do
       {:ok, %{private_key: private_key, public_key: String.trim(public_key)}}
     else
       {:error, reason} -> {:error, "Failed to read generated keys: #{inspect(reason)}"}
+    end
+  end
+
+  defp ensure_terminal_sessions_manager! do
+    case Process.whereis(@terminal_sessions_name) do
+      nil ->
+        case GenServer.start(__MODULE__, :terminal_sessions, name: @terminal_sessions_name) do
+          {:ok, _pid} -> :ok
+          {:error, {:already_started, _pid}} -> :ok
+        end
+
+      _pid ->
+        :ok
+    end
+  end
+
+  defp clear_terminal_session_state(state, session_ref) do
+    case Map.pop(state.sessions, session_ref) do
+      {%{timer: timer}, sessions} ->
+        Process.cancel_timer(timer)
+        %{state | sessions: sessions}
+
+      {nil, _sessions} ->
+        state
     end
   end
 end

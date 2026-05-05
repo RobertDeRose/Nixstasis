@@ -3,6 +3,8 @@ defmodule Nixstasis.Devices do
   The Devices context.
   """
 
+  use GenServer
+
   require Ash.Query
 
   import Ecto.Query, only: [from: 2]
@@ -12,6 +14,93 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
   alias Nixstasis.Repo
+
+  @remote_access_leases_name __MODULE__.RemoteAccessLeases
+  @remote_access_lease_ttl_ms 60 * 60 * 1000
+
+  @impl true
+  def init(:remote_access_leases) do
+    {:ok, %{leases: %{}, device_refs: %{}}}
+  end
+
+  @impl true
+  def handle_call({:open_remote_access_lease, device_id, owner, ttl_ms}, _from, state) do
+    lease_ref = Ecto.UUID.generate()
+    timer = Process.send_after(self(), {:remote_access_lease_expired, lease_ref}, ttl_ms)
+    monitor = monitor_remote_access_owner(owner)
+
+    lease = %{device_id: device_id, owner: owner, timer: timer, monitor: monitor}
+
+    state = put_remote_access_lease(state, lease_ref, lease)
+    {:reply, lease_ref, state}
+  end
+
+  def handle_call({:close_remote_access_lease, lease_ref}, _from, state) do
+    {reply, state} = pop_remote_access_lease(state, lease_ref)
+    {:reply, reply, state}
+  end
+
+  def handle_call({:close_remote_access_leases_for, owner}, _from, state) do
+    lease_refs =
+      state.leases
+      |> Enum.filter(fn {_lease_ref, lease} -> lease.owner == owner end)
+      |> Enum.map(fn {lease_ref, _lease} -> lease_ref end)
+
+    {replies, state} =
+      Enum.reduce(lease_refs, {[], state}, fn lease_ref, {replies, state} ->
+        case pop_remote_access_lease(state, lease_ref) do
+          {{:ok, device_id, _owner, clear_device?}, state} -> {[{device_id, clear_device?} | replies], state}
+          {:ok, state} -> {replies, state}
+        end
+      end)
+
+    {:reply, replies, state}
+  end
+
+  def handle_call({:remote_access_lease_active?, lease_ref}, _from, state) do
+    {:reply, Map.has_key?(state.leases, lease_ref), state}
+  end
+
+  def handle_call(:sync_remote_access_leases, _from, state) do
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_info({:remote_access_lease_expired, lease_ref}, state) do
+    case pop_remote_access_lease(state, lease_ref) do
+      {{:ok, device_id, owner, clear_device?}, state} ->
+        send(owner, {:remote_access_lease_expired, lease_ref})
+
+        if clear_device? do
+          clear_remote_access_device(device_id)
+        end
+
+        {:noreply, state}
+
+      {:ok, state} ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_info({:DOWN, monitor, :process, _pid, _reason}, state) do
+    case find_remote_access_lease_by_monitor(state, monitor) do
+      {lease_ref, %{device_id: device_id}} ->
+        case pop_remote_access_lease(state, lease_ref) do
+          {{:ok, ^device_id, _owner, clear_device?}, state} ->
+            if clear_device? do
+              clear_remote_access_device(device_id)
+            end
+
+            {:noreply, state}
+
+          {:ok, state} ->
+            {:noreply, state}
+        end
+
+      nil ->
+        {:noreply, state}
+    end
+  end
 
   @default_pending_command_limit 50
 
@@ -81,7 +170,9 @@ defmodule Nixstasis.Devices do
       {:error, msg} ->
         {:error,
          Ash.Error.Invalid.exception(
-           errors: [Ash.Error.Changes.InvalidAttribute.exception(field: :schema_definition, message: msg)]
+           errors: [
+             Ash.Error.Changes.InvalidAttribute.exception(field: :schema_definition, message: msg)
+           ]
          )}
     end
   end
@@ -261,6 +352,87 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
+  Opens a leased remote-access session and marks the device as requesting access.
+  """
+  def open_remote_access_lease(%Device{} = device, opts \\ []) do
+    ensure_remote_access_leases_manager!()
+    owner = Keyword.get(opts, :owner, self())
+    ttl_ms = Keyword.get(opts, :ttl_ms, @remote_access_lease_ttl_ms)
+
+    with {:ok, updated} <- set_remote_access(device, true) do
+      lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
+      {:ok, updated, lease_ref}
+    end
+  end
+
+  @doc """
+  Closes a remote-access lease and clears access when no leases remain.
+  """
+  def close_remote_access_lease(nil), do: :ok
+
+  def close_remote_access_lease(lease_ref) when is_binary(lease_ref) do
+    ensure_remote_access_leases_manager!()
+
+    case GenServer.call(@remote_access_leases_name, {:close_remote_access_lease, lease_ref}) do
+      {:ok, device_id, _owner, true} -> clear_remote_access_device(device_id)
+      {:ok, _device_id, _owner, false} -> :ok
+      :ok -> :ok
+    end
+  end
+
+  def close_remote_access_lease(_lease_ref), do: :ok
+
+  @doc """
+  Closes all leases owned by a process.
+  """
+  def close_remote_access_leases_for(owner) when is_pid(owner) do
+    ensure_remote_access_leases_manager!()
+
+    @remote_access_leases_name
+    |> GenServer.call({:close_remote_access_leases_for, owner})
+    |> Enum.each(fn {device_id, clear_device?} ->
+      if clear_device? do
+        clear_remote_access_device(device_id)
+      end
+    end)
+
+    :ok
+  end
+
+  def close_remote_access_leases_for(_owner), do: :ok
+
+  @doc """
+  Returns true when a lease ref is active.
+  """
+  def remote_access_lease_active?(lease_ref) when is_binary(lease_ref) do
+    ensure_remote_access_leases_manager!()
+    GenServer.call(@remote_access_leases_name, {:remote_access_lease_active?, lease_ref})
+  end
+
+  def remote_access_lease_active?(_lease_ref), do: false
+
+  @doc false
+  def sync_remote_access_leases do
+    ensure_remote_access_leases_manager!()
+    GenServer.call(@remote_access_leases_name, :sync_remote_access_leases)
+  end
+
+  @doc """
+  Expires a remote-access lease. Intended for lease timeout messages.
+  """
+  def expire_remote_access_lease(lease_ref) when is_binary(lease_ref) do
+    ensure_remote_access_leases_manager!()
+
+    case GenServer.call(@remote_access_leases_name, {:close_remote_access_lease, lease_ref}) do
+      {:ok, device_id, _owner, true} -> clear_remote_access_device(device_id)
+      {:ok, _device_id, _owner, false} -> :ok
+      :ok -> :ok
+    end
+  end
+
+  def expire_remote_access_lease(_lease_ref), do: :ok
+
+  @doc """
   Gets a single device.
 
   Raises `Ash.Error.Invalid` if the Device does not exist.
@@ -405,7 +577,79 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "", do: nil
+  defp ensure_remote_access_leases_manager! do
+    case Process.whereis(@remote_access_leases_name) do
+      nil ->
+        case GenServer.start(__MODULE__, :remote_access_leases, name: @remote_access_leases_name) do
+          {:ok, _pid} -> :ok
+          {:error, {:already_started, _pid}} -> :ok
+        end
+
+      _pid ->
+        :ok
+    end
+  end
+
+  defp put_remote_access_lease(state, lease_ref, lease) do
+    device_refs = Map.update(state.device_refs, lease.device_id, MapSet.new([lease_ref]), &MapSet.put(&1, lease_ref))
+    leases = Map.put(state.leases, lease_ref, lease)
+    %{state | leases: leases, device_refs: device_refs}
+  end
+
+  defp pop_remote_access_lease(state, lease_ref) do
+    case Map.pop(state.leases, lease_ref) do
+      {nil, _leases} ->
+        {:ok, state}
+
+      {%{device_id: device_id, owner: owner, timer: timer, monitor: monitor}, leases} ->
+        Process.cancel_timer(timer)
+        demonitor_remote_access_owner(monitor)
+
+        {device_refs, clear_device?} = delete_remote_access_device_ref(state.device_refs, device_id, lease_ref)
+
+        {{:ok, device_id, owner, clear_device?}, %{state | leases: leases, device_refs: device_refs}}
+    end
+  end
+
+  defp delete_remote_access_device_ref(device_refs, device_id, lease_ref) do
+    refs =
+      device_refs
+      |> Map.get(device_id, MapSet.new())
+      |> MapSet.delete(lease_ref)
+
+    if MapSet.size(refs) == 0 do
+      {Map.delete(device_refs, device_id), true}
+    else
+      {Map.put(device_refs, device_id, refs), false}
+    end
+  end
+
+  defp find_remote_access_lease_by_monitor(state, monitor) do
+    Enum.find(state.leases, fn {_lease_ref, lease} -> lease.monitor == monitor end)
+  end
+
+  defp monitor_remote_access_owner(owner) when is_pid(owner), do: Process.monitor(owner)
+  defp monitor_remote_access_owner(_owner), do: nil
+
+  defp demonitor_remote_access_owner(nil), do: false
+  defp demonitor_remote_access_owner(monitor), do: Process.demonitor(monitor, [:flush])
+
+  defp clear_remote_access_device(device_id) do
+    try do
+      device_id
+      |> get_device!()
+      |> set_remote_access(false)
+
+      :ok
+    rescue
+      _ -> :ok
+    catch
+      :exit, _ -> :ok
+    end
+  end
+
+  defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "",
+    do: nil
 
   defp fetch_pending_command(device_id, command_id) do
     PendingCommand

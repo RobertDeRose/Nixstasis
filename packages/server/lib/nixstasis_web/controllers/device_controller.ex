@@ -38,34 +38,6 @@ defmodule NixstasisWeb.DeviceController do
     end
   end
 
-  def open_modal(conn, %{"device_id" => id}) do
-    try do
-      device = Devices.get_device!(id)
-      {:ok, _updated} = Devices.set_remote_access(device, true)
-
-      conn
-      |> put_status(:ok)
-      |> json(%{
-        selected_device_id: device.id,
-        remote_access_requested: true,
-        pcp_data_ready: Devices.online?(device),
-        terminal_ready: Devices.online?(device)
-      })
-    rescue
-      _ -> {:error, :not_found}
-    end
-  end
-
-  def close_modal(conn, %{"device_id" => id}) do
-    try do
-      device = Devices.get_device!(id)
-      {:ok, _updated} = Devices.set_remote_access(device, false)
-      send_resp(conn, :no_content, "")
-    rescue
-      _ -> {:error, :not_found}
-    end
-  end
-
   defp normalize_blank(nil), do: nil
   defp normalize_blank(""), do: nil
   defp normalize_blank(value), do: value

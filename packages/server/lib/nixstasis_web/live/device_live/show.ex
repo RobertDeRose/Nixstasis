@@ -63,24 +63,45 @@ defmodule NixstasisWeb.DeviceLive.Show do
         {:ok, _} =
           Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => public_key})
 
-        token_payload = %{
-          "device_id" => device.id,
-          "device_mac" => device.mac_address,
-          "private_key" => private_key
-        }
-
-        socket_token_payload = %{"device_id" => device.id}
-        token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_session", token_payload)
-        socket_token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", socket_token_payload)
+        {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
+        socket_token = Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
 
         {:noreply,
          socket
          |> assign(:ssh_session_started, true)
-         |> assign(:ssh_token, token)
+         |> assign(:ssh_token, session_ref)
          |> assign(:terminal_socket_token, socket_token)}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to generate SSH keys: #{reason}")}
+    end
+  end
+
+  @impl true
+  def handle_event("close_remote_access", _, socket) do
+    close_session(socket)
+
+    {:noreply,
+     socket
+     |> assign(:remote_access_lease_ref, nil)
+     |> assign(:ssh_session_started, false)
+     |> assign(:ssh_token, nil)}
+  end
+
+  @impl true
+  def handle_info({:remote_access_lease_expired, lease_ref}, socket) do
+    if socket.assigns[:remote_access_lease_ref] == lease_ref do
+      clear_ssh_session(socket)
+      Devices.expire_remote_access_lease(lease_ref)
+
+      {:noreply,
+       socket
+       |> assign(:remote_access_lease_ref, nil)
+       |> assign(:ssh_session_started, false)
+       |> assign(:ssh_token, nil)
+       |> put_flash(:info, "Remote access session expired")}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -91,14 +112,21 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   defp setup_device_view(socket, device, return_to) do
-    if !device.remote_access_requested do
-      Devices.set_remote_access(device, true)
-    end
+    close_session(socket)
+
+    {device, lease_ref} =
+      if connected?(socket) do
+        {:ok, device, lease_ref} = Devices.open_remote_access_lease(device, owner: self())
+        {device, lease_ref}
+      else
+        {device, nil}
+      end
 
     socket
     |> assign(:return_to, return_to)
     |> assign(:page_title, "Device #{device.mac_address}")
     |> assign(:device, device)
+    |> assign(:remote_access_lease_ref, lease_ref)
     |> assign(:cockpit_url, cockpit_url(device.mac_address))
     |> assign(:device_offline, false)
     |> assign(:active_tab, "overview")
@@ -132,16 +160,26 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   @impl true
   def terminate(_reason, socket) do
-    # Task 4.2: Set remote_access_requested: false on terminate
-    if socket.assigns[:device] do
-      try do
-        Devices.set_remote_access(socket.assigns.device, false)
-      rescue
-        _ -> :ok
-      end
-    end
+    close_session(socket)
 
     :ok
+  end
+
+  defp close_session(socket) do
+    clear_ssh_session(socket)
+    close_remote_access(socket)
+  end
+
+  defp clear_ssh_session(socket) do
+    socket.assigns
+    |> Map.get(:ssh_token)
+    |> SshKeyManager.clear_terminal_session()
+  end
+
+  defp close_remote_access(socket) do
+    socket.assigns
+    |> Map.get(:remote_access_lease_ref)
+    |> Devices.close_remote_access_lease()
   end
 
   defp line_chart_config do
