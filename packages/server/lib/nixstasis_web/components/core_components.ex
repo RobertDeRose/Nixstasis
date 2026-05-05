@@ -45,7 +45,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:id, :string, doc: "the optional id of flash container")
   attr(:flash, :map, default: %{}, doc: "the map of flash messages to display")
   attr(:title, :string, default: nil)
-  attr(:kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup")
+  attr(:kind, :atom, values: [:info, :device_success, :error], doc: "used for styling and flash lookup")
   attr(:rest, :global, doc: "the arbitrary HTML attributes to add to the flash container")
 
   slot(:inner_block, doc: "the optional inner block that renders the flash message")
@@ -74,10 +74,10 @@ defmodule NixstasisWeb.CoreComponents do
     >
       <div class={[
         "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
-        @kind == :info && "alert-info",
+        @kind in [:info, :device_success] && "alert-info",
         @kind == :error && "alert-error"
       ]}>
-        <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
+        <.icon :if={@kind in [:info, :device_success]} name="hero-information-circle" class="size-5 shrink-0" />
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
         <div>
           <p :if={@title} class="font-semibold">{@title}</p>
@@ -485,10 +485,10 @@ defmodule NixstasisWeb.CoreComponents do
     )
   end
 
-  def hide(js \\ %JS{}, selector) do
+  def hide(js \\ %JS{}, selector, time \\ 200) do
     JS.hide(js,
       to: selector,
-      time: 200,
+      time: time,
       transition:
         {"transition-all ease-in duration-200", "opacity-100 translate-y-0 sm:scale-100",
          "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}

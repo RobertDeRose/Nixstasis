@@ -126,7 +126,9 @@ defmodule Mix.Tasks.Db.Ensure do
     ]
 
     case run_cmd(engine, args) do
-      {_output, 0} -> :ok
+      {_output, 0} ->
+        :ok
+
       {output, _status} ->
         case container_state(engine, settings.container_name) do
           :running -> :ok
@@ -154,8 +156,18 @@ defmodule Mix.Tasks.Db.Ensure do
   end
 
   defp wait_for_postgres!(engine, settings, attempt) do
-    case run_cmd(engine, ["exec", settings.container_name, "pg_isready", "-U", settings.username, "-d", settings.database]) do
-      {_output, 0} -> :ok
+    case run_cmd(engine, [
+           "exec",
+           settings.container_name,
+           "pg_isready",
+           "-U",
+           settings.username,
+           "-d",
+           settings.database
+         ]) do
+      {_output, 0} ->
+        :ok
+
       _result ->
         Process.sleep(@startup_delay_ms)
         wait_for_postgres!(engine, settings, attempt + 1)

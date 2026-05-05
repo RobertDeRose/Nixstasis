@@ -6,7 +6,6 @@ defmodule Nixstasis.Devices do
   use GenServer
 
   require Ash.Query
-
   import Ecto.Query, only: [from: 2]
 
   alias Ash.Error.Changes.InvalidAttribute
@@ -148,6 +147,8 @@ defmodule Nixstasis.Devices do
     safe_attrs =
       if is_map(attrs) do
         attrs
+        |> put_schema_definition()
+        |> put_ipv4_address()
         |> Map.delete("approval_status")
         |> Map.delete(:approval_status)
         |> Map.delete("schema_definition")
@@ -158,12 +159,12 @@ defmodule Nixstasis.Devices do
 
     schema_def =
       if is_map(attrs) do
-        attrs["schema_definition"] || attrs[:schema_definition] || %{}
+        attrs["schema_definition"] || attrs[:schema_definition] || attrs["schema"] || attrs[:schema] || %{}
       else
         %{}
       end
 
-    case SchemaValidator.validate(schema_def) do
+    case validate_registration_schema(schema_def) do
       :ok ->
         case Domain.register_device(safe_attrs) do
           {:ok, device} = result ->
@@ -181,6 +182,34 @@ defmodule Nixstasis.Devices do
              Ash.Error.Changes.InvalidAttribute.exception(field: :schema_definition, message: msg)
            ]
          )}
+    end
+  end
+
+  defp validate_registration_schema(schema_def) when schema_def in [nil, %{}], do: :ok
+
+  defp validate_registration_schema(schema_def),
+    do: SchemaValidator.validate_registration(schema_def)
+
+  defp put_schema_definition(attrs) do
+    schema_def = attrs["schema_definition"] || attrs[:schema_definition]
+
+    if is_map(schema_def) and map_size(schema_def) > 0 do
+      Map.put(attrs, "schema", schema_def)
+    else
+      attrs
+    end
+  end
+
+  defp put_ipv4_address(attrs) do
+    direct_ipv4 = attrs["ipv4_address"] || attrs[:ipv4_address]
+    metadata = attrs["metadata"] || attrs[:metadata] || %{}
+
+    metadata_ipv4 =
+      if is_map(metadata), do: metadata["ip_address"] || metadata[:ip_address], else: nil
+
+    case Device.normalize_filter_value(direct_ipv4 || metadata_ipv4) do
+      nil -> attrs
+      ipv4_address -> Map.put(attrs, "ipv4_address", ipv4_address)
     end
   end
 
@@ -265,6 +294,7 @@ defmodule Nixstasis.Devices do
     |> filter_by_connectivity_status(filter_value(filter, :connectivity_status))
     |> filter_by_product(filter_value(filter, :product))
     |> filter_by_account_number(filter_value(filter, :account_number))
+    |> filter_by_ipv4_address(filter_value(filter, :ipv4_address))
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
     |> Ash.read!(domain: Domain)
@@ -351,6 +381,15 @@ defmodule Nixstasis.Devices do
     end
   end
 
+  defp filter_by_ipv4_address(query, nil), do: query
+
+  defp filter_by_ipv4_address(query, ipv4_address) do
+    case Device.normalize_filter_value(ipv4_address) do
+      nil -> query
+      value -> Ash.Query.filter(query, ipv4_address == ^value)
+    end
+  end
+
   defp search_devices(query, nil), do: query
 
   defp search_devices(query, term) do
@@ -359,9 +398,49 @@ defmodule Nixstasis.Devices do
     if term == "" do
       query
     else
-      Ash.Query.filter(query, contains(mac_address, ^term) or contains(account_number, ^term))
+      Ash.Query.filter(
+        query,
+        contains(mac_address, ^term) or contains(account_number, ^term) or
+          contains(ipv4_address, ^term)
+      )
     end
   end
+
+  @doc "Lists distinct schema references without materializing every device."
+  def list_schema_references do
+    from(d in "devices",
+      where:
+        not is_nil(d.product_name) and d.product_name != "" and
+          fragment("? <> '{}'::jsonb", d.schema),
+      distinct: true,
+      select: %{
+        schema_id: d.product_name,
+        schema_version: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1')", d.schema),
+        product_name: d.product_name,
+        readable: true
+      },
+      order_by: [
+        asc: d.product_name,
+        asc: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1')", d.schema)
+      ]
+    )
+    |> Repo.all()
+  end
+
+  @doc "Returns one schema map for a product/version pair."
+  def get_schema_definition(schema_id, schema_version)
+      when is_binary(schema_id) and is_binary(schema_version) do
+    from(d in "devices",
+      where: d.product_name == ^schema_id,
+      where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
+      where: fragment("? <> '{}'::jsonb", d.schema),
+      select: d.schema,
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
+  def get_schema_definition(_, _), do: nil
 
   @doc """
   Approves multiple devices by ID.

@@ -3,6 +3,8 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
 
   alias Nixstasis.Devices
 
+  @default_success_flash_timeout_ms 30_000
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -65,10 +67,11 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
     case AshPhoenix.Form.submit(socket.assigns.form, params: device_params) do
       {:ok, device} ->
         notify_parent({:saved, device})
+        Process.send_after(self(), {:clear_flash, :device_success}, success_flash_timeout_ms())
 
         {:noreply,
          socket
-         |> put_flash(:info, "Device created successfully")
+         |> put_flash(:device_success, "Device created successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, form} ->
@@ -85,4 +88,12 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
   end
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
+
+  def success_flash_timeout_ms do
+    Application.get_env(
+      :nixstasis,
+      :device_success_flash_timeout_ms,
+      @default_success_flash_timeout_ms
+    )
+  end
 end
