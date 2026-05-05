@@ -8,12 +8,12 @@ defmodule NixstasisWeb.ReportLive.Index do
   @default_filters %{"name" => "", "field_query" => "", "field_queries" => []}
 
   def mount(_params, session, socket) do
-    preference_key = session["report_pref_key"] || session["_csrf_token"] || "global"
+    preference_scope = Reporting.preference_scope(session)
     can_manage_reports = can_manage_reports?(session)
 
     {:ok,
      socket
-     |> assign(:preference_key, preference_key)
+     |> assign(:preference_scope, preference_scope)
      |> assign(:can_manage_reports, can_manage_reports)
      |> assign(:schema_field_options, schema_field_options())
      |> assign(:report_to_delete, nil)
@@ -26,12 +26,12 @@ defmodule NixstasisWeb.ReportLive.Index do
   def handle_params(params, _url, socket) do
     view_state =
       params
-      |> merge_with_saved_index_preferences(socket.assigns.preference_key)
+      |> merge_with_saved_index_preferences(socket.assigns.preference_scope)
       |> normalize_index_view_state()
 
     reports = load_reports(view_state)
 
-    Reporting.save_view_preferences("reports:index", socket.assigns.preference_key, view_state)
+    Reporting.save_view_preferences(socket.assigns.preference_scope, "reports:index", view_state)
 
     socket =
       socket
@@ -169,8 +169,8 @@ defmodule NixstasisWeb.ReportLive.Index do
     }
   end
 
-  defp merge_with_saved_index_preferences(params, preference_key) do
-    saved = Reporting.load_view_preferences("reports:index", preference_key)
+  defp merge_with_saved_index_preferences(params, preference_scope) do
+    saved = Reporting.load_view_preferences(preference_scope, "reports:index")
     has_filters_param? = Map.has_key?(params, "filters")
 
     %{

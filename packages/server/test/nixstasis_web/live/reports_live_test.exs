@@ -3,6 +3,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
   import Phoenix.LiveViewTest
 
   alias Nixstasis.Devices
+  alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Repo
   alias Nixstasis.Reporting
 
   setup do
@@ -949,6 +951,25 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "report detail supports sorting and filter operators", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:91",
+        "product_name" => "report-live-results",
+        "schema" => %{
+          "product" => "report-live-results",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "number"}}
+        }
+      })
+
+    for temp <- [15, 35, 45, 100] do
+      Repo.insert!(%Telemetry{
+        device_id: device.id,
+        payload: %{"temp" => temp},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+    end
+
     report =
       report_fixture(%{
         "name" => "Live Report",
@@ -961,6 +982,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     {:ok, view, html} = live(conn, ~p"/reports/#{report.id}")
     assert html =~ "Live Report"
+    assert html =~ "15"
+    assert html =~ "35"
+    assert html =~ "45"
+    assert html =~ "100"
+
+    assert ["15", "35", "45", "100"] == report_result_values(html)
 
     html =
       view
@@ -969,7 +996,10 @@ defmodule NixstasisWeb.ReportsLiveTest do
       })
       |> render_change()
 
-    refute html =~ "> 25"
+    assert html =~ "35"
+    assert html =~ "45"
+    assert html =~ "100"
+    assert ["35", "45", "100"] == report_result_values(html)
 
     html =
       view
@@ -977,6 +1007,93 @@ defmodule NixstasisWeb.ReportsLiveTest do
       |> render_click()
 
     assert html =~ "temp"
+    assert ["35", "45", "100"] == report_result_values(html)
+
+    html =
+      view
+      |> element("button[phx-click='set_sort'][phx-value-by='temp']")
+      |> render_click()
+
+    assert ["100", "45", "35"] == report_result_values(html)
+  end
+
+  test "report detail filters aliased columns by configured payload path", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:93",
+        "product_name" => "report-live-alias-filter",
+        "schema" => %{
+          "product" => "report-live-alias-filter",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "number"}}
+        }
+      })
+
+    for temp <- [20, 80] do
+      Repo.insert!(%Telemetry{
+        device_id: device.id,
+        payload: %{"temp" => temp},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+    end
+
+    report =
+      report_fixture(%{
+        "name" => "Aliased Live Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-live-alias-filter",
+          "fields" => [%{"path" => "temp", "alias" => "room_temp"}],
+          "filters" => [%{"field" => "device_id", "operator" => "=", "value" => device.id}]
+        }
+      })
+
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}")
+    assert ["20", "80"] == report_result_values(html)
+
+    html =
+      view
+      |> form("form[phx-change='apply_filters']", %{
+        "filter" => %{"column" => "room_temp", "operator" => ">", "value" => "50"}
+      })
+      |> render_change()
+
+    assert ["80"] == report_result_values(html)
+  end
+
+  test "report detail limits database-backed result loading", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:92",
+        "product_name" => "report-live-result-limit",
+        "schema" => %{
+          "product" => "report-live-result-limit",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "number"}}
+        }
+      })
+
+    for temp <- 1..260 do
+      Repo.insert!(%Telemetry{
+        device_id: device.id,
+        payload: %{"temp" => temp},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+    end
+
+    report =
+      report_fixture(%{
+        "name" => "Limited Live Report",
+        "config" => %{
+          "source" => "telemetry",
+          "fields" => [%{"path" => "temp", "alias" => "temp"}],
+          "filters" => [%{"field" => "device_id", "operator" => "=", "value" => device.id}]
+        }
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}?sort_by=temp&sort_dir=asc")
+
+    assert length(Regex.scan(~r/<tr>/, html)) <= 251
   end
 
   test "report detail operator list changes by selected column type", %{conn: conn} do
@@ -1077,21 +1194,53 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    {:ok, _view, _html} =
-      live(conn, ~p"/reports?sort_by=name&sort_dir=asc&filters[name]=Preference")
+    scoped_conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_preferences", %{"kind" => "report_live", "owner" => "prefs-test"})
 
-    {:ok, _view, restored_list_html} = live(conn, ~p"/reports")
+    {:ok, _view, _html} = live(scoped_conn, ~p"/reports?sort_by=name&sort_dir=asc&filters[name]=Preference")
+    {:ok, _view, restored_list_html} = live(scoped_conn, ~p"/reports")
     assert restored_list_html =~ "Preference Report"
 
     {:ok, _view, _html} =
       live(
-        conn,
+        scoped_conn,
         ~p"/reports/#{report.id}?sort_by=temp&sort_dir=desc&filter_column=temp&filter_operator=%3E&filter_value=20"
       )
 
-    {:ok, _view, restored_detail_html} = live(conn, ~p"/reports/#{report.id}")
+    {:ok, _view, restored_detail_html} = live(scoped_conn, ~p"/reports/#{report.id}")
     assert restored_detail_html =~ "Preference Report"
     assert restored_detail_html =~ "temp"
+  end
+
+  test "report view state is not restored from csrf-only sessions", %{conn: conn} do
+    report =
+      report_fixture(%{
+        "name" => "No CSRF Preference Report",
+        "config" => %{
+          "source" => "telemetry",
+          "fields" => [%{"path" => "temp", "alias" => "temp"}],
+          "filters" => []
+        }
+      })
+
+    csrf_conn = conn |> init_test_session(%{}) |> put_session("_csrf_token", "csrf-only")
+
+    {:ok, _view, _html} = live(csrf_conn, ~p"/reports?sort_by=name&sort_dir=asc&filters[name]=No CSRF")
+    {:ok, _view, restored_list_html} = live(csrf_conn, ~p"/reports")
+    assert restored_list_html =~ "No CSRF Preference Report"
+
+    {:ok, _view, _html} =
+      live(
+        csrf_conn,
+        ~p"/reports/#{report.id}?sort_by=temp&sort_dir=desc&filter_column=temp&filter_operator=%3E&filter_value=20"
+      )
+
+    {:ok, _view, restored_detail_html} = live(csrf_conn, ~p"/reports/#{report.id}")
+    assert restored_detail_html =~ "No CSRF Preference Report"
+    assert restored_detail_html =~ "temp"
+    refute restored_detail_html =~ "temp ↓"
   end
 
   test "invalid restored state falls back safely", %{conn: conn} do
@@ -1158,6 +1307,13 @@ defmodule NixstasisWeb.ReportsLiveTest do
     else
       _ -> flunk("expected alias input for field id #{inspect(field_id)}")
     end
+  end
+
+  defp report_result_values(html) do
+    ~r/<td>\s*([^<]+)\s*<\/td>/
+    |> Regex.scan(html)
+    |> Enum.map(fn [_, value] -> String.trim(value) end)
+    |> Enum.filter(&Regex.match?(~r/^\d+(\.\d+)?$/, &1))
   end
 
   defp report_fixture(attrs) do
