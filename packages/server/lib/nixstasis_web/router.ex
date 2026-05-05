@@ -21,11 +21,14 @@ defmodule NixstasisWeb.Router do
   end
 
   scope "/api/json" do
-    pipe_through [:api]
+    pipe_through([:api])
 
-    forward "/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/api/json/open_api", default_model_expand_depth: 4
+    forward("/swaggerui", OpenApiSpex.Plug.SwaggerUI,
+      path: "/api/json/open_api",
+      default_model_expand_depth: 4
+    )
 
-    forward "/", NixstasisWeb.AshJsonApiRouter
+    forward("/", NixstasisWeb.AshJsonApiRouter)
   end
 
   scope "/", NixstasisWeb do
@@ -53,13 +56,17 @@ defmodule NixstasisWeb.Router do
     pipe_through(:api)
 
     get("/builder-schemas", BuilderSchemaController, :index)
-    get("/builder-schemas/:schema_id/versions/:schema_version/options", BuilderSchemaController, :options)
+
+    get(
+      "/builder-schemas/:schema_id/versions/:schema_version/options",
+      BuilderSchemaController,
+      :options
+    )
+
     post("/builder-configurations/validate", BuilderConfigValidationController, :create)
 
     get("/devices", DeviceController, :index)
     post("/devices/register", DeviceController, :register)
-    post("/devices/:device_id/modal", DeviceController, :open_modal)
-    delete("/devices/:device_id/modal", DeviceController, :close_modal)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
     post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
@@ -110,9 +117,9 @@ defmodule NixstasisWeb.Router do
     import AshAdmin.Router
 
     scope "/admin" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      ash_admin "/"
+      ash_admin("/")
     end
   end
 end
