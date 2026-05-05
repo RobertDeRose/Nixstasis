@@ -23,11 +23,12 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 		return nil, err
 	}
 
-	if !allowedCommand(cmdName, r.config.ExecAllowlist) {
-		return nil, fmt.Errorf("command is not allowed: %s", cmdName)
+	cmdPath, err := r.resolveExecCommand(cmdName)
+	if err != nil {
+		return nil, err
 	}
 
-	argv := []string{cmdName}
+	argv := []string{cmdPath}
 	if argList != nil {
 		iter := argList.Iterate()
 		defer iter.Done()
@@ -44,9 +45,10 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
 	defer cancel()
 
-	// #nosec G204 -- command is restricted to an operator-configured allowlist.
+	// #nosec G204 -- command is resolved from an explicit pinned allowlist.
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-	cmd.Env = os.Environ()
+	cmd.Dir = r.config.ExecWorkDir
+	cmd.Env = append([]string(nil), r.config.ExecEnv...)
 
 	if r.config.ExecUser != nil && os.Geteuid() == 0 {
 		setExecUser(cmd, r.config.ExecUser)
@@ -63,16 +65,31 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 	return starlark.String(strings.TrimSpace(string(output))), nil
 }
 
-func allowedCommand(cmd string, allowlist []string) bool {
-	base := filepath.Base(cmd)
-	for _, allowed := range allowlist {
-		if base == allowed {
-			return true
-		}
-		if strings.HasSuffix(allowed, ".") && strings.HasPrefix(base, allowed) {
-			return true
-		}
+func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {
+	if len(r.config.ExecCommandAllowlist) == 0 {
+		return "", fmt.Errorf("exec_cmd capability is not configured")
+	}
+	if strings.TrimSpace(cmdName) == "" {
+		return "", fmt.Errorf("command is required")
+	}
+	if filepath.Base(cmdName) != cmdName && !filepath.IsAbs(cmdName) {
+		return "", fmt.Errorf("command must be a basename or absolute path: %s", cmdName)
 	}
 
-	return false
+	allowedPath, ok := r.config.ExecCommandAllowlist[cmdName]
+	if !ok && filepath.IsAbs(cmdName) {
+		allowedPath, ok = r.config.ExecCommandAllowlist[filepath.Base(cmdName)]
+	}
+	if !ok {
+		return "", fmt.Errorf("command is not allowlisted: %s", cmdName)
+	}
+	if !filepath.IsAbs(allowedPath) {
+		return "", fmt.Errorf("allowlisted command path must be absolute: %s", cmdName)
+	}
+	clean := filepath.Clean(allowedPath)
+	if filepath.IsAbs(cmdName) && filepath.Clean(cmdName) != clean {
+		return "", fmt.Errorf("command path does not match allowlist: %s", cmdName)
+	}
+
+	return clean, nil
 }

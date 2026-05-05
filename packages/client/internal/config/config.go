@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	defaultConfigRoot = "/etc/nixstasis"
-	defaultUserConfig = "$HOME/.config/nixstasis"
-	defaultScriptsDir = "/usr/libexec/nixstasis/scripts"
-	defaultFRPCBinary = "/usr/libexec/nixstasis/frpc"
-	defaultFRPCConfig = "/etc/nixstasis/frpc.toml"
+	defaultConfigRoot         = "/etc/nixstasis"
+	defaultUserConfig         = "$HOME/.config/nixstasis"
+	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
+	defaultAuthorizedKeysPath = "/var/lib/nixstasis/.ssh/authorized_keys"
+	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
+	defaultFRPCConfig         = "/etc/nixstasis/frpc.toml"
 )
 
 // Config holds the top-level configuration structure.
@@ -25,6 +26,7 @@ type Config struct {
 	Poll    PollConfig    `mapstructure:"poll"`
 	Scripts ScriptsConfig `mapstructure:"scripts"`
 	FRP     FRPConfig     `mapstructure:"frp"`
+	Runtime RuntimeConfig `mapstructure:"runtime"`
 	Log     LogConfig     `mapstructure:"log"`
 }
 
@@ -49,6 +51,17 @@ type FRPConfig struct {
 	Name      string `mapstructure:"name"`
 }
 
+// RuntimeConfig holds opt-in script command capabilities.
+type RuntimeConfig struct {
+	MQTTBroker          string            `mapstructure:"mqtt_broker"`
+	ExecCommands        map[string]string `mapstructure:"exec_commands"`
+	ExecWorkDir         string            `mapstructure:"exec_work_dir"`
+	ExecEnv             []string          `mapstructure:"exec_env"`
+	MQTTPublishTopics   []string          `mapstructure:"mqtt_publish_topics"`
+	MQTTSubscribeTopics []string          `mapstructure:"mqtt_subscribe_topics"`
+	AuthorizedKeysPath  string            `mapstructure:"authorized_keys_path"`
+}
+
 // LogConfig holds configuration for logging.
 type LogConfig struct {
 	Level  string `mapstructure:"level"`
@@ -63,6 +76,8 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
+	v.SetDefault("runtime.exec_work_dir", "/")
+	v.SetDefault("runtime.authorized_keys_path", defaultAuthorizedKeysPath)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")
 
