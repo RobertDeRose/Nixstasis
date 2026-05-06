@@ -119,7 +119,7 @@ Traceable references:
 
 ### Internal Services
 
-- `nixstasis` service listens on `PORT`, defaulting to `4000`.
+- `nixstasis` service listens on `PORT=4000` for the supported Compose deployment.
 - `postgres` is optional through the `bundled-db` profile.
 - `frps` is reached by Caddy on internal service ports and by FRPC on published FRP ports.
 
