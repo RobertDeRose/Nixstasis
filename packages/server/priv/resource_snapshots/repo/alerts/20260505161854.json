@@ -21,47 +21,23 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "mac_address",
-      "type": "text"
-    },
-    {
-      "allow_nil?": true,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "product_name",
-      "type": "text"
-    },
-    {
-      "allow_nil?": true,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "account_number",
+      "source": "type",
       "type": "text"
     },
     {
       "allow_nil?": false,
-      "default": "\"pending\"",
+      "default": "\"active\"",
       "generated?": false,
       "precision": null,
       "primary_key?": false,
       "references": null,
       "scale": null,
       "size": null,
-      "source": "approval_status",
+      "source": "status",
       "type": "text"
     },
     {
-      "allow_nil?": true,
+      "allow_nil?": false,
       "default": "nil",
       "generated?": false,
       "precision": null,
@@ -69,44 +45,32 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "last_seen_at",
+      "source": "message",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "triggered_at",
       "type": "utc_datetime"
     },
     {
-      "allow_nil?": false,
-      "default": "%{}",
+      "allow_nil?": true,
+      "default": "nil",
       "generated?": false,
       "precision": null,
       "primary_key?": false,
       "references": null,
       "scale": null,
       "size": null,
-      "source": "schema",
-      "type": "map"
-    },
-    {
-      "allow_nil?": false,
-      "default": "%{}",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "metadata",
-      "type": "map"
-    },
-    {
-      "allow_nil?": false,
-      "default": "false",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "remote_access_requested",
-      "type": "boolean"
+      "source": "rule_id",
+      "type": "bigint"
     },
     {
       "allow_nil?": false,
@@ -131,6 +95,37 @@
       "size": null,
       "source": "updated_at",
       "type": "utc_datetime_usec"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": {
+        "deferrable": false,
+        "destination_attribute": "id",
+        "destination_attribute_default": null,
+        "destination_attribute_generated": null,
+        "index?": false,
+        "match_type": null,
+        "match_with": null,
+        "multitenancy": {
+          "attribute": null,
+          "global": null,
+          "strategy": null
+        },
+        "name": "alerts_device_id_fkey",
+        "on_delete": "delete",
+        "on_update": null,
+        "primary_key?": true,
+        "schema": "public",
+        "table": "devices"
+      },
+      "scale": null,
+      "size": null,
+      "source": "device_id",
+      "type": "uuid"
     }
   ],
   "base_filter": null,
@@ -141,12 +136,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "account_number"
+        "device_id"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "account_number"
+          "value": "device_id"
         }
       ],
       "include": null,
@@ -163,12 +158,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "product_name"
+        "status"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "product_name"
+          "value": "status"
         }
       ],
       "include": null,
@@ -185,12 +180,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "approval_status"
+        "type"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "approval_status"
+          "value": "type"
         }
       ],
       "include": null,
@@ -207,12 +202,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "metadata"
+        "triggered_at"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "metadata"
+          "value": "triggered_at"
         }
       ],
       "include": null,
@@ -222,29 +217,14 @@
       "prefix": null,
       "table": null,
       "unique": false,
-      "using": "gin",
+      "using": null,
       "where": null
     }
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "C1C14F7F3362467BF3E2127765425BABFDAE6D09326B1F2D9D80837981CAB77C",
-  "identities": [
-    {
-      "all_tenants?": false,
-      "base_filter": null,
-      "index_name": "devices_unique_mac_address_index",
-      "keys": [
-        {
-          "type": "atom",
-          "value": "mac_address"
-        }
-      ],
-      "name": "unique_mac_address",
-      "nils_distinct?": true,
-      "where": null
-    }
-  ],
+  "hash": "F201329C07F39CB20D20868BBAF65C09EFB6100FB96B8BDAC503C8F63BE0DFC8",
+  "identities": [],
   "multitenancy": {
     "attribute": null,
     "global": null,
@@ -252,5 +232,5 @@
   },
   "repo": "Elixir.Nixstasis.Repo",
   "schema": null,
-  "table": "devices"
+  "table": "alerts"
 }
