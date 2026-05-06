@@ -158,9 +158,10 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 			slog.Info("Server requested remote access, starting FRP")
 			// Assuming default config location for now
 			configPath := config.FRPCConfigPath()
+			frpConfig := runtimeFRPConfig(cfg.FRP, mac)
 			// Check if config exists, if not, maybe we can't start?
 			// Or we assume it's there.
-			if err := frpManager.Start(ctx, configPath); err != nil {
+			if err := frpManager.StartWithConfig(ctx, configPath, frpConfig); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
@@ -174,6 +175,14 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 	}
 
 	return nil
+}
+
+func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
+	frpConfig := base
+	if frpConfig.Name == "" {
+		frpConfig.Name = identity.GenerateDeviceName(mac)
+	}
+	return frpConfig
 }
 
 func runScripts(executor *script.Executor, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {

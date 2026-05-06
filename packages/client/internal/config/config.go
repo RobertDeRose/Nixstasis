@@ -76,6 +76,7 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
+	v.SetDefault("frp.name", "")
 	v.SetDefault("runtime.exec_work_dir", "/")
 	v.SetDefault("runtime.authorized_keys_path", defaultAuthorizedKeysPath)
 	v.SetDefault("log.level", "info")
