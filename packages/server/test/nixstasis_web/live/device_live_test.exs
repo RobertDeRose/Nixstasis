@@ -16,6 +16,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
     device
   end
 
+  setup %{conn: conn} do
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("device_permissions", %{"can_view" => true, "can_remote_access" => true})
+
+    {:ok, conn: conn}
+  end
+
   describe "Device Index filters and table" do
     test "manual device creation schedules a scoped success flash timeout", %{conn: conn} do
       previous_timeout = Application.get_env(:nixstasis, :device_success_flash_timeout_ms)
@@ -163,6 +172,84 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert_redirect(view, "/devices/#{device.id}")
     end
 
+    test "device details navigation is blocked for unauthorized sessions", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:01"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => false})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      view
+      |> element(
+        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
+        "DE:AD:BE:EF:00:01"
+      )
+      |> render_click()
+
+      assert render(view) =~ "not authorized to view device details"
+    end
+
+    test "device details navigation is blocked when permission context is missing", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:02"})
+
+      conn = conn |> recycle() |> init_test_session(%{})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      view
+      |> element(
+        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
+        "DE:AD:BE:EF:00:02"
+      )
+      |> render_click()
+
+      assert render(view) =~ "not authorized to view device details"
+    end
+
+    test "device details navigation is blocked when session is scoped to another device", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "DE:AD:BE:EF:00:03"})
+      blocked = create_device!(%{mac_address: "DE:AD:BE:EF:00:04"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "device_id" => allowed.id})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      view
+      |> element(
+        "button[phx-click='open_device_details'][phx-value-id='#{blocked.id}']",
+        "DE:AD:BE:EF:00:04"
+      )
+      |> render_click()
+
+      assert render(view) =~ "not authorized to view device details"
+    end
+
+    test "device details navigation is blocked when scoped device list is empty", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:05"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "device_ids" => []})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      view
+      |> element(
+        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
+        "DE:AD:BE:EF:00:05"
+      )
+      |> render_click()
+
+      assert render(view) =~ "not authorized to view device details"
+    end
+
     test "device-details navigation p95 is within 2 seconds", %{conn: conn} do
       device = create_device!(%{mac_address: "AB:AB:AB:AB:AB:AB"})
 
@@ -192,6 +279,60 @@ defmodule NixstasisWeb.DeviceLiveTest do
   end
 
   describe "Device Show behavior" do
+    test "rejects unauthorized device detail access before exposure", %{conn: conn} do
+      device = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E0"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => false})
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} =
+               live(conn, ~p"/devices/#{device.id}")
+
+      assert message =~ "not authorized"
+    end
+
+    test "rejects device detail access when permission context is missing", %{conn: conn} do
+      device = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E1"})
+
+      conn = conn |> recycle() |> init_test_session(%{})
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} =
+               live(conn, ~p"/devices/#{device.id}")
+
+      assert message =~ "not authorized"
+    end
+
+    test "rejects device detail access when session is scoped to another device", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E2"})
+      blocked = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E3"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "device_ids" => [allowed.id]})
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} =
+               live(conn, ~p"/devices/#{blocked.id}")
+
+      assert message =~ "not authorized"
+    end
+
+    test "rejects device detail access when scoped device list is empty", %{conn: conn} do
+      device = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E4"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_remote_access" => true, "device_ids" => []})
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} =
+               live(conn, ~p"/devices/#{device.id}")
+
+      assert message =~ "not authorized"
+    end
+
     test "sets remote_access_requested to true on mount", %{conn: conn} do
       device = create_device!(%{mac_address: "EE:EE:EE:EE:EE:EE"})
       {:ok, _view, _html} = live(conn, ~p"/devices/#{device.id}")
@@ -266,6 +407,93 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert device_id == device.id
     end
 
+    test "unauthorized sessions cannot start remote access", %{conn: conn} do
+      device = create_device!(%{mac_address: "E5:E5:E5:E5:E5:E5"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_remote_access" => false})
+
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      html =
+        view
+        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> render_click()
+
+      assert html =~ "not authorized to start remote access"
+      refute html =~ ~s(id="terminal-container")
+      assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "missing remote-access permission does not auto-open a lease", %{conn: conn} do
+      device = create_device!(%{mac_address: "E5:E5:E5:E5:E5:E6"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true})
+
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      refute Devices.get_device!(device.id).remote_access_requested
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      html =
+        view
+        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> render_click()
+
+      assert html =~ "not authorized to start remote access"
+      refute Devices.get_device!(device.id).remote_access_requested
+    end
+
+    test "device detail refreshes when device state changes while mounted", %{conn: conn} do
+      device = create_device!(%{mac_address: "E6:E6:E6:E6:E6:E6", last_seen_at: nil})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert render(view) =~ "Device Offline"
+
+      {:ok, device} = Devices.get_device(device.id)
+      {:ok, _updated} = Devices.update_device(device, %{last_seen_at: DateTime.utc_now()})
+
+      assert eventually_rendered?(view, "Remote Access Requested:")
+      refute render(view) =~ "Device Offline"
+    end
+
+    test "device detail refreshes when ordinary device attributes change while mounted", %{conn: conn} do
+      device = create_device!(%{mac_address: "E6:E6:E6:E6:E6:E7", product_name: "Old Product"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert render(view) =~ "Old Product"
+
+      {:ok, loaded_device} = Devices.get_device(device.id)
+      {:ok, _updated} = Devices.update_device(loaded_device, %{product_name: "New Product"})
+
+      assert eventually_rendered?(view, "New Product")
+    end
+
+    test "device detail clears remote access lease when device goes offline while mounted", %{conn: conn} do
+      device = create_device!(%{mac_address: "E7:E7:E7:E7:E7:E7"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert Devices.get_device!(device.id).remote_access_requested == true
+
+      {:ok, loaded_device} = Devices.get_device(device.id)
+      {:ok, _updated} = Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
+
+      assert eventually_rendered?(view, "Device Offline")
+      assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
     test "redirects with flash for missing device", %{conn: conn} do
       assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => "Device not found or unavailable"}}}} =
                live(conn, ~p"/devices/non-existent-id")
@@ -286,7 +514,61 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
   end
 
+  describe "Device Index selection refresh" do
+    test "row checkbox state refreshes after toggling selection", %{conn: conn} do
+      device = create_device!(%{mac_address: "C1:C1:C1:C1:C1:C1"})
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      refute has_element?(view, "input[type='checkbox'][phx-value-id='#{device.id}'][checked]")
+
+      view
+      |> element("input[type='checkbox'][phx-value-id='#{device.id}']")
+      |> render_click()
+
+      assert has_element?(view, "input[type='checkbox'][phx-value-id='#{device.id}'][checked]")
+    end
+
+    test "toggle all only selects visible filtered devices", %{conn: conn} do
+      alpha = create_device!(%{mac_address: "C2:C2:C2:C2:C2:C2", product_name: "Alpha"})
+      _beta = create_device!(%{mac_address: "C3:C3:C3:C3:C3:C3", product_name: "Beta"})
+      {:ok, view, _html} = live(conn, ~p"/devices?product=Alpha")
+
+      view
+      |> element("#select-all-checkbox")
+      |> render_click()
+
+      assert has_element?(view, "input[type='checkbox'][phx-value-id='#{alpha.id}'][checked]")
+      refute has_element?(view, "input[type='checkbox'][phx-value-id='#{alpha.id}'][checked]", "") == false
+      refute render(view) =~ "C3:C3:C3:C3:C3:C3"
+    end
+
+    test "device list refreshes when ordinary device attributes change while mounted", %{conn: conn} do
+      device = create_device!(%{mac_address: "C4:C4:C4:C4:C4:C4", product_name: "Before Update"})
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      assert render(view) =~ "Before Update"
+
+      {:ok, loaded_device} = Devices.get_device(device.id)
+      {:ok, _updated} = Devices.update_device(loaded_device, %{product_name: "After Update"})
+
+      assert eventually_rendered?(view, "After Update")
+    end
+  end
+
   defp eventually_cleared?(view, attempts \\ 20)
+
+  defp eventually_rendered?(view, text, attempts \\ 20)
+
+  defp eventually_rendered?(view, text, attempts) when attempts > 0 do
+    if render(view) =~ text do
+      true
+    else
+      Process.sleep(5)
+      eventually_rendered?(view, text, attempts - 1)
+    end
+  end
+
+  defp eventually_rendered?(_view, _text, 0), do: false
 
   defp eventually_cleared?(view, attempts) when attempts > 0 do
     if render(view) =~ "Device created successfully" do

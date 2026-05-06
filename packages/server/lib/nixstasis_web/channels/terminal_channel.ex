@@ -24,7 +24,8 @@ defmodule NixstasisWeb.TerminalChannel do
     session_ref = payload["token"]
 
     with {:ok, %{private_key: private_key}} <-
-           SshKeyManager.fetch_terminal_session(session_ref, device_id),
+            SshKeyManager.fetch_terminal_session(session_ref, device_id),
+         :ok <- authorize_terminal_join(socket, device_id),
          {:ok, device} <- get_device(device_id),
          {:ok, pid} <- start_ssh_client(device, private_key) do
       SshKeyManager.clear_terminal_session(session_ref)
@@ -48,6 +49,14 @@ defmodule NixstasisWeb.TerminalChannel do
         SshKeyManager.clear_terminal_session(session_ref)
         Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
         {:error, terminal_join_error(reason)}
+    end
+  end
+
+  defp authorize_terminal_join(socket, device_id) do
+    if socket.assigns[:terminal_device_id] in [nil, device_id] do
+      :ok
+    else
+      {:error, :unauthorized}
     end
   end
 
@@ -152,7 +161,21 @@ defmodule NixstasisWeb.TerminalChannel do
     }
   end
 
-  defp terminal_join_error(_reason), do: %{reason: "unauthorized"}
+  defp terminal_join_error(:expired), do: %{reason: "session_expired", code: "session_expired"}
+
+  defp terminal_join_error(:not_found), do: %{reason: "session_not_found", code: "session_not_found"}
+
+  defp terminal_join_error(:device_not_found), do: %{reason: "device_unavailable", code: "device_not_found"}
+
+  defp terminal_join_error(:device_mismatch), do: %{reason: "unauthorized", code: "device_mismatch"}
+
+  defp terminal_join_error(:unauthorized), do: %{reason: "unauthorized", code: "unauthorized"}
+
+  defp terminal_join_error(reason) when is_atom(reason) do
+    %{reason: "terminal_unavailable", code: Atom.to_string(reason)}
+  end
+
+  defp terminal_join_error(_reason), do: %{reason: "terminal_unavailable", code: "startup_failed"}
 
   defp ssh_client_module do
     Application.get_env(:nixstasis, :terminal_ssh_client, Nixstasis.Devices.SshClient)
