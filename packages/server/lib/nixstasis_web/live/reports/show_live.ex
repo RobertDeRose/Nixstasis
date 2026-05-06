@@ -20,79 +20,91 @@ defmodule NixstasisWeb.ReportLive.Show do
   ]
 
   def mount(%{"id" => id}, session, socket) do
-    report = Reporting.get_custom_report!(id)
-
     cond do
-      e2e_report?(report) ->
-        {:ok,
-         socket
-         |> put_flash(:error, "E2E internal reports are not available in this view.")
-         |> push_navigate(to: ~p"/reports")}
-
       not can_view_reports?(session) ->
         {:ok,
          socket
          |> put_flash(:error, "You are not authorized to view reports.")
-         |> push_navigate(to: ~p"/reports")}
+         |> push_navigate(to: ~p"/")}
 
       true ->
-        fields = Reporting.report_fields(report)
-        field_type_by_column = build_field_type_map(report, fields)
-        preference_scope = Reporting.preference_scope(session)
-        filter_column = first_field_key(fields)
-        filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
+        report = Reporting.get_custom_report!(id)
 
-        {:ok,
-         socket
-         |> assign(:report, report)
-         |> assign(:fields, fields)
-         |> assign(:field_type_by_column, field_type_by_column)
-         |> assign(:results, [])
-         |> assign(:preference_scope, preference_scope)
-         |> assign(:sort_by, "")
-         |> assign(:sort_dir, "asc")
-         |> assign(:filter_column, filter_column)
-         |> assign(:filter_operator, filter_operator)
-         |> assign(:filter_value, "")
-         |> assign(:operators, operators_for_type(field_type_for_column(field_type_by_column, filter_column)))}
+        if e2e_report?(report) do
+          {:ok,
+           socket
+           |> put_flash(:error, "E2E internal reports are not available in this view.")
+           |> push_navigate(to: ~p"/reports")}
+        else
+          fields = Reporting.report_fields(report)
+          field_type_by_column = build_field_type_map(report, fields)
+          preference_scope = Reporting.preference_scope(session)
+          filter_column = first_field_key(fields)
+          filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
+
+          {:ok,
+           socket
+           |> assign(:can_view_reports, true)
+           |> assign(:can_manage_reports, can_manage_reports?(session))
+           |> assign(:report, report)
+           |> assign(:fields, fields)
+           |> assign(:field_type_by_column, field_type_by_column)
+            |> assign(:results, [])
+            |> assign(:preference_scope, preference_scope)
+            |> assign(:preferences_enabled?, preference_scope != nil)
+            |> assign(:preferences_reset?, false)
+            |> assign(:sort_by, "")
+           |> assign(:sort_dir, "asc")
+           |> assign(:filter_column, filter_column)
+           |> assign(:filter_operator, filter_operator)
+           |> assign(:filter_value, "")
+           |> assign(:operators, operators_for_type(field_type_for_column(field_type_by_column, filter_column)))}
+        end
     end
   end
 
   def handle_params(params, _url, socket) do
-    view_state =
-      params
-      |> merge_with_saved_show_preferences(socket.assigns.report.id, socket.assigns.preference_scope)
-      |> normalize_show_view_state(socket.assigns.fields, socket.assigns.field_type_by_column)
+    if authorized_socket?(socket) do
+      merged_view_state =
+        params
+        |> merge_with_saved_show_preferences(socket.assigns.report.id, socket.assigns.preference_scope)
 
-    filters = to_filters(view_state)
+      view_state = normalize_show_view_state(merged_view_state, socket.assigns.fields, socket.assigns.field_type_by_column)
+      preferences_reset? = meaningful_show_view_state?(merged_view_state) and merged_view_state != view_state
 
-    results =
-      Reporting.run_custom_report(socket.assigns.report, %{
-        "sort_by" => view_state["sort_by"],
-        "sort_dir" => view_state["sort_dir"],
-        "filters" => filters,
-        "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
-        "limit" => 250
-      })
+      filters = to_filters(view_state)
 
-    Reporting.save_view_preferences(
-      socket.assigns.preference_scope,
-      "reports:show:#{socket.assigns.report.id}",
-      view_state
-    )
+      results =
+        Reporting.run_custom_report(socket.assigns.report, %{
+          "sort_by" => view_state["sort_by"],
+          "sort_dir" => view_state["sort_dir"],
+          "filters" => filters,
+          "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
+          "limit" => 250
+        })
 
-    {:noreply,
-     socket
-     |> assign(:results, results)
-     |> assign(:sort_by, view_state["sort_by"])
-     |> assign(:sort_dir, view_state["sort_dir"])
-     |> assign(:filter_column, view_state["filter_column"])
-     |> assign(:filter_operator, view_state["filter_operator"])
-     |> assign(:filter_value, view_state["filter_value"])
-     |> assign(
-       :operators,
-       operators_for_type(field_type_for_column(socket.assigns.field_type_by_column, view_state["filter_column"]))
-     )}
+      Reporting.save_view_preferences(
+        socket.assigns.preference_scope,
+        "reports:show:#{socket.assigns.report.id}",
+        view_state
+      )
+
+      {:noreply,
+       socket
+       |> assign(:results, results)
+       |> assign(:sort_by, view_state["sort_by"])
+        |> assign(:sort_dir, view_state["sort_dir"])
+        |> assign(:filter_column, view_state["filter_column"])
+        |> assign(:filter_operator, view_state["filter_operator"])
+        |> assign(:filter_value, view_state["filter_value"])
+        |> assign(:preferences_reset?, preferences_reset?)
+        |> assign(
+          :operators,
+          operators_for_type(field_type_for_column(socket.assigns.field_type_by_column, view_state["filter_column"]))
+       )}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("set_sort", %{"by" => by}, socket) do
@@ -151,18 +163,27 @@ defmodule NixstasisWeb.ReportLive.Show do
   defp normalize_show_view_state(state, fields, field_type_by_column) do
     allowed_fields = Enum.map(fields, &(field_key(&1) || ""))
     fallback_field = first_field_key(fields)
+    filter_column = normalize_sort_field(state["filter_column"], allowed_fields, fallback_field)
 
     %{
       "sort_by" => normalize_sort_field(state["sort_by"], allowed_fields),
       "sort_dir" => normalize_sort_dir(state["sort_dir"]),
-      "filter_column" => normalize_sort_field(state["filter_column"], allowed_fields, fallback_field),
+      "filter_column" => filter_column,
       "filter_operator" =>
         normalize_filter_operator(
           state["filter_operator"],
-          field_type_for_column(field_type_by_column, state["filter_column"] || fallback_field)
+          field_type_for_column(field_type_by_column, filter_column)
         ),
       "filter_value" => state["filter_value"] || ""
     }
+  end
+
+  defp meaningful_show_view_state?(state) do
+    state["sort_by"] not in [nil, ""] or
+      state["sort_dir"] not in [nil, ""] or
+      state["filter_column"] not in [nil, ""] or
+      state["filter_operator"] not in [nil, ""] or
+      state["filter_value"] not in [nil, ""]
   end
 
   defp normalize_sort_field(field, allowed, fallback \\ "") do
@@ -289,13 +310,39 @@ defmodule NixstasisWeb.ReportLive.Show do
   end
 
   defp can_view_reports?(session) do
-    permissions = session["report_permissions"] || %{}
-    permissions["can_view"] != false
+    permissions = report_permissions(session)
+    permissions["can_view"] == true
+  end
+
+  defp can_manage_reports?(session) do
+    permissions = report_permissions(session)
+    permissions["can_manage"] == true
+  end
+
+  defp report_permissions(session) when is_map(session) do
+    case Map.get(session, "report_permissions") do
+      permissions when is_map(permissions) -> permissions
+      _ -> %{}
+    end
+  end
+
+  defp report_permissions(_session), do: %{}
+
+  defp authorized_socket?(socket) do
+    socket.assigns[:can_view_reports] == true
   end
 
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-6xl">
+      <div :if={!@preferences_enabled?} class="alert alert-soft alert-info mb-4" role="status">
+        <span>Saved report view preferences are unavailable for this session.</span>
+      </div>
+
+      <div :if={@preferences_reset?} class="alert alert-soft alert-warning mb-4" role="status">
+        <span>Saved report view preferences were invalid and have been reset to safe defaults.</span>
+      </div>
+
       <div class="mb-8 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">{@report.name}</h1>
@@ -304,7 +351,7 @@ defmodule NixstasisWeb.ReportLive.Show do
           <.link navigate={~p"/reports"} class={action_link_class(:view)}>
             Back to List
           </.link>
-          <.link navigate={~p"/reports/#{@report.id}/edit"} class={action_link_class(:edit)}>
+          <.link :if={@can_manage_reports} navigate={~p"/reports/#{@report.id}/edit"} class={action_link_class(:edit)}>
             Edit
           </.link>
         </div>

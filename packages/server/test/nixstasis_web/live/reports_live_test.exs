@@ -48,10 +48,11 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    :ok
+    {:ok, permissions: %{"can_view" => true, "can_manage" => true}}
   end
 
-  test "new report modal renders all-schema selectors and options", %{conn: conn} do
+  test "new report modal renders all-schema selectors and options", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports/new")
 
     assert html =~ "Script Schema"
@@ -65,7 +66,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Using common script fields across all products."
   end
 
-  test "schema field selection does not crash live component", %{conn: conn} do
+  test "schema field selection does not crash live component", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -81,7 +83,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Schema Version"
   end
 
-  test "malformed schema field payload does not crash live component", %{conn: conn} do
+  test "malformed schema field payload does not crash live component", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -93,7 +96,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Schema Version"
   end
 
-  test "explicit schema version selection drives report schema options", %{conn: conn} do
+  test "explicit schema version selection drives report schema options", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -124,7 +128,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Pressure"
   end
 
-  test "changing schema product does not show cleared-selection warning", %{conn: conn} do
+  test "changing schema product does not show cleared-selection warning", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -145,7 +150,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Scope limited to report-schema-product."
   end
 
-  test "schema field selection sets default title and pushes focus to title input", %{conn: conn} do
+  test "schema field selection sets default title and pushes focus to title input", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
     expected_focus_id = "report-field-alias-" <> field_id
@@ -178,7 +184,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert alias_input_value!(html, field_id) == "Humidity"
   end
 
-  test "cannot delete the last remaining column", %{conn: conn} do
+  test "cannot delete the last remaining column", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     refute has_element?(view, "button[phx-click='remove_field']")
@@ -200,7 +207,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute has_element?(view, "button[phx-click='remove_field']")
   end
 
-  test "add column focuses schema field for the new row", %{conn: conn} do
+  test "add column focuses schema field for the new row", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     initial_id = select_id!(html, "path")
 
@@ -216,7 +224,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_push_event(view, "focus_schema_field", %{id: ^expected_focus_id})
   end
 
-  test "enter on column title adds next column and focuses its schema field", %{conn: conn} do
+  test "enter on column title adds next column and focuses its schema field", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -232,7 +241,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_push_event(view, "focus_schema_field", %{id: ^expected_focus_id})
   end
 
-  test "tab on column title does not add a new column", %{conn: conn} do
+  test "tab on column title does not add a new column", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -244,7 +254,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert [field_id] == select_ids!(html, "path")
   end
 
-  test "delete on just-enter-created schema field removes that new column", %{conn: conn} do
+  test "delete on just-enter-created schema field removes that new column", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     initial_id = select_id!(html, "path")
 
@@ -266,7 +277,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert [existing_id] == select_ids!(html, "path")
   end
 
-  test "delete on existing schema field removes row even when not newly added", %{conn: conn} do
+  test "delete on existing schema field removes row even when not newly added", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     first_id = select_id!(html, "path")
 
@@ -288,7 +300,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert [second_id] == select_ids!(html, "path")
   end
 
-  test "filter value label shows type after schema field is selected", %{conn: conn} do
+  test "filter value label shows type after schema field is selected", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -309,7 +322,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Value (number)"
   end
 
-  test "selecting filter field focuses operator, then operator focuses value", %{conn: conn} do
+  test "selecting filter field focuses operator, then operator focuses value", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -342,7 +356,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_push_event(view, "focus_filter_value", %{id: ^expected_value_id})
   end
 
-  test "enter on filter value adds another filter and focuses new schema field", %{conn: conn} do
+  test "enter on filter value adds another filter and focuses new schema field", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -364,7 +379,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_push_event(view, "focus_filter_field", %{id: ^expected_field_id})
   end
 
-  test "add filter focuses schema field for the new row", %{conn: conn} do
+  test "add filter focuses schema field for the new row", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -377,7 +393,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_push_event(view, "focus_filter_field", %{id: ^expected_field_id})
   end
 
-  test "delete on filter schema field removes that filter row", %{conn: conn} do
+  test "delete on filter schema field removes that filter row", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -398,7 +415,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert select_ids(html, "field") == []
   end
 
-  test "deleting a filter focuses previous filter value", %{conn: conn} do
+  test "deleting a filter focuses previous filter value", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -426,7 +444,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert [kept_id] == select_ids!(html, "field")
   end
 
-  test "deleting first filter keeps focus in filters when another remains", %{conn: conn} do
+  test "deleting first filter keeps focus in filters when another remains", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -454,7 +473,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert [second_id] == select_ids!(html, "field")
   end
 
-  test "hidden filter field shows add-as-column action", %{conn: conn} do
+  test "hidden filter field shows add-as-column action", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -491,13 +511,14 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html =~ "Filtered by hidden field."
   end
 
-  test "report name uniqueness is enforced case-insensitively by backend lookup", %{conn: conn} do
+  test "report name uniqueness is enforced case-insensitively by backend lookup", %{conn: conn, permissions: permissions} do
     {:ok, _report} =
       Nixstasis.Reporting.create_custom_report(%{
         "name" => "Unique Report Name",
         "config" => %{"source" => "telemetry", "fields" => [], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     _html =
@@ -508,7 +529,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert has_element?(view, "p.text-error", "Report title is already used.")
   end
 
-  test "filter value validates against schema type", %{conn: conn} do
+  test "filter value validates against schema type", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/new")
 
     html =
@@ -536,7 +558,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "disabled"
   end
 
-  test "save enables immediately when filter value becomes valid", %{conn: conn} do
+  test "save enables immediately when filter value becomes valid", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -582,7 +605,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "reports index uses report title as primary view link and icon-only secondary actions", %{
-    conn: conn
+    conn: conn,
+    permissions: permissions
   } do
     report_a =
       report_fixture(%{
@@ -596,6 +620,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         "config" => %{"source" => "e2e", "fields" => [%{"path" => "status"}], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports")
 
     assert html =~ "aria-label=\"Edit report Alpha Report\""
@@ -604,7 +629,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "/reports/#{report_a.id}\""
   end
 
-  test "reports index filters by fuzzy name and selected schema-field chips", %{conn: conn} do
+  test "reports index filters by fuzzy name and selected schema-field chips", %{conn: conn, permissions: permissions} do
     _cpu =
       report_fixture(%{
         "name" => "CPU Health",
@@ -621,6 +646,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports?filters[name]=hea")
     assert html =~ "CPU Health"
     refute html =~ "Temp Trends"
@@ -630,7 +656,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html2 =~ "Temp Trends"
   end
 
-  test "schema-field filter supports multiple selections and ignores duplicates", %{conn: conn} do
+  test "schema-field filter supports multiple selections and ignores duplicates", %{conn: conn, permissions: permissions} do
     _temp_humidity =
       report_fixture(%{
         "name" => "Temp and Humidity",
@@ -647,6 +673,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports")
     assert html =~ "Temp and Humidity"
     assert html =~ "Temp Only"
@@ -673,7 +700,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "phx-value-field=\"temp\""
   end
 
-  test "removing and clearing schema-field chips fully resets filter state", %{conn: conn} do
+  test "removing and clearing schema-field chips fully resets filter state", %{conn: conn, permissions: permissions} do
     _temp_humidity =
       report_fixture(%{
         "name" => "Temp and Humidity Reset",
@@ -690,6 +717,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports")
 
     _html =
@@ -727,7 +755,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Temp Only Reset"
   end
 
-  test "field dropdown selection adds chip immediately", %{conn: conn} do
+  test "field dropdown selection adds chip immediately", %{conn: conn, permissions: permissions} do
     _temp =
       report_fixture(%{
         "name" => "Temp Autocomplete",
@@ -744,6 +772,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports")
 
     html =
@@ -768,13 +797,14 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html =~ "Temp Autocomplete"
   end
 
-  test "selected field is removed from dropdown options and cannot duplicate chip", %{conn: conn} do
+  test "selected field is removed from dropdown options and cannot duplicate chip", %{conn: conn, permissions: permissions} do
     _temp =
       report_fixture(%{
         "name" => "Temp No Duplicate",
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports")
 
     html =
@@ -792,7 +822,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert occurrences == 1
   end
 
-  test "edit action preloads schema fields and filters from report config", %{conn: conn} do
+  test "edit action preloads schema fields and filters from report config", %{conn: conn, permissions: permissions} do
     report =
       report_fixture(%{
         "name" => "Preloaded Report",
@@ -804,6 +834,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}/edit")
 
     assert html =~ "Edit Report"
@@ -814,7 +845,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "edit mode disables and de-focuses name input and focuses first column field", %{
-    conn: conn
+    conn: conn,
+    permissions: permissions
   } do
     report =
       report_fixture(%{
@@ -827,6 +859,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
     assert html =~ "id=\"report-name-input\""
     assert html =~ "disabled"
@@ -848,7 +881,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html =~ "Report title is already used."
   end
 
-  test "editing report saves when disabled name input is not submitted", %{conn: conn} do
+  test "editing report saves when disabled name input is not submitted", %{conn: conn, permissions: permissions} do
     report =
       report_fixture(%{
         "name" => "Schema Seed Report",
@@ -863,6 +896,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
     [field_a, field_b] = select_ids!(html, "path")
     [filter_id] = select_ids!(html, "field")
@@ -889,7 +923,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
            end)
   end
 
-  test "creating report persists submitted column title without requiring blur", %{conn: conn} do
+  test "creating report persists submitted column title without requiring blur", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
 
@@ -913,13 +948,14 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert saved.config["fields"] == [%{"path" => "temp", "alias" => "Room Temperature"}]
   end
 
-  test "reports index delete action requires explicit confirmation", %{conn: conn} do
+  test "reports index delete action requires explicit confirmation", %{conn: conn, permissions: permissions} do
     report =
       report_fixture(%{
         "name" => "Delete Me",
         "config" => %{"source" => "telemetry", "fields" => [], "filters" => []}
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports")
 
     html =
@@ -950,7 +986,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert_raise Ash.Error.Invalid, fn -> Reporting.get_custom_report!(report.id) end
   end
 
-  test "report detail supports sorting and filter operators", %{conn: conn} do
+  test "report detail supports sorting and filter operators", %{conn: conn, permissions: permissions} do
     {:ok, device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:91",
@@ -980,6 +1016,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/#{report.id}")
     assert html =~ "Live Report"
     assert html =~ "15"
@@ -1017,7 +1054,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert ["100", "45", "35"] == report_result_values(html)
   end
 
-  test "report detail filters aliased columns by configured payload path", %{conn: conn} do
+  test "report detail filters aliased columns by configured payload path", %{conn: conn, permissions: permissions} do
     {:ok, device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:93",
@@ -1048,6 +1085,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/#{report.id}")
     assert ["20", "80"] == report_result_values(html)
 
@@ -1061,7 +1099,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert ["80"] == report_result_values(html)
   end
 
-  test "report detail limits database-backed result loading", %{conn: conn} do
+  test "report detail limits database-backed result loading", %{conn: conn, permissions: permissions} do
     {:ok, device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:92",
@@ -1091,12 +1129,13 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}?sort_by=temp&sort_dir=asc")
 
     assert length(Regex.scan(~r/<tr>/, html)) <= 251
   end
 
-  test "report detail operator list changes by selected column type", %{conn: conn} do
+  test "report detail operator list changes by selected column type", %{conn: conn, permissions: permissions} do
     {:ok, _device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:77",
@@ -1125,6 +1164,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, _html} = live(conn, ~p"/reports/#{report.id}")
 
     assert has_element?(view, "select[name='filter[operator]'] option[value='contains']")
@@ -1149,7 +1189,48 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute has_element?(view, "select[name='filter[operator]'] option[value=\"doesn't contain\"]")
   end
 
-  test "unauthorized sessions cannot manage report list actions", %{conn: conn} do
+  test "missing permission state denies report index before loading", %{conn: conn} do
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => message}}}} = live(conn, ~p"/reports")
+    assert message =~ "not authorized"
+  end
+
+  test "missing permission state denies report detail before loading report", %{conn: conn} do
+    report =
+      report_fixture(%{
+        "name" => "Blocked Before Lookup",
+        "config" => %{"source" => "telemetry", "fields" => [], "filters" => []}
+      })
+
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => message}}}} =
+             live(conn, ~p"/reports/#{report.id}")
+
+    assert message =~ "not authorized"
+  end
+
+  test "malformed permission state denies report index and detail before loading", %{conn: conn} do
+    report =
+      report_fixture(%{
+        "name" => "Malformed Permission Report",
+        "config" => %{"source" => "telemetry", "fields" => [], "filters" => []}
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_permissions", "invalid")
+
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => index_message}}}} =
+             live(conn, ~p"/reports")
+
+    assert index_message =~ "not authorized"
+
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => detail_message}}}} =
+             live(conn, ~p"/reports/#{report.id}")
+
+    assert detail_message =~ "not authorized"
+  end
+
+  test "view-only sessions cannot manage report list actions", %{conn: conn} do
     _ =
       report_fixture(%{
         "name" => "Restricted",
@@ -1159,12 +1240,13 @@ defmodule NixstasisWeb.ReportsLiveTest do
     conn =
       conn
       |> init_test_session(%{})
-      |> put_session("report_permissions", %{"can_manage" => false})
+      |> put_session("report_permissions", %{"can_view" => true, "can_manage" => false})
 
     {:ok, _view, html} = live(conn, ~p"/reports")
 
     refute html =~ "aria-label=\"Delete report"
     refute html =~ "aria-label=\"Edit report"
+    refute html =~ "Create Report"
   end
 
   test "unauthorized sessions cannot view report detail", %{conn: conn} do
@@ -1175,12 +1257,35 @@ defmodule NixstasisWeb.ReportsLiveTest do
       })
 
     conn =
-      conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => false})
+      conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => false, "can_manage" => true})
 
-    assert {:error, {:live_redirect, %{to: "/reports", flash: %{"error" => message}}}} =
+    assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => message}}}} =
              live(conn, ~p"/reports/#{report.id}")
 
     assert message =~ "not authorized"
+  end
+
+  test "manage routes require explicit manage permission", %{conn: conn} do
+    report =
+      report_fixture(%{
+        "name" => "Manage Locked",
+        "config" => %{"source" => "telemetry", "fields" => [], "filters" => []}
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_permissions", %{"can_view" => true, "can_manage" => false})
+
+    assert {:error, {:live_redirect, %{to: "/reports", flash: %{"error" => message}}}} =
+             live(conn, ~p"/reports/new")
+
+    assert message =~ "not authorized"
+
+    assert {:error, {:live_redirect, %{to: "/reports", flash: %{"error" => edit_message}}}} =
+             live(conn, ~p"/reports/#{report.id}/edit")
+
+    assert edit_message =~ "not authorized"
   end
 
   test "report list and detail view state restores from saved preferences", %{conn: conn} do
@@ -1197,6 +1302,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     scoped_conn =
       conn
       |> init_test_session(%{})
+      |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
       |> put_session("report_preferences", %{"kind" => "report_live", "owner" => "prefs-test"})
 
     {:ok, _view, _html} = live(scoped_conn, ~p"/reports?sort_by=name&sort_dir=asc&filters[name]=Preference")
@@ -1214,7 +1320,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert restored_detail_html =~ "temp"
   end
 
-  test "report view state is not restored from csrf-only sessions", %{conn: conn} do
+  test "report view state fallback is visible and does not restore without scope", %{conn: conn} do
     report =
       report_fixture(%{
         "name" => "No CSRF Preference Report",
@@ -1225,11 +1331,16 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    csrf_conn = conn |> init_test_session(%{}) |> put_session("_csrf_token", "csrf-only")
+    csrf_conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
+      |> put_session("_csrf_token", "csrf-only")
 
     {:ok, _view, _html} = live(csrf_conn, ~p"/reports?sort_by=name&sort_dir=asc&filters[name]=No CSRF")
     {:ok, _view, restored_list_html} = live(csrf_conn, ~p"/reports")
     assert restored_list_html =~ "No CSRF Preference Report"
+    assert restored_list_html =~ "Saved report view preferences are unavailable for this session."
 
     {:ok, _view, _html} =
       live(
@@ -1240,6 +1351,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, _view, restored_detail_html} = live(csrf_conn, ~p"/reports/#{report.id}")
     assert restored_detail_html =~ "No CSRF Preference Report"
     assert restored_detail_html =~ "temp"
+    assert restored_detail_html =~ "Saved report view preferences are unavailable for this session."
     refute restored_detail_html =~ "temp ↓"
   end
 
@@ -1254,6 +1366,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
+
     {:ok, _view, html} =
       live(
         conn,
@@ -1262,6 +1376,27 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     assert html =~ "Fallback Report"
     assert html =~ "temp"
+    assert html =~ "Saved report view preferences were invalid and have been reset to safe defaults."
+  end
+
+  test "empty first-load state does not show reset warning", %{conn: conn} do
+    report =
+      report_fixture(%{
+        "name" => "Default State Report",
+        "config" => %{
+          "source" => "telemetry",
+          "fields" => [%{"path" => "temp", "alias" => "temp"}],
+          "filters" => []
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
+
+    {:ok, _view, list_html} = live(conn, ~p"/reports")
+    refute list_html =~ "Saved report view preferences were invalid and have been reset to safe defaults."
+
+    {:ok, _view, detail_html} = live(conn, ~p"/reports/#{report.id}")
+    refute detail_html =~ "Saved report view preferences were invalid and have been reset to safe defaults."
   end
 
   defp select_id!(html, key) do
