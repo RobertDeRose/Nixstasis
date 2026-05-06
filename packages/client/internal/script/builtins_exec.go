@@ -7,10 +7,50 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"go.starlark.net/starlark"
 )
+
+const (
+	defaultExecPath   = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	defaultExecHome   = "/"
+	defaultExecLang   = "C.UTF-8"
+	defaultExecLCAll  = "C.UTF-8"
+	defaultExecTmpDir = "/tmp"
+)
+
+var blockedExecEnvPrefixes = []string{
+	"LD_",
+	"DYLD_",
+	"BASH_FUNC_",
+}
+
+var blockedExecEnvKeys = map[string]struct{}{
+	"BASH_ENV":          {},
+	"ENV":               {},
+	"GCONV_PATH":        {},
+	"GIO_EXTRA_MODULES": {},
+	"HOSTALIASES":       {},
+	"IFS":               {},
+	"LD_AUDIT":          {},
+	"LD_DEBUG":          {},
+	"LD_DEBUG_OUTPUT":   {},
+	"LD_DYNAMIC_WEAK":   {},
+	"LD_HWCAP_MASK":     {},
+	"LD_LIBRARY_PATH":   {},
+	"LD_ORIGIN_PATH":    {},
+	"LD_PRELOAD":        {},
+	"LD_PROFILE":        {},
+	"LD_SHOW_AUXV":      {},
+	"LD_USE_LOAD_BIAS":  {},
+	"LIBPATH":           {},
+	"PYTHONHOME":        {},
+	"PYTHONPATH":        {},
+	"RUBYLIB":           {},
+	"RUBYOPT":           {},
+}
 
 func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var cmdName string
@@ -48,7 +88,7 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 	// #nosec G204 -- command is resolved from an explicit pinned allowlist.
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = r.config.ExecWorkDir
-	cmd.Env = append([]string(nil), r.config.ExecEnv...)
+	cmd.Env = buildExecEnv(r.config.ExecEnv)
 
 	if r.config.ExecUser != nil && os.Geteuid() == 0 {
 		setExecUser(cmd, r.config.ExecUser)
@@ -92,4 +132,49 @@ func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {
 	}
 
 	return clean, nil
+}
+
+func buildExecEnv(configured []string) []string {
+	envMap := map[string]string{
+		"HOME":   defaultExecHome,
+		"LANG":   defaultExecLang,
+		"LC_ALL": defaultExecLCAll,
+		"PATH":   defaultExecPath,
+		"TMPDIR": defaultExecTmpDir,
+	}
+
+	for _, entry := range configured {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok || key == "" || key == "PATH" || execEnvBlocked(key) {
+			continue
+		}
+		envMap[key] = value
+	}
+
+	keys := make([]string, 0, len(envMap))
+	for key := range envMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	env := make([]string, 0, len(keys))
+	for _, key := range keys {
+		env = append(env, key+"="+envMap[key])
+	}
+
+	return env
+}
+
+func execEnvBlocked(key string) bool {
+	if _, blocked := blockedExecEnvKeys[key]; blocked {
+		return true
+	}
+
+	for _, prefix := range blockedExecEnvPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+
+	return false
 }
