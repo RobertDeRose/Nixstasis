@@ -45,7 +45,13 @@ if config_env() == :prod do
     Deployment.required_env!("SECRET_KEY_BASE")
 
   host = Deployment.required_env!("PHX_HOST")
-  port = Deployment.port()
+
+  port =
+    case Deployment.port() do
+      4000 -> 4000
+      configured_port -> raise ArgumentError, "PORT must be 4000 for supported Compose deployment, got: #{configured_port}"
+    end
+
   base_domain = Deployment.required_env!("BASE_DOMAIN")
 
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
