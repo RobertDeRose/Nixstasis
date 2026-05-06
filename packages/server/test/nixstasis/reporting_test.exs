@@ -1,6 +1,7 @@
 defmodule Nixstasis.ReportingTest do
   use Nixstasis.DataCase, async: true
 
+  alias Nixstasis.Repo
   alias Nixstasis.Reporting
 
   test "view preferences are durable and do not rely on ETS" do
@@ -14,6 +15,10 @@ defmodule Nixstasis.ReportingTest do
 
     assert %{"sort_by" => "name", "sort_dir" => "desc"} =
              Reporting.load_view_preferences(scope, "reports:index")
+  end
+
+  test "reporting preference access does not expose runtime DDL helper" do
+    refute function_exported?(Reporting, :ensure_preference_store!, 0)
   end
 
   test "view preference writes are scoped to explicit scope keys" do
@@ -37,6 +42,7 @@ defmodule Nixstasis.ReportingTest do
   test "ordinary sessions without explicit durable scope do not persist preferences" do
     assert is_nil(Reporting.preference_scope(%{"_csrf_token" => "csrf-a"}))
     assert is_nil(Reporting.preference_scope(%{"anything_else" => "not-a-scope"}))
+    assert is_nil(Reporting.preference_scope(%{"report_permissions" => %{"can_view" => true, "can_manage" => true}}))
 
     assert :ok = Reporting.save_view_preferences(nil, "reports:index", %{"sort_dir" => "desc"})
     assert %{} == Reporting.load_view_preferences(nil, "reports:index")
@@ -53,6 +59,28 @@ defmodule Nixstasis.ReportingTest do
 
     assert :ok = Reporting.save_view_preferences(operator_scope, "reports:index", %{"sort_dir" => "desc"})
     assert %{"sort_dir" => "desc"} = Reporting.load_view_preferences(operator_scope, "reports:index")
+  end
+
+  test "malformed stored preferences fail safe to defaults" do
+    scope = "kind=report_live;owner=malformed"
+    now = DateTime.utc_now()
+
+    Repo.insert_all(
+      "report_view_preferences",
+      [
+        %{
+          scope: scope,
+          view_key: "reports:index",
+          preferences: "invalid",
+          inserted_at: now,
+          updated_at: now
+        }
+      ],
+      on_conflict: {:replace, [:preferences, :updated_at]},
+      conflict_target: [:scope, :view_key]
+    )
+
+    assert %{} == Reporting.load_view_preferences(scope, "reports:index")
   end
 
   test "custom report index filters and sorts in the database-backed path" do

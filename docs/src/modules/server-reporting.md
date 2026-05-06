@@ -48,7 +48,7 @@
 
 - Ecto.Query
 - AshPhoenix
-- ETS for report view preference table `:report_view_preferences`
+- Postgres-backed `report_view_preferences` table for persisted view preferences
 
 ## Client-Server Interaction Details
 
