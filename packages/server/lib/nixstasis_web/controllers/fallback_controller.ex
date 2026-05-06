@@ -16,6 +16,13 @@ defmodule NixstasisWeb.FallbackController do
     |> render("403.json")
   end
 
+  def call(conn, {:error, %Ash.Error.Unknown{} = error}) do
+    conn
+    |> put_status(:internal_server_error)
+    |> put_view(json: NixstasisWeb.ErrorJSON)
+    |> render("error.json", error: error)
+  end
+
   # This clause is an example of how to handle resources that cannot be found.
   def call(conn, {:error, :not_found}) do
     conn

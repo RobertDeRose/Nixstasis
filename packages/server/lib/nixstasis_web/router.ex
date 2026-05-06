@@ -70,6 +70,7 @@ defmodule NixstasisWeb.Router do
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
     post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
+    get("/reports/:id/results", ReportResultController, :show)
     get("/check_domain", TLSController, :check_domain)
   end
 
