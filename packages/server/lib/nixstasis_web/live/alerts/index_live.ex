@@ -8,7 +8,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.SchemaOptions
 
-  @success_flash_timeout_ms 30_000
+  @success_flash_timeout_ms 3_000
 
   def mount(_params, _session, socket) do
     alerts =
@@ -36,10 +36,11 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:rule_initial_draft, %{})
      |> assign(:rule_editing, nil)
      |> assign(:rule_edit_blocked_reason, nil)
-     |> assign(:rule_to_delete, nil)
-     |> assign(:show_discard_confirm, false)
-     |> assign(:no_schema_fields_message, nil)
-     |> assign(:modal_focus_id, "alert-schema-id")}
+      |> assign(:rule_to_delete, nil)
+      |> assign(:show_discard_confirm, false)
+      |> assign(:no_schema_fields_message, nil)
+      |> assign(:modal_focus_id, "alert-schema-id")
+      |> assign(:success_flash_generation, 0)}
   end
 
   def handle_params(params, _url, socket) do
@@ -260,8 +261,12 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> apply_rule_filters()}
   end
 
-  def handle_info({:clear_flash, key}, socket) do
-    {:noreply, clear_flash(socket, key)}
+  def handle_info({:clear_flash, key, generation}, socket) do
+    if socket.assigns.success_flash_generation == generation do
+      {:noreply, clear_flash(socket, key)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def render(assigns) do
@@ -961,10 +966,12 @@ defmodule NixstasisWeb.AlertLive.Index do
           %{builder: "alert"}
         )
 
-        Process.send_after(self(), {:clear_flash, :info}, @success_flash_timeout_ms)
+        generation = socket.assigns.success_flash_generation + 1
+        Process.send_after(self(), {:clear_flash, :info, generation}, @success_flash_timeout_ms)
 
         {:noreply,
          socket
+         |> assign(:success_flash_generation, generation)
          |> put_flash(:info, success_message(socket.assigns.live_action))
          |> push_patch(to: ~p"/alerts?tab=rules")}
 
