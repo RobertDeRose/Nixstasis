@@ -488,7 +488,9 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert Devices.get_device!(device.id).remote_access_requested == true
 
       {:ok, loaded_device} = Devices.get_device(device.id)
-      {:ok, _updated} = Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
+
+      {:ok, _updated} =
+        Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
 
       assert eventually_rendered?(view, "Device Offline")
       assert Devices.get_device!(device.id).remote_access_requested == false

@@ -59,6 +59,7 @@
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/monitoring.ex:15-148`
 - `packages/server/lib/nixstasis/monitoring/offline_checker.ex:1-32`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`

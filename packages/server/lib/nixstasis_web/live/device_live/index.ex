@@ -26,14 +26,14 @@ defmodule NixstasisWeb.DeviceLive.Index do
     end
 
     {:ok,
-      socket
-       |> stream(:devices, [])
-       |> assign(:selected_ids, [])
-       |> assign(:active_filters, %{})
-       |> assign(:device_permissions, permissions)
-       |> assign(:can_view_device_details?, can_view_device_details?(permissions))
-       # Placeholder for pagination if needed
-       |> assign(:meta, %{page: 1, per_page: 50})}
+     socket
+     |> stream(:devices, [])
+     |> assign(:selected_ids, [])
+     |> assign(:active_filters, %{})
+     |> assign(:device_permissions, permissions)
+     |> assign(:can_view_device_details?, can_view_device_details?(permissions))
+     # Placeholder for pagination if needed
+     |> assign(:meta, %{page: 1, per_page: 50})}
   end
 
   @impl true
@@ -334,8 +334,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
     socket
     |> assign(:selected_ids, selected_ids)
-     |> assign(:total_count, length(devices))
-     |> stream(:devices, devices, reset: true)
+    |> assign(:total_count, length(devices))
+    |> stream(:devices, devices, reset: true)
   end
 
   defp list_visible_devices(assigns) do

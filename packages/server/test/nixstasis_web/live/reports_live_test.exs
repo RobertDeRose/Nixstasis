@@ -150,7 +150,10 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Scope limited to report-schema-product."
   end
 
-  test "schema field selection sets default title and pushes focus to title input", %{conn: conn, permissions: permissions} do
+  test "schema field selection sets default title and pushes focus to title input", %{
+    conn: conn,
+    permissions: permissions
+  } do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
     field_id = select_id!(html, "path")
@@ -511,7 +514,10 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html =~ "Filtered by hidden field."
   end
 
-  test "report name uniqueness is enforced case-insensitively by backend lookup", %{conn: conn, permissions: permissions} do
+  test "report name uniqueness is enforced case-insensitively by backend lookup", %{
+    conn: conn,
+    permissions: permissions
+  } do
     {:ok, _report} =
       Nixstasis.Reporting.create_custom_report(%{
         "name" => "Unique Report Name",
@@ -656,7 +662,10 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html2 =~ "Temp Trends"
   end
 
-  test "schema-field filter supports multiple selections and ignores duplicates", %{conn: conn, permissions: permissions} do
+  test "schema-field filter supports multiple selections and ignores duplicates", %{
+    conn: conn,
+    permissions: permissions
+  } do
     _temp_humidity =
       report_fixture(%{
         "name" => "Temp and Humidity",
@@ -797,7 +806,10 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html =~ "Temp Autocomplete"
   end
 
-  test "selected field is removed from dropdown options and cannot duplicate chip", %{conn: conn, permissions: permissions} do
+  test "selected field is removed from dropdown options and cannot duplicate chip", %{
+    conn: conn,
+    permissions: permissions
+  } do
     _temp =
       report_fixture(%{
         "name" => "Temp No Duplicate",
@@ -1366,7 +1378,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
+    conn =
+      conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
 
     {:ok, _view, html} =
       live(
@@ -1390,7 +1403,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
+    conn =
+      conn |> init_test_session(%{}) |> put_session("report_permissions", %{"can_view" => true, "can_manage" => true})
 
     {:ok, _view, list_html} = live(conn, ~p"/reports")
     refute list_html =~ "Saved report view preferences were invalid and have been reset to safe defaults."

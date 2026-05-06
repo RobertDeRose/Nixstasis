@@ -8,6 +8,7 @@
 - The supported server deployment path is Docker Compose under `deploy/compose`.
 
 Traceable references:
+
 - `README.md:3-17`
 - `packages/client/README.md:1-12`
 - `packages/server/README.md:1-17`
@@ -69,6 +70,7 @@ Traceable references:
 - `NixstasisWeb.SettingsLive`
 
 Traceable reference:
+
 - `packages/server/lib/nixstasis_web/router.ex:30-45`
 
 ### Go Client Commands
@@ -82,6 +84,7 @@ Traceable reference:
 - `nixstasis script repl`: starts the script REPL.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/main.go`
 - `packages/client/cmd/nixstasis/register.go`
 - `packages/client/cmd/nixstasis/poll.go`

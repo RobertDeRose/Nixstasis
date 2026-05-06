@@ -48,8 +48,11 @@ if config_env() == :prod do
 
   port =
     case Deployment.port() do
-      4000 -> 4000
-      configured_port -> raise ArgumentError, "PORT must be 4000 for supported Compose deployment, got: #{configured_port}"
+      4000 ->
+        4000
+
+      configured_port ->
+        raise ArgumentError, "PORT must be 4000 for supported Compose deployment, got: #{configured_port}"
     end
 
   base_domain = Deployment.required_env!("BASE_DOMAIN")
