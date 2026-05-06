@@ -49,18 +49,6 @@
       "type": "text"
     },
     {
-      "allow_nil?": true,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "ipv4_address",
-      "type": "text"
-    },
-    {
       "allow_nil?": false,
       "default": "\"pending\"",
       "generated?": false,
@@ -70,18 +58,6 @@
       "scale": null,
       "size": null,
       "source": "approval_status",
-      "type": "text"
-    },
-    {
-      "allow_nil?": true,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "api_token_hash",
       "type": "text"
     },
     {
@@ -187,28 +163,6 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "ipv4_address"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "ipv4_address"
-        }
-      ],
-      "include": null,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": false,
-      "using": null,
-      "where": null
-    },
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
         "product_name"
       ],
       "fields": [
@@ -253,28 +207,6 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "schema"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "schema"
-        }
-      ],
-      "include": null,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": false,
-      "using": "gin",
-      "where": null
-    },
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
         "metadata"
       ],
       "fields": [
@@ -296,7 +228,7 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "A14F80DDB439F73BB58DACBEB28B1D4C4FE9B62B47B0766EBDB2888195A8A80B",
+  "hash": "C1C14F7F3362467BF3E2127765425BABFDAE6D09326B1F2D9D80837981CAB77C",
   "identities": [
     {
       "all_tenants?": false,
