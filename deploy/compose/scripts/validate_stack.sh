@@ -40,6 +40,20 @@ require_env_value() {
   fi
 }
 
+require_exact_env_value() {
+  name="$1"
+  expected="$2"
+  value=$(env_value "$name" || true)
+
+  if [ -z "$value" ]; then
+    fail "missing required env value: $name"
+  fi
+
+  if [ "$value" != "$expected" ]; then
+    fail "$name must be $expected for supported Compose deployment, got: $value"
+  fi
+}
+
 require_caddy_text() {
   pattern="$1"
   rg -n "$pattern" "$CADDYFILE" >/dev/null || fail "missing Caddy policy text: $pattern"
@@ -93,6 +107,11 @@ fi
 
 require_env_value AUTHORIZED_ROLES
 require_env_value AUTHORIZED_GROUPS
+require_exact_env_value PORT 4000
+require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
+require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
+reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
+reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'
 require_caddy_text 'allow groups \{\$AUTHORIZED_GROUPS\}'
 reject_caddy_text 'allow roles \*'
