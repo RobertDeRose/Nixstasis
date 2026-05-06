@@ -7,6 +7,10 @@ poll:
 scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 
+frp:
+  auth_token: ""
+  name: "atom-001122334455"
+
 runtime:
   mqtt_broker: "tcp://localhost:1883"
   authorized_keys_path: "/var/lib/nixstasis/.ssh/authorized_keys"

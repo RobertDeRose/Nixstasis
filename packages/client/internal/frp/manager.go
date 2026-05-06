@@ -3,11 +3,13 @@ package frp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -18,12 +20,17 @@ import (
 // execCommandContext allows mocking the command execution in tests.
 var execCommandContext = exec.CommandContext
 
+var afterStopWaitHook = func() {}
+
+const defaultProxyName = "nixstasis"
+
 // Manager handles the lifecycle of the frpc process.
 type Manager struct {
 	mu     sync.Mutex
 	status ConnectionStatus
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
+	waitCh chan struct{}
 }
 
 // NewManager creates a new Manager instance.
@@ -40,7 +47,7 @@ func NewManager() *Manager {
 // The provided context is ignored for the process lifecycle to ensure it persists
 // independent of the request context, but is kept for interface compatibility.
 func (m *Manager) Start(ctx context.Context, configPath string) error {
-	return m.StartWithConfig(ctx, configPath, config.FRPConfig{})
+	return m.StartWithConfig(ctx, configPath, config.FRPConfig{Name: defaultProxyName})
 }
 
 // StartWithConfig launches the frpc process with additional runtime config.
@@ -63,6 +70,7 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	// Create a context that we can cancel to kill the process
 	cmdCtx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
+	m.waitCh = make(chan struct{})
 
 	// -c configPath is standard for frpc
 	//nolint:contextcheck // Intentional creation of new context for background process
@@ -84,9 +92,11 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	m.status.PID = cmd.Process.Pid
 	m.status.StartTime = time.Now()
 	m.status.ConnectionString = renderedConfigPath // Storing config path as proxy for connection string for now
+	waitCh := m.waitCh
 
 	// Wait for process in background to handle cleanup if it crashes
 	go func() {
+		defer close(waitCh)
 		defer func() { _ = os.Remove(renderedConfigPath) }()
 
 		err := cmd.Wait()
@@ -96,13 +106,16 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 		defer m.mu.Unlock()
 		// Only reset if this is still the current command
 		if m.cmd == cmd {
-			m.status.Active = false
-			m.status.PID = 0
-			m.cmd = nil
 			if m.cancel != nil {
-				m.cancel() // Ensure resources are cleaned up
+				m.cancel()
 				m.cancel = nil
 			}
+			m.status.Active = false
+			m.status.PID = 0
+			m.status.ConnectionString = ""
+			m.status.StartTime = time.Time{}
+			m.cmd = nil
+			m.waitCh = nil
 		}
 	}()
 
@@ -115,12 +128,16 @@ func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error)
 		return "", fmt.Errorf("failed to read frpc config: %w", err)
 	}
 
+	if frpConfig.Name == "" && strings.Contains(string(template), "{{ .Envs.NAME }}") {
+		return "", fmt.Errorf("frpc config requires a non-empty name")
+	}
+
 	replacements := map[string]string{
 		"{{ .Envs.FRPS_AUTH_TOKEN }}": frpConfig.AuthToken,
 		"{{ .Envs.NAME }}":            frpConfig.Name,
 	}
 
-	rendered := string(template)
+	rendered := stripTemplateCommentPlaceholders(string(template))
 	for placeholder, value := range replacements {
 		rendered = strings.ReplaceAll(rendered, placeholder, value)
 	}
@@ -136,27 +153,42 @@ func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error)
 	return path, nil
 }
 
+var templateCommentPattern = regexp.MustCompile(`(?m)^\s*#.*\{\{.*\}\}.*$`)
+
+func stripTemplateCommentPlaceholders(template string) string {
+	return templateCommentPattern.ReplaceAllString(template, "")
+}
+
 // Stop terminates the frpc process.
 func (m *Manager) Stop() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if !m.status.Active {
+		m.mu.Unlock()
 		return nil
 	}
 
 	slog.Info("Stopping FRP tunnel", "pid", m.status.PID)
+	cancel := m.cancel
+	waitCh := m.waitCh
+	cmd := m.cmd
+	m.mu.Unlock()
 
-	if m.cancel != nil {
-		m.cancel() // This kills the process context
+	if cancel != nil {
+		cancel()
 	}
 
-	// We can also explicitly kill if needed, but context cancel should handle it via exec.CommandContext
-	// Verify and cleanup
-	m.status.Active = false
-	m.status.PID = 0
-	m.cmd = nil
-	m.cancel = nil
+	if waitCh == nil {
+		return nil
+	}
+
+	<-waitCh
+	afterStopWaitHook()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cmd == cmd {
+		return errors.New("frp process did not clean up after stop")
+	}
 
 	return nil
 }
