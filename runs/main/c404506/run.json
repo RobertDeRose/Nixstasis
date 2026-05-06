@@ -1,0 +1,93 @@
+{
+  "full_sha": "c404506efbf977b208180db598fd0ba0b55a2a82",
+  "ref_name": "main",
+  "ref_type": "branch",
+  "reports": [
+    {
+      "Journeys": [
+        {
+          "DurationMs": 28,
+          "Error": "",
+          "JourneyID": "auth",
+          "Status": "passed",
+          "log_payload": "logs/auth.json"
+        },
+        {
+          "DurationMs": 26,
+          "Error": "",
+          "JourneyID": "dashboard",
+          "Status": "passed",
+          "log_payload": "logs/dashboard.json"
+        },
+        {
+          "DurationMs": 48,
+          "Error": "",
+          "JourneyID": "create_record",
+          "Status": "passed",
+          "log_payload": "logs/create_record.json"
+        },
+        {
+          "DurationMs": 50,
+          "Error": "",
+          "JourneyID": "update_record",
+          "Status": "passed",
+          "log_payload": "logs/update_record.json"
+        },
+        {
+          "DurationMs": 37,
+          "Error": "",
+          "JourneyID": "logout",
+          "Status": "passed",
+          "log_payload": "logs/logout.json"
+        }
+      ],
+      "RunID": "d14bdfe0-d9e8-4832-8c01-8134b4ce8928",
+      "Status": "passed",
+      "_report_file": "full.json"
+    },
+    {
+      "Journeys": [
+        {
+          "DurationMs": 457,
+          "Error": "",
+          "JourneyID": "runtime_linux_telemetry",
+          "Status": "passed",
+          "log_payload": "logs/runtime_linux_telemetry.json"
+        },
+        {
+          "DurationMs": 328,
+          "Error": "",
+          "JourneyID": "runtime_transport_contract",
+          "Status": "passed",
+          "log_payload": "logs/runtime_transport_contract.json"
+        },
+        {
+          "DurationMs": 144,
+          "Error": "",
+          "JourneyID": "runtime_transport_negative",
+          "Status": "passed",
+          "log_payload": "logs/runtime_transport_negative.json"
+        }
+      ],
+      "RunID": "4679eea3-1c2f-49ac-9888-c1bf8c31df44",
+      "Status": "passed",
+      "_report_file": "runtime.json"
+    },
+    {
+      "Journeys": [
+        {
+          "DurationMs": 171,
+          "Error": "",
+          "JourneyID": "runtime_step_labels",
+          "Status": "passed",
+          "log_payload": "logs/runtime_step_labels.json"
+        }
+      ],
+      "RunID": "65d9e9ca-4ceb-4384-bb13-abadbc83d069",
+      "Status": "passed",
+      "_report_file": "runtime_step_labels.json"
+    }
+  ],
+  "timestamp": "2026-05-06T00:48:47Z",
+  "title": "Nixstasis E2E Reports"
+}

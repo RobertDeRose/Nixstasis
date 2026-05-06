@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nixstasis E2E Reports</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 1.5rem; background: #f5f7fb; color: #1f2937; }
+    .card { background: #fff; border: 1px solid #d6deeb; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; vertical-align: top; }
+    .row-controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Nixstasis E2E Reports</h1>
+  <div class="card">
+    <div class="row-controls">
+      <label>Ref Type
+        <select id="ref-type">
+          <option value="all">all</option>
+          <option value="branch">branch</option>
+          <option value="tag">tag</option>
+        </select>
+      </label>
+      <label>Ref Name
+        <select id="ref-name"><option value="all">all</option></select>
+      </label>
+    </div>
+    <div id="runs-root"></div>
+  </div>
+  <script>
+    const refTypeSelect = document.getElementById("ref-type")
+    const refNameSelect = document.getElementById("ref-name")
+    const root = document.getElementById("runs-root")
+
+    function sortRuns(runs) {
+      return [...runs].sort((a, b) => {
+        const ts = String(b.timestamp || "").localeCompare(String(a.timestamp || ""))
+        if (ts !== 0) return ts
+        return String(b.full_commit_sha || "").localeCompare(String(a.full_commit_sha || ""))
+      })
+    }
+
+    function render(runs) {
+      const refType = refTypeSelect.value
+      const refName = refNameSelect.value
+      const filtered = runs.filter((run) => {
+        if (refType !== "all" && run.ref_type !== refType) return false
+        if (refName !== "all" && run.ref_name !== refName) return false
+        return true
+      })
+
+      const grouped = {}
+      for (const run of sortRuns(filtered)) {
+        if (!grouped[run.ref_name]) grouped[run.ref_name] = []
+        grouped[run.ref_name].push(run)
+      }
+
+      const sections = Object.keys(grouped).sort().map((name) => {
+        const rows = grouped[name].map((run) => `
+          <tr>
+            <td><a href="${run.run_path}">${run.short_commit_sha}</a></td>
+            <td>${run.ref_type}</td>
+            <td>${run.timestamp}</td>
+            <td>${run.is_release ? "yes" : "no"}</td>
+            <td>${run.full_commit_sha}</td>
+          </tr>
+        `).join("")
+
+        return `
+          <h3>${name}</h3>
+          <table>
+            <thead><tr><th>Run</th><th>Type</th><th>Timestamp</th><th>Release</th><th>Commit</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `
+      }).join("")
+
+      root.innerHTML = sections || "<p>No runs available.</p>"
+    }
+
+    fetch("./runs.json", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((manifest) => {
+        const runs = manifest.runs || []
+        const names = [...new Set(runs.map((run) => run.ref_name))].sort()
+        for (const name of names) {
+          const opt = document.createElement("option")
+          opt.value = name
+          opt.textContent = name
+          refNameSelect.appendChild(opt)
+        }
+        refTypeSelect.addEventListener("change", () => render(runs))
+        refNameSelect.addEventListener("change", () => render(runs))
+        render(runs)
+      })
+      .catch(() => {
+        root.innerHTML = "<p>Failed to load runs manifest.</p>"
+      })
+  </script>
+</body>
+</html>
