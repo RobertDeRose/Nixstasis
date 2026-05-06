@@ -5,7 +5,7 @@ This directory is the supported server deployment path for this feature.
 ## Runtime contract
 
 - Public ingress always terminates at `caddy`.
-- Phoenix runs internally on `PORT=4000` by default.
+- Phoenix runs internally on `PORT=4000` for the supported Compose deployment.
 - The canonical TLS approval path is `GET /api/v1/check_domain`.
 - Reserved public hosts are `nixstasis.<base-domain>`,
   `auth.<base-domain>`, and `frp-admin.<base-domain>`.
@@ -60,6 +60,9 @@ This directory is the supported server deployment path for this feature.
 ## First run
 
 1. Copy `.env.example` to `.env` and fill every required value.
+   The shipped example keeps placeholder digest-pinned image refs and secrets,
+   so replace `NIXSTASIS_SERVER_IMAGE_REF`, `NIXSTASIS_CADDY_IMAGE_REF`,
+   `NIXSTASIS_FRPS_IMAGE_REF`, and `POSTGRES_IMAGE_DIGEST` before validation.
 2. Start the stack with `docker compose --profile bundled-db up -d --build`.
    Apple Container equivalent:
    `tmp_compose=$(mktemp deploy/compose/.nixstasis-compose.XXXXXX.yml)`
