@@ -27,14 +27,14 @@ require_text() {
   file="$1"
   pattern="$2"
 
-  rg -n "$pattern" "$file" >/dev/null || fail "missing contract text in $file: $pattern"
+  grep -Eq "$pattern" "$file" || fail "missing contract text in $file: $pattern"
 }
 
 reject_text() {
   file="$1"
   pattern="$2"
 
-  if rg -n "$pattern" "$file" >/dev/null; then
+  if grep -Eq "$pattern" "$file"; then
     fail "forbidden contract text in $file: $pattern"
   fi
 }
