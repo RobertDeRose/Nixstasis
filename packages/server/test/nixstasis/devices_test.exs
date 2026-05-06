@@ -247,6 +247,49 @@ defmodule Nixstasis.DevicesTest do
       assert is_nil(approved.api_token_hash)
       assert Devices.authenticate_device(approved, "token") == {:error, :missing_token}
     end
+
+    test "register_public_device/1 rejects missing schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A1",
+                 "product_name" => "public-thermostat"
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_public_device/1 rejects nil schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A2",
+                 "product_name" => "public-thermostat",
+                 "schema" => nil
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_public_device/1 rejects empty schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A3",
+                 "product_name" => "public-thermostat",
+                 "schema" => %{}
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_device/1 still allows internal registration without schema" do
+      assert {:ok, device} =
+               Devices.register_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A4",
+                 "product_name" => "internal-thermostat"
+               })
+
+      assert device.product_name == "internal-thermostat"
+      assert device.schema == %{}
+    end
   end
 
   describe "command queue boundaries" do

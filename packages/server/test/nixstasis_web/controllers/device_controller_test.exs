@@ -68,11 +68,35 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert json_response(conn, 422)["errors"]["detail"] =~ "product"
   end
 
+  test "POST /api/v1/devices/register rejects nil schema", %{conn: conn} do
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:F4",
+      "product_name" => "prod_123",
+      "schema" => nil
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert json_response(conn, 422)["errors"]["detail"] =~ "product"
+  end
+
   test "POST /api/v1/devices/register rejects empty schema_definition", %{conn: conn} do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:F3",
       "product_name" => "prod_123",
       "schema_definition" => %{}
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert json_response(conn, 422)["errors"]["detail"] =~ "product"
+  end
+
+  test "POST /api/v1/devices/register rejects empty direct schema", %{conn: conn} do
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:F5",
+      "product_name" => "prod_123",
+      "schema" => %{}
     }
 
     conn = post(conn, ~p"/api/v1/devices/register", params)

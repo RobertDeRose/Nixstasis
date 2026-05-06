@@ -34,6 +34,22 @@ defmodule Nixstasis.Devices.SchemaValidatorTest do
     assert message =~ "properties"
   end
 
+  test "rejects nil public registration schema" do
+    assert {:error, message} = SchemaValidator.validate_registration(nil)
+
+    assert message =~ "JSON object"
+  end
+
+  test "rejects empty public registration schema" do
+    assert {:error, message} = SchemaValidator.validate_registration(%{})
+
+    assert message =~ "product"
+  end
+
+  test "allows internal registration with empty schema" do
+    assert :ok == SchemaValidator.validate_registration(%{}, :internal)
+  end
+
   test "register_device persists schema_definition as schema" do
     {:ok, device} =
       Devices.register_device(%{
