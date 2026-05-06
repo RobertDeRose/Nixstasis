@@ -26,6 +26,10 @@ defmodule NixstasisWeb.TerminalChannelTest do
       do: {:error, %{reason: :missing_executable, executable: "missing-nixstasis-ssh"}}
   end
 
+  defmodule StartFailureSshClient do
+    def start_link(_opts), do: {:error, :econnrefused}
+  end
+
   setup do
     previous = Application.get_env(:nixstasis, :terminal_ssh_client)
     Application.put_env(:nixstasis, :terminal_ssh_client, FakeSshClient)
@@ -104,6 +108,53 @@ defmodule NixstasisWeb.TerminalChannelTest do
               code: "missing_executable",
               executable: "missing-nixstasis-ssh"
             }} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{})
+              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+                "token" => session_ref
+              })
+  end
+
+  test "returns structured error for expired terminal session" do
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:12", product_name: "key"})
+
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret", ttl_ms: 0)
+
+    assert {:error, %{reason: reason, code: code}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref
+             })
+
+    assert {reason, code} in [
+             {"session_expired", "session_expired"},
+             {"session_not_found", "session_not_found"}
+           ]
+  end
+
+  test "returns structured error for missing terminal session" do
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:13", product_name: "key"})
+
+    assert {:error, %{reason: "session_not_found", code: "session_not_found"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => Ecto.UUID.generate()
+             })
+  end
+
+  test "returns structured startup failure for expected ssh client errors" do
+    Application.put_env(:nixstasis, :terminal_ssh_client, StartFailureSshClient)
+
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:14", product_name: "key"})
+
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+
+    assert {:error, %{reason: "terminal_unavailable", code: "econnrefused"}} =
              NixstasisWeb.UserSocket
              |> socket("user_id", %{})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{

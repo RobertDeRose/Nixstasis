@@ -18,18 +18,22 @@ defmodule NixstasisWeb.DeviceLive.Index do
   @sort_orders %{"asc" => :asc, "desc" => :desc}
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    permissions = device_permissions(session)
+
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
     end
 
     {:ok,
-     socket
-     |> stream(:devices, [])
-     |> assign(:selected_ids, [])
-     |> assign(:active_filters, %{})
-     # Placeholder for pagination if needed
-     |> assign(:meta, %{page: 1, per_page: 50})}
+      socket
+       |> stream(:devices, [])
+       |> assign(:selected_ids, [])
+       |> assign(:active_filters, %{})
+       |> assign(:device_permissions, permissions)
+       |> assign(:can_view_device_details?, can_view_device_details?(permissions))
+       # Placeholder for pagination if needed
+       |> assign(:meta, %{page: 1, per_page: 50})}
   end
 
   @impl true
@@ -187,15 +191,29 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("open_device_details", %{"id" => id}, socket) do
-    case Devices.get_device!(id) do
-      %Device{} ->
+    cond do
+      not can_view_device_details?(socket.assigns.device_permissions, id) ->
         :telemetry.execute(
           [:nixstasis, :devices, :details_open],
           %{count: 1},
-          %{result: :ok, source: :devices_index, device_id: id}
+          %{result: :unauthorized, source: :devices_index, device_id: id}
         )
 
-        {:noreply, push_navigate(socket, to: ~p"/devices/#{id}")}
+      :telemetry.execute(
+        [:nixstasis, :devices, :details_open],
+        %{count: 1},
+        %{result: :ok, source: :devices_index, device_id: id}
+      )
+
+      {:noreply, push_navigate(socket, to: ~p"/devices/#{id}")}
+    else
+      :telemetry.execute(
+        [:nixstasis, :devices, :details_open],
+        %{count: 1},
+        %{result: :unauthorized, source: :devices_index, device_id: id}
+      )
+
+      {:noreply, put_flash(socket, :error, "You are not authorized to view device details.")}
     end
   rescue
     _ ->
@@ -211,22 +229,15 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def handle_event("toggle_selection", %{"id" => id}, socket) do
     selected = socket.assigns.selected_ids
     new_selected = if id in selected, do: List.delete(selected, id), else: [id | selected]
-    {:noreply, assign(socket, :selected_ids, new_selected)}
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, new_selected)
+     |> refresh_devices()}
   end
 
   def handle_event("toggle_all", _params, socket) do
-    opts = [
-      filter: %{
-        approval_status: socket.assigns.filter_approval_status,
-        connectivity_status: socket.assigns.filter_connectivity_status,
-        product: socket.assigns.filter_product,
-        account_number: socket.assigns.filter_account_number,
-        ipv4_address: socket.assigns.filter_ipv4_address
-      },
-      search: socket.assigns.search
-    ]
-
-    devices = Devices.list_devices(opts)
+    devices = list_visible_devices(socket.assigns)
     visible_ids = Enum.map(devices, & &1.id)
     all_visible_selected? = Enum.all?(visible_ids, &(&1 in socket.assigns.selected_ids))
 
@@ -240,7 +251,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply,
      socket
      |> assign(:selected_ids, new_selected)
-     |> stream(:devices, devices, reset: true)}
+     |> refresh_devices()}
   end
 
   def handle_event("bulk_approve", _params, socket) do
@@ -274,6 +285,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       when event in [
              :device_registered,
              :device_created,
+             :device_updated,
              :device_last_seen_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
@@ -315,19 +327,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   defp normalize_filter_atom(value) when is_atom(value), do: Atom.to_string(value)
 
   defp refresh_devices(socket) do
-    opts = [
-      sort_by: socket.assigns.sort_by,
-      sort_order: socket.assigns.sort_order,
-      filter: %{
-        approval_status: socket.assigns.filter_approval_status,
-        connectivity_status: socket.assigns.filter_connectivity_status,
-        product: socket.assigns.filter_product,
-        account_number: socket.assigns.filter_account_number
-      },
-      search: socket.assigns.search
-    ]
-
-    devices = Devices.list_devices(opts)
+    devices = list_visible_devices(socket.assigns)
 
     selected_ids =
       Enum.filter(socket.assigns.selected_ids, fn selected_id ->
@@ -336,7 +336,81 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
     socket
     |> assign(:selected_ids, selected_ids)
-    |> assign(:total_count, length(devices))
-    |> stream(:devices, devices, reset: true)
+     |> assign(:total_count, length(devices))
+     |> stream(:devices, devices, reset: true)
   end
+
+  defp list_visible_devices(assigns) do
+    Devices.list_devices(
+      sort_by: assigns.sort_by,
+      sort_order: assigns.sort_order,
+      filter: %{
+        approval_status: assigns.filter_approval_status,
+        connectivity_status: assigns.filter_connectivity_status,
+        product: assigns.filter_product,
+        account_number: assigns.filter_account_number,
+        ipv4_address: assigns.filter_ipv4_address
+      },
+      search: assigns.search
+    )
+  end
+
+  defp can_view_device_details?(permissions, device_id \\ nil)
+
+  defp can_view_device_details?(permissions, nil) when is_map(permissions) do
+    permissions["can_view"] == true
+  end
+
+  defp can_view_device_details?(permissions, device_id) when is_map(permissions) do
+    permissions["can_view"] == true and device_authorized?(permissions, device_id)
+  end
+
+  defp can_view_device_details?(_, _), do: false
+
+  defp device_permissions(session) when is_map(session) do
+    case Map.get(session, "device_permissions") do
+      permissions when is_map(permissions) -> permissions
+      _ -> %{}
+    end
+  end
+
+  defp device_permissions(_session), do: %{}
+
+  defp device_authorized?(permissions, device_id) when is_binary(device_id) do
+    case authorized_device_ids(permissions) do
+      nil -> true
+      ids -> MapSet.member?(ids, device_id)
+    end
+  end
+
+  defp device_authorized?(_permissions, _device_id), do: false
+
+  defp authorized_device_ids(permissions) when is_map(permissions) do
+    ids =
+      [
+        Map.get(permissions, "device_id"),
+        Map.get(permissions, "device_ids"),
+        Map.get(permissions, "allowed_device_ids")
+      ]
+      |> Enum.flat_map(&normalize_authorized_device_ids/1)
+      |> Enum.uniq()
+
+    cond do
+      ids != [] -> MapSet.new(ids)
+      scoped_device_permissions?(permissions) -> MapSet.new()
+      true -> nil
+    end
+  end
+
+  defp authorized_device_ids(_permissions), do: nil
+
+  defp scoped_device_permissions?(permissions) when is_map(permissions) do
+    Enum.any?(["device_id", "device_ids", "allowed_device_ids"], &Map.has_key?(permissions, &1))
+  end
+
+  defp scoped_device_permissions?(_permissions), do: false
+
+  defp normalize_authorized_device_ids(value) when is_binary(value), do: [value]
+  defp normalize_authorized_device_ids(values) when is_list(values), do: Enum.filter(values, &is_binary/1)
+  defp normalize_authorized_device_ids(_value), do: []
 end

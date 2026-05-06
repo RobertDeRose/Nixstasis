@@ -834,7 +834,7 @@ defmodule Nixstasis.Devices do
         broadcast_device(:device_remote_access_changed, device)
 
       true ->
-        :ok
+        broadcast_device(:device_updated, device)
     end
   end
 
@@ -847,6 +847,7 @@ defmodule Nixstasis.Devices do
   defp device_broadcast_payload(%Device{} = device) do
     %{
       id: device.id,
+      mac_address: device.mac_address,
       approval_status: device.approval_status,
       last_seen_at: device.last_seen_at,
       remote_access_requested: device.remote_access_requested
