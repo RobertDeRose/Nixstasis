@@ -324,12 +324,17 @@ func (e *journeyExecutor) registerDevice(ctx context.Context, state *journeyStat
 
 	mac := generateMac()
 	account := generateAccountNumber()
+	productName := "E2E Device"
 
 	payload := map[string]any{
-		"mac_address":       mac,
-		"product_name":      "E2E Device",
-		"account_number":    account,
-		"schema_definition": map[string]any{},
+		"mac_address":    mac,
+		"product_name":   productName,
+		"account_number": account,
+		"schema_definition": map[string]any{
+			"product":    productName,
+			"type":       "object",
+			"properties": map[string]any{},
+		},
 	}
 
 	body, err := json.Marshal(payload)

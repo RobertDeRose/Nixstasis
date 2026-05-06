@@ -127,6 +127,7 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 
 	if id.Name != "" {
 		reqBody["product_name"] = id.Name
+		reqBody["schema_definition"] = id.RegistrationSchema()
 	}
 
 	if id.IPAddress != "" || id.UUID != "" {
