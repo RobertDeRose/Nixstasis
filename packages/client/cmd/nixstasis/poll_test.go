@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
@@ -61,5 +62,33 @@ func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) 
 	}
 	if len(client.results) != 1 || client.results[0].CommandID != "cmd-1" {
 		t.Fatalf("unexpected results: %+v", client.results)
+	}
+}
+
+func TestRuntimeFRPConfigPreservesConfiguredName(t *testing.T) {
+	base := config.FRPConfig{AuthToken: "secret-token", Name: "configured-name"}
+
+	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff")
+
+	if got.Name != "configured-name" {
+		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
+	}
+	if got.AuthToken != "secret-token" {
+		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
+	}
+}
+
+func TestRuntimeFRPConfigFallsBackToGeneratedDeviceName(t *testing.T) {
+	base := config.FRPConfig{AuthToken: "secret-token"}
+	mac := "aa:bb:cc:dd:ee:ff"
+
+	got := runtimeFRPConfig(base, mac)
+	want := identity.GenerateDeviceName(mac)
+
+	if got.Name != want {
+		t.Fatalf("runtimeFRPConfig() name = %q, want %q", got.Name, want)
+	}
+	if got.AuthToken != "secret-token" {
+		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
 	}
 }
