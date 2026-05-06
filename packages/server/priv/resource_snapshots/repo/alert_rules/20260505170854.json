@@ -2,54 +2,30 @@
   "attributes": [
     {
       "allow_nil?": false,
-      "default": "fragment(\"gen_random_uuid()\")",
-      "generated?": false,
+      "default": "nil",
+      "generated?": true,
       "precision": null,
       "primary_key?": true,
       "references": null,
       "scale": null,
       "size": null,
       "source": "id",
-      "type": "uuid"
+      "type": "bigint"
     },
     {
       "allow_nil?": false,
-      "default": "%{}",
+      "default": "\"Untitled rule\"",
       "generated?": false,
       "precision": null,
       "primary_key?": false,
       "references": null,
       "scale": null,
       "size": null,
-      "source": "command_payload",
-      "type": "map"
-    },
-    {
-      "allow_nil?": false,
-      "default": "\"queued\"",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "status",
+      "source": "name",
       "type": "text"
     },
     {
       "allow_nil?": false,
-      "default": "fragment(\"(now() AT TIME ZONE 'utc')\")",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "queued_at",
-      "type": "utc_datetime"
-    },
-    {
-      "allow_nil?": true,
       "default": "nil",
       "generated?": false,
       "precision": null,
@@ -57,8 +33,44 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "delivered_at",
-      "type": "utc_datetime"
+      "source": "product_name",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "condition_field",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "operator",
+      "type": "text"
+    },
+    {
+      "allow_nil?": false,
+      "default": "nil",
+      "generated?": false,
+      "precision": null,
+      "primary_key?": false,
+      "references": null,
+      "scale": null,
+      "size": null,
+      "source": "threshold_value",
+      "type": "text"
     },
     {
       "allow_nil?": false,
@@ -83,37 +95,6 @@
       "size": null,
       "source": "updated_at",
       "type": "utc_datetime_usec"
-    },
-    {
-      "allow_nil?": false,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": {
-        "deferrable": false,
-        "destination_attribute": "id",
-        "destination_attribute_default": null,
-        "destination_attribute_generated": null,
-        "index?": false,
-        "match_type": null,
-        "match_with": null,
-        "multitenancy": {
-          "attribute": null,
-          "global": null,
-          "strategy": null
-        },
-        "name": "pending_commands_device_id_fkey",
-        "on_delete": "delete",
-        "on_update": null,
-        "primary_key?": true,
-        "schema": "public",
-        "table": "devices"
-      },
-      "scale": null,
-      "size": null,
-      "source": "device_id",
-      "type": "uuid"
     }
   ],
   "base_filter": null,
@@ -124,12 +105,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "device_id"
+        "name"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "device_id"
+          "value": "name"
         }
       ],
       "include": null,
@@ -146,12 +127,12 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "status"
+        "product_name"
       ],
       "fields": [
         {
           "type": "atom",
-          "value": "status"
+          "value": "product_name"
         }
       ],
       "include": null,
@@ -167,7 +148,7 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "324D2CD838B23C2ECF1E7AC232B56DFEC6333E252AA3D2A746EB8F3DF9370DB9",
+  "hash": "9D1D1F5A63F8327949FFC9D0A58D7F7EC7E8B6C87B9BAB15C28092E15ADBE84B",
   "identities": [],
   "multitenancy": {
     "attribute": null,
@@ -176,5 +157,5 @@
   },
   "repo": "Elixir.Nixstasis.Repo",
   "schema": null,
-  "table": "pending_commands"
+  "table": "alert_rules"
 }

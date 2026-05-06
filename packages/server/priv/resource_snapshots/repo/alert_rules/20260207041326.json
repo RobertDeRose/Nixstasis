@@ -14,18 +14,6 @@
     },
     {
       "allow_nil?": false,
-      "default": "\"Untitled rule\"",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": null,
-      "scale": null,
-      "size": null,
-      "source": "name",
-      "type": "text"
-    },
-    {
-      "allow_nil?": false,
       "default": "nil",
       "generated?": false,
       "precision": null,
@@ -105,28 +93,6 @@
       "all_tenants?": false,
       "concurrently": false,
       "error_fields": [
-        "name"
-      ],
-      "fields": [
-        {
-          "type": "atom",
-          "value": "name"
-        }
-      ],
-      "include": null,
-      "message": null,
-      "name": null,
-      "nulls_distinct": true,
-      "prefix": null,
-      "table": null,
-      "unique": false,
-      "using": null,
-      "where": null
-    },
-    {
-      "all_tenants?": false,
-      "concurrently": false,
-      "error_fields": [
         "product_name"
       ],
       "fields": [
@@ -148,7 +114,7 @@
   ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "342A74359BFF79061028EA2EA12A28D08555FF0CF72AEB590958421F564056D9",
+  "hash": "02F19803D14A342268D34FBED5E6D51E2D82B2685CA138E3CF03EC95FA2E1355",
   "identities": [],
   "multitenancy": {
     "attribute": null,
