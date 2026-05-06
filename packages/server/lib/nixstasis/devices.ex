@@ -143,52 +143,74 @@ defmodule Nixstasis.Devices do
   @doc """
   Registers a device.
   """
+  def register_public_device(attrs) do
+    attrs
+    |> normalize_registration_attrs()
+    |> validate_registration_attrs(:public)
+    |> persist_registered_device()
+  end
+
   def register_device(attrs) do
-    safe_attrs =
-      if is_map(attrs) do
-        attrs
-        |> put_schema_definition()
-        |> put_ipv4_address()
-        |> Map.delete("approval_status")
-        |> Map.delete(:approval_status)
-        |> Map.delete("schema_definition")
-        |> Map.delete(:schema_definition)
-      else
-        attrs
-      end
+    attrs
+    |> normalize_registration_attrs()
+    |> validate_registration_attrs(:internal)
+    |> persist_registered_device()
+  end
 
-    schema_def =
-      if is_map(attrs) do
-        attrs["schema_definition"] || attrs[:schema_definition] || attrs["schema"] || attrs[:schema] || %{}
-      else
-        %{}
-      end
+  defp validate_registration_attrs({:error, _} = error, _scope), do: error
 
-    case validate_registration_schema(schema_def) do
-      :ok ->
-        case Domain.register_device(safe_attrs) do
-          {:ok, device} = result ->
-            broadcast_device(:device_registered, device)
-            result
-
-          result ->
-            result
-        end
-
-      {:error, msg} ->
-        {:error,
-         Ash.Error.Invalid.exception(
-           errors: [
-             Ash.Error.Changes.InvalidAttribute.exception(field: :schema_definition, message: msg)
-           ]
-         )}
+  defp validate_registration_attrs({safe_attrs, schema_def}, scope) do
+    case validate_registration_schema(schema_def, scope) do
+      :ok -> {:ok, safe_attrs}
+      {:error, msg} -> {:error, invalid_registration_schema_error(msg)}
     end
   end
 
-  defp validate_registration_schema(schema_def) when schema_def in [nil, %{}], do: :ok
+  defp validate_registration_schema(schema_def, :internal) when schema_def in [nil, %{}], do: :ok
 
-  defp validate_registration_schema(schema_def),
-    do: SchemaValidator.validate_registration(schema_def)
+  defp validate_registration_schema(schema_def, :public) when schema_def in [nil, %{}],
+    do: {:error, "schema must include product"}
+
+  defp validate_registration_schema(schema_def, scope) when scope in [:internal, :public],
+    do: SchemaValidator.validate_registration(schema_def, scope)
+
+  defp normalize_registration_attrs(attrs) when is_map(attrs) do
+    safe_attrs =
+      attrs
+      |> put_schema_definition()
+      |> put_ipv4_address()
+      |> Map.delete("approval_status")
+      |> Map.delete(:approval_status)
+      |> Map.delete("schema_definition")
+      |> Map.delete(:schema_definition)
+
+    {safe_attrs, registration_schema(attrs)}
+  end
+
+  defp normalize_registration_attrs(_attrs), do: {%{}, nil}
+
+  defp registration_schema(attrs) when is_map(attrs) do
+    attrs["schema_definition"] || attrs[:schema_definition] || attrs["schema"] || attrs[:schema]
+  end
+
+  defp registration_schema(_attrs), do: nil
+
+  defp persist_registered_device({:ok, safe_attrs}) do
+    case Domain.register_device(safe_attrs) do
+      {:ok, device} = result ->
+        broadcast_device(:device_registered, device)
+        result
+
+      result ->
+        result
+    end
+  end
+
+  defp persist_registered_device({:error, _} = error), do: error
+
+  defp invalid_registration_schema_error(message) do
+    Invalid.exception(errors: [InvalidAttribute.exception(field: :schema_definition, message: message)])
+  end
 
   defp put_schema_definition(attrs) do
     schema_def = attrs["schema_definition"] || attrs[:schema_definition]
