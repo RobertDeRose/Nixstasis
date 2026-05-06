@@ -6,6 +6,8 @@ defmodule NixstasisWeb.AlertsLiveTest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
 
+  @success_flash_timeout_ms 3_000
+
   setup do
     {:ok, _device} =
       Devices.register_device(%{
@@ -74,6 +76,70 @@ defmodule NixstasisWeb.AlertsLiveTest do
              &(&1.name == "High temperature" and &1.product_name == "alert-schema-product" and
                  &1.condition_field == "temp")
            )
+  end
+
+  test "rule success flash clears after the short timeout", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+    pid = view.pid
+    :erlang.trace(pid, true, [:receive])
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Short flash rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    assert render(view) =~ "Rule created successfully"
+
+    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+
+    :sys.get_state(pid)
+    refute render(view) =~ "Rule created successfully"
+  end
+
+  test "older success flash timer does not clear a newer success message", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+    pid = view.pid
+    :erlang.trace(pid, true, [:receive])
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "First rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+
+    view
+    |> element("a[href='/alerts/new?tab=rules']", "Add Rule")
+    |> render_click()
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Second rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "80"
+      }
+    })
+
+    assert render(view) =~ "Rule created successfully"
+    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+
+    :sys.get_state(pid)
+    assert render(view) =~ "Rule created successfully"
   end
 
   test "edits an existing rule", %{conn: conn} do
