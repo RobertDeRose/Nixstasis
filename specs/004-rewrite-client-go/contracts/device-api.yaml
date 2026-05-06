@@ -39,6 +39,9 @@ paths:
                         type: string
                         format: uuid
                         example: "550e8400-e29b-41d4-a716-446655440000"
+                      api_token:
+                        type: string
+                        description: Device runtime token, present only after server approval
 
   /api/v1/devices/{id}/heartbeat:
     post:
@@ -50,6 +53,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: api_key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Device runtime token issued after approval
       requestBody:
         required: true
         content:
@@ -68,10 +77,15 @@ paths:
                 connection_status:
                   type: object
                   properties:
-                    connected:
+                    active:
                       type: boolean
                     connection_string:
                       type: string
+                    pid:
+                      type: integer
+                    start_time:
+                      type: string
+                      format: date-time
       responses:
         '200':
           description: Heartbeat acknowledged
@@ -114,6 +128,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: api_key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Device runtime token issued after approval
       requestBody:
         required: true
         content:
@@ -154,6 +174,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: api_key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Device runtime token issued after approval
       responses:
         '200':
           description: Command payload

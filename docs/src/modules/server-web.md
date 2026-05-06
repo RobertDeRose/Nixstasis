@@ -49,11 +49,10 @@
 - `POST /api/v1/builder-configurations/validate`
 - `GET /api/v1/devices`
 - `POST /api/v1/devices/register`
-- `POST /api/v1/devices/:device_id/modal`
-- `DELETE /api/v1/devices/:device_id/modal`
 - `POST /api/v1/devices/:device_id/heartbeat`
 - `POST /api/v1/devices/:device_id/command_results`
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
+- `GET /api/v1/reports/:id/results`
 - `GET /api/v1/check_domain`
 
 ### E2E Routes
@@ -71,7 +70,7 @@
 
 - Socket channel topic pattern: `terminal:*`.
 - Socket connect requires a Phoenix token signed for `terminal_socket`.
-- Terminal channel join verifies a Phoenix token signed for `terminal_session`.
+- Terminal channel join uses an opaque, expiring server-side session ref.
 
 ## Dependencies
 

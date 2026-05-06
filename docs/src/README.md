@@ -49,8 +49,6 @@ Traceable references:
   - `POST /api/v1/builder-configurations/validate`
   - `GET /api/v1/devices`
   - `POST /api/v1/devices/register`
-  - `POST /api/v1/devices/:device_id/modal`
-  - `DELETE /api/v1/devices/:device_id/modal`
   - `POST /api/v1/devices/:device_id/heartbeat`
   - `POST /api/v1/devices/:device_id/command_results`
   - `GET /api/v1/devices/:device_id/command_payloads/:ref`
