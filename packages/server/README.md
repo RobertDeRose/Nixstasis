@@ -68,6 +68,21 @@ LIVE_DEBUGGER=true mix phx.server
 mix test
 ```
 
+## Ash codegen workflow
+
+When you change Ash resources, treat `mix ash.codegen --dev` output as temporary
+local iteration state.
+
+- Use `mix ash.codegen --dev` only while actively iterating on resource changes.
+- Before committing, run `mix ash.codegen <descriptive_name>` to replace any
+  dev-only migrations and snapshots with production-ready files.
+- Commit the named migration and named snapshots.
+- Do not commit `*_dev.exs` migrations or `*_dev.json` resource snapshots.
+- Use `mix ash.codegen --check` to verify the repo has no pending codegen work.
+
+If you previously applied now-replaced dev migrations locally, reset or rebuild
+your local database before continuing.
+
 ## Configuration
 
 - Runtime config: `config/runtime.exs`
