@@ -192,6 +192,68 @@ func TestRunSuiteWritesV1JourneyLogs(t *testing.T) {
 	}
 }
 
+func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
+	var approvedDeviceID string
+	const issuedToken = "runtime-token-123"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"data":{"id":"run-123","suite_id":"runtime","journey_ids":["runtime_transport_negative"],"environment_label":"local","trigger_source":"manual","protocol_version":"1","status":"queued"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs/run-123/results":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/devices/register":
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode register payload: %v", err)
+			}
+			mac, _ := payload["mac_address"].(string)
+			productName, _ := payload["product_name"].(string)
+			approved := approvedDeviceID != ""
+			response := fmt.Sprintf(`{"data":{"id":"device-1","mac_address":"%s","product_name":"%s","approval_status":"%s"`, mac, productName, map[bool]string{true: "approved", false: "pending"}[approved])
+			if approved {
+				response += fmt.Sprintf(`,"api_token":"%s"`, issuedToken)
+			}
+			response += `}}`
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(response))
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/json/devices/device-1":
+			approvedDeviceID = "device-1"
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"id":"device-1"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/json/pending_commands":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"data":{"id":"cmd-1"}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/devices/device-1/command_payloads/runtime-install-script":
+			if got := r.URL.Query().Get("api_key"); got != issuedToken {
+				t.Fatalf("expected payload fetch api_key %q, got %q", issuedToken, got)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"content_type":"text/plain","name":"alpha","data":"hello"}`))
+		default:
+			t.Fatalf("unexpected request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	executor := newJourneyExecutor(Config{APIURL: server.URL}, newJourneyLog("runtime_transport_negative", runLogContext{}))
+	state := &journeyState{DeviceID: "device-1", DeviceMac: "00:11:22:33:44:55", ProductName: "runtime-product"}
+
+	if _, err := executor.runtimeApproveDevice(context.Background(), state, "device_approved"); err != nil {
+		t.Fatalf("runtimeApproveDevice() error = %v", err)
+	}
+	if state.DeviceToken != issuedToken {
+		t.Fatalf("expected device token %q, got %q", issuedToken, state.DeviceToken)
+	}
+
+	state.CommandRef = "runtime-install-script"
+	if _, err := executor.runtimeQueuePayloadRefCommand(context.Background(), state, "command_payload_available"); err != nil {
+		t.Fatalf("runtimeQueuePayloadRefCommand() error = %v", err)
+	}
+}
+
 func decodeLogLine(t *testing.T, line string) map[string]any {
 	t.Helper()
 
