@@ -29,6 +29,18 @@ func TestRegisterDevice(t *testing.T) {
 		{
 			name: "Success",
 			handler: func(w http.ResponseWriter, r *http.Request) {
+				var payload map[string]any
+				if err := json.UnmarshalRead(r.Body, &payload); err != nil {
+					t.Fatalf("failed to decode register payload: %v", err)
+				}
+				schemaDefinition, ok := payload["schema_definition"].(map[string]any)
+				if !ok {
+					t.Fatalf("expected schema_definition map, got %T", payload["schema_definition"])
+				}
+				if got, _ := schemaDefinition["product"].(string); got != testDevice.Name {
+					t.Fatalf("expected schema product %q, got %q", testDevice.Name, got)
+				}
+
 				if r.Method != http.MethodPost {
 					http.Error(w, "Expected POST", http.StatusBadRequest)
 					return
