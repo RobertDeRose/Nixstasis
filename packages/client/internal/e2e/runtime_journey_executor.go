@@ -158,6 +158,28 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 		return stepOutcome{}, err
 	}
 
+	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
+		MACAddress: state.DeviceMac,
+		Name:       state.ProductName,
+	})
+	if err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeHTTPRequestFailed,
+			AssertionFailed: "approved runtime device can obtain API token",
+			Message:         fmt.Sprintf("runtime credential refresh failed: %v", err),
+		}
+	}
+	if credentials.Token == "" {
+		return stepOutcome{}, assertionFailure(
+			"approved runtime device receives an API token",
+			map[string]any{"api_token_non_empty": true},
+			map[string]any{"api_token_non_empty": false},
+			"runtime credential refresh returned no API token",
+		)
+	}
+	state.DeviceToken = credentials.Token
+
 	return stepOutcome{}, nil
 }
 
@@ -264,7 +286,7 @@ def main():
 	}
 
 	refPath := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, state.CommandRef)
-	if _, _, err := e.doRequest(ctx, "GET", refPath, nil, nil, 200); err != nil {
+	if _, _, err := e.doRequest(ctx, "GET", withAPIKey(refPath, state.DeviceToken), nil, nil, 200); err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeAssertionFailed,
 			AssertionFailed: "queued command payload is retrievable by payload_ref",
@@ -290,7 +312,7 @@ func (e *journeyExecutor) runtimeExpectMissingPayloadRef(ctx context.Context, st
 
 	missingRef := fmt.Sprintf("missing-%d", time.Now().UnixNano())
 	path := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, missingRef)
-	_, _, err := e.doRequest(ctx, "GET", path, nil, nil, 404)
+	_, _, err := e.doRequest(ctx, "GET", withAPIKey(path, state.DeviceToken), nil, nil, 404)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -331,7 +353,7 @@ func (e *journeyExecutor) runtimeRejectInvalidCommandResults(ctx context.Context
 		}
 	}
 
-	path := fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID)
+	path := withAPIKey(fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID), state.DeviceToken)
 	_, _, err = e.doRequest(ctx, "POST", path, body, map[string]string{"Content-Type": "application/json"}, 400)
 	if err != nil {
 		return stepOutcome{}, err
@@ -378,6 +400,7 @@ func (e *journeyExecutor) runtimePollWithScripts(ctx context.Context, state *jou
 	pollStart := time.Now()
 
 	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient.SetAPIKey(state.DeviceToken)
 	scripts, err := script.DiscoverScripts(scriptDir)
 	if err != nil {
 		return stepOutcome{}, &stepError{
@@ -876,4 +899,17 @@ func shouldEnforceRuntimeBudget() bool {
 	return runtime.GOOS == "linux" &&
 		strings.EqualFold(os.Getenv("CI"), "true") &&
 		strings.EqualFold(os.Getenv("E2E_RUNTIME_PERF_GATE"), "true")
+}
+
+func withAPIKey(path, token string) string {
+	if token == "" {
+		return path
+	}
+
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+
+	return path + separator + "api_key=" + url.QueryEscape(token)
 }
