@@ -2,15 +2,15 @@
   "attributes": [
     {
       "allow_nil?": false,
-      "default": "fragment(\"gen_random_uuid()\")",
-      "generated?": false,
+      "default": "nil",
+      "generated?": true,
       "precision": null,
       "primary_key?": true,
       "references": null,
       "scale": null,
       "size": null,
       "source": "id",
-      "type": "uuid"
+      "type": "bigint"
     },
     {
       "allow_nil?": false,
@@ -21,19 +21,19 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "key",
+      "source": "name",
       "type": "text"
     },
     {
       "allow_nil?": false,
-      "default": "%{}",
+      "default": "nil",
       "generated?": false,
       "precision": null,
       "primary_key?": false,
       "references": null,
       "scale": null,
       "size": null,
-      "source": "value",
+      "source": "config",
       "type": "map"
     },
     {
@@ -67,19 +67,19 @@
   "custom_indexes": [],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "857789D4C160DF3ABAE2D951619098CFEABB87730E7AFC3905A9C8FCFD91903A",
+  "hash": "14FCFCE9E68B40E7536F1A287E118CFF8151E04A2BF9742F1E2FC7EBEC774D96",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "system_settings_unique_key_index",
+      "index_name": "custom_reports_unique_name_index",
       "keys": [
         {
           "type": "atom",
-          "value": "key"
+          "value": "name"
         }
       ],
-      "name": "unique_key",
+      "name": "unique_name",
       "nils_distinct?": true,
       "where": null
     }
@@ -91,5 +91,5 @@
   },
   "repo": "Elixir.Nixstasis.Repo",
   "schema": null,
-  "table": "system_settings"
+  "table": "custom_reports"
 }
