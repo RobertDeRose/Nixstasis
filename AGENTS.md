@@ -8,6 +8,15 @@ Start here when working in this repository.
 - Keep documentation and implementation aligned in the same unit of work.
 - Do not treat a task as complete if the code and docs/specs disagree.
 
+## Ash Codegen
+
+- For `packages/server`, treat `mix ash.codegen --dev` output as temporary
+  local iteration state.
+- Before committing Ash resource changes, run `mix ash.codegen <descriptive_name>`.
+- Commit named Ash migrations and named resource snapshots.
+- Do not commit `*_dev.exs` migrations or `*_dev.json` resource snapshots.
+- Prefer `mix ash.codegen --check` in verification steps when Ash resources change.
+
 ## Commit Guidance
 
 - Use Conventional Commits.
