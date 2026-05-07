@@ -98,8 +98,10 @@ if command -v container >/dev/null 2>&1; then
   container_runtime="container"
 elif command -v docker >/dev/null 2>&1; then
   container_runtime="docker"
+elif command -v podman >/dev/null 2>&1; then
+  container_runtime="podman"
 else
-  echo "docker or apple container CLI is required for non-linux runtime E2E execution" >&2
+  echo "apple container CLI, docker, or podman is required for non-linux runtime E2E execution" >&2
   exit 1
 fi
 
@@ -110,6 +112,8 @@ fi
 default_host_alias="host.docker.internal"
 if [[ "${container_runtime}" == "container" ]]; then
   default_host_alias="host.container.internal"
+elif [[ "${container_runtime}" == "podman" ]]; then
+  default_host_alias="host.containers.internal"
 fi
 container_host_alias="${E2E_CONTAINER_HOST_ALIAS:-${default_host_alias}}"
 
