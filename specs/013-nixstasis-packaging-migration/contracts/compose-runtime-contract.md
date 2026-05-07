@@ -11,7 +11,13 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 | `caddy` | Yes | Public | Terminates HTTP/HTTPS, handles AuthCrunch authentication, proxies to Phoenix and FRPS, and owns public ingress for supported deployments. |
 | `nixstasis` | Yes | Internal | Runs the Phoenix release on the canonical internal port and exposes the TLS approval endpoint. |
 | `frps` | Yes | Mixed | Exposes explicit tunnel-related ports and uses pinned image/config inputs. |
-| `postgres` | Default | Internal | Bundled default database service for first-run deployments. May be replaced by an external PostgreSQL service without changing application behavior. |
+| `postgres` | Profiled | Internal | Bundled database service enabled with the `bundled-db` profile. May be replaced by an external PostgreSQL service without changing application behavior. |
+
+## Image References
+
+- Supported release image references are pinned in Compose configuration.
+- Operator `.env` files supply runtime settings and secrets, not mutable release image tags.
+- Development or local-build image substitutions use Compose file composition with an additional override file.
 
 ## Canonical Operator Inputs
 
@@ -47,7 +53,7 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 
 | Mode | Supported | Default | Contract |
 | --- | --- | --- | --- |
-| Bundled PostgreSQL | Yes | Yes | Compose starts `postgres` and `DATABASE_URL` targets the bundled service. |
+| Bundled PostgreSQL | Yes | Profiled | Compose starts `postgres` only when the `bundled-db` profile is enabled and `DATABASE_URL` targets the bundled service. |
 | External PostgreSQL | Yes | No | Operator supplies an external `DATABASE_URL`; application behavior and release commands remain unchanged. |
 
 ## Operational Rules
@@ -55,6 +61,7 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 - Database migrations must be run explicitly and separately from application startup.
 - Missing required operator inputs must fail fast through deployment documentation, templates, or startup validation.
 - All externally sourced runtime artifacts used by the stack must be pinned and reproducible.
+- Release image pins belong to Compose configuration; development overrides must use Compose file composition.
 - No supported deployment path may bypass Caddy as the public ingress/authentication layer.
 - Client-facing examples should target the public `nixstasis.<base-domain>` host
   while FRP device hosts use `atom-<normalized-device-id>.<base-domain>`.

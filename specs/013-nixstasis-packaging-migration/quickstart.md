@@ -33,7 +33,7 @@ Expected:
 ## 2) Build and start the supported Compose stack
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env up -d --build
+docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env --profile bundled-db up -d --build
 ```
 
 Apple Container equivalent:
@@ -41,11 +41,11 @@ Apple Container equivalent:
 ```bash
 tmp_compose=$(mktemp deploy/compose/.nixstasis-compose.XXXXXX.yml)
 deploy/compose/scripts/render_compose.sh deploy/compose/.env "$tmp_compose"
-container-compose up -f "$tmp_compose" --env-file deploy/compose/.env -d --build
+container-compose up -f "$tmp_compose" --env-file deploy/compose/.env --profile bundled-db -d --build
 ```
 
 Expected:
-- `caddy`, `nixstasis`, `frps`, and default `postgres` services start.
+- `caddy`, `nixstasis`, `frps`, and profiled `postgres` services start.
 - Phoenix is not directly exposed as a supported public service.
 - Caddy is the public ingress/authentication layer.
 
@@ -78,10 +78,12 @@ Expected:
 
 1. Inspect Compose image references and bundled client artifact sourcing.
 2. Confirm each externally sourced runtime artifact has a pinned digest or checksum and documented provenance.
+3. Use an additional Compose file for development image overrides instead of changing release pins in `.env`.
 
 Expected:
 - No floating tags or unpinned downloads remain in supported release paths.
 - Artifact resolution is reproducible across environments.
+- Release image references are owned by Compose configuration, with development overrides supplied through Compose file composition.
 
 ## 6) Build server and Caddy release images
 
@@ -165,7 +167,7 @@ Expected:
 | 9 | PASS | Explicit migration path remains documented for Docker Compose and Apple `container run`. |
 | 10 | PASS | Bundled PostgreSQL profile remains supported through the validated Compose definition. |
 | 11 | PASS | External PostgreSQL mode remains documented without requiring Compose file changes. |
-| 12 | PASS | `NIXSTASIS_SERVER_IMAGE_REF` and `NIXSTASIS_CADDY_IMAGE_REF` are now the canonical operator overrides. |
+| 12 | PASS | Release image refs are pinned in Compose configuration; development image substitutions use Compose override files. |
 | 13 | PASS | `container-compose` build validation succeeded with repo-built `frps` and pinned `POSTGRES_IMAGE_DIGEST`. |
 | 14 | PASS | Release docs now reflect actual Apple Container command shapes instead of unsupported `container-compose config/run` forms. |
 | 15 | PASS | OCI server workflow context was corrected to `packages` so CI matches the local successful build. |
@@ -213,9 +215,9 @@ Client installation success rate: `20/20`
 - Confirm `release_client.yml` publishes client assets on `v*` tags.
 - Confirm `prod.env` carries the intended `FRP_VERSION`, `CADDY_VERSION`, and
   `POSTGRES_VERSION` values before tag-based releases.
-- Confirm `.env` sets `NIXSTASIS_SERVER_IMAGE_REF`,
-  `NIXSTASIS_CADDY_IMAGE_REF`, and `NIXSTASIS_FRPS_IMAGE_REF` if operators
-  need a registry namespace other than the default examples.
+- Confirm release image references are pinned in Compose configuration before tag-based releases.
+- Confirm development image changes use an additional Compose override file rather
+  than mutable `.env` image-reference inputs.
 
 ## 13) Validation execution notes
 

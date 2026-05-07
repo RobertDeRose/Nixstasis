@@ -46,7 +46,7 @@
 
 **Goal**: Deliver one supported Compose-based server deployment path with explicit migrations, required ingress/authentication, and bundled/external database support.
 
-**Independent Test**: Follow `deploy/compose/README.md` on a clean host, run `docker compose ... up -d --build`, run `bin/migrate`, and confirm `caddy`, `nixstasis`, `frps`, and default `postgres` behave according to the documented contract without relying on legacy server package instructions.
+**Independent Test**: Follow `deploy/compose/README.md` on a clean host, run `docker compose ... --profile bundled-db up -d --build`, run `bin/migrate`, and confirm `caddy`, `nixstasis`, `frps`, and profiled `postgres` behave according to the documented contract without relying on legacy server package instructions.
 
 ### Tests for User Story 1 ⚠️
 
