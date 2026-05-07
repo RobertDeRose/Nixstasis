@@ -178,9 +178,18 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 			"runtime credential refresh returned no API token",
 		)
 	}
+	if credentials.UUID == "" {
+		return stepOutcome{}, assertionFailure(
+			"approved runtime device credential refresh returns a device id",
+			map[string]any{"device_id_non_empty": true},
+			map[string]any{"device_id_non_empty": false},
+			"runtime credential refresh returned no device id",
+		)
+	}
+	state.DeviceID = credentials.UUID
 	state.DeviceToken = credentials.Token
 
-	return stepOutcome{}, nil
+	return stepOutcome{ActionData: map[string]any{"device_id": state.DeviceID, "api_token_present": true}}, nil
 }
 
 func (e *journeyExecutor) runtimeCreateAlertRule(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {
@@ -505,12 +514,25 @@ func (e *journeyExecutor) runtimeVerifyTelemetry(ctx context.Context, state *jou
 		}
 	}()
 
-	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/reports/%s", probeReportID), nil, nil, 200)
+	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/reports/%s/results", probeReportID), nil, nil, 200)
 	if err != nil {
 		return stepOutcome{}, err
 	}
-	rendered := string(body)
-	if strings.Contains(rendered, "No data found matching report criteria.") {
+
+	var response struct {
+		Data struct {
+			Fields []map[string]any `json:"fields"`
+			Rows   []map[string]any `json:"rows"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeResponseParseFailed,
+			AssertionFailed: "runtime report probe response could be decoded",
+			Message:         fmt.Sprintf("decode runtime report probe response: %v", err),
+		}
+	}
+	if len(response.Data.Rows) == 0 {
 		if state.TelemetryCountBefore >= 0 && state.TelemetryCountAfter >= 0 {
 			return stepOutcome{}, assertionFailure(
 				"telemetry event count increases after runtime poll",
@@ -528,7 +550,7 @@ func (e *journeyExecutor) runtimeVerifyTelemetry(ctx context.Context, state *jou
 		)
 	}
 
-	if !strings.Contains(rendered, "mem_used_pct") {
+	if !reportFieldsContain(response.Data.Fields, "mem_used_pct") {
 		return stepOutcome{}, assertionFailure(
 			"telemetry report includes mem_used_pct column",
 			map[string]any{"has_mem_used_pct": true},
@@ -667,13 +689,26 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 		)
 	}
 
-	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/reports/%s", state.ReportID), nil, nil, 200)
+	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/reports/%s/results", state.ReportID), nil, nil, 200)
 	if err != nil {
 		return stepOutcome{}, err
 	}
 
-	rendered := string(body)
-	if strings.Contains(rendered, "No data found matching report criteria.") {
+	var response struct {
+		Data struct {
+			Fields []map[string]any `json:"fields"`
+			Rows   []map[string]any `json:"rows"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeResponseParseFailed,
+			AssertionFailed: "runtime report response could be decoded",
+			Message:         fmt.Sprintf("decode runtime report response: %v", err),
+		}
+	}
+
+	if len(response.Data.Rows) == 0 {
 		return stepOutcome{}, assertionFailure(
 			"runtime report renders data",
 			map[string]any{"report_has_data": true},
@@ -681,7 +716,7 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 			"report rendered without data",
 		)
 	}
-	if !strings.Contains(rendered, "mem_used_pct") {
+	if !reportFieldsContain(response.Data.Fields, "mem_used_pct") {
 		return stepOutcome{}, assertionFailure(
 			"runtime report includes mem_used_pct column",
 			map[string]any{"has_mem_used_pct": true},
@@ -690,6 +725,19 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 		)
 	}
 	return stepOutcome{ActionData: map[string]any{"report_id": state.ReportID}}, nil
+}
+
+func reportFieldsContain(fields []map[string]any, key string) bool {
+	for _, field := range fields {
+		if alias, ok := field["alias"].(string); ok && alias == key {
+			return true
+		}
+		if path, ok := field["path"].(string); ok && path == key {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *journeyExecutor) runtimeVerifyAlert(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {

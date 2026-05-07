@@ -224,6 +224,15 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"data":{"id":"device-1"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/json/pending_commands":
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode pending command payload: %v", err)
+			}
+			data, _ := payload["data"].(map[string]any)
+			attributes, _ := data["attributes"].(map[string]any)
+			if got, _ := attributes["device_id"].(string); got != "device-1" {
+				t.Fatalf("expected pending command device_id %q, got %q", "device-1", got)
+			}
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{"id":"cmd-1"}}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/devices/device-1/command_payloads/runtime-install-script":

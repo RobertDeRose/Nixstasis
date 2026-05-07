@@ -175,12 +175,44 @@ defmodule Mix.Tasks.Db.Ensure do
   end
 
   defp container_state(engine, container_name) do
+    case Path.basename(engine) do
+      "container" -> container_app_state(engine, container_name)
+      _ -> docker_compatible_container_state(engine, container_name)
+    end
+  end
+
+  defp docker_compatible_container_state(engine, container_name) do
     case run_cmd(engine, ["inspect", "--format", "{{.State.Running}}", container_name]) do
       {"true", 0} -> :running
       {"false", 0} -> :stopped
       {_output, _status} -> :missing
     end
   end
+
+  defp container_app_state(engine, container_name) do
+    case run_cmd(engine, ["list", "--all", "--format", "json"]) do
+      {output, 0} ->
+        case Jason.decode(output) do
+          {:ok, containers} when is_list(containers) ->
+            containers
+            |> Enum.find(&container_named?(&1, container_name))
+            |> decode_container_status()
+
+          _ ->
+            :missing
+        end
+
+      {_output, _status} ->
+        :missing
+    end
+  end
+
+  defp container_named?(%{"configuration" => %{"id" => id}}, container_name), do: id == container_name
+  defp container_named?(_, _container_name), do: false
+
+  defp decode_container_status(%{"status" => "running"}), do: :running
+  defp decode_container_status(%{"status" => "stopped"}), do: :stopped
+  defp decode_container_status(_container), do: :missing
 
   defp port_open? do
     host =
