@@ -8,8 +8,8 @@
 4. Client sends `POST /api/v1/devices/register` with `mac_address`, optional `product_name`, and optional `metadata`.
 5. Phoenix `DeviceController.register/2` calls `Nixstasis.Devices.register_device/1`.
 6. `Devices.register_device/1` validates any supplied schema definition and calls `Nixstasis.Domain.register_device/1`.
-7. Server responds `201` with `data.id`.
-8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()`.
+7. Server responds `201` with `data.id` and includes `data.api_token` when the device is approved.
+8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()` and uses the issued token for runtime API calls.
 
 Traceable references:
 
@@ -32,7 +32,7 @@ Traceable references:
 6. Client discovers scripts from configured script directory.
 7. Client executes latest script versions and collects script reports/errors.
 8. Client reads current FRP status.
-9. Client sends `POST /api/v1/devices/:uuid/heartbeat` with telemetry and connection status.
+9. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry and connection status.
 10. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
 11. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, evaluates rules, and pops pending commands.
 12. Server returns `remote_access_requested` and optional command list.
@@ -58,7 +58,7 @@ Traceable references:
    - `list_scripts`
    - `install_script`
    - `remove_script`
-7. Client posts results to `POST /api/v1/devices/:uuid/command_results`.
+7. Client posts results to `POST /api/v1/devices/:uuid/command_results?api_key=...`.
 8. Phoenix `DeviceCommandController.command_results/2` calls `Devices.acknowledge_command_results/2`.
 
 Observable error paths:
@@ -100,12 +100,10 @@ Traceable references:
 1. Browser triggers `start_ssh_session` in `DeviceLive.Show`.
 2. Server generates an SSH key pair with `SshKeyManager.generate_key_pair/0`.
 3. Server queues an `ssh_authorize` command for the device containing the public key.
-4. Server signs two Phoenix tokens:
-   - `terminal_session` containing device ID, MAC, and private key.
-   - `terminal_socket` containing device ID.
+4. Server stores private key material behind an opaque terminal session ref and signs a Phoenix socket token containing the device ID.
 5. Browser connects to `UserSocket` with socket token.
-6. Browser joins topic `terminal:<device_id>` with session token.
-7. `TerminalChannel.join/3` verifies device binding and starts `Nixstasis.Devices.SshClient`.
+6. Browser joins topic `terminal:<device_id>` with the terminal session ref.
+7. `TerminalChannel.join/3` resolves the session ref, verifies device binding, and starts `Nixstasis.Devices.SshClient`.
 8. `SshClient` writes private key to a temp file and opens an `ssh` Port using `ncat` as HTTP proxy to the FRP TCP mux endpoint.
 9. Browser input is sent to `SshClient.send_data/2`.
 10. SSH process output is pushed back as channel `output` events.
