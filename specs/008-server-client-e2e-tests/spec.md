@@ -53,7 +53,7 @@ As a release stakeholder, I need E2E results that are repeatable and traceable s
 
 - What happens when the client or server is unavailable at run start?
 - How does the system handle missing or incomplete test data?
-- What happens when the client and server versions are not compatible?
+- What happens when an E2E runner sends an unsupported protocol version?
 - How does the system handle a journey that hangs or exceeds expected time limits?
 - How are intermittent (flaky) failures reported and distinguished from deterministic failures?
 - What happens when authentication or session state expires mid-journey?
@@ -63,7 +63,7 @@ As a release stakeholder, I need E2E results that are repeatable and traceable s
 ### Session 2026-02-10
 
 - Q: E2E Test Data Policy → A: Use synthetic test data only.
-- Q: Supported Client/Server Pairing Rule → A: Allow runs for any pairing within the same major version line.
+- Q: Supported Client/Server Pairing Rule → A: Compatibility is validated by the required `X-E2E-Protocol-Version` header, and legacy client/server version fields are rejected.
 - Q: E2E Run Triggering → A: Support both manual and CI/automation triggers.
 - Q: Environment Availability Expectation → A: No explicit availability target.
 - Q: Observability Expectations → A: Provide per-journey logs plus a summary report/dashboard.
@@ -77,7 +77,7 @@ As a release stakeholder, I need E2E results that are repeatable and traceable s
 - **FR-003**: System MUST allow running the full E2E suite and a user-selected subset of journeys via manual or CI/automation triggers.
 - **FR-004**: System MUST produce a clear pass/fail result per journey with enough context to identify the failure point.
 - **FR-005**: System MUST reset or isolate test data between runs to ensure repeatable outcomes.
-- **FR-006**: System MUST allow runs only when client and server are within the same major version line and provide a clear warning when they are not.
+- **FR-006**: System MUST allow runs only when the request uses a supported `X-E2E-Protocol-Version` header and MUST reject legacy `client_version` or `server_version` request fields.
 - **FR-007**: System MUST record run metadata including date/time, environment label, journeys executed, and outcomes.
 - **FR-008**: System MUST verify run preconditions (environment readiness, baseline data availability) and fail fast with actionable messaging when not met.
 - **FR-009**: E2E runs MUST use synthetic test data only; production data is not permitted.

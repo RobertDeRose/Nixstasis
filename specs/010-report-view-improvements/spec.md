@@ -68,7 +68,7 @@ As a frequent report user, I want my preferred report view settings to persist s
 - **FR-009**: The system MUST provide meaningful empty and error states that help users recover and continue.
 - **FR-010**: The system MUST provide explicit `View`, `Edit`, and `Delete` actions on each row in the Custom Reports list.
 - **FR-011**: The system MUST require explicit user confirmation before deleting a custom report.
-- **FR-012**: The system MUST support report-result filtering with operators restricted to `>`, `>=`, `==`, `<=`, and `<`.
+- **FR-012**: The system MUST support numeric report-result filtering with `>`, `>=`, `==`, `<=`, and `<`, plus string filtering with `contains`, `doesn't contain`, `is`, and `is not`.
 
 ### Key Entities *(include if feature involves data)*
 

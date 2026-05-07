@@ -65,11 +65,14 @@
 
 - Docker Compose or rendered config for Apple Container `container-compose`.
 - PostgreSQL image when `bundled-db` profile is used.
+- Pinned release image references from Compose configuration.
 
 ## Client-Server Interaction Details
 
 - Compose deployment exposes the Phoenix app only through Caddy for HTTP ingress.
 - Client configuration points at the public Caddy host.
+- Bundled PostgreSQL startup requires the Compose `bundled-db` profile.
+- Release image references are pinned in Compose configuration; local development image changes use an additional Compose override file instead of `.env` image-reference inputs.
 - E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
 
 Traceable references:
