@@ -5,6 +5,8 @@ info:
   description: |
     Internal interface for triggering and inspecting end-to-end test runs.
     Runs must use synthetic test data only.
+    Compatibility is determined by the required X-E2E-Protocol-Version header;
+    legacy client_version and server_version request fields are rejected.
 servers:
   - url: https://nixstasis.local
 paths:
@@ -29,6 +31,7 @@ paths:
         - in: header
           name: X-E2E-Protocol-Version
           required: true
+          description: Required E2E protocol version. Legacy client/server version pairing is not accepted.
           schema:
             type: string
       requestBody:
@@ -236,6 +239,7 @@ components:
         anyOf:
           - required: [client_version]
           - required: [server_version]
+      description: Legacy client_version and server_version fields are intentionally rejected.
     E2ERun:
       type: object
       properties:
