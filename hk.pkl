@@ -1,6 +1,5 @@
-amends "package://github.com/jdx/hk/releases/download/v1.41.0/hk@1.41.0#/Config.pkl"
-
-import "package://github.com/jdx/hk/releases/download/v1.41.0/hk@1.41.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Builtins.pkl"
 
 local commit_message_validation: Step = new Step {
   check = #"""
@@ -56,7 +55,10 @@ local conformity = new Mapping<String, Step> {
 }
 
 default_branch = "main"
-exclude = List("**/mermaid.min.js")
+exclude = List(
+  "**/mermaid.min.js",
+  "**/packages/server/assets/vendor/*"
+)
 fail_fast = false
 
 hooks {
