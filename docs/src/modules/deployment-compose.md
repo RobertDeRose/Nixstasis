@@ -73,6 +73,7 @@
 - E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
 
 Traceable references:
+
 - `deploy/compose/docker-compose.yml:1-90`
 - `deploy/compose/README.md:5-90`
 - `deploy/compose/scripts/check_runtime_contract.sh`

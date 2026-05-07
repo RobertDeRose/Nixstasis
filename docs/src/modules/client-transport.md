@@ -73,5 +73,6 @@
   - Expects `200` and a `CommandPayload`.
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:21-212`
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:7-170`

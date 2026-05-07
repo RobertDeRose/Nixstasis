@@ -27,6 +27,7 @@
 | `FetchCommandPayload` | `GET /api/v1/devices/:id/command_payloads/:ref` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload |
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:84-212`
 - `packages/server/lib/nixstasis_web/router.ex:58-65`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-37`
@@ -61,6 +62,7 @@ Response shape:
 ```
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:86-120`
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:8-42`
 
@@ -97,6 +99,7 @@ Response shape:
 ```
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:123-187`
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:43-106`
 
@@ -127,6 +130,7 @@ Response shape:
 ```
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:189-200`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-19`
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:107-141`
@@ -144,6 +148,7 @@ Response shape:
 ```
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:202-212`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:28-38`
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:142-170`
@@ -164,6 +169,7 @@ Traceable references:
 Run creation requires `X-E2E-Protocol-Version`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/router.ex:68-79`
 - `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-93`
 - `README.md:96-116`
@@ -184,6 +190,7 @@ Traceable references:
 - Device API calls in observed Go transport do not attach an application auth header.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/router.ex:4-20`
 - `deploy/compose/caddy/Caddyfile:25-38`
 - `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
@@ -202,6 +209,7 @@ Traceable references:
 - E2E create returns typed error codes in an `error` object.
 
 Traceable references:
+
 - `packages/client/internal/transport/client.go:37-82`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:16-25`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:15-37`
@@ -216,6 +224,7 @@ Traceable references:
 - Client Go module declares `go 1.25.4` in `go.mod`.
 
 Traceable references:
+
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:1-5`
 - `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-25`
 - `README.md:123-135`

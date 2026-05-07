@@ -52,6 +52,7 @@
 - Results are sent to `POST /api/v1/devices/:device_id/command_results`.
 
 Traceable references:
+
 - `packages/client/internal/commands/handler.go:17-230`
 - `packages/client/cmd/nixstasis/poll.go:198-249`
 - `packages/client/internal/transport/client.go:140-212`

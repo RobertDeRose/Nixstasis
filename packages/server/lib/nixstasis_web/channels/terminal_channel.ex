@@ -24,7 +24,7 @@ defmodule NixstasisWeb.TerminalChannel do
     session_ref = payload["token"]
 
     with {:ok, %{private_key: private_key}} <-
-            SshKeyManager.fetch_terminal_session(session_ref, device_id),
+           SshKeyManager.fetch_terminal_session(session_ref, device_id),
          :ok <- authorize_terminal_join(socket, device_id),
          {:ok, device} <- get_device(device_id),
          {:ok, pid} <- start_ssh_client(device, private_key) do

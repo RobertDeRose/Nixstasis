@@ -61,5 +61,6 @@
 - The supervision strategy is `:one_for_one` with supervisor name `Nixstasis.Supervisor`.
 
 Traceable references:
+
 - `packages/server/mix.exs:1-113`
 - `packages/server/lib/nixstasis/application.ex:9-51`

@@ -16,6 +16,7 @@
 - `specs/013-nixstasis-packaging-migration`: packaging and deployment migration specification, runtime contracts, release artifact contract, quickstart, research, and tasks.
 
 Traceable references:
+
 - `specs/*/spec.md`
 - `specs/*/tasks.md`
 - `specs/*/data-model.md`
@@ -140,6 +141,7 @@ Traceable references:
 - Public HTTP ingress in the supported deployment terminates at Caddy.
 
 Traceable references:
+
 - `specs/004-rewrite-client-go/contracts/device-api.yaml:7-170`
 - `README.md:96-116`
 - `deploy/compose/README.md:5-20`

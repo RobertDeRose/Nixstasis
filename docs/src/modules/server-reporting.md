@@ -56,6 +56,7 @@
 - Custom reports are also exposed through Ash JSON:API under `/api/json/custom_reports`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/reporting.ex:1-200`
 - `packages/server/lib/nixstasis/domain.ex:52-58`
 - `packages/server/lib/nixstasis_web/router.ex:41-44`

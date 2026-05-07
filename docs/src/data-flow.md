@@ -12,6 +12,7 @@
 8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()`.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/register.go:28-93`
 - `packages/client/internal/transport/client.go:84-121`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-37`
@@ -39,6 +40,7 @@ Traceable references:
 14. Client starts or stops FRPC according to `remote_access_requested` and current FRP status.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/poll.go:35-157`
 - `packages/client/internal/script/executor.go:23-93`
 - `packages/client/internal/transport/client.go:170-212`
@@ -60,12 +62,14 @@ Traceable references:
 8. Phoenix `DeviceCommandController.command_results/2` calls `Devices.acknowledge_command_results/2`.
 
 Observable error paths:
+
 - Missing or duplicate command IDs produce failed command results client-side.
 - Unsupported command types produce failed command results client-side.
 - Missing command result list returns HTTP `400` from server.
 - Invalid command results return HTTP `422` from server.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/devices.ex:265-348`
 - `packages/client/cmd/nixstasis/poll.go:198-249`
 - `packages/client/internal/commands/handler.go:27-230`
@@ -84,6 +88,7 @@ Traceable references:
 9. Next client heartbeat can stop FRPC when remote access is no longer requested.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex:13-31`
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex:93-145`
 - `packages/client/cmd/nixstasis/poll.go:138-154`
@@ -107,6 +112,7 @@ Traceable references:
 11. Session stops on SSH exit, idle timeout, or max duration.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex:57-80`
 - `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-113`
@@ -122,6 +128,7 @@ Traceable references:
 6. LiveView diffs update the browser over LiveView transport.
 
 Observable event sets:
+
 - Device list: search, filter, sort, selection, bulk approve/reject.
 - Device detail: change tab, retry session, start SSH session.
 - Alerts: validate/save rules, modal discard confirmation, rule deletion, sorting/filtering.
@@ -129,6 +136,7 @@ Observable event sets:
 - Settings: save monitoring and notification settings.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/router.ex:30-45`
 - `packages/server/lib/nixstasis_web/live/device_live/index.ex`
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex`
@@ -152,6 +160,7 @@ Traceable references:
 12. Retention worker periodically prunes old runs/logs according to retention policy.
 
 Observable error paths:
+
 - `409 environment_locked` for overlapping active environment runs.
 - `422 protocol_mismatch` for invalid protocol version.
 - `400 invalid_action_expectation` for unregistered action/expect pairs.
@@ -159,6 +168,7 @@ Observable error paths:
 - `410 log_unavailable` semantics for missing/pruned logs, as documented in README.
 
 Traceable references:
+
 - `README.md:96-135`
 - `packages/server/lib/nixstasis/e2e.ex:61-100`
 - `packages/server/lib/nixstasis/e2e.ex:201-227`

@@ -63,6 +63,7 @@
 - Logs can be inspected through `GET /e2e/runs/:id/results/:journey_id/log`.
 
 Traceable references:
+
 - `README.md:53-225`
 - `packages/client/README.md:42-114`
 - `packages/client/internal/e2e/api.go`
