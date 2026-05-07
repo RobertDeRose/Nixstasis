@@ -33,8 +33,11 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 | `TENANT_ID` | Yes | `caddy` | AuthCrunch tenant identifier. |
 | `JWT_KEY` | Yes | `caddy` | AuthCrunch signing key material. |
 | `FRPS_BIND_PORT` | Yes | `frps` | Control/bind port for FRPS. |
+| `FRPS_AUTH_TOKEN` | Yes | `frps` | Shared authentication token for FRP clients. |
 | `FRPS_HTTP_PORT` | Yes | `frps` | HTTP tunnel port for FRPS. |
 | `FRPS_DASHBOARD_PORT` | Yes | `frps` | Dashboard/admin port for FRPS. |
+| `FRPS_DASHBOARD_USER` | Yes | `frps` | Dashboard/admin username for FRPS. |
+| `FRPS_DASHBOARD_PASSWORD` | Yes | `frps` | Dashboard/admin password for FRPS. |
 | `FRPS_TCPMUX_PORT` | Yes | `frps` | TCP multiplexed SSH/terminal access port. |
 
 ## Canonical Routing Rules

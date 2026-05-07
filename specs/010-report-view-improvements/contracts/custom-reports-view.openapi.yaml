@@ -216,7 +216,7 @@ components:
         operator:
           type: string
           enum: [gt, gte, eq, lte, lt, contains, not_contains, is, is_not]
-          description: Numeric operators use symbolic comparisons; string operators support contains, doesn't contain, is, and is not behavior.
+          description: Numeric operators use gt/gte/eq/lte/lt tokens; string operators use contains/not_contains/is/is_not tokens.
         value:
           type: string
 
