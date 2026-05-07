@@ -31,6 +31,7 @@ This page records missing, ambiguous, or conflicting signals observable from rep
 - Whether `packages/frp` is intended only for image builds or also for Debian packaging in current supported releases; root README references Debian packaging while `deploy/compose` is the supported server deployment path.
 
 Traceable references:
+
 - `packages/client/go.mod:1-13`
 - `packages/server/README.md:86-90`
 - `specs/012-improve-devices-modal/spec.md`

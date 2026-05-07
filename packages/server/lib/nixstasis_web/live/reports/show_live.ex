@@ -49,11 +49,11 @@ defmodule NixstasisWeb.ReportLive.Show do
            |> assign(:report, report)
            |> assign(:fields, fields)
            |> assign(:field_type_by_column, field_type_by_column)
-            |> assign(:results, [])
-            |> assign(:preference_scope, preference_scope)
-            |> assign(:preferences_enabled?, preference_scope != nil)
-            |> assign(:preferences_reset?, false)
-            |> assign(:sort_by, "")
+           |> assign(:results, [])
+           |> assign(:preference_scope, preference_scope)
+           |> assign(:preferences_enabled?, preference_scope != nil)
+           |> assign(:preferences_reset?, false)
+           |> assign(:sort_by, "")
            |> assign(:sort_dir, "asc")
            |> assign(:filter_column, filter_column)
            |> assign(:filter_operator, filter_operator)
@@ -69,7 +69,9 @@ defmodule NixstasisWeb.ReportLive.Show do
         params
         |> merge_with_saved_show_preferences(socket.assigns.report.id, socket.assigns.preference_scope)
 
-      view_state = normalize_show_view_state(merged_view_state, socket.assigns.fields, socket.assigns.field_type_by_column)
+      view_state =
+        normalize_show_view_state(merged_view_state, socket.assigns.fields, socket.assigns.field_type_by_column)
+
       preferences_reset? = meaningful_show_view_state?(merged_view_state) and merged_view_state != view_state
 
       filters = to_filters(view_state)
@@ -93,14 +95,14 @@ defmodule NixstasisWeb.ReportLive.Show do
        socket
        |> assign(:results, results)
        |> assign(:sort_by, view_state["sort_by"])
-        |> assign(:sort_dir, view_state["sort_dir"])
-        |> assign(:filter_column, view_state["filter_column"])
-        |> assign(:filter_operator, view_state["filter_operator"])
-        |> assign(:filter_value, view_state["filter_value"])
-        |> assign(:preferences_reset?, preferences_reset?)
-        |> assign(
-          :operators,
-          operators_for_type(field_type_for_column(socket.assigns.field_type_by_column, view_state["filter_column"]))
+       |> assign(:sort_dir, view_state["sort_dir"])
+       |> assign(:filter_column, view_state["filter_column"])
+       |> assign(:filter_operator, view_state["filter_operator"])
+       |> assign(:filter_value, view_state["filter_value"])
+       |> assign(:preferences_reset?, preferences_reset?)
+       |> assign(
+         :operators,
+         operators_for_type(field_type_for_column(socket.assigns.field_type_by_column, view_state["filter_column"]))
        )}
     else
       {:noreply, socket}

@@ -80,6 +80,7 @@
 - Server-issued commands can install or remove scripts through `internal/commands.Handler`.
 
 Traceable references:
+
 - `packages/client/internal/script/runtime.go:20-179`
 - `packages/client/internal/script/executor.go:13-133`
 - `packages/client/cmd/nixstasis/poll.go:105-126`

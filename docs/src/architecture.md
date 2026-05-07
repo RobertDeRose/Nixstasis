@@ -62,6 +62,7 @@ flowchart TB
 - Browser terminal sessions connect through Phoenix Channels on `terminal:*` and server-side `Nixstasis.Devices.SshClient` opens an SSH process through FRP TCP muxing.
 
 Traceable references:
+
 - `deploy/compose/caddy/Caddyfile:42-75`
 - `deploy/compose/docker-compose.yml:1-90`
 - `packages/client/internal/transport/client.go:84-212`
@@ -98,6 +99,7 @@ Traceable references:
   - `Nixstasis.Devices.SshClient`
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/application.ex:9-29`
 - `packages/server/lib/nixstasis/monitoring/offline_checker.ex:1-32`
 - `packages/server/lib/nixstasis/e2e/retention_worker.ex:1-51`
@@ -114,6 +116,7 @@ Traceable references:
   - Report sorting/filtering/deletion in report LiveViews.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/router.ex:4-11`
 - `packages/server/lib/nixstasis_web/live/device_live/index.ex`
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex`
@@ -128,6 +131,7 @@ Traceable references:
 - Context modules call `Nixstasis.Domain` functions and Ash queries to implement application behavior.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/domain.ex:1-122`
 - `packages/server/lib/nixstasis/devices.ex`
 - `packages/server/lib/nixstasis/monitoring.ex`

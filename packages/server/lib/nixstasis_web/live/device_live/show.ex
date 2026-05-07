@@ -15,10 +15,10 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
     {:ok,
      socket
-      |> assign(:device_permissions, permissions)
-      |> assign(:can_view_device_details?, can_view_device_details?(permissions))
-      |> assign(:can_remote_access_device?, can_remote_access_device?(permissions))
-      |> assign(:remote_access_auto_open?, true)}
+     |> assign(:device_permissions, permissions)
+     |> assign(:can_view_device_details?, can_view_device_details?(permissions))
+     |> assign(:can_remote_access_device?, can_remote_access_device?(permissions))
+     |> assign(:remote_access_auto_open?, true)}
   end
 
   @impl true
@@ -29,7 +29,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
       not can_view_device_details?(socket.assigns.device_permissions, id) ->
         {:noreply,
          socket
-          |> put_flash(:error, "You are not authorized to view device details.")
+         |> put_flash(:error, "You are not authorized to view device details.")
          |> push_navigate(to: return_to)}
 
       true ->
@@ -61,8 +61,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
     cond do
       not can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
-        {:noreply,
-         put_flash(socket, :error, "You are not authorized to reinitialize remote access for this device.")}
+        {:noreply, put_flash(socket, :error, "You are not authorized to reinitialize remote access for this device.")}
 
       Devices.online?(device) ->
         {:noreply,
@@ -81,8 +80,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
     cond do
       not can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
-        {:noreply,
-         put_flash(socket, :error, "You are not authorized to start remote access for this device.")}
+        {:noreply, put_flash(socket, :error, "You are not authorized to start remote access for this device.")}
 
       socket.assigns.device_offline ->
         {:noreply, put_flash(socket, :error, "Device is offline; unable to start remote access")}
@@ -115,12 +113,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
     close_session(socket)
 
     {:noreply,
-      socket
-      |> assign(:remote_access_auto_open?, false)
-      |> assign(:remote_access_lease_ref, nil)
-      |> assign(:ssh_session_started, false)
-      |> assign(:ssh_token, nil)
-      |> assign(:terminal_socket_token, nil)}
+     socket
+     |> assign(:remote_access_auto_open?, false)
+     |> assign(:remote_access_lease_ref, nil)
+     |> assign(:ssh_session_started, false)
+     |> assign(:ssh_token, nil)
+     |> assign(:terminal_socket_token, nil)}
   end
 
   @impl true
@@ -130,13 +128,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
       Devices.expire_remote_access_lease(lease_ref)
 
       {:noreply,
-        socket
-        |> assign(:remote_access_auto_open?, false)
-        |> assign(:remote_access_lease_ref, nil)
-        |> assign(:ssh_session_started, false)
-        |> assign(:ssh_token, nil)
-        |> assign(:terminal_socket_token, nil)
-        |> put_flash(:info, "Remote access session expired")}
+       socket
+       |> assign(:remote_access_auto_open?, false)
+       |> assign(:remote_access_lease_ref, nil)
+       |> assign(:ssh_session_started, false)
+       |> assign(:ssh_token, nil)
+       |> assign(:terminal_socket_token, nil)
+       |> put_flash(:info, "Remote access session expired")}
     else
       {:noreply, socket}
     end
@@ -145,12 +143,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
   @impl true
   def handle_info({event, %{id: device_id}}, %{assigns: %{device: %Device{id: device_id}}} = socket)
       when event in [
-            :device_created,
-            :device_registered,
-            :device_updated,
-            :device_last_seen_updated,
-            :device_approval_status_changed,
-            :device_remote_access_changed
+             :device_created,
+             :device_registered,
+             :device_updated,
+             :device_last_seen_updated,
+             :device_approval_status_changed,
+             :device_remote_access_changed
            ] do
     case safe_get_device(device_id) do
       {:ok, device} ->
@@ -166,12 +164,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   def handle_info({event, _payload}, socket)
       when event in [
-            :device_created,
-            :device_registered,
-            :device_updated,
-            :device_last_seen_updated,
-            :device_approval_status_changed,
-            :device_remote_access_changed
+             :device_created,
+             :device_registered,
+             :device_updated,
+             :device_last_seen_updated,
+             :device_approval_status_changed,
+             :device_remote_access_changed
            ] do
     {:noreply, socket}
   end
