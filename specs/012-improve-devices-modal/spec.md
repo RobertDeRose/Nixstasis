@@ -5,6 +5,8 @@
 **Status**: Draft
 **Input**: User description: "Improvement to Devices page and expose device detail view"
 
+**Decision**: Device detail is exposed through the `/devices/:id` LiveView route. The earlier `/api/v1/devices/:device_id/modal` API surface is not part of the supported contract.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Browse devices efficiently (Priority: P1)

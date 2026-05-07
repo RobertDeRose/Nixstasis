@@ -22,9 +22,9 @@
 | Go Method | HTTP Endpoint | Server Handler | Purpose |
 | --- | --- | --- | --- |
 | `RegisterDevice` | `POST /api/v1/devices/register` | `DeviceController.register/2` | Register device and receive UUID |
-| `Poll` | `POST /api/v1/devices/:id/heartbeat` | `HeartbeatController.create/2` | Submit telemetry and receive remote-access/command directives |
-| `SendCommandResults` | `POST /api/v1/devices/:id/command_results` | `DeviceCommandController.command_results/2` | Acknowledge command execution results |
-| `FetchCommandPayload` | `GET /api/v1/devices/:id/command_payloads/:ref` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload |
+| `Poll` | `POST /api/v1/devices/:id/heartbeat?api_key=...` | `HeartbeatController.create/2` | Submit telemetry and receive remote-access/command directives |
+| `SendCommandResults` | `POST /api/v1/devices/:id/command_results?api_key=...` | `DeviceCommandController.command_results/2` | Acknowledge command execution results |
+| `FetchCommandPayload` | `GET /api/v1/devices/:id/command_payloads/:ref?api_key=...` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload |
 
 Traceable references:
 
@@ -56,7 +56,8 @@ Response shape:
 ```json
 {
   "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000"
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "api_token": "issued-only-after-approval"
   }
 }
 ```
@@ -74,8 +75,10 @@ Request:
 {
   "telemetry": {},
   "connection_status": {
-    "connected": true,
-    "connection_string": "..."
+    "active": true,
+    "connection_string": "...",
+    "pid": 1234,
+    "start_time": "2026-05-06T14:00:00Z"
   }
 }
 ```
@@ -185,9 +188,10 @@ Traceable references:
 - Caddy authorization policy injects headers with claims and validates bearer header according to Caddyfile config.
 - Terminal sockets require Phoenix tokens:
   - socket token signed for `terminal_socket`.
-  - join token signed for `terminal_session`.
+  - join payload contains an opaque server-side terminal session ref.
+- Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as an `api_key` query parameter.
 - E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled`.
-- Device API calls in observed Go transport do not attach an application auth header.
+- Initial device registration does not attach a device API key because it is the credential issuance step.
 
 Traceable references:
 
@@ -201,7 +205,9 @@ Traceable references:
 
 - Go transport treats any unexpected status as `API returned non-success status: <status>`.
 - Go transport allows empty response bodies when a response body target was provided and EOF is returned.
-- Heartbeat rejects unapproved devices with HTTP `403` and `{"error":"Device not approved"}`.
+- Runtime device API requests without `api_key` return HTTP `401` with code `missing_api_key`.
+- Runtime device API requests with an invalid `api_key` return HTTP `401` with code `invalid_api_key`.
+- Heartbeat rejects unapproved devices with HTTP `403` and code `device_not_approved`.
 - Command results without a results list return HTTP `400`.
 - Command-result processing errors return HTTP `422`.
 - Command payload lookup returns HTTP `404` for missing payloads.

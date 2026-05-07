@@ -60,16 +60,20 @@
   - `POST {baseURL}/api/v1/devices/register`
   - Sends `mac_address`, optional `product_name`, and optional `metadata`.
   - Expects `201` and response `data.id`.
+  - Approved devices receive `data.api_token`; pending devices omit it until approval.
 - `Poll`:
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
   - Sends `telemetry` and `connection_status`.
+  - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and response `data.remote_access_requested` plus optional `data.commands`.
 - `SendCommandResults`:
   - `POST {baseURL}/api/v1/devices/{uuid}/command_results`
   - Sends `results` array.
+  - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202`.
 - `FetchCommandPayload`:
   - `GET {baseURL}/api/v1/devices/{uuid}/command_payloads/{ref}`
+  - Requires the issued device token as `api_key` query parameter.
   - Expects `200` and a `CommandPayload`.
 
 Traceable references:
