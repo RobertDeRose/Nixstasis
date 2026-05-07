@@ -6,19 +6,33 @@ database_url="${1:?DATABASE_URL is required}"
 attempts="${NIXSTASIS_DB_WAIT_ATTEMPTS:-30}"
 interval="${NIXSTASIS_DB_WAIT_INTERVAL:-2}"
 
-host_port=$(printf '%s\n' "$database_url" | sed -n 's,^[^:]*://[^@]*@\([^/?]*\).*,\1,p')
+host_port=$(printf '%s\n' "$database_url" | sed -n 's,^[^:]*://\([^/?]*@\)\{0,1\}\([^/?]*\).*,\2,p')
 
 if [ -z "$host_port" ]; then
   echo "could not parse database host from DATABASE_URL" >&2
   exit 1
 fi
 
-host="${host_port%%:*}"
-port="${host_port##*:}"
-
-if [ "$host" = "$port" ]; then
-  port=5432
-fi
+case "$host_port" in
+  \[*\]:*)
+    host="${host_port%%]*}"
+    host="${host#\[}"
+    port="${host_port##*]:}"
+    ;;
+  \[*\])
+    host="${host_port#\[}"
+    host="${host%\]}"
+    port=5432
+    ;;
+  *:*)
+    host="${host_port%:*}"
+    port="${host_port##*:}"
+    ;;
+  *)
+    host="$host_port"
+    port=5432
+    ;;
+esac
 
 attempt=1
 
