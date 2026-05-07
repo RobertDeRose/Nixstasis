@@ -67,8 +67,23 @@
   "custom_indexes": [],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "55A0BD247495681AC61BBFED2200149B1D8601CE848BA783BBE1F4A6891AABDE",
-  "identities": [],
+  "hash": "FF1C42EC3180CFB008B368784D515A7EE0512A1053D423E54F97016DE4D52159",
+  "identities": [
+    {
+      "all_tenants?": false,
+      "base_filter": null,
+      "index_name": "custom_reports_unique_name_index",
+      "keys": [
+        {
+          "type": "atom",
+          "value": "name"
+        }
+      ],
+      "name": "unique_name",
+      "nils_distinct?": true,
+      "where": null
+    }
+  ],
   "multitenancy": {
     "attribute": null,
     "global": null,

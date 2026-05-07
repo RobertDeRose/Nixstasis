@@ -1,4 +1,4 @@
-defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
+defmodule Nixstasis.Repo.Migrations.CiFixPendingCodegen do
   @moduledoc """
   Updates resources based on their most recent snapshots.
 
@@ -78,7 +78,9 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
       add :mac_address, :text, null: false
       add :product_name, :text
       add :account_number, :text
+      add :ipv4_address, :text
       add :approval_status, :text, null: false, default: "pending"
+      add :api_token_hash, :text
       add :last_seen_at, :utc_datetime
       add :schema, :map, null: false, default: %{}
       add :metadata, :map, null: false, default: %{}
@@ -89,9 +91,13 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
 
     create index(:devices, [:metadata], using: "gin")
 
+    create index(:devices, [:schema], using: "gin")
+
     create index(:devices, [:approval_status])
 
     create index(:devices, [:product_name])
+
+    create index(:devices, [:ipv4_address])
 
     create index(:devices, [:account_number])
 
@@ -104,6 +110,8 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
     end
+
+    create unique_index(:custom_reports, [:name], name: "custom_reports_unique_name_index")
 
     create table(:alerts, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
@@ -122,8 +130,7 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
             type: :uuid,
             prefix: "public",
             on_delete: :delete_all
-          ),
-          null: false
+          ), null: false
     end
 
     create index(:alerts, [:triggered_at])
@@ -136,6 +143,7 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
 
     create table(:alert_rules, primary_key: false) do
       add :id, :bigserial, null: false, primary_key: true
+      add :name, :text, null: false, default: "Untitled rule"
       add :product_name, :text, null: false
       add :condition_field, :text, null: false
       add :operator, :text, null: false
@@ -145,9 +153,13 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
     end
 
     create index(:alert_rules, [:product_name])
+
+    create index(:alert_rules, [:name])
   end
 
   def down do
+    drop_if_exists index(:alert_rules, [:name])
+
     drop_if_exists index(:alert_rules, [:product_name])
 
     drop table(:alert_rules)
@@ -164,15 +176,21 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
 
     drop table(:alerts)
 
+    drop_if_exists unique_index(:custom_reports, [:name], name: "custom_reports_unique_name_index")
+
     drop table(:custom_reports)
 
     drop_if_exists unique_index(:devices, [:mac_address], name: "devices_unique_mac_address_index")
 
     drop_if_exists index(:devices, [:account_number])
 
+    drop_if_exists index(:devices, [:ipv4_address])
+
     drop_if_exists index(:devices, [:product_name])
 
     drop_if_exists index(:devices, [:approval_status])
+
+    drop_if_exists index(:devices, [:schema])
 
     drop_if_exists index(:devices, [:metadata])
 
@@ -183,7 +201,9 @@ defmodule Nixstasis.Repo.Migrations.MigrateResources1 do
       remove :metadata
       remove :schema
       remove :last_seen_at
+      remove :api_token_hash
       remove :approval_status
+      remove :ipv4_address
       remove :account_number
       remove :product_name
       remove :mac_address
