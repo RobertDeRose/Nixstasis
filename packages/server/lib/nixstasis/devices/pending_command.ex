@@ -70,6 +70,8 @@ defmodule Nixstasis.Devices.PendingCommand do
     belongs_to :device, Nixstasis.Devices.Device do
       allow_nil? false
       public? true
+      attribute_public? true
+      attribute_writable? true
     end
   end
 end
