@@ -13,6 +13,7 @@
 - `Nixstasis.Devices.SshClient` is a GenServer per terminal session and wraps an OS `ssh` process through an Elixir Port.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/application.ex:10-29`
 - `packages/server/lib/nixstasis/monitoring/offline_checker.ex:13-31`
 - `packages/server/lib/nixstasis/e2e/retention_worker.ex:14-50`
@@ -30,6 +31,7 @@ Traceable references:
 - `frp.Manager` starts `frpc` as an OS process and waits for process exit in a background goroutine.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/main.go:20-98`
 - `packages/client/cmd/nixstasis/poll.go:35-83`
 - `packages/client/internal/script/executor.go:23-48`
@@ -46,6 +48,7 @@ Traceable references:
 - Runtime execution is bounded by `RuntimeConfig.Timeout`; timeout cancels the Starlark thread.
 
 Traceable references:
+
 - `packages/client/internal/script/runtime.go:20-47`
 - `packages/client/internal/script/runtime.go:73-128`
 - `packages/client/internal/script/runtime.go:130-179`
@@ -63,6 +66,7 @@ Traceable references:
 - Caddy on-demand TLS sends domain approval input to `GET /api/v1/check_domain`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis_web/router.ex:22-79`
 - `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:7-27`
 
@@ -74,6 +78,7 @@ Traceable references:
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:
+
 - `packages/client/internal/script/executor.go:50-93`
 - `packages/client/internal/script/runtime.go:40-44`
 - `packages/client/internal/commands/handler.go:132-187`
@@ -88,6 +93,7 @@ Traceable references:
 - Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
 
 Traceable references:
+
 - `deploy/compose/docker-compose.yml:33-66`
 - `deploy/compose/frps/frps.toml:1-15`
 - `deploy/compose/caddy/Caddyfile:59-75`
@@ -102,6 +108,7 @@ Traceable references:
 - Compose publishes only Caddy ports `80` and `443` for the main HTTP ingress.
 
 Traceable references:
+
 - `deploy/compose/caddy/Caddyfile:8-10`
 - `deploy/compose/caddy/Caddyfile:50-57`
 - `deploy/compose/docker-compose.yml:14-31`
@@ -113,6 +120,7 @@ Traceable references:
 - Packaged configuration documentation uses `https://nixstasis.example.com` as the public Caddy host.
 
 Traceable references:
+
 - `packages/client/internal/config/config.go:62-64`
 - `packages/client/README.md:115-128`
 - `packages/client/internal/transport/client.go:27-35`
@@ -124,5 +132,6 @@ Traceable references:
 - `frps` is reached by Caddy on internal service ports and by FRPC on published FRP ports.
 
 Traceable references:
+
 - `deploy/compose/docker-compose.yml:1-90`
 - `deploy/compose/README.md:5-20`

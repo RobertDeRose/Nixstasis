@@ -54,6 +54,7 @@
 - FRP status is included in subsequent heartbeat requests as `connection_status`.
 
 Traceable references:
+
 - `packages/client/internal/frp/manager.go:21-169`
 - `packages/client/cmd/nixstasis/poll.go:111-154`
 - `packages/client/internal/config/config.go:121-129`

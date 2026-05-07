@@ -74,10 +74,7 @@ func runRegister() {
 		slog.Warn(message, "attempt", i+1, "error", err)
 		if i < maxRetries-1 {
 			// Exponential backoff
-			sleepDuration := baseDelay * time.Duration(1<<i)
-			if sleepDuration > maxDelay {
-				sleepDuration = maxDelay
-			}
+			sleepDuration := min(baseDelay*time.Duration(1<<i), maxDelay)
 			slog.Info("Retrying registration...", "wait_time", sleepDuration)
 			time.Sleep(sleepDuration)
 		}

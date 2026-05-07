@@ -83,6 +83,7 @@
 - Device detail LiveView queues `ssh_authorize` commands before terminal session startup.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/devices.ex:1-360`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-65`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`

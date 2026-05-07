@@ -54,6 +54,7 @@
 - `poll` loads the stored UUID from `/etc/nixstasis/id` via `config.IdentityPath()` before sending heartbeat requests.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/register.go:28-93`
 - `packages/client/cmd/nixstasis/poll.go:38-47`
 - `packages/client/internal/config/config.go:116-119`

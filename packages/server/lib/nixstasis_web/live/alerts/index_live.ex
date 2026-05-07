@@ -36,11 +36,11 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:rule_initial_draft, %{})
      |> assign(:rule_editing, nil)
      |> assign(:rule_edit_blocked_reason, nil)
-      |> assign(:rule_to_delete, nil)
-      |> assign(:show_discard_confirm, false)
-      |> assign(:no_schema_fields_message, nil)
-      |> assign(:modal_focus_id, "alert-schema-id")
-      |> assign(:success_flash_generation, 0)}
+     |> assign(:rule_to_delete, nil)
+     |> assign(:show_discard_confirm, false)
+     |> assign(:no_schema_fields_message, nil)
+     |> assign(:modal_focus_id, "alert-schema-id")
+     |> assign(:success_flash_generation, 0)}
   end
 
   def handle_params(params, _url, socket) do

@@ -70,6 +70,7 @@
 - `poll` sends telemetry heartbeats, processes server commands, sends command results, and starts/stops FRPC based on the heartbeat response.
 
 Traceable references:
+
 - `packages/client/cmd/nixstasis/main.go:20-98`
 - `packages/client/cmd/nixstasis/register.go:16-93`
 - `packages/client/cmd/nixstasis/poll.go:21-249`

@@ -110,9 +110,9 @@ defmodule NixstasisWeb.TerminalChannelTest do
             }} =
              NixstasisWeb.UserSocket
              |> socket("user_id", %{})
-              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-                "token" => session_ref
-              })
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref
+             })
   end
 
   test "returns structured error for expired terminal session" do

@@ -51,6 +51,7 @@
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
 
 Traceable references:
+
 - `deploy/compose/caddy/Caddyfile:1-75`
 - `README.md:319-350`
 - `deploy/compose/README.md:7-20`

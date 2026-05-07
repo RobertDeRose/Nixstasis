@@ -88,6 +88,7 @@
 - Swagger UI is forwarded at `/api/json/swaggerui`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/domain.ex:1-122`
 - `packages/server/lib/nixstasis_web/router.ex:22-28`
 - `packages/server/priv/static/openapi.yaml:3190`

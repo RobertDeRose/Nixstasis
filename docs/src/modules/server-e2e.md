@@ -76,6 +76,7 @@
 - Production deployments disable E2E endpoints by default through `NixstasisWeb.Plugs.E2EEnabled` unless `NIXSTASIS_E2E_ENABLED=true`.
 
 Traceable references:
+
 - `packages/server/lib/nixstasis/e2e.ex:1-420`
 - `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:1-93`
 - `packages/server/lib/nixstasis_web/router.ex:68-79`
