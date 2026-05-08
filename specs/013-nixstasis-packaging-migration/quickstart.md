@@ -143,7 +143,7 @@ Review changed files under `deploy/compose`, `packages/server`, `packages/caddy`
 
 Expected:
 - Touched assets use `Nixstasis` naming consistently.
-- No updated deployment or release asset still presents `Nixstasis` as the current name.
+- No updated deployment or release asset still presents legacy placeholder naming as current.
 
 ## 11) Validation sampling for SC-002 and SC-003
 
