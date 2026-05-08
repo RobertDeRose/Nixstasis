@@ -78,6 +78,7 @@ As a release stakeholder, I need E2E results that are repeatable and traceable s
 - **FR-004**: System MUST produce a clear pass/fail result per journey with enough context to identify the failure point.
 - **FR-005**: System MUST reset or isolate test data between runs to ensure repeatable outcomes.
 - **FR-006**: System MUST allow runs only when the request uses a supported `X-E2E-Protocol-Version` header and MUST reject legacy `client_version` or `server_version` request fields.
+- **FR-006a**: Protocol version `1` MUST be supported by default; deployments MAY configure additional supported protocol versions.
 - **FR-007**: System MUST record run metadata including date/time, environment label, journeys executed, and outcomes.
 - **FR-008**: System MUST verify run preconditions (environment readiness, baseline data availability) and fail fast with actionable messaging when not met.
 - **FR-009**: E2E runs MUST use synthetic test data only; production data is not permitted.
