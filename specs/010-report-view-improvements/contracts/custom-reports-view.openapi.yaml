@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Contract supporting custom report list sorting/filtering, edit/delete actions,
-    and report-result sorting/filtering with simple conditional operators.
+    and report-result sorting/filtering with numeric and string operators.
     This contract is reference-only for feature increment 010 and is not a committed
     controller implementation scope in this phase.
 servers:
@@ -215,7 +215,8 @@ components:
       properties:
         operator:
           type: string
-          enum: [gt, gte, eq, lte, lt]
+          enum: [gt, gte, eq, lte, lt, contains, not_contains, is, is_not]
+          description: Numeric operators use symbolic comparisons; string operators support contains, doesn't contain, is, and is not behavior.
         value:
           type: string
 
