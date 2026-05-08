@@ -34,6 +34,8 @@ paths:
           description: Required E2E protocol version. Legacy client/server version pairing is not accepted.
           schema:
             type: string
+            enum: ["1"]
+          x-extensible-enum: true
       requestBody:
         required: true
         content:
@@ -257,6 +259,8 @@ components:
           $ref: "#/components/schemas/TriggerSource"
         protocol_version:
           type: string
+          enum: ["1"]
+          x-extensible-enum: true
         status:
           $ref: "#/components/schemas/E2ERunStatus"
         started_at:
