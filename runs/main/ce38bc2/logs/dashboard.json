@@ -1,0 +1,32 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-10T16:26:11.349158276Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "HTML Response",
+          "bytes": 32368,
+          "pretty": "<!-- <NixstasisWeb.Layouts.root> lib/nixstasis_web/components/layouts/root.html.heex:1 (nixstasis) -->\n<!DOCTYPE html>\n<html data-phx-loc=\"2\" lang=\"en\">\n  <head data-phx-loc=\"3\">\n    <meta data-phx-loc=\"6\" charset=\"utf-8\">\n    <meta data-phx-loc=\"7\" name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <meta data-phx-loc=\"8\" name=\"csrf-token\" content=\"BEIsIjQ5FAE8Yjheey0hCgUMB3t3AkQ9E8IfgWcSnZg33LVnlbf-Elur\">\n    <!-- @caller lib/nixstasis_web/components/layouts/root.html.heex:",
+          "http_status": 200,
+          "panel_type": "response",
+          "truncated": true
+        }
+      ],
+      "duration_ms": 27,
+      "icon_label": "STEP",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "fetch_dashboard",
+        "expected": "dashboard_payload"
+      },
+      "summary": null
+    }
+  ]
+}
