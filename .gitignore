@@ -55,9 +55,6 @@ Thumbs.db
 *.out
 vendor/
 
-# Opencode
-.opencode
-
 # chunkhound
 .chunkhound*
 .specify
