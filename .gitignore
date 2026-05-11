@@ -38,6 +38,8 @@ erl_crash.dump
 # Environment variables
 .env
 .env.*
+*.env
+!*.env.example
 
 # Node assets
 /assets/node_modules/
