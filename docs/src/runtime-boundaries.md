@@ -111,7 +111,7 @@ Traceable references:
 - Compose publishes only Caddy ports `80` and `443` for the main HTTP ingress.
 - Default laptop mode maps the same host pattern to `.localhost` names:
   `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and
-  `atom-<device-id>.localhost`.
+  `atom-<normalized-device-id>.localhost`.
 
 Traceable references:
 

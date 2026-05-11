@@ -1,0 +1,188 @@
+#!/bin/sh
+
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
+COMPOSE_DIR="$ROOT_DIR/deploy/compose"
+BASE_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
+LAPTOP_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.laptop.yml"
+ENV_FILE="$COMPOSE_DIR/laptop.env"
+LAPTOP_ENV_EXAMPLE="$COMPOSE_DIR/laptop.env.example"
+LAPTOP_CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile.laptop"
+
+fail() {
+  echo "$1" >&2
+  exit 1
+}
+
+usage() {
+  cat >&2 <<'EOF'
+usage: deploy/compose/scripts/laptop.sh <start|stop|validate> [compose args...]
+
+Before first use, copy deploy/compose/laptop.env.example to deploy/compose/laptop.env
+and replace placeholder secrets.
+EOF
+}
+
+env_value() {
+  key="$1"
+
+  awk -v key="$key" '
+    /^[[:space:]]*(#|$)/ { next }
+    {
+      line = $0
+      sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+      if (line !~ "^[[:space:]]*" key "[[:space:]]*=") next
+      sub("^[[:space:]]*" key "[[:space:]]*=[[:space:]]*", "", line)
+      sub(/[[:space:]]+#.*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if ((line ~ /^".*"$/) || (line ~ /^'\''.*'\''$/)) {
+        line = substr(line, 2, length(line) - 2)
+      }
+      print line
+      found = 1
+      exit
+    }
+    END { if (!found) exit 1 }
+  ' "$ENV_FILE"
+}
+
+require_file() {
+  file="$1"
+  [ -f "$file" ] || fail "missing required file: $file"
+}
+
+require_env_value() {
+  name="$1"
+  value=$(env_value "$name" || true)
+
+  [ -n "$value" ] || fail "missing required laptop env value: $name"
+  [ "$value" != "*" ] || fail "$name must be least-privilege and cannot be wildcard"
+
+  case "$value" in
+    replace-me*)
+      fail "$name must be replaced before laptop mode is used"
+      ;;
+    00000000-0000-0000-0000-000000000000)
+      fail "$name must be replaced with a real least-privilege value"
+      ;;
+  esac
+}
+
+require_exact_env_value() {
+  name="$1"
+  expected="$2"
+  value=$(env_value "$name" || true)
+
+  [ -n "$value" ] || fail "missing required laptop env value: $name"
+  [ "$value" = "$expected" ] || fail "$name must be $expected for laptop mode, got: $value"
+}
+
+require_text() {
+  file="$1"
+  pattern="$2"
+
+  grep -Eq "$pattern" "$file" || fail "missing required text in $file: $pattern"
+}
+
+reject_text() {
+  file="$1"
+  pattern="$2"
+
+  if grep -Eq "$pattern" "$file"; then
+    fail "forbidden text in $file: $pattern"
+  fi
+}
+
+compose() {
+  docker compose \
+    -f "$BASE_COMPOSE_FILE" \
+    -f "$LAPTOP_COMPOSE_FILE" \
+    --profile bundled-db \
+    --env-file "$ENV_FILE" \
+    "$@"
+}
+
+validate() {
+  command -v docker >/dev/null 2>&1 || fail "docker is required for laptop mode"
+
+  require_file "$BASE_COMPOSE_FILE"
+  require_file "$LAPTOP_COMPOSE_FILE"
+  require_file "$LAPTOP_ENV_EXAMPLE"
+  require_file "$LAPTOP_CADDYFILE"
+  require_file "$ENV_FILE"
+
+  require_exact_env_value PORT 4000
+  require_exact_env_value BASE_DOMAIN localhost
+  require_exact_env_value PHX_HOST nixstasis.localhost
+  require_env_value SECRET_KEY_BASE
+  require_env_value CLIENT_ID
+  require_env_value CLIENT_SECRET
+  require_env_value TENANT_ID
+  require_env_value JWT_KEY
+  require_env_value AUTHORIZED_ROLES
+  require_env_value AUTHORIZED_GROUPS
+  require_env_value FRPS_AUTH_TOKEN
+  require_env_value FRPS_DASHBOARD_USER
+  require_env_value FRPS_DASHBOARD_PASSWORD
+
+  require_text "$LAPTOP_CADDYFILE" 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
+  require_text "$LAPTOP_CADDYFILE" 'issuer internal'
+  require_text "$LAPTOP_CADDYFILE" 'auth\.\{\$BASE_DOMAIN\}'
+  require_text "$LAPTOP_CADDYFILE" 'nixstasis\.\{\$BASE_DOMAIN\}'
+  require_text "$LAPTOP_CADDYFILE" 'frp-admin\.\{\$BASE_DOMAIN\}'
+  require_text "$LAPTOP_CADDYFILE" '^\*\.\{\$BASE_DOMAIN\}'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:80:80'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:443:443'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_BIND_PORT:-7000\}'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_HTTP_PORT:-8080\}'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_TCPMUX_PORT:-2022\}'
+  reject_text "$LAPTOP_COMPOSE_FILE" '0\.0\.0\.0'
+
+  rendered_config=$(compose config)
+  printf '%s\n' "$rendered_config" | grep -Eq 'published: "80"' || fail "rendered laptop config must publish Caddy HTTP"
+
+  host_ip_count=$(printf '%s\n' "$rendered_config" | grep -Ec '^[[:space:]]+host_ip: ' || true)
+  loopback_host_ip_count=$(printf '%s\n' "$rendered_config" | grep -Ec '^[[:space:]]+host_ip: 127\.0\.0\.1$' || true)
+
+  if [ "$host_ip_count" -eq 0 ]; then
+    fail "rendered laptop config must explicitly bind published ports to loopback"
+  fi
+
+  if [ "$host_ip_count" -ne "$loopback_host_ip_count" ]; then
+    fail "rendered laptop config must bind every published port to 127.0.0.1"
+  fi
+
+  for port in 80 443 "$(env_value FRPS_BIND_PORT)" "$(env_value FRPS_HTTP_PORT)" "$(env_value FRPS_TCPMUX_PORT)"; do
+    printf '%s\n' "$rendered_config" | grep -Eq "published: \"?$port\"?" || fail "rendered laptop config must publish loopback port: $port"
+  done
+
+  echo "laptop mode validation passed"
+}
+
+command_name="${1:-}"
+
+if [ -z "$command_name" ]; then
+  usage
+  exit 2
+fi
+
+shift
+
+case "$command_name" in
+  start)
+    validate
+    compose up -d --build "$@"
+    ;;
+  stop)
+    require_file "$ENV_FILE"
+    compose down "$@"
+    ;;
+  validate)
+    validate
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

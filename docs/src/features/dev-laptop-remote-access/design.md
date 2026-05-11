@@ -99,7 +99,8 @@ Default laptop mode reserves these local hostnames:
 - `nixstasis.localhost` for the Phoenix app through Caddy.
 - `auth.localhost` for AuthCrunch through Caddy.
 - `frp-admin.localhost` for the FRPS dashboard through Caddy.
-- `atom-<device-id>.localhost` for device HTTP routes through FRPS and Caddy.
+- `atom-<normalized-device-id>.localhost` for device HTTP routes through FRPS and
+  Caddy.
 
 These names intentionally mirror the existing production reserved-host pattern of
 `nixstasis.<base-domain>`, `auth.<base-domain>`, `frp-admin.<base-domain>`, and
