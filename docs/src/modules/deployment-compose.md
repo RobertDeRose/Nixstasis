@@ -17,6 +17,10 @@
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/.env.example`
 - `deploy/compose/README.md`
+- `deploy/compose/docker-compose.laptop.yml`
+- `deploy/compose/laptop.env.example`
+- `deploy/compose/caddy/Caddyfile.laptop`
+- `deploy/compose/scripts/laptop.sh`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/render_compose.sh`
 - `deploy/compose/scripts/validate_stack.sh`
@@ -76,8 +80,14 @@
 - E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
 - Development laptop mode keeps the base Compose file production-shaped and layers
   local-only behavior through separate override files.
+- `deploy/compose/docker-compose.laptop.yml`, `deploy/compose/laptop.env.example`,
+  and `deploy/compose/caddy/Caddyfile.laptop` are the default laptop-mode
+  templates.
+- `deploy/compose/scripts/laptop.sh` validates, starts, and stops default
+  laptop mode with the laptop Compose override and ignored `laptop.env` file.
 - Default laptop mode uses `BASE_DOMAIN=localhost` with `nixstasis.localhost`,
-  `auth.localhost`, `frp-admin.localhost`, and `atom-<device-id>.localhost`.
+  `auth.localhost`, `frp-admin.localhost`, and
+  `atom-<normalized-device-id>.localhost`.
 - Laptop-mode TLS uses Caddy internal/local certificates while preserving the same
   Phoenix ask endpoint at `GET /api/v1/check_domain`.
 

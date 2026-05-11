@@ -53,12 +53,35 @@ base `docker-compose.yml` production-shaped, then layer a development override f
 local image builds, local hostnames, Caddy local certificates, and any developer
 ports that should not become production defaults.
 
+Start from the tracked templates:
+
+- `deploy/compose/laptop.env.example` contains local-only `.localhost` defaults.
+- `deploy/compose/docker-compose.laptop.yml` layers laptop-mode env files,
+  development builds, and isolated local volumes onto the base Compose file.
+- `deploy/compose/caddy/Caddyfile.laptop` keeps the same Caddy/AuthCrunch routing
+  shape while using Caddy internal certificates.
+
+Copy `laptop.env.example` to `laptop.env`, replace secrets, and run laptop-mode
+Compose commands with both files, for example:
+`docker compose -f docker-compose.yml -f docker-compose.laptop.yml --profile bundled-db --env-file laptop.env up -d --build`
+
+The tracked helper script wraps the same Compose file set:
+
+- `deploy/compose/scripts/laptop.sh validate` checks the laptop environment,
+  Caddy local TLS configuration, loopback port binding, and rendered Compose
+  configuration. Placeholder secrets from `laptop.env.example` must be replaced
+  before validation passes.
+- `deploy/compose/scripts/laptop.sh start` validates and starts the bundled-db
+  laptop stack.
+- `deploy/compose/scripts/laptop.sh stop` stops the laptop stack.
+
 Default laptop mode reserves these local hostnames:
 
 - `nixstasis.localhost` for the Phoenix app through Caddy.
 - `auth.localhost` for AuthCrunch through Caddy.
 - `frp-admin.localhost` for the FRPS dashboard through Caddy.
-- `atom-<device-id>.localhost` for device HTTP routes through FRPS and Caddy.
+- `atom-<normalized-device-id>.localhost` for device HTTP routes through FRPS
+  and Caddy.
 
 Use `BASE_DOMAIN=localhost` and `PHX_HOST=nixstasis.localhost` in laptop-mode
 environment files. These names mirror the production reserved-host pattern while
@@ -70,6 +93,9 @@ observable. It should use Caddy `tls internal` or Caddy local certificates for t
 reserved `.localhost` hosts instead of public ACME issuance. Generated
 certificates, Caddy state, local keys, DNS tokens, and runtime data must stay out
 of source control.
+
+Laptop-mode published ports bind to `127.0.0.1` so Caddy and FRPS are not exposed
+to the local network by default.
 
 The development override strategy is:
 
@@ -118,6 +144,8 @@ becomes optional for that deployment.
 
 - Run `deploy/compose/scripts/check_runtime_contract.sh` to verify the runtime
   contract stays aligned across Compose assets, package examples, and docs.
+- Run `deploy/compose/scripts/laptop.sh validate` to verify default laptop-mode
+  templates and local environment wiring.
 
 ## Validation
 
