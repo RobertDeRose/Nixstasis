@@ -1,0 +1,23 @@
+# Tasks: Development Laptop Remote Access
+
+- [x] T000 Confirm feature scope against the reviewed spec before implementation.
+- [x] T001 Inspect current Compose, Caddy, FRPS, server terminal, and client FRP configuration paths.
+- [ ] T002 Implement the default laptop hostname scheme using `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and `atom-<device-id>.localhost`.
+- [x] T003 Design the local trust model using Caddy internal CA/local certificates.
+- [x] T004 Define the development Compose override strategy without changing production Compose semantics.
+- [ ] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
+- [ ] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
+- [ ] T007 Add a local Go-client managed test-device path that registers with the server and connects FRPC to FRPS.
+- [ ] T008 Add an SSH test target reachable through FRP for browser terminal validation.
+- [ ] T009 Add validation that Caddy on-demand TLS calls Phoenix `GET /api/v1/check_domain`.
+- [ ] T010 Add validation that Caddy serves local certificates for the default laptop hostnames.
+- [ ] T011 Add validation that FRPC connects to FRPS with the development configuration.
+- [ ] T012 Add a browser/UI or E2E journey that launches a terminal, runs a harmless SSH command, closes it, and reopens it.
+- [ ] T013 Document optional DuckDNS public-fidelity validation, including DNS challenge behavior and secrets handling.
+- [ ] T014 Document optional real-domain public-fidelity validation for operators with DNS provider access.
+- [ ] T015 Update developer-facing docs to distinguish default laptop mode from production Compose.
+- [ ] T016 Update runtime-boundary docs if new development-only processes or routing assumptions are introduced.
+- [ ] T017 Run formatting, linting, and relevant repository checks for touched files.
+- [ ] T018 Run the default laptop-mode validation flow from a clean checkout or clean runtime state.
+- [ ] T019 Record known limitations and troubleshooting guidance for macOS, Linux, Docker, Podman, and Apple Container where applicable.
+- [ ] T999 Close out the feature by confirming docs, scripts, tests, and delivered behavior agree.
