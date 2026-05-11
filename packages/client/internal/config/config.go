@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -104,6 +105,9 @@ func Load() (*Config, error) {
 	// Config File
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
+	if configFile := os.Getenv("NIXSTASIS_CONFIG_FILE"); configFile != "" {
+		v.SetConfigFile(configFile)
+	}
 	v.AddConfigPath(defaultConfigRoot)
 	v.AddConfigPath(defaultUserConfig)
 	v.AddConfigPath(".")
@@ -131,16 +135,28 @@ func Load() (*Config, error) {
 
 // IdentityPath returns the canonical identity file path.
 func IdentityPath() string {
+	if path := os.Getenv("NIXSTASIS_IDENTITY_PATH"); path != "" {
+		return path
+	}
+
 	return filepath.Join(defaultConfigRoot, "id")
 }
 
 // FRPCConfigPath returns the canonical frpc config path.
 func FRPCConfigPath() string {
+	if path := os.Getenv("NIXSTASIS_FRPC_CONFIG_PATH"); path != "" {
+		return path
+	}
+
 	return defaultFRPCConfig
 }
 
 // FRPCBinaryPath returns the canonical bundled frpc path.
 func FRPCBinaryPath() string {
+	if path := os.Getenv("NIXSTASIS_FRPC_BINARY_PATH"); path != "" {
+		return path
+	}
+
 	return defaultFRPCBinary
 }
 
