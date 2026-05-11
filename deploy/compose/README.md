@@ -45,6 +45,43 @@ This directory is the supported server deployment path for this feature.
 - Apple Container does not provide a `compose run` equivalent, so run the
   migration command with `container run --env-file deploy/compose/.env --entrypoint /app/bin/migrate "$NIXSTASIS_SERVER_IMAGE_REF"`.
 
+## Development Laptop Mode
+
+Development laptop mode uses Compose file composition to keep local-only routing,
+TLS, and image settings separate from the supported production deployment. Keep the
+base `docker-compose.yml` production-shaped, then layer a development override for
+local image builds, local hostnames, Caddy local certificates, and any developer
+ports that should not become production defaults.
+
+Default laptop mode reserves these local hostnames:
+
+- `nixstasis.localhost` for the Phoenix app through Caddy.
+- `auth.localhost` for AuthCrunch through Caddy.
+- `frp-admin.localhost` for the FRPS dashboard through Caddy.
+- `atom-<device-id>.localhost` for device HTTP routes through FRPS and Caddy.
+
+Use `BASE_DOMAIN=localhost` and `PHX_HOST=nixstasis.localhost` in laptop-mode
+environment files. These names mirror the production reserved-host pattern while
+staying local-only and avoiding public DNS requirements.
+
+Laptop-mode Caddy configuration must keep the same ask endpoint,
+`http://nixstasis:{$PORT}/api/v1/check_domain`, so dynamic TLS approval remains
+observable. It should use Caddy `tls internal` or Caddy local certificates for the
+reserved `.localhost` hosts instead of public ACME issuance. Generated
+certificates, Caddy state, local keys, DNS tokens, and runtime data must stay out
+of source control.
+
+The development override strategy is:
+
+- Add separate laptop-mode Compose override files rather than mutating
+  `docker-compose.yml` for development behavior.
+- Keep `.env` image references digest-pinned for production examples; use override
+  files for local builds or locally tagged images.
+- Keep Phoenix reachable through Caddy for deployment-shaped validation.
+- Keep the FRPS template contract based on `BASE_DOMAIN`, with `localhost` as the
+  laptop-mode base domain.
+- Document any test-device or SSH target shortcuts as development-only behavior.
+
 ## Pinned artifacts
 
 - `frps` is built from this repo and must use the tracked `FRP_VERSION` from `prod.env`.
