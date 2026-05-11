@@ -74,6 +74,12 @@
 - Bundled PostgreSQL startup requires the Compose `bundled-db` profile.
 - Release image references are pinned in Compose configuration; local development image changes use an additional Compose override file instead of `.env` image-reference inputs.
 - E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
+- Development laptop mode keeps the base Compose file production-shaped and layers
+  local-only behavior through separate override files.
+- Default laptop mode uses `BASE_DOMAIN=localhost` with `nixstasis.localhost`,
+  `auth.localhost`, `frp-admin.localhost`, and `atom-<device-id>.localhost`.
+- Laptop-mode TLS uses Caddy internal/local certificates while preserving the same
+  Phoenix ask endpoint at `GET /api/v1/check_domain`.
 
 Traceable references:
 

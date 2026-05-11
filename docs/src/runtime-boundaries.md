@@ -91,6 +91,9 @@ Traceable references:
 - Caddy proxies wildcard `*.{$BASE_DOMAIN}` traffic to FRPS HTTP vhost port.
 - Caddy proxies `frp-admin.{$BASE_DOMAIN}` to the FRPS dashboard port.
 - Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
+- Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH
+  process boundaries with `localhost` as the base domain and Caddy internal/local
+  certificates for TLS.
 
 Traceable references:
 
@@ -106,6 +109,9 @@ Traceable references:
 - Public host `nixstasis.{$BASE_DOMAIN}` terminates TLS at Caddy and reverse proxies to `nixstasis:4000`.
 - Caddy on-demand TLS asks Phoenix at `http://nixstasis:4000/api/v1/check_domain`.
 - Compose publishes only Caddy ports `80` and `443` for the main HTTP ingress.
+- Default laptop mode maps the same host pattern to `.localhost` names:
+  `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and
+  `atom-<device-id>.localhost`.
 
 Traceable references:
 
