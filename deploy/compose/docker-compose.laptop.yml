@@ -40,7 +40,22 @@ services:
     volumes:
       - postgres-laptop-data:/var/lib/postgresql/data
 
+  laptop-ssh:
+    image: ${LAPTOP_SSH_IMAGE_REF}
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      PASSWORD_ACCESS: "false"
+      USER_NAME: nixstasis
+    ports:
+      - "127.0.0.1:${LAPTOP_SSH_PORT:-2222}:2222"
+    volumes:
+      - laptop-ssh-config:/config
+      - ./.laptop-client/authorized_keys:/config/.ssh/authorized_keys:ro
+    restart: unless-stopped
+
 volumes:
   caddy-laptop-data:
   caddy-laptop-config:
   postgres-laptop-data:
+  laptop-ssh-config:

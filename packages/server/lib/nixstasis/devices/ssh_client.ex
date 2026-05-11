@@ -28,6 +28,10 @@ defmodule Nixstasis.Devices.SshClient do
     end
   end
 
+  def ssh_host(device_mac) when is_binary(device_mac) do
+    "atom-#{normalized_device_id(device_mac)}-ssh"
+  end
+
   @impl true
   def init(opts) do
     device_mac = Keyword.fetch!(opts, :device_mac)
@@ -65,7 +69,7 @@ defmodule Nixstasis.Devices.SshClient do
       "LogLevel=ERROR",
       # Force PTY
       "-tt",
-      "nixstasis@atomicnix-#{device_mac}-ssh"
+      "nixstasis@#{ssh_host(device_mac)}"
     ]
 
     Logger.info("Starting SSH connection to #{device_mac}...")
@@ -128,6 +132,12 @@ defmodule Nixstasis.Devices.SshClient do
       nil -> {:error, %{reason: :missing_executable, executable: executable}}
       path -> {:ok, path}
     end
+  end
+
+  defp normalized_device_id(device_mac) do
+    device_mac
+    |> String.replace(":", "")
+    |> String.downcase()
   end
 
   defp frp_host do

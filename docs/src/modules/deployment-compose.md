@@ -88,6 +88,8 @@
   laptop mode with the laptop Compose override and ignored `laptop.env` file.
 - `deploy/compose/scripts/laptop-client.sh` prepares ignored local Go-client state
   and runs `register` or `poll` against laptop mode without writing to `/etc`.
+- The laptop Compose override includes a development-only `laptop-ssh` service on
+  loopback so browser terminal validation can reach SSH through FRP.
 - Default laptop mode uses `BASE_DOMAIN=localhost` with `nixstasis.localhost`,
   `auth.localhost`, `frp-admin.localhost`, and
   `atom-<normalized-device-id>.localhost`.

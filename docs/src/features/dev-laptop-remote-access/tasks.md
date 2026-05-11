@@ -8,7 +8,7 @@
 - [x] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
 - [x] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
 - [x] T007 Add a local Go-client managed test-device path that registers with the server and connects FRPC to FRPS.
-- [ ] T008 Add an SSH test target reachable through FRP for browser terminal validation.
+- [x] T008 Add an SSH test target reachable through FRP for browser terminal validation.
 - [ ] T009 Add validation that Caddy on-demand TLS calls Phoenix `GET /api/v1/check_domain`.
 - [ ] T010 Add validation that Caddy serves local certificates for the default laptop hostnames.
 - [ ] T011 Add validation that FRPC connects to FRPS with the development configuration.
