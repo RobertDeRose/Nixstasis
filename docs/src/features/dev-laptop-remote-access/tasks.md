@@ -2,11 +2,11 @@
 
 - [x] T000 Confirm feature scope against the reviewed spec before implementation.
 - [x] T001 Inspect current Compose, Caddy, FRPS, server terminal, and client FRP configuration paths.
-- [ ] T002 Implement the default laptop hostname scheme using `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and `atom-<device-id>.localhost`.
+- [x] T002 Implement the default laptop hostname scheme using `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and `atom-<normalized-device-id>.localhost`.
 - [x] T003 Design the local trust model using Caddy internal CA/local certificates.
 - [x] T004 Define the development Compose override strategy without changing production Compose semantics.
-- [ ] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
-- [ ] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
+- [x] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
+- [x] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
 - [ ] T007 Add a local Go-client managed test-device path that registers with the server and connects FRPC to FRPS.
 - [ ] T008 Add an SSH test target reachable through FRP for browser terminal validation.
 - [ ] T009 Add validation that Caddy on-demand TLS calls Phoenix `GET /api/v1/check_domain`.

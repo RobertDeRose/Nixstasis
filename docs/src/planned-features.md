@@ -61,7 +61,7 @@ production-like environment.
 - Should the managed test device run as a local process, a containerized client, or
   both?
 - Which hostnames should be reserved for local testing of `nixstasis`, `auth`,
-  `frp-admin`, and `atom-<device-id>` routes?
+  `frp-admin`, and `atom-<normalized-device-id>` routes?
 - What minimum smoke test must prove UI-launched SSH works: terminal opens only,
   command execution, or full session lifecycle including disconnect/reconnect?
 - Should optional DuckDNS support be implemented directly, documented as a manual
