@@ -3,7 +3,7 @@ services:
     image: ${NIXSTASIS_SERVER_IMAGE_REF}
     build:
       context: ../../packages
-      dockerfile: ../../packages/server/Dockerfile
+      dockerfile: server/Dockerfile
     env_file:
       - .env
     environment:
@@ -15,7 +15,7 @@ services:
     image: ${NIXSTASIS_CADDY_IMAGE_REF}
     build:
       context: ../../packages/caddy
-      dockerfile: ../../packages/caddy/Dockerfile
+      dockerfile: Dockerfile
     env_file:
       - .env
     ports:
@@ -34,7 +34,7 @@ services:
     image: ${NIXSTASIS_FRPS_IMAGE_REF}
     build:
       context: ../../packages/frp
-      dockerfile: ../../packages/frp/Dockerfile
+      dockerfile: Dockerfile
     command:
       - /bin/sh
       - -c
