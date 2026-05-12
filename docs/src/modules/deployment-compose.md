@@ -21,6 +21,7 @@
 - `deploy/compose/laptop.env.example`
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `deploy/compose/scripts/laptop.sh`
+- `deploy/compose/scripts/laptop-client.sh`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/render_compose.sh`
 - `deploy/compose/scripts/validate_stack.sh`
@@ -85,6 +86,8 @@
   templates.
 - `deploy/compose/scripts/laptop.sh` validates, starts, and stops default
   laptop mode with the laptop Compose override and ignored `laptop.env` file.
+- `deploy/compose/scripts/laptop-client.sh` prepares ignored local Go-client state
+  and runs `register` or `poll` against laptop mode without writing to `/etc`.
 - Default laptop mode uses `BASE_DOMAIN=localhost` with `nixstasis.localhost`,
   `auth.localhost`, `frp-admin.localhost`, and
   `atom-<normalized-device-id>.localhost`.
