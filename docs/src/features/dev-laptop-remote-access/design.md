@@ -67,9 +67,20 @@ normal development.
 
 ## Proposed Design
 
+### One-Command Dev Lab
+
+The fastest local path is a single-command dev lab (`dev-lab.sh up --devices N`)
+that starts the server stack and seeds N pre-approved virtual devices via release
+RPC. Virtual devices are seeded idempotently by MAC address and bypass
+registration, polling, and FRPC entirely. This path validates server UI, database,
+and API behavior but does not exercise the Go client or FRP tunnel path. The dev
+lab auto-generates a `laptop.env` with hardcoded development defaults (no
+placeholder secrets), uses `NIXSTASIS_FORCE_SSL=false`, and layers three Compose
+files: base, laptop overlay, and dev-lab overlay (tag-only Postgres image).
+
 ### Default Laptop Mode
 
-Default laptop mode should be local-first and deterministic:
+Default laptop mode is local-first and deterministic:
 
 - Use a development Compose override file for local-only settings.
 - Run Phoenix, Caddy, FRPS, and PostgreSQL using the existing Compose shape plus
@@ -81,6 +92,8 @@ Default laptop mode should be local-first and deterministic:
 - Run a test device using the Go client where practical, with explicit constraints
   for any simulation-only fallback.
 - Run an SSH test target reachable only through FRP.
+- Set `NIXSTASIS_FORCE_SSL=false` so Phoenix does not enforce SSL redirects in
+  local mode.
 
 ### Optional Public-Fidelity Mode
 
@@ -116,13 +129,24 @@ same registration and FRPC boundaries. Simulation-only fallbacks are acceptable
 only when documented as lower fidelity and must not be the default terminal
 validation path.
 
+### TLS Observation Diagnostics
+
+A development-only TLS observation system records Caddy ask calls in an
+ETS-backed GenServer (`Nixstasis.TLSObservations`). Observations are exposed via
+`/_nixstasis/laptop/tls_observations` (GET to list, DELETE to clear) and gated by
+`NIXSTASIS_TLS_OBSERVATIONS_ENABLED` (routed through `runtime.exs` into app
+config) and `NIXSTASIS_TLS_OBSERVATIONS_TOKEN`. The observation store is capped at
+50 entries and is not persisted. Validation scripts use this endpoint to
+programmatically confirm Caddy reached Phoenix for domain approval.
+
 ### Terminal Smoke Coverage
 
 The minimum terminal smoke test must launch the terminal from `/devices/:id`, run a
 harmless command such as `whoami` or `printf nixstasis-smoke`, close the session,
-and reopen a terminal for the same test device. This proves command execution and
-basic session lifecycle behavior without expanding the feature into exhaustive
-terminal resilience testing.
+and reopen a terminal for the same test device. This is implemented as an ExUnit
+LiveView integration test using a fake SSH client, covering command execution and
+session lifecycle behavior without requiring a running FRP tunnel or browser
+automation.
 
 ### Public-Fidelity Guidance
 
@@ -145,12 +169,23 @@ there is a concrete implementation need beyond documenting validation steps.
 ## Dependencies
 
 - `deploy/compose/docker-compose.yml`
+- `deploy/compose/docker-compose.laptop.yml`
+- `deploy/compose/docker-compose.dev-lab.yml`
 - `deploy/compose/caddy/Caddyfile`
+- `deploy/compose/caddy/Caddyfile.laptop`
 - `deploy/compose/frps/frps.toml`
+- `deploy/compose/laptop.env.example`
+- `deploy/compose/scripts/dev-lab.sh`
+- `deploy/compose/scripts/laptop.sh`
+- `deploy/compose/scripts/laptop-client.sh`
+- `deploy/compose/scripts/laptop-terminal-checklist.sh`
 - `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`
+- `packages/server/lib/nixstasis/tls_observations.ex`
+- `packages/server/lib/nixstasis/deployment.ex`
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex`
 - `packages/client/internal/frp/manager.go`
+- `packages/client/internal/config/config.go`
 - `packages/client/cmd/nixstasis/register.go`
 - `packages/client/cmd/nixstasis/poll.go`
 
@@ -171,7 +206,9 @@ there is a concrete implementation need beyond documenting validation steps.
 - Local smoke test confirming Caddy serves local certificates through default
   laptop hostnames.
 - Local smoke test confirming FRPC connects to FRPS using development config.
-- Browser/UI or E2E journey that launches a terminal and runs a harmless command
-  through SSH.
+- ExUnit LiveView integration test that launches a terminal and runs a harmless
+  command through a fake SSH client.
+- Dev-lab one-command flow seeding virtual devices and confirming server UI
+  accessibility.
 - Optional DuckDNS or real-domain validation that documents certificate issuance,
   DNS challenge behavior, and expected failure modes.

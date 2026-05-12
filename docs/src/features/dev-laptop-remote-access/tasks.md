@@ -7,12 +7,13 @@
 - [x] T004 Define the development Compose override strategy without changing production Compose semantics.
 - [x] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
 - [x] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
+- [x] T006a Add a one-command dev lab flow that starts the server and seeds virtual devices.
 - [x] T007 Add a local Go-client managed test-device path that registers with the server and connects FRPC to FRPS.
 - [x] T008 Add an SSH test target reachable through FRP for browser terminal validation.
 - [x] T009 Add validation that Caddy on-demand TLS calls Phoenix `GET /api/v1/check_domain`.
 - [x] T010 Add validation that Caddy serves local certificates for the default laptop hostnames.
 - [x] T011 Add validation that FRPC connects to FRPS with the development configuration.
-- [x] T012 Add a browser/UI or E2E journey that launches a terminal, runs a harmless SSH command, closes it, and reopens it.
+- [x] T012 Add an ExUnit LiveView integration test that launches a terminal, runs a command via fake SSH client, closes it, and reopens it.
 - [x] T013 Document optional DuckDNS public-fidelity validation, including DNS challenge behavior and secrets handling.
 - [x] T014 Document optional real-domain public-fidelity validation for operators with DNS provider access.
 - [x] T015 Update developer-facing docs to distinguish default laptop mode from production Compose.
