@@ -153,6 +153,70 @@ The development override strategy is:
   laptop-mode base domain.
 - Document any test-device or SSH target shortcuts as development-only behavior.
 
+## Optional Public-Fidelity Validation
+
+Default laptop mode is local-only. Use public-fidelity validation only when you
+need to prove public DNS and publicly trusted certificate issuance.
+
+DuckDNS path:
+
+1. Create a DuckDNS hostname and configure DNS updates outside this repository.
+2. Store DuckDNS tokens outside source control, such as in an untracked env file or
+   password manager.
+3. Confirm the selected DuckDNS name can satisfy the Nixstasis hostname contract:
+   `nixstasis.<base-domain>`, `auth.<base-domain>`, `frp-admin.<base-domain>`,
+   and wildcard device hosts such as `atom-<normalized-device-id>.<base-domain>`.
+4. Add DNS records so those names resolve to the public Caddy ingress. If DuckDNS
+   cannot provide the needed wildcard or delegated records for your chosen base
+   domain, use a real DNS provider instead.
+5. Use a Caddy build that includes a DuckDNS-compatible DNS-01 module and configure
+   DNS provider credentials only through untracked local env files, shell secrets,
+   or a secret manager.
+6. Set `BASE_DOMAIN` to the DuckDNS domain and use DNS challenge-capable Caddy
+   configuration only for the public-fidelity run.
+7. Expect DNS propagation delays and DuckDNS service availability to affect the
+   result.
+
+Real-domain path:
+
+1. Use an operator-owned domain and DNS provider credentials controlled by the
+   operator.
+2. Create or delegate records for `nixstasis.<base-domain>`,
+   `auth.<base-domain>`, `frp-admin.<base-domain>`, and wildcard device hosts
+   under `<base-domain>` so device hosts reach Caddy.
+3. Use a Caddy image that includes the DNS provider module required for DNS-01
+   ACME challenges.
+4. Keep provider API tokens out of source control and CI logs. Prefer short-lived
+   credentials or scoped tokens that can edit only the validation zone.
+5. Validate public ACME issuance separately from default laptop mode.
+6. Return to `BASE_DOMAIN=localhost` and Caddy internal certificates for normal
+   development.
+
+Tunnel providers such as ngrok or localtunnel can demonstrate reachability, but do
+not use them as the default TLS validation path because they can terminate TLS
+before Caddy and hide Caddy-owned certificate behavior.
+
+## Laptop Troubleshooting
+
+- If `.localhost` names fail, confirm the browser resolves them to loopback and no
+  proxy/VPN rewrites local hostnames.
+- If `laptop.sh validate` fails on ports, check for existing services bound to
+  `127.0.0.1:80`, `127.0.0.1:443`, `127.0.0.1:4000`, or the FRPS ports.
+- If `validate-tls` fails after config changes, restart the laptop stack or remove
+  the laptop Caddy volume so cached local certificates do not mask changes.
+- If FRPC validation fails, confirm `NIXSTASIS_FRPC_BINARY_PATH` points to a local
+  `frpc` binary compatible with the server-side FRPS version.
+- If browser terminal auth fails, rerun `laptop-client.sh prepare` before stack
+  startup and verify `.laptop-client/authorized_keys` exists.
+- On macOS, Docker Desktop and Apple Container differ in loopback and filesystem
+  mount behavior; prefer Docker Compose for the laptop workflow until Apple
+  Container behavior is explicitly validated.
+- On Linux, ensure user permissions allow reading files under
+  `deploy/compose/.laptop-client` and binding loopback ports below 1024 if running
+  without Docker privileges.
+- With Podman, verify Compose override tags such as `!override` and loopback port
+  bindings render as expected before startup.
+
 ## Pinned artifacts
 
 - `frps` is built from this repo and must use the tracked `FRP_VERSION` from `prod.env`.
@@ -198,6 +262,8 @@ becomes optional for that deployment.
   stack and approval of the registered device in the UI.
 - Run `NIXSTASIS_FRPC_BINARY_PATH=/path/to/frpc deploy/compose/scripts/laptop-client.sh validate-frpc`
   after startup to verify FRPC can connect to laptop FRPS.
+- Run `deploy/compose/scripts/laptop-terminal-checklist.sh` to print the manual
+  browser terminal checklist used during clean-state validation.
 
 ## Validation
 
