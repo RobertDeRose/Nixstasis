@@ -75,6 +75,23 @@ The tracked helper script wraps the same Compose file set:
   laptop stack.
 - `deploy/compose/scripts/laptop.sh stop` stops the laptop stack.
 
+After the stack is running, `deploy/compose/scripts/laptop-client.sh` prepares an
+ignored local client state directory and runs the Go client against laptop mode:
+
+- `deploy/compose/scripts/laptop-client.sh prepare` writes local `config.yaml` and
+  `frpc.toml` under `deploy/compose/.laptop-client`.
+- `deploy/compose/scripts/laptop-client.sh register` runs `go run ./cmd/nixstasis
+  register` with the laptop config and identity path.
+- `deploy/compose/scripts/laptop-client.sh poll` runs the polling loop with the
+  laptop FRPC template. Set `NIXSTASIS_FRPC_BINARY_PATH` if `frpc` is not
+  installed at the package default path.
+
+The registration path requires the laptop stack to be running and reachable at
+`https://nixstasis.localhost`. The first registration may remain pending until the
+device is approved in the UI; run `register` again after approval so the client can
+persist its issued API token. The `poll` command then uses that token and starts
+FRPC when the UI requests remote access for the device.
+
 Default laptop mode reserves these local hostnames:
 
 - `nixstasis.localhost` for the Phoenix app through Caddy.
@@ -146,6 +163,9 @@ becomes optional for that deployment.
   contract stays aligned across Compose assets, package examples, and docs.
 - Run `deploy/compose/scripts/laptop.sh validate` to verify default laptop-mode
   templates and local environment wiring.
+- Run `deploy/compose/scripts/laptop-client.sh prepare` to verify local client
+  template generation. Registration and FRPC polling require a running laptop
+  stack and approval of the registered device in the UI.
 
 ## Validation
 
