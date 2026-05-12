@@ -19,11 +19,11 @@ fail() {
 
 usage() {
   cat >&2 <<'EOF'
-usage: deploy/compose/scripts/laptop-client.sh <prepare|register|poll> [client args...]
+usage: deploy/compose/scripts/laptop-client.sh <prepare|register|poll|validate-frpc> [client args...]
 
 Environment:
   NIXSTASIS_LAPTOP_CLIENT_STATE_DIR  Defaults to deploy/compose/.laptop-client.
-  NIXSTASIS_FRPC_BINARY_PATH         Optional path to a local frpc binary.
+  NIXSTASIS_FRPC_BINARY_PATH         Optional for poll, required for validate-frpc.
 
 Run deploy/compose/scripts/laptop.sh validate before starting the laptop client.
 EOF
@@ -154,6 +154,76 @@ run_client() {
     go run ./cmd/nixstasis "$subcommand" "$@"
 }
 
+validate_frpc() {
+  prepare
+
+  if [ -z "$FRPC_BINARY" ]; then
+    fail "NIXSTASIS_FRPC_BINARY_PATH is required for FRPC validation"
+  fi
+
+  require_file "$FRPC_BINARY"
+
+  rendered_config=$(mktemp "$STATE_DIR/frpc-rendered.XXXXXX.toml")
+  frpc_log=$(mktemp "$STATE_DIR/frpc.XXXXXX.log")
+  frpc_pid=""
+cleanup_frpc_validation() {
+    if [ -n "$frpc_pid" ] && kill -0 "$frpc_pid" >/dev/null 2>&1; then
+      kill "$frpc_pid" >/dev/null 2>&1 || true
+
+      i=0
+      while kill -0 "$frpc_pid" >/dev/null 2>&1 && [ "$i" -lt 10 ]; do
+        sleep 1
+        i=$((i + 1))
+      done
+
+      if kill -0 "$frpc_pid" >/dev/null 2>&1; then
+        kill -KILL "$frpc_pid" >/dev/null 2>&1 || true
+      fi
+
+      wait "$frpc_pid" 2>/dev/null || true
+    fi
+
+    rm -f "$rendered_config" "$frpc_log"
+  }
+  trap cleanup_frpc_validation EXIT HUP INT TERM
+
+  name="atom-laptopvalidate"
+  FRPS_AUTH_TOKEN="$(env_value FRPS_AUTH_TOKEN)" NAME="$name" perl -0pe '
+    sub toml_escape {
+      my ($value) = @_;
+      $value =~ s/\\/\\\\/g;
+      $value =~ s/"/\\"/g;
+      return $value;
+    }
+
+    s/\{\{ \.Envs\.FRPS_AUTH_TOKEN \}\}/toml_escape($ENV{FRPS_AUTH_TOKEN})/ge;
+    s/\{\{ \.Envs\.NAME \}\}/toml_escape($ENV{NAME})/ge;
+  ' "$FRPC_CONFIG_FILE" > "$rendered_config"
+  chmod 600 "$rendered_config"
+
+  "$FRPC_BINARY" -c "$rendered_config" >"$frpc_log" 2>&1 &
+  frpc_pid=$!
+
+  sleep 5
+
+  if ! kill -0 "$frpc_pid" >/dev/null 2>&1; then
+    cat "$frpc_log" >&2
+    fail "frpc exited before connectivity could be validated"
+  fi
+
+  kill "$frpc_pid" >/dev/null 2>&1 || true
+  wait "$frpc_pid" 2>/dev/null || true
+
+  if grep -Eiq 'login to server success|start proxy success|proxy added|client login info' "$frpc_log"; then
+    trap - EXIT HUP INT TERM
+    cleanup_frpc_validation
+    echo "laptop FRPC validation passed"
+  else
+    cat "$frpc_log" >&2
+    fail "frpc did not report a successful connection"
+  fi
+}
+
 command_name="${1:-}"
 
 if [ -z "$command_name" ]; then
@@ -172,6 +242,9 @@ case "$command_name" in
     ;;
   poll)
     run_client poll "$@"
+    ;;
+  validate-frpc)
+    validate_frpc
     ;;
   *)
     usage

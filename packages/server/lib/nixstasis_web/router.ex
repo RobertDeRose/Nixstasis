@@ -74,6 +74,13 @@ defmodule NixstasisWeb.Router do
     get("/check_domain", TLSController, :check_domain)
   end
 
+  scope "/_nixstasis/laptop", NixstasisWeb do
+    pipe_through(:api)
+
+    get("/tls_observations", TLSController, :observations)
+    delete("/tls_observations", TLSController, :clear_observations)
+  end
+
   scope "/e2e", NixstasisWeb do
     pipe_through(:e2e_api)
 

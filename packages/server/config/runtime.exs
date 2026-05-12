@@ -60,16 +60,16 @@ if config_env() == :prod do
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain
   config :nixstasis, :e2e_enabled?, Deployment.enabled?("NIXSTASIS_E2E_ENABLED", false)
+  config :nixstasis, :tls_observations_enabled, Deployment.enabled?("NIXSTASIS_TLS_OBSERVATIONS_ENABLED", false)
 
   config :nixstasis, :deployment,
     base_domain: base_domain,
     phoenix_host: host,
     phoenix_port: port
 
-  config :nixstasis, NixstasisWeb.Endpoint,
+  endpoint_config = [
     url: [host: host, port: 443, scheme: "https"],
     check_origin: ["//#{host}"],
-    force_ssl: [hsts: true, rewrite_on: [:x_forwarded_proto]],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -79,6 +79,16 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base
+  ]
+
+  endpoint_config =
+    if Deployment.strict_boolean_env!("NIXSTASIS_FORCE_SSL", true) do
+      Keyword.put(endpoint_config, :force_ssl, hsts: true, rewrite_on: [:x_forwarded_proto])
+    else
+      endpoint_config
+    end
+
+  config :nixstasis, NixstasisWeb.Endpoint, endpoint_config
 
   # ## SSL Support
   #
