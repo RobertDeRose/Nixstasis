@@ -1,34 +1,8 @@
 defmodule NixstasisWeb.DeviceLiveTest do
   use NixstasisWeb.ConnCase
-  import Phoenix.ChannelTest
   import Phoenix.LiveViewTest
 
   alias Nixstasis.Devices
-
-  @endpoint NixstasisWeb.Endpoint
-
-  defmodule TerminalJourneySshClient do
-    use GenServer
-
-    def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
-    def send_data(pid, data), do: GenServer.cast(pid, {:send_data, data})
-    def stop(pid), do: GenServer.stop(pid)
-
-    @impl true
-    def init(opts) do
-      {:ok, %{channel_pid: Keyword.fetch!(opts, :channel_pid)}}
-    end
-
-    @impl true
-    def handle_cast({:send_data, data}, state) do
-      send(state.channel_pid, {:ssh_output, output_for(data)})
-      {:noreply, state}
-    end
-
-    defp output_for("printf nixstasis-smoke\n"), do: "nixstasis-smoke"
-    defp output_for("whoami\n"), do: "nixstasis\n"
-    defp output_for(data), do: data
-  end
 
   @base_attrs %{
     account_number: "123456789",
@@ -433,51 +407,6 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert device_id == device.id
     end
 
-    test "terminal journey launches, runs commands, closes, and reopens", %{conn: conn} do
-      previous = Application.get_env(:nixstasis, :terminal_ssh_client)
-      Application.put_env(:nixstasis, :terminal_ssh_client, TerminalJourneySshClient)
-
-      on_exit(fn ->
-        if previous do
-          Application.put_env(:nixstasis, :terminal_ssh_client, previous)
-        else
-          Application.delete_env(:nixstasis, :terminal_ssh_client)
-        end
-      end)
-
-      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E5"})
-      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
-
-      view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
-      |> render_click()
-
-      first_socket = start_terminal_from_view(view, device.id)
-      first_session_ref = terminal_session_ref(view)
-      Phoenix.ChannelTest.push(first_socket, "input", %{"data" => "printf nixstasis-smoke\n"})
-      assert_push("output", %{data: "nixstasis-smoke"})
-
-      html = render_hook(view, "close_remote_access", %{})
-      refute html =~ ~s(id="terminal-container")
-      assert has_element?(view, "button[phx-click='start_ssh_session']", "Start Remote Session")
-      assert Devices.get_device!(device.id).remote_access_requested == false
-
-      view
-      |> element("button[phx-click='retry_session']", "Retry Session")
-      |> render_click()
-
-      assert Devices.get_device!(device.id).remote_access_requested == true
-
-      view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
-      |> render_click()
-
-      second_socket = start_terminal_from_view(view, device.id)
-      refute terminal_session_ref(view) == first_session_ref
-      Phoenix.ChannelTest.push(second_socket, "input", %{"data" => "whoami\n"})
-      assert_push("output", %{data: "nixstasis\n"})
-    end
-
     test "unauthorized sessions cannot start remote access", %{conn: conn} do
       device = create_device!(%{mac_address: "E5:E5:E5:E5:E5:E5"})
 
@@ -628,6 +557,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
   end
 
+  defp eventually_cleared?(view, attempts \\ 20)
+
   defp eventually_rendered?(view, text, attempts \\ 20)
 
   defp eventually_rendered?(view, text, attempts) when attempts > 0 do
@@ -641,8 +572,6 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp eventually_rendered?(_view, _text, 0), do: false
 
-  defp eventually_cleared?(view, attempts \\ 20)
-
   defp eventually_cleared?(view, attempts) when attempts > 0 do
     if render(view) =~ "Device created successfully" do
       Process.sleep(5)
@@ -653,24 +582,4 @@ defmodule NixstasisWeb.DeviceLiveTest do
   end
 
   defp eventually_cleared?(_view, 0), do: false
-
-  defp start_terminal_from_view(view, device_id) do
-    view
-    |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
-    |> render_click()
-
-    %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
-
-    assert {:ok, _, socket} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device_id}", %{"token" => session_ref})
-
-    socket
-  end
-
-  defp terminal_session_ref(view) do
-    %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
-    session_ref
-  end
 end

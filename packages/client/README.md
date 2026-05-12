@@ -127,12 +127,6 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
-For development laptop remote-access validation, use the Compose helper at
-`deploy/compose/scripts/laptop-client.sh` from the repository root. It prepares an
-ignored local client state directory, runs the real `register` and `poll` commands
-with unprivileged path overrides, and can validate FRPC connectivity when
-`NIXSTASIS_FRPC_BINARY_PATH` points at a local `frpc` binary.
-
 ## Packaging
 
 GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs.
