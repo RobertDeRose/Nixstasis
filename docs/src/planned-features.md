@@ -56,22 +56,22 @@ production-like environment.
 - Keep production Compose docs and development-laptop docs explicitly separated so
   test affordances do not become accidental production guidance.
 
-## Open Questions
+## Resolved Questions
 
-- Should the managed test device run as a local process, a containerized client, or
-  both?
-- Which hostnames should be reserved for local testing of `nixstasis`, `auth`,
-  `frp-admin`, and `atom-<normalized-device-id>` routes?
-- What minimum smoke test must prove UI-launched SSH works: terminal opens only,
-  command execution, or full session lifecycle including disconnect/reconnect?
-- Should optional DuckDNS support be implemented directly, documented as a manual
-  setup path, or generalized behind a DNS-provider interface for real domains?
+- The managed test device runs as a containerized client with systemd, sshd, frpc,
+  and the Go client binary — matching real device lifecycle.
+- Reserved local hostnames: `nixstasis.localhost`, `auth.localhost`,
+  `frp-admin.localhost`, and `atom-<normalized-device-id>.localhost`.
+- Terminal smoke test covers session open, command execution, session close, and
+  reopen via ExUnit LiveView integration test with a fake SSH client.
+- DuckDNS support is documented as optional manual setup guidance; no DNS-provider
+  abstraction was added.
 
 ## Feature Map
 
 ### `dev-laptop-remote-access`
 
-- Status: planned
+- Status: delivered
 - Overview:
   - Create a default development-laptop workflow that can run the server-side stack,
     register or simulate a managed client, validate Caddy dynamic TLS approval with

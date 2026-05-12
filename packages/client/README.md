@@ -127,11 +127,11 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
-For development laptop remote-access validation, use the Compose helper at
-`deploy/compose/scripts/laptop-client.sh` from the repository root. It prepares an
-ignored local client state directory, runs the real `register` and `poll` commands
-with unprivileged path overrides, and can validate FRPC connectivity when
-`NIXSTASIS_FRPC_BINARY_PATH` points at a local `frpc` binary.
+For development laptop remote-access validation, use the dev-lab script at
+`deploy/compose/scripts/dev-lab.sh` from the repository root. It starts the full
+stack including a containerized client that runs the real Go client binary with
+systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
+with `--clients N`.
 
 ## Packaging
 
