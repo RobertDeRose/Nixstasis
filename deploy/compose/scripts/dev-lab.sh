@@ -107,23 +107,23 @@ run_migrations() {
 seed_devices() {
   count="$1"
 
-  compose exec -T nixstasis /app/bin/nixstasis rpc "
+  rpc_code=$(cat <<ELIXIR_EOF
 count = $count
 
 for index <- 1..count do
-  suffix = Integer.to_string(index) |> String.pad_leading(2, \"0\")
-  mac_address = \"02:00:00:00:00:\#{suffix}\"
+  suffix = Integer.to_string(index) |> String.pad_leading(2, "0")
+  mac_address = "02:00:00:00:00:" <> suffix
 
   attrs = %{
     mac_address: mac_address,
-    account_number: \"9000000\#{suffix}\",
-    product_name: \"Virtual Device \#{suffix}\",
+    account_number: "9000000" <> suffix,
+    product_name: "Virtual Device " <> suffix,
     approval_status: :approved,
     last_seen_at: DateTime.utc_now(),
-    ipv4_address: \"10.88.0.\#{index}\",
+    ipv4_address: "10.88.0.#{index}",
     metadata: %{
-      \"dev_lab\" => true,
-      \"virtual_index\" => index
+      "dev_lab" => true,
+      "virtual_index" => index
     }
   }
 
@@ -135,10 +135,13 @@ for index <- 1..count do
 
   case result do
     {:ok, _device} -> :ok
-    {:error, reason} -> raise \"failed to seed virtual device \#{index}: \#{inspect(reason)}\"
+    {:error, reason} -> raise "failed to seed virtual device #{index}: #{inspect(reason)}"
   end
 end
-"
+ELIXIR_EOF
+  )
+
+  compose exec -T nixstasis /app/bin/nixstasis rpc "$rpc_code"
 }
 
 up() {

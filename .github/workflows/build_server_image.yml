@@ -57,7 +57,7 @@ jobs:
           file: packages/server/Dockerfile
           build-args: |
             ELIXIR_BUILDER_IMAGE_DIGEST=${{ env.ELIXIR_BUILDER_IMAGE_DIGEST }}
-            DEBIAN_RUNNER_IMAGE_DIGEST=${{ env.DEBIAN_RUNNER_IMAGE_DIGEST }}
+            UBUNTU_RUNNER_VERSION=${{ env.UBUNTU_RUNNER_VERSION }}
           push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
