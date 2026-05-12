@@ -1,3 +1,0 @@
-services:
-  postgres:
-    image: docker.io/postgres:${POSTGRES_VERSION:-17-alpine}
