@@ -31,4 +31,8 @@ defmodule Nixstasis.Devices.SshClientTest do
                proxy_executable: "sh"
              )
   end
+
+  test "ssh_host uses atom normalized device SSH host" do
+    assert SshClient.ssh_host("AA:BB:CC:DD:EE:FF") == "atom-aabbccddeeff-ssh"
+  end
 end
