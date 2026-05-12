@@ -115,6 +115,9 @@ Traceable references:
 - Default laptop mode maps the same host pattern to `.localhost` names:
   `nixstasis.localhost`, `auth.localhost`, `frp-admin.localhost`, and
   `atom-<normalized-device-id>.localhost`.
+- Laptop mode also publishes Phoenix on `127.0.0.1:4000` for local-only
+  validation diagnostics; deployment-shaped browser access still goes through
+  Caddy.
 
 Traceable references:
 
