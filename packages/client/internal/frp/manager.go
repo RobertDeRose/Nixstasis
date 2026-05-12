@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -145,8 +144,20 @@ func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error)
 		return "", fmt.Errorf("frpc config contains unresolved template placeholders")
 	}
 
-	path := filepath.Join(os.TempDir(), fmt.Sprintf("nixstasis-frpc-%d.toml", time.Now().UnixNano()))
-	if err := os.WriteFile(path, []byte(rendered), 0o600); err != nil {
+	file, err := os.CreateTemp(os.TempDir(), "nixstasis-frpc-*.toml")
+	if err != nil {
+		return "", fmt.Errorf("failed to create rendered frpc config: %w", err)
+	}
+	path := file.Name()
+	defer file.Close()
+
+	if err := file.Chmod(0o600); err != nil {
+		_ = os.Remove(path)
+		return "", fmt.Errorf("failed to secure rendered frpc config: %w", err)
+	}
+
+	if _, err := file.WriteString(rendered); err != nil {
+		_ = os.Remove(path)
 		return "", fmt.Errorf("failed to write rendered frpc config: %w", err)
 	}
 
