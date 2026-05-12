@@ -4,11 +4,8 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
 COMPOSE_DIR="$ROOT_DIR/deploy/compose"
-BASE_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
-LAPTOP_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.laptop.yml"
-DEV_LAB_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.dev-lab.yml"
-ENV_FILE="$COMPOSE_DIR/laptop.env"
-STATE_DIR="$COMPOSE_DIR/.laptop-client"
+COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
+ENV_FILE="$COMPOSE_DIR/dev.env"
 
 fail() {
   echo "$1" >&2
@@ -17,73 +14,29 @@ fail() {
 
 usage() {
   cat >&2 <<'EOF'
-usage: deploy/compose/scripts/dev-lab.sh up [--devices N]
+usage: deploy/compose/scripts/dev-lab.sh up [--devices N] [--clients N]
        deploy/compose/scripts/dev-lab.sh down
+       deploy/compose/scripts/dev-lab.sh <compose-cmd> [args...]
 
-Starts a local server lab and seeds approved virtual devices for UI testing.
+Starts a local dev lab with the server, database, caddy, frps, and client
+containers. Seeds virtual devices for UI testing.
+
+Any unrecognized command is forwarded to docker compose with the correct
+project name, compose file, and env file already set.
+
+Examples:
+  deploy/compose/scripts/dev-lab.sh logs -f nixstasis
+  deploy/compose/scripts/dev-lab.sh ps
+  deploy/compose/scripts/dev-lab.sh exec nixstasis /bin/bash
 EOF
 }
 
 compose() {
   docker compose \
     --project-name nixstasis-dev-lab \
-    -f "$BASE_COMPOSE_FILE" \
-    -f "$LAPTOP_COMPOSE_FILE" \
-    -f "$DEV_LAB_COMPOSE_FILE" \
-    --profile bundled-db \
+    -f "$COMPOSE_FILE" \
     --env-file "$ENV_FILE" \
     "$@"
-}
-
-ensure_env() {
-  if [ -f "$ENV_FILE" ]; then
-    return
-  fi
-
-  umask 077
-  cat > "$ENV_FILE" <<'EOF'
-DATABASE_URL=ecto://postgres:postgres@postgres/nixstasis
-SECRET_KEY_BASE=dev-lab-secret-key-base-dev-lab-secret-key-base-dev-lab-secret-key-base
-PHX_HOST=nixstasis.localhost
-PORT=4000
-BASE_DOMAIN=localhost
-NIXSTASIS_TLS_OBSERVATIONS_ENABLED=true
-NIXSTASIS_TLS_OBSERVATIONS_TOKEN=dev-lab-tls-observations-token
-NIXSTASIS_FORCE_SSL=false
-ACME_EMAIL=dev-null@nixstasis.localhost
-CLIENT_ID=dev-lab-client-id
-CLIENT_SECRET=dev-lab-client-secret
-TENANT_ID=dev-lab-tenant-id
-JWT_KEY=dev-lab-jwt-key
-AUTHORIZED_ROLES=nixstasis-operator
-AUTHORIZED_GROUPS=dev-lab-operators
-FRPS_BIND_PORT=7000
-FRPS_AUTH_TOKEN=dev-lab-frps-token
-FRPS_HTTP_PORT=8080
-FRPS_DASHBOARD_PORT=8081
-FRPS_DASHBOARD_USER=admin
-FRPS_DASHBOARD_PASSWORD=dev-lab-frps-dashboard-password
-FRPS_TCPMUX_PORT=2022
-LAPTOP_SSH_PORT=2222
-LAPTOP_SSH_IMAGE_REF=lscr.io/linuxserver/openssh-server:version-9.9_p2-r0
-POSTGRES_VERSION=17-alpine
-POSTGRES_IMAGE_DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
-POSTGRES_DB=nixstasis
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-NIXSTASIS_SERVER_IMAGE_REF=nixstasis-server:laptop
-NIXSTASIS_CADDY_IMAGE_REF=nixstasis-caddy:laptop
-NIXSTASIS_FRPS_IMAGE_REF=nixstasis-frps:laptop
-EOF
-  echo "created $ENV_FILE with local dev-lab defaults"
-}
-
-ensure_client_state() {
-  umask 077
-  mkdir -p "$STATE_DIR"
-  touch "$STATE_DIR/authorized_keys"
-  chmod 700 "$STATE_DIR"
-  chmod 600 "$STATE_DIR/authorized_keys"
 }
 
 wait_for_server() {
@@ -146,14 +99,14 @@ ELIXIR_EOF
 
 up() {
   devices="$1"
+  clients="$2"
 
   command -v docker >/dev/null 2>&1 || fail "docker is required for dev lab"
-  ensure_env
-  ensure_client_state
+  [ -f "$ENV_FILE" ] || fail "missing env file: $ENV_FILE"
 
   compose up -d --build postgres
   run_migrations
-  compose up -d --build
+  compose up -d --build --scale client="$clients"
   wait_for_server
   seed_devices "$devices"
 
@@ -163,6 +116,7 @@ dev lab is ready
 UI:      http://127.0.0.1:4000
 HTTPS:   https://nixstasis.localhost
 Devices: $devices virtual approved device(s)
+Clients: $clients client container(s)
 
 Stop it with:
   deploy/compose/scripts/dev-lab.sh down
@@ -170,7 +124,6 @@ EOF
 }
 
 down() {
-  ensure_env
   compose down
 }
 
@@ -180,6 +133,7 @@ shift || true
 case "$command_name" in
   up)
     devices=3
+    clients=1
 
     while [ "$#" -gt 0 ]; do
       case "$1" in
@@ -190,6 +144,14 @@ case "$command_name" in
           ;;
         --devices=*)
           devices="${1#--devices=}"
+          ;;
+        --clients)
+          shift
+          clients="${1:-}"
+          [ -n "$clients" ] || fail "--clients requires a value"
+          ;;
+        --clients=*)
+          clients="${1#--clients=}"
           ;;
         *)
           usage
@@ -204,13 +166,20 @@ case "$command_name" in
       0) fail "--devices must be greater than zero" ;;
     esac
 
-    up "$devices"
+    case "$clients" in
+      ''|*[!0-9]*) fail "--clients must be a non-negative integer" ;;
+    esac
+
+    up "$devices" "$clients"
     ;;
   down)
     down
     ;;
-  *)
+  "")
     usage
     exit 2
+    ;;
+  *)
+    compose "$command_name" "$@"
     ;;
 esac
