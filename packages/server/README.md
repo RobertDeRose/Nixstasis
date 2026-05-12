@@ -52,6 +52,11 @@ The underlying helper task is `mix db.ensure`.
 - The abandoned Debian packaging path is not part of the supported deployment
   surface for this feature.
 
+For development laptop remote-access validation, use the local-only Compose
+helpers under `deploy/compose/scripts`. Laptop mode keeps browser access through
+Caddy, publishes Phoenix on loopback only for token-protected diagnostics, and
+uses Caddy internal certificates instead of public ACME issuance.
+
 ### LiveDebugger (optional)
 
 LiveDebugger is disabled by default to keep dev startup fast.
@@ -97,6 +102,9 @@ your local database before continuing.
 - Canonical TLS approval path: `GET /api/v1/check_domain`
 - Reserved public hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
   and `frp-admin.<base-domain>`
+- Laptop diagnostics: `NIXSTASIS_TLS_OBSERVATIONS_ENABLED=true` and
+  `NIXSTASIS_TLS_OBSERVATIONS_TOKEN` enable token-protected TLS ask observations
+  for local validation only.
 
 ## Rewrite Status
 

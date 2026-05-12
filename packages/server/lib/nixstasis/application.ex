@@ -19,6 +19,7 @@ defmodule Nixstasis.Application do
           # Start a worker by calling: Nixstasis.Worker.start_link(arg)
           # {Nixstasis.Worker, arg},
           Nixstasis.Monitoring.OfflineChecker,
+          Nixstasis.TLSObservations,
           # Start to serve requests, typically the last entry
           NixstasisWeb.Endpoint
         ]

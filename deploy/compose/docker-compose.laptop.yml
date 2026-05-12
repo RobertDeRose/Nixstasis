@@ -8,6 +8,8 @@ services:
     environment:
       PHX_SERVER: "true"
       PORT: ${PORT:-4000}
+    ports:
+      - "127.0.0.1:${PORT:-4000}:${PORT:-4000}"
 
   caddy:
     build:
