@@ -2,7 +2,7 @@ services:
   nixstasis:
     build:
       context: ../../packages
-      dockerfile: ../../packages/server/Dockerfile
+      dockerfile: server/Dockerfile
     env_file: !override
       - laptop.env
     environment:
@@ -14,7 +14,7 @@ services:
   caddy:
     build:
       context: ../../packages/caddy
-      dockerfile: ../../packages/caddy/Dockerfile
+      dockerfile: Dockerfile
     env_file: !override
       - laptop.env
     ports: !override
@@ -28,7 +28,7 @@ services:
   frps:
     build:
       context: ../../packages/frp
-      dockerfile: ../../packages/frp/Dockerfile
+      dockerfile: Dockerfile
     env_file: !override
       - laptop.env
     ports: !override
