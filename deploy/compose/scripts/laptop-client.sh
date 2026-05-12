@@ -75,8 +75,10 @@ prepare() {
   require_env_value FRPS_AUTH_TOKEN
 
   umask 077
-  mkdir -p "$STATE_DIR/scripts"
-  chmod 700 "$STATE_DIR"
+mkdir -p "$STATE_DIR/scripts"
+chmod 700 "$STATE_DIR"
+touch "$STATE_DIR/authorized_keys"
+chmod 600 "$STATE_DIR/authorized_keys"
 
   cat > "$CONFIG_FILE" <<EOF
 api:
@@ -126,7 +128,8 @@ name = "{{ .Envs.NAME }}-ssh"
 type = "tcpmux"
 multiplexer = "httpconnect"
 customDomains = ["{{ .Envs.NAME }}-ssh"]
-localPort = 22
+localIP = "127.0.0.1"
+localPort = $(env_value LAPTOP_SSH_PORT)
 EOF
   chmod 600 "$FRPC_CONFIG_FILE"
 
