@@ -39,7 +39,14 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-ENV MIX_ENV=prod \
+RUN apt-get update -qq && apt-get install -y --no-install-recommends locales && \
+    sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    MIX_ENV=prod \
     PHX_SERVER=true \
     PORT=4000
 
