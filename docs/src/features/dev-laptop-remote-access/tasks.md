@@ -13,11 +13,11 @@
 - [x] T010 Add validation that Caddy serves local certificates for the default laptop hostnames.
 - [x] T011 Add validation that FRPC connects to FRPS with the development configuration.
 - [ ] T012 Add a browser/UI or E2E journey that launches a terminal, runs a harmless SSH command, closes it, and reopens it.
-- [ ] T013 Document optional DuckDNS public-fidelity validation, including DNS challenge behavior and secrets handling.
-- [ ] T014 Document optional real-domain public-fidelity validation for operators with DNS provider access.
-- [ ] T015 Update developer-facing docs to distinguish default laptop mode from production Compose.
-- [ ] T016 Update runtime-boundary docs if new development-only processes or routing assumptions are introduced.
+- [x] T013 Document optional DuckDNS public-fidelity validation, including DNS challenge behavior and secrets handling.
+- [x] T014 Document optional real-domain public-fidelity validation for operators with DNS provider access.
+- [x] T015 Update developer-facing docs to distinguish default laptop mode from production Compose.
+- [x] T016 Update runtime-boundary docs if new development-only processes or routing assumptions are introduced.
 - [ ] T017 Run formatting, linting, and relevant repository checks for touched files.
 - [ ] T018 Run the default laptop-mode validation flow from a clean checkout or clean runtime state.
-- [ ] T019 Record known limitations and troubleshooting guidance for macOS, Linux, Docker, Podman, and Apple Container where applicable.
+- [x] T019 Record known limitations and troubleshooting guidance for macOS, Linux, Docker, Podman, and Apple Container where applicable.
 - [ ] T999 Close out the feature by confirming docs, scripts, tests, and delivered behavior agree.
