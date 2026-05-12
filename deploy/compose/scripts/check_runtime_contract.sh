@@ -8,6 +8,8 @@ ENV_EXAMPLE="$COMPOSE_DIR/.env.example"
 CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile"
 FRPS_TOML="$COMPOSE_DIR/frps/frps.toml"
 COMPOSE_README="$COMPOSE_DIR/README.md"
+DEV_LAB_SCRIPT="$COMPOSE_DIR/scripts/dev-lab.sh"
+DEV_LAB_COMPOSE="$COMPOSE_DIR/docker-compose.dev-lab.yml"
 SERVER_RUNTIME="$ROOT_DIR/packages/server/config/runtime.exs"
 SERVER_README="$ROOT_DIR/packages/server/README.md"
 SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
@@ -27,14 +29,14 @@ require_text() {
   file="$1"
   pattern="$2"
 
-  grep -Eq "$pattern" "$file" || fail "missing contract text in $file: $pattern"
+  grep -Eq -- "$pattern" "$file" || fail "missing contract text in $file: $pattern"
 }
 
 reject_text() {
   file="$1"
   pattern="$2"
 
-  if grep -Eq "$pattern" "$file"; then
+  if grep -Eq -- "$pattern" "$file"; then
     fail "forbidden contract text in $file: $pattern"
   fi
 }
@@ -59,6 +61,8 @@ for file in \
   "$CADDYFILE" \
   "$FRPS_TOML" \
   "$COMPOSE_README" \
+  "$DEV_LAB_SCRIPT" \
+  "$DEV_LAB_COMPOSE" \
   "$SERVER_RUNTIME" \
   "$SERVER_README" \
   "$SERVER_ENTRYPOINT" \
@@ -124,8 +128,21 @@ require_text "$COMPOSE_README" 'AUTHORIZED_GROUPS'
 require_text "$COMPOSE_README" 'check_domain'
 require_text "$COMPOSE_README" 'bundled PostgreSQL'
 require_text "$COMPOSE_README" 'external PostgreSQL'
+require_text "$COMPOSE_README" 'dev-lab\.sh up --devices 3'
 require_text "$COMPOSE_README" 'ghcr.io/<owner>/nixstasis-server@sha256:<digest>'
 require_text "$COMPOSE_README" 'wait for the `DATABASE_URL` host and'
+
+require_text "$DEV_LAB_SCRIPT" 'up \[--devices N\]'
+require_text "$DEV_LAB_SCRIPT" '--devices'
+require_text "$DEV_LAB_SCRIPT" 'seed_devices'
+require_text "$DEV_LAB_SCRIPT" '/app/bin/nixstasis rpc'
+require_text "$DEV_LAB_SCRIPT" 'list_devices\(search: mac_address\)'
+require_text "$DEV_LAB_SCRIPT" 'update_device\(device, attrs\)'
+require_text "$DEV_LAB_SCRIPT" 'Virtual Device'
+require_text "$DEV_LAB_SCRIPT" '9000000'
+require_text "$DEV_LAB_SCRIPT" 'approval_status: :approved'
+require_text "$DEV_LAB_SCRIPT" 'failed to seed virtual device'
+require_text "$DEV_LAB_COMPOSE" 'docker.io/postgres'
 
 require_text "$SERVER_ENTRYPOINT" 'wait-for-postgres'
 require_text "$SERVER_MIGRATE" 'wait-for-postgres'

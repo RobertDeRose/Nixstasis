@@ -17,11 +17,61 @@ fail() {
 
 usage() {
   cat >&2 <<'EOF'
-usage: deploy/compose/scripts/laptop.sh <start|stop|validate> [compose args...]
+usage: deploy/compose/scripts/laptop.sh <start|stop|validate|validate-tls> [compose args...]
 
 Before first use, copy deploy/compose/laptop.env.example to deploy/compose/laptop.env
 and replace placeholder secrets.
 EOF
+}
+
+https_check() {
+  host="$1"
+
+  curl --silent --show-error --insecure --resolve "$host:443:127.0.0.1" \
+    --max-time 10 \
+    --output /dev/null \
+    --write-out '%{http_code}' \
+    "https://$host/"
+}
+
+api_request() {
+  method="$1"
+  path="$2"
+
+  tmp_body=$(mktemp)
+  status=$(curl --silent --show-error --location \
+    --max-time 10 \
+    --header "X-Forwarded-Proto: https" \
+    --header "X-Nixstasis-TLS-Observations-Token: $(env_value NIXSTASIS_TLS_OBSERVATIONS_TOKEN)" \
+    --request "$method" \
+    --output "$tmp_body" \
+    --write-out '%{http_code}' \
+    "http://127.0.0.1:4000$path")
+
+  cat "$tmp_body"
+  rm -f "$tmp_body"
+
+  case "$status" in
+    200|204)
+      ;;
+    *)
+      fail "diagnostic request $method $path returned HTTP $status"
+      ;;
+  esac
+}
+
+cert_issuer() {
+  host="$1"
+
+  echo | openssl s_client -connect 127.0.0.1:443 -servername "$host" 2>/dev/null | \
+    openssl x509 -noout -issuer 2>/dev/null
+}
+
+cert_sans() {
+  host="$1"
+
+  echo | openssl s_client -connect 127.0.0.1:443 -servername "$host" 2>/dev/null | \
+    openssl x509 -noout -ext subjectAltName 2>/dev/null
 }
 
 env_value() {
@@ -143,6 +193,9 @@ validate() {
   require_env_value FRPS_DASHBOARD_PASSWORD
   require_env_value LAPTOP_SSH_PORT
   require_digest_ref LAPTOP_SSH_IMAGE_REF
+  require_env_value NIXSTASIS_TLS_OBSERVATIONS_TOKEN
+  require_exact_env_value NIXSTASIS_TLS_OBSERVATIONS_ENABLED true
+  require_exact_env_value NIXSTASIS_FORCE_SSL false
   require_file "$COMPOSE_DIR/.laptop-client/authorized_keys"
 
   require_text "$LAPTOP_CADDYFILE" 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
@@ -183,6 +236,43 @@ validate() {
   echo "laptop mode validation passed"
 }
 
+validate_tls() {
+  validate
+  command -v curl >/dev/null 2>&1 || fail "curl is required for laptop TLS validation"
+  command -v openssl >/dev/null 2>&1 || fail "openssl is required for laptop TLS validation"
+
+  observation_suffix="$(date +%s)-$$"
+  validation_host="tls-validate-$observation_suffix.localhost"
+
+  api_request DELETE /_nixstasis/laptop/tls_observations >/dev/null
+
+  for host in nixstasis.localhost auth.localhost frp-admin.localhost "$validation_host"; do
+    status=$(https_check "$host" || true)
+
+    case "$status" in
+      200|302|401|403)
+        ;;
+      *)
+        fail "unexpected HTTPS status for $host: ${status:-request failed}"
+        ;;
+    esac
+
+    issuer=$(cert_issuer "$host" || true)
+    printf '%s\n' "$issuer" | grep -Eq 'Caddy Local Authority|Caddy Local' || \
+      fail "unexpected certificate issuer for $host: ${issuer:-missing issuer}"
+
+    sans=$(cert_sans "$host" || true)
+    printf '%s\n' "$sans" | grep -Eq "DNS:$host(,|$)" || \
+      fail "certificate SANs for $host did not include requested host: ${sans:-missing SANs}"
+  done
+
+  observations=$(api_request GET /_nixstasis/laptop/tls_observations)
+  printf '%s\n' "$observations" | grep -Eq "\"domain\":\"$validation_host\"" || \
+    fail "TLS observations did not include unique validation ask call"
+
+  echo "laptop TLS validation passed"
+}
+
 command_name="${1:-}"
 
 if [ -z "$command_name" ]; then
@@ -203,6 +293,9 @@ case "$command_name" in
     ;;
   validate)
     validate
+    ;;
+  validate-tls)
+    validate_tls
     ;;
   *)
     usage

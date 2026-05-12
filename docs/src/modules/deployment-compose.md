@@ -86,6 +86,10 @@
   templates.
 - `deploy/compose/scripts/laptop.sh` validates, starts, and stops default
   laptop mode with the laptop Compose override and ignored `laptop.env` file.
+- `deploy/compose/scripts/laptop.sh validate-tls` performs live local HTTPS checks
+  for the reserved laptop hostnames after startup.
+- Laptop mode publishes Phoenix on loopback only for token-protected validation
+  diagnostics; production ingress remains Caddy-only.
 - `deploy/compose/scripts/laptop-client.sh` prepares ignored local Go-client state
   and runs `register` or `poll` against laptop mode without writing to `/etc`.
 - The laptop Compose override includes a development-only `laptop-ssh` service on

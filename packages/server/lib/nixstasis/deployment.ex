@@ -26,6 +26,13 @@ defmodule Nixstasis.Deployment do
     end
   end
 
+  def strict_boolean_env!(name, default) when is_boolean(default) do
+    case System.get_env(name) do
+      nil -> default
+      value -> parse_strict_boolean!(name, value)
+    end
+  end
+
   def port do
     case Integer.parse(optional_env("PORT", Integer.to_string(@default_port))) do
       {port, ""} when port > 0 -> port
@@ -42,6 +49,7 @@ defmodule Nixstasis.Deployment do
   def approved_tls_domain?(domain, remote_access_requested?) when is_binary(domain) do
     case subdomain_for(domain) do
       {:ok, subdomain} when subdomain in @reserved_subdomains -> true
+      {:ok, "tls-validate-" <> _nonce} -> Nixstasis.TLSObservations.enabled?() and base_domain() == "localhost"
       {:ok, "atom-" <> normalized_device_id} -> remote_access_requested?.(format_mac_address(normalized_device_id))
       _ -> false
     end
@@ -84,4 +92,12 @@ defmodule Nixstasis.Deployment do
   end
 
   def subdomain_for(_), do: :error
+
+  defp parse_strict_boolean!(name, value) do
+    case String.downcase(String.trim(value)) do
+      value when value in ~w(1 true yes on) -> true
+      value when value in ~w(0 false no off) -> false
+      _ -> raise "environment variable #{name} must be a boolean value"
+    end
+  end
 end
