@@ -65,6 +65,12 @@ Copy `laptop.env.example` to `laptop.env`, replace secrets, and run laptop-mode
 Compose commands with both files, for example:
 `docker compose -f docker-compose.yml -f docker-compose.laptop.yml --profile bundled-db --env-file laptop.env up -d --build`
 
+Prepare the client state before starting the stack so the SSH target bind mount
+points at an existing authorized-keys file:
+
+- `deploy/compose/scripts/laptop-client.sh prepare` writes local `config.yaml`,
+  `frpc.toml`, and `authorized_keys` under `deploy/compose/.laptop-client`.
+
 The tracked helper script wraps the same Compose file set:
 
 - `deploy/compose/scripts/laptop.sh validate` checks the laptop environment,
@@ -78,13 +84,22 @@ The tracked helper script wraps the same Compose file set:
 After the stack is running, `deploy/compose/scripts/laptop-client.sh` prepares an
 ignored local client state directory and runs the Go client against laptop mode:
 
-- `deploy/compose/scripts/laptop-client.sh prepare` writes local `config.yaml` and
-  `frpc.toml` under `deploy/compose/.laptop-client`.
+- `deploy/compose/scripts/laptop-client.sh prepare` can be rerun at any time to
+  refresh local client templates.
 - `deploy/compose/scripts/laptop-client.sh register` runs `go run ./cmd/nixstasis
   register` with the laptop config and identity path.
 - `deploy/compose/scripts/laptop-client.sh poll` runs the polling loop with the
   laptop FRPC template. Set `NIXSTASIS_FRPC_BINARY_PATH` if `frpc` is not
   installed at the package default path.
+
+The laptop Compose override also starts a development-only SSH target on
+`127.0.0.1:${LAPTOP_SSH_PORT:-2222}`. The generated FRPC template forwards the
+device SSH proxy to that target, so browser terminal validation reaches an SSH
+server only through the FRP path. The SSH target disables password login and reads
+the client-managed `deploy/compose/.laptop-client/authorized_keys` file so the
+browser terminal validates the queued key-authorization flow. Set
+`LAPTOP_SSH_IMAGE_REF` to a digest-pinned OpenSSH server image before starting the
+laptop stack.
 
 The registration path requires the laptop stack to be running and reachable at
 `https://nixstasis.localhost`. The first registration may remain pending until the

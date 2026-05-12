@@ -94,6 +94,9 @@ Traceable references:
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH
   process boundaries with `localhost` as the base domain and Caddy internal/local
   certificates for TLS.
+- The development-only `laptop-ssh` container is an SSH target for local terminal
+  validation; FRPC reaches it through loopback and the browser terminal reaches it
+  through FRPS TCP mux.
 
 Traceable references:
 

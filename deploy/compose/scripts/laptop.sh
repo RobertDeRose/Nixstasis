@@ -78,6 +78,22 @@ require_exact_env_value() {
   [ "$value" = "$expected" ] || fail "$name must be $expected for laptop mode, got: $value"
 }
 
+require_digest_ref() {
+  name="$1"
+  value=$(env_value "$name" || true)
+
+  [ -n "$value" ] || fail "missing required laptop env value: $name"
+
+  case "$value" in
+    *@sha256:replace-*)
+      fail "$name must use a real digest, got placeholder: $value"
+      ;;
+  esac
+
+  printf '%s\n' "$value" | grep -Eq '@sha256:[0-9a-f]{64}$' || \
+    fail "$name must be an immutable digest reference, got: $value"
+}
+
 require_text() {
   file="$1"
   pattern="$2"
@@ -125,6 +141,9 @@ validate() {
   require_env_value FRPS_AUTH_TOKEN
   require_env_value FRPS_DASHBOARD_USER
   require_env_value FRPS_DASHBOARD_PASSWORD
+  require_env_value LAPTOP_SSH_PORT
+  require_digest_ref LAPTOP_SSH_IMAGE_REF
+  require_file "$COMPOSE_DIR/.laptop-client/authorized_keys"
 
   require_text "$LAPTOP_CADDYFILE" 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
   require_text "$LAPTOP_CADDYFILE" 'issuer internal'
@@ -137,7 +156,11 @@ validate() {
   require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_BIND_PORT:-7000\}'
   require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_HTTP_PORT:-8080\}'
   require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{FRPS_TCPMUX_PORT:-2022\}'
+  require_text "$LAPTOP_COMPOSE_FILE" '127\.0\.0\.1:\$\{LAPTOP_SSH_PORT:-2222\}:2222'
+  require_text "$LAPTOP_COMPOSE_FILE" 'PASSWORD_ACCESS: "false"'
+  require_text "$LAPTOP_COMPOSE_FILE" '\./\.laptop-client/authorized_keys:/config/\.ssh/authorized_keys:ro'
   reject_text "$LAPTOP_COMPOSE_FILE" '0\.0\.0\.0'
+  reject_text "$LAPTOP_COMPOSE_FILE" ':latest'
 
   rendered_config=$(compose config)
   printf '%s\n' "$rendered_config" | grep -Eq 'published: "80"' || fail "rendered laptop config must publish Caddy HTTP"
@@ -153,7 +176,7 @@ validate() {
     fail "rendered laptop config must bind every published port to 127.0.0.1"
   fi
 
-  for port in 80 443 "$(env_value FRPS_BIND_PORT)" "$(env_value FRPS_HTTP_PORT)" "$(env_value FRPS_TCPMUX_PORT)"; do
+  for port in 80 443 "$(env_value FRPS_BIND_PORT)" "$(env_value FRPS_HTTP_PORT)" "$(env_value FRPS_TCPMUX_PORT)" "$(env_value LAPTOP_SSH_PORT)"; do
     printf '%s\n' "$rendered_config" | grep -Eq "published: \"?$port\"?" || fail "rendered laptop config must publish loopback port: $port"
   done
 
