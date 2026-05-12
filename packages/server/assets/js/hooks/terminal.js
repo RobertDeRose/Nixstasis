@@ -6,6 +6,9 @@ export default {
     this.initTerminal()
   },
   destroyed() {
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler)
+    }
     if (this.term) {
       this.term.dispose()
     }
@@ -32,7 +35,8 @@ export default {
     this.fitAddon.fit()
 
     // Handle resizing
-    window.addEventListener('resize', () => this.fitAddon.fit())
+    this._resizeHandler = () => this.fitAddon.fit()
+    window.addEventListener('resize', this._resizeHandler)
 
     // Connect to Phoenix Channel
     // We assume `window.liveSocket` has the socket available, but we usually need a separate socket for Channels
