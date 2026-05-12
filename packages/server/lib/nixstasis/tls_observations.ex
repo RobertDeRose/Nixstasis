@@ -29,7 +29,8 @@ defmodule Nixstasis.TLSObservations do
   end
 
   def enabled? do
-    Application.get_env(:nixstasis, :tls_observations_enabled, false)
+    Application.get_env(:nixstasis, :tls_observations_enabled, false) ||
+      System.get_env("NIXSTASIS_TLS_OBSERVATIONS_ENABLED") in ~w(1 true yes on)
   end
 
   @impl true
