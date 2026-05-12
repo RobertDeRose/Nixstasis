@@ -47,6 +47,19 @@ This directory is the supported server deployment path for this feature.
 
 ## Development Laptop Mode
 
+For the fastest local server lab, run:
+
+`deploy/compose/scripts/dev-lab.sh up --devices 3`
+
+That command creates ignored local defaults if needed, starts the bundled laptop
+stack, runs migrations, and seeds the requested number of approved virtual
+devices so the Phoenix UI has data immediately. Open `http://127.0.0.1:4000`
+after it finishes. `https://nixstasis.localhost` is also available for the
+Caddy/AuthCrunch-shaped path, but it still uses the local auth policy. Stop the
+lab with:
+
+`deploy/compose/scripts/dev-lab.sh down`
+
 Development laptop mode uses Compose file composition to keep local-only routing,
 TLS, and image settings separate from the supported production deployment. Keep the
 base `docker-compose.yml` production-shaped, then layer a development override for
@@ -210,7 +223,10 @@ before Caddy and hide Caddy-owned certificate behavior.
   startup and verify `.laptop-client/authorized_keys` exists.
 - On macOS, Docker Desktop and Apple Container differ in loopback and filesystem
   mount behavior; prefer Docker Compose for the laptop workflow until Apple
-  Container behavior is explicitly validated.
+  Container behavior is explicitly validated. Apple Container (`socktainer`) does
+  not support network creation as of v0.12.x, so `dev-lab.sh` and `laptop.sh`
+  will fail. Install [Colima](https://github.com/abiosoft/colima) (`colima start`)
+  to get a full Docker daemon with zero script changes.
 - On Linux, ensure user permissions allow reading files under
   `deploy/compose/.laptop-client` and binding loopback ports below 1024 if running
   without Docker privileges.
