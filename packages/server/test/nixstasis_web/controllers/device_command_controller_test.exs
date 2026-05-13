@@ -132,8 +132,8 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     device: device,
     token: token
   } do
-    Application.put_env(:nixstasis, :heartbeat_rate_limit, limit: 1, window_ms: 60_000)
-    on_exit(fn -> Application.delete_env(:nixstasis, :heartbeat_rate_limit) end)
+    Application.put_env(:nixstasis, :rate_limit, limit: 1, window_ms: 60_000)
+    on_exit(fn -> Application.delete_env(:nixstasis, :rate_limit) end)
 
     assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
            |> json_response(200)
