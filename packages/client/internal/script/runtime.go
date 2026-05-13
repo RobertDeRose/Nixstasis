@@ -24,12 +24,16 @@ var ErrTimeout = errors.New("script timeout")
 // A new Runtime is created each poll cycle, so the breaker resets automatically.
 const maxMQTTConnectAttempts = 3
 
+const runtimeContextThreadKey = "nixstasis.runtime.context"
+
 // Runtime executes Starlark scripts with a configured set of builtins.
 type Runtime struct {
-	config     RuntimeConfig
-	builtins   starlark.StringDict
-	mqttMu     sync.Mutex
-	mqttClient mqtt.Client
+	config RuntimeConfig
+	// builtins is populated once in NewRuntime and must not be mutated after
+	// construction. Multiple goroutines read it concurrently via ExecFileOptions.
+	builtins     starlark.StringDict
+	mqttMu       sync.Mutex
+	mqttClient   mqtt.Client
 	mqttFailures int
 	// pubAndGetSem serializes pub_and_get calls. Capacity MUST be 1 because
 	// the shared MQTT client's Subscribe/Unsubscribe are not scoped per-call;
@@ -54,7 +58,7 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 		config.ExecWorkDir = os.TempDir()
 	}
 
-	r := &Runtime{config: config}
+	r := &Runtime{config: config, pubAndGetSem: make(chan struct{}, 1)}
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),
 		"exec_cmd":    starlark.NewBuiltin("exec_cmd", r.execCmdBuiltin),
@@ -95,9 +99,14 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 
 	resCh := make(chan result, 1)
 	thread := &starlark.Thread{Name: "stary"}
+	thread.SetLocal(runtimeContextThreadKey, ctx)
+
+	// Defensive copy: ExecFileOptions may mutate the predeclared dict during
+	// execution. Each goroutine gets its own shallow copy to avoid races.
+	predeclared := r.Builtins()
 
 	go func() {
-		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, r.builtins)
+		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, predeclared)
 		if err != nil {
 			resCh <- result{err: err}
 			return
