@@ -473,34 +473,47 @@ defmodule Nixstasis.Devices do
   Approves multiple devices by ID.
   """
   def approve_devices(ids) when is_list(ids) do
-    result =
-      Device
-      |> Ash.Query.filter(id in ^ids)
-      |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
+    case Repo.transaction(fn ->
+           result =
+             Device
+             |> Ash.Query.filter(id in ^ids and approval_status == :pending)
+             |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
 
-    clear_device_token_hashes(ids)
+           clear_device_token_hashes(ids)
+           {result, list_devices_by_ids(ids)}
+         end) do
+      {:ok, {result, devices}} ->
+        Enum.each(devices, &broadcast_device(:device_approval_status_changed, &1))
+        result
 
-    ids
-    |> list_devices_by_ids()
-    |> Enum.each(&broadcast_device(:device_approval_status_changed, &1))
-
-    result
+      {:error, reason} ->
+        {:error, reason}
+    end
+  rescue
+    error -> {:error, error}
   end
 
   @doc """
   Rejects multiple devices by ID.
   """
   def reject_devices(ids) when is_list(ids) do
-    result =
-      Device
-      |> Ash.Query.filter(id in ^ids)
-      |> Ash.bulk_update!(:update, %{approval_status: :rejected}, domain: Domain, strategy: :stream)
+    case Repo.transaction(fn ->
+           result =
+             Device
+             |> Ash.Query.filter(id in ^ids and approval_status == :pending)
+             |> Ash.bulk_update!(:update, %{approval_status: :rejected}, domain: Domain, strategy: :stream)
 
-    ids
-    |> list_devices_by_ids()
-    |> Enum.each(&broadcast_device(:device_approval_status_changed, &1))
+           {result, list_devices_by_ids(ids)}
+         end) do
+      {:ok, {result, devices}} ->
+        Enum.each(devices, &broadcast_device(:device_approval_status_changed, &1))
+        result
 
-    result
+      {:error, reason} ->
+        {:error, reason}
+    end
+  rescue
+    error -> {:error, error}
   end
 
   @doc """
