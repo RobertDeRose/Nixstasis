@@ -86,6 +86,7 @@ defmodule Nixstasis.Devices.Device do
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
+      validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
     end
   end
 
