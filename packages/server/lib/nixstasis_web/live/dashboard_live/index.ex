@@ -13,12 +13,17 @@ defmodule NixstasisWeb.DashboardLive.Index do
     {:ok, assign(socket, stats: Dashboard.get_vital_stats(), loading: false)}
   end
 
+  @refresh_debounce_ms 5_000
+
   @impl true
+  def handle_info({:device_last_seen_updated, _device}, socket) do
+    {:noreply, schedule_debounced_refresh(socket)}
+  end
+
   def handle_info({event, _device}, socket)
       when event in [
              :device_registered,
              :device_created,
-             :device_last_seen_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
@@ -27,6 +32,24 @@ defmodule NixstasisWeb.DashboardLive.Index do
 
   def handle_info({:alert_created, _alert}, socket) do
     {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+  end
+
+  def handle_info(:debounced_refresh, socket) do
+    {:noreply,
+     socket
+     |> assign(:refresh_timer, nil)
+     |> assign(:stats, Dashboard.get_vital_stats())}
+  end
+
+  defp schedule_debounced_refresh(socket) do
+    existing = Map.get(socket.assigns, :refresh_timer)
+
+    if existing do
+      socket
+    else
+      timer = Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
+      assign(socket, :refresh_timer, timer)
+    end
   end
 
   @impl true
