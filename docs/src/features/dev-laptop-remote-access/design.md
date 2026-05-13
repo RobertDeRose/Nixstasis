@@ -74,24 +74,25 @@ that starts the server stack and seeds N pre-approved virtual devices via releas
 RPC. Virtual devices are seeded idempotently by MAC address and bypass
 registration, polling, and FRPC entirely. This path validates server UI, database,
 and API behavior but does not exercise the Go client or FRP tunnel path. The dev
-lab auto-generates a `laptop.env` with hardcoded development defaults (no
-placeholder secrets), uses `NIXSTASIS_FORCE_SSL=false`, and layers three Compose
-files: base, laptop overlay, and dev-lab overlay (tag-only Postgres image).
+lab uses a tracked `dev.env` with hardcoded development defaults (no placeholder
+secrets), uses `NIXSTASIS_FORCE_SSL=false`, and a single `docker-compose.yml`
+with `docker compose --env-file dev.env`.
 
 ### Default Laptop Mode
 
 Default laptop mode is local-first and deterministic:
 
-- Use a development Compose override file for local-only settings.
-- Run Phoenix, Caddy, FRPS, and PostgreSQL using the existing Compose shape plus
-  development overrides.
+- Use a single `docker-compose.yml` with environment-file-driven configuration.
+- Run Phoenix, Caddy, FRPS, PostgreSQL, and client containers using the same
+  compose file with `docker compose --env-file dev.env`.
 - Use Caddy local certificates or internal CA for HTTPS.
 - Use local host routing for reserved app hosts and device wildcard hosts.
 - Configure Caddy on-demand TLS with the existing Phoenix ask endpoint so domain
   approval remains part of the flow.
-- Run a test device using the Go client where practical, with explicit constraints
-  for any simulation-only fallback.
-- Run an SSH test target reachable only through FRP.
+- Run a test device using a containerized client with systemd, sshd, frpc, and
+  the Go client binary — matching real device lifecycle.
+- The client container acts as both the Go client and the SSH target reachable
+  through FRP.
 - Set `NIXSTASIS_FORCE_SSL=false` so Phoenix does not enforce SSL redirects in
   local mode.
 
@@ -122,12 +123,11 @@ and validation steps must reuse these names consistently.
 
 ### Managed Test Device
 
-The primary managed-device path should run the Go client locally so registration,
-polling, and FRPC process management stay close to production behavior. A
-containerized client may be added as a secondary convenience path if it uses the
-same registration and FRPC boundaries. Simulation-only fallbacks are acceptable
-only when documented as lower fidelity and must not be the default terminal
-validation path.
+The managed-device path uses a containerized client that runs Ubuntu with systemd
+as PID 1, sshd for remote access, frpc for tunnel connectivity, and the Go client
+binary started via systemd units. This matches the real device lifecycle including
+registration, polling, FRPC process management, and SSH key authorization. Scale
+client containers with `--clients N` or `docker compose --scale client=N`.
 
 ### TLS Observation Diagnostics
 
@@ -169,16 +169,16 @@ there is a concrete implementation need beyond documenting validation steps.
 ## Dependencies
 
 - `deploy/compose/docker-compose.yml`
-- `deploy/compose/docker-compose.laptop.yml`
-- `deploy/compose/docker-compose.dev-lab.yml`
+- `deploy/compose/dev.env`
+- `deploy/compose/.env.example`
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `deploy/compose/frps/frps.toml`
-- `deploy/compose/laptop.env.example`
 - `deploy/compose/scripts/dev-lab.sh`
-- `deploy/compose/scripts/laptop.sh`
-- `deploy/compose/scripts/laptop-client.sh`
-- `deploy/compose/scripts/laptop-terminal-checklist.sh`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/validate_stack.sh`
+- `packages/client/Dockerfile`
+- `packages/server/Dockerfile`
 - `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`
 - `packages/server/lib/nixstasis/tls_observations.ex`
 - `packages/server/lib/nixstasis/deployment.ex`

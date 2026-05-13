@@ -94,9 +94,9 @@ Traceable references:
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH
   process boundaries with `localhost` as the base domain and Caddy internal/local
   certificates for TLS.
-- The development-only `laptop-ssh` container is an SSH target for local terminal
-  validation; FRPC reaches it through loopback and the browser terminal reaches it
-  through FRPS TCP mux.
+- The `client` container is a device simulator running systemd as PID 1 with sshd,
+  frpc, and the Go client binary; FRPC connects through FRP and the browser
+  terminal reaches SSH through FRPS TCP mux.
 
 Traceable references:
 
@@ -140,10 +140,11 @@ Traceable references:
 ### Internal Services
 
 - `nixstasis` service listens on `PORT=4000` for the supported Compose deployment.
-- `postgres` is optional through the `bundled-db` profile.
+- `postgres` is always included; production can override `DATABASE_URL` to use
+  an external managed database.
 - `frps` is reached by Caddy on internal service ports and by FRPC on published FRP ports.
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml:1-90`
-- `deploy/compose/README.md:5-20`
+- `deploy/compose/docker-compose.yml:1-129`
+- `deploy/compose/README.md:1-117`
