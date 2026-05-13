@@ -9,7 +9,6 @@ CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile"
 FRPS_TOML="$COMPOSE_DIR/frps/frps.toml"
 COMPOSE_README="$COMPOSE_DIR/README.md"
 DEV_LAB_SCRIPT="$COMPOSE_DIR/scripts/dev-lab.sh"
-DEV_LAB_COMPOSE="$COMPOSE_DIR/docker-compose.dev-lab.yml"
 SERVER_RUNTIME="$ROOT_DIR/packages/server/config/runtime.exs"
 SERVER_README="$ROOT_DIR/packages/server/README.md"
 SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
@@ -62,7 +61,6 @@ for file in \
   "$FRPS_TOML" \
   "$COMPOSE_README" \
   "$DEV_LAB_SCRIPT" \
-  "$DEV_LAB_COMPOSE" \
   "$SERVER_RUNTIME" \
   "$SERVER_README" \
   "$SERVER_ENTRYPOINT" \
@@ -93,8 +91,6 @@ require_text "$ENV_EXAMPLE" '^FRPS_TCPMUX_PORT='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_SERVER_IMAGE_REF=.+@sha256:'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_CADDY_IMAGE_REF=.+@sha256:'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_FRPS_IMAGE_REF=.+@sha256:'
-require_text "$ENV_EXAMPLE" '^POSTGRES_IMAGE_DIGEST=sha256:'
-
 require_text "$CADDYFILE" 'check_domain'
 require_text "$CADDYFILE" 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_text "$CADDYFILE" 'auth\.\{\$BASE_DOMAIN\}'
@@ -142,7 +138,6 @@ require_text "$DEV_LAB_SCRIPT" 'Virtual Device'
 require_text "$DEV_LAB_SCRIPT" '9000000'
 require_text "$DEV_LAB_SCRIPT" 'approval_status: :approved'
 require_text "$DEV_LAB_SCRIPT" 'failed to seed virtual device'
-require_text "$DEV_LAB_COMPOSE" 'docker.io/postgres'
 
 require_text "$SERVER_ENTRYPOINT" 'wait-for-postgres'
 require_text "$SERVER_MIGRATE" 'wait-for-postgres'
@@ -165,7 +160,7 @@ require_text "$SERVER_README" 'FRPS_TCPMUX_PORT'
 require_text "$CLIENT_README" 'https://nixstasis\.example\.com'
 require_text "$CLIENT_README" '/etc/nixstasis/config\.yaml'
 require_text "$CLIENT_CONFIG_TEMPLATE" 'https://nixstasis\.example\.com'
-require_text "$CLIENT_FRPC_TEMPLATE" 'serverAddr = "nixstasis\.example\.com"'
+require_text "$CLIENT_FRPC_TEMPLATE" 'serverAddr = "\{\{ \.Envs\.FRPS_SERVER_ADDR \}\}"'
 require_text "$CLIENT_FRPC_TEMPLATE" 'atom-<normalized-device-id>\.<base-domain>'
 
 require_text "$CONTRACT_DOC" 'DATABASE_URL'

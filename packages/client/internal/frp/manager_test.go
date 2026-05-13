@@ -154,6 +154,26 @@ func TestManagerPassesFRPAuthToken(t *testing.T) {
 	}
 }
 
+func TestManagerPassesFRPServerAddr(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, "serverAddr = \"{{ .Envs.FRPS_SERVER_ADDR }}\"\n")
+	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{ServerAddr: "frps.internal"}); err != nil {
+		t.Fatalf("StartWithConfig() error = %v", err)
+	}
+	defer func() { _ = mgr.Stop() }()
+
+	if mgr.cmd == nil {
+		t.Fatal("expected command to be initialized")
+	}
+
+	if got := envValue(mgr.cmd.Env, "FRPS_SERVER_ADDR"); got != "frps.internal" {
+		t.Fatalf("FRPS_SERVER_ADDR = %q", got)
+	}
+}
+
 func TestRenderConfigReplacesPackagedPlaceholders(t *testing.T) {
 	configPath := writeFRPConfig(t, strings.Join([]string{
 		`auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
@@ -173,11 +193,11 @@ func TestRenderConfigReplacesPackagedPlaceholders(t *testing.T) {
 	}
 
 	text := string(rendered)
-	if strings.Contains(text, "{{") {
-		t.Fatalf("rendered config still contains placeholders: %s", text)
+	if unresolvedNonEnvPlaceholder(text) {
+		t.Fatalf("rendered config still contains non-env placeholders: %s", text)
 	}
-	if !strings.Contains(text, `auth.token = "secret-token"`) {
-		t.Fatalf("rendered config missing token: %s", text)
+	if !strings.Contains(text, `{{ .Envs.FRPS_AUTH_TOKEN }}`) {
+		t.Fatalf("rendered config should preserve auth token env placeholder: %s", text)
 	}
 	if !strings.Contains(text, `name = "atom-aabbcc"`) {
 		t.Fatalf("rendered config missing name: %s", text)
@@ -205,8 +225,8 @@ func TestRenderConfigAllowsTemplateCommentsInPackagedConfig(t *testing.T) {
 		t.Fatalf("read rendered config: %v", err)
 	}
 
-	if strings.Contains(string(rendered), "{{") {
-		t.Fatalf("rendered config still contains placeholders: %s", string(rendered))
+	if unresolvedNonEnvPlaceholder(string(rendered)) {
+		t.Fatalf("rendered config still contains non-env placeholders: %s", string(rendered))
 	}
 }
 
@@ -257,8 +277,8 @@ func TestManagerStartWithConfigRendersRuntimeValuesForProcess(t *testing.T) {
 	}
 
 	text := string(rendered)
-	if !strings.Contains(text, `auth.token = "secret-token"`) {
-		t.Fatalf("runtime config missing token: %s", text)
+	if !strings.Contains(text, `{{ .Envs.FRPS_AUTH_TOKEN }}`) {
+		t.Fatalf("runtime config should preserve auth token env placeholder: %s", text)
 	}
 	if !strings.Contains(text, `name = "atom-aabbcc"`) {
 		t.Fatalf("runtime config missing name: %s", text)
@@ -288,8 +308,8 @@ func TestManagerStartUsesFallbackNameForPackagedTemplate(t *testing.T) {
 	}
 
 	text := string(rendered)
-	if strings.Contains(text, "{{") {
-		t.Fatalf("rendered config still contains placeholders: %s", text)
+	if unresolvedNonEnvPlaceholder(text) {
+		t.Fatalf("rendered config still contains non-env placeholders: %s", text)
 	}
 	if !strings.Contains(text, `name = "nixstasis"`) {
 		t.Fatalf("rendered config missing fallback name: %s", text)
@@ -299,6 +319,28 @@ func TestManagerStartUsesFallbackNameForPackagedTemplate(t *testing.T) {
 	}
 	if !strings.Contains(text, `customDomains = ["nixstasis-ssh"]`) {
 		t.Fatalf("rendered config missing fallback ssh domain: %s", text)
+	}
+}
+
+func TestPackagedConfigDocumentsNativeFRPCEnvExpansion(t *testing.T) {
+	configPath := filepath.Join("..", "..", "build", "root-dir", "etc", "nixstasis", "frpc.toml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read packaged frpc config: %v", err)
+	}
+
+	text := string(data)
+	if strings.Contains(text, "gomplate") {
+		t.Fatalf("packaged frpc config should not document gomplate preprocessing: %s", text)
+	}
+	if !strings.Contains(text, "frpc expands {{ .Envs.* }}") {
+		t.Fatalf("packaged frpc config should document frpc-native env expansion: %s", text)
+	}
+	if !strings.Contains(text, `auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`) {
+		t.Fatalf("packaged frpc config should preserve FRPS_AUTH_TOKEN env placeholder: %s", text)
+	}
+	if !strings.Contains(text, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`) {
+		t.Fatalf("packaged frpc config should preserve FRPS_SERVER_ADDR env placeholder: %s", text)
 	}
 }
 
