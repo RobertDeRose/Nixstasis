@@ -26,6 +26,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
       when event in [
              :device_registered,
              :device_created,
+             :device_deleted,
              :device_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
