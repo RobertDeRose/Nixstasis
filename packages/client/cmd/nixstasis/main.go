@@ -2,14 +2,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"runtime/trace"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/logging"
@@ -38,16 +36,9 @@ var rootCmd = &cobra.Command{
 
 		cfg, err = config.Load()
 		if err != nil {
-			var configFileNotFoundErr viper.ConfigFileNotFoundError
-			if errors.As(err, &configFileNotFoundErr) {
-				slog.Warn("No configuration file found, using defaults")
-				cfg = defaultCfg
-			} else {
-				return fmt.Errorf("failed to load configuration: %w", err)
-			}
-		} else {
-			slog.Debug("Configuration loaded", "config", cfg)
+			return fmt.Errorf("failed to load configuration: %w", err)
 		}
+		slog.Debug("Configuration loaded", "config", cfg)
 
 		return nil
 	},
