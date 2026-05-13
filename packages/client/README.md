@@ -165,8 +165,10 @@ The generated archive and native packages install these client assets:
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
 
-The bundled FRP client template defaults to `serverAddr = "nixstasis.example.com"`
-and requests device subdomains under `atom-<normalized-device-id>.<base-domain>`.
+The bundled FRP client template sets
+`serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
+from `frp.server_addr` in `/etc/nixstasis/config.yaml`. Device subdomains are
+requested under `atom-<normalized-device-id>.<base-domain>`.
 
 For local-only packaging experiments, you can still override the bundled binary:
 

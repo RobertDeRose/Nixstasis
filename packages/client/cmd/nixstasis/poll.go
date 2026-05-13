@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -190,6 +191,9 @@ func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
 	if frpConfig.Name == "" {
 		frpConfig.Name = identity.GenerateDeviceName(mac)
 	}
+	if frpConfig.ServerAddr == "" {
+		frpConfig.ServerAddr = "nixstasis.example.com"
+	}
 	return frpConfig
 }
 
@@ -254,38 +258,76 @@ func hydrateCommandPayloads(ctx context.Context, fetcher commandPayloadFetcher, 
 		return cmds, nil
 	}
 
-	var ready []transport.CommandRequest
-	var failures []transport.CommandResult
+	type payloadHydrationResult struct {
+		index int
+		cmd transport.CommandRequest
+		failure *transport.CommandResult
+	}
 
-	for _, cmd := range cmds {
-		if cmd.PayloadRef == "" || cmd.Payload != nil {
-			ready = append(ready, cmd)
+	const maxConcurrentPayloadFetches = 8
+
+	results := make([]payloadHydrationResult, len(cmds))
+	jobs := make(chan int, len(cmds))
+	workerCount := min(maxConcurrentPayloadFetches, len(cmds))
+	var wg sync.WaitGroup
+
+	for range workerCount {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				cmd := cmds[idx]
+				result := payloadHydrationResult{index: idx, cmd: cmd}
+
+				if cmd.PayloadRef == "" || cmd.Payload != nil {
+					results[idx] = result
+					continue
+				}
+
+				if err := transport.ValidatePayloadRef(cmd.PayloadRef); err != nil {
+					result.failure = &transport.CommandResult{
+						CommandID: cmd.CommandID,
+						Status:    transport.CommandStatusFailed,
+						Error:     "invalid_payload_ref: " + err.Error(),
+					}
+					results[idx] = result
+					continue
+				}
+
+				fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				payload, err := fetcher.FetchCommandPayload(fetchCtx, uuid, cmd.PayloadRef)
+				cancel()
+				if err != nil {
+					result.failure = &transport.CommandResult{
+						CommandID: cmd.CommandID,
+						Status:    transport.CommandStatusFailed,
+						Error:     "payload_fetch_failed: " + err.Error(),
+					}
+					results[idx] = result
+					continue
+				}
+
+				cmd.Payload = payload
+				result.cmd = cmd
+				results[idx] = result
+			}
+		}()
+	}
+
+	for idx := range cmds {
+		jobs <- idx
+	}
+	close(jobs)
+	wg.Wait()
+
+	ready := make([]transport.CommandRequest, 0, len(cmds))
+	failures := make([]transport.CommandResult, 0)
+	for _, result := range results {
+		if result.failure != nil {
+			failures = append(failures, *result.failure)
 			continue
 		}
-
-		if err := transport.ValidatePayloadRef(cmd.PayloadRef); err != nil {
-			failures = append(failures, transport.CommandResult{
-				CommandID: cmd.CommandID,
-				Status:    transport.CommandStatusFailed,
-				Error:     "invalid_payload_ref: " + err.Error(),
-			})
-			continue
-		}
-
-		fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		payload, err := fetcher.FetchCommandPayload(fetchCtx, uuid, cmd.PayloadRef)
-		cancel()
-		if err != nil {
-			failures = append(failures, transport.CommandResult{
-				CommandID: cmd.CommandID,
-				Status:    transport.CommandStatusFailed,
-				Error:     "payload_fetch_failed: " + err.Error(),
-			})
-			continue
-		}
-
-		cmd.Payload = payload
-		ready = append(ready, cmd)
+		ready = append(ready, result.cmd)
 	}
 
 	return ready, failures
