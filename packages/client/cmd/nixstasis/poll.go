@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"os/signal"
 	"sync"
@@ -78,9 +79,12 @@ func runPoll() {
 	ticker := time.NewTicker(pollInterval(cfg))
 	defer ticker.Stop()
 
+	var consecutiveFailures int
+
 	// Run immediately once
 	if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
 		slog.Error("Initial poll failed", "error", err)
+		consecutiveFailures++
 	}
 
 	for {
@@ -89,8 +93,21 @@ func runPoll() {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return
 		case <-ticker.C:
+			if delay := backoffDelay(consecutiveFailures, pollInterval(cfg)); delay > 0 {
+				slog.Info("Backing off before next poll", "delay", delay, "consecutive_failures", consecutiveFailures)
+				select {
+				case <-ctx.Done():
+					slog.Info("Shutting down polling service", "reason", ctx.Err())
+					return
+				case <-time.After(delay):
+				}
+			}
+
 			if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
-				slog.Error("Poll failed", "error", err)
+				consecutiveFailures++
+				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
+			} else {
+				consecutiveFailures = 0
 			}
 		}
 	}
@@ -108,6 +125,33 @@ func pollInterval(cfg *config.Config) time.Duration {
 		return cfg.Poll.Interval
 	}
 	return 30 * time.Second
+}
+
+const maxBackoff = 5 * time.Minute
+
+// backoffDelay returns an additional delay with jitter based on the number
+// of consecutive poll failures. Returns 0 when there are no failures.
+func backoffDelay(failures int, base time.Duration) time.Duration {
+	if failures <= 0 {
+		return 0
+	}
+
+	// Exponential: base * 2^(failures-1), capped at maxBackoff.
+	delay := base
+	for i := 1; i < failures && delay < maxBackoff; i++ {
+		delay *= 2
+	}
+	if delay > maxBackoff {
+		delay = maxBackoff
+	}
+
+	// Add jitter: +/- 25% of delay, clamped so the result is always positive.
+	jitter := time.Duration(rand.Int64N(int64(delay/2))) - delay/4
+	d := delay + jitter
+	if d <= 0 {
+		d = 1
+	}
+	return d
 }
 
 func pollOnce(ctx context.Context, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string) error {
