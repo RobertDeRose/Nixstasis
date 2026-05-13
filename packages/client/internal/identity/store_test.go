@@ -1,9 +1,19 @@
 package identity
 
 import (
+	"errors"
 	"os"
 	"testing"
 )
+
+func TestLoadUUIDReturnsErrNoIdentityWhenFileMissing(t *testing.T) {
+	path := t.TempDir() + "/id"
+
+	_, err := NewStore(path).LoadUUID()
+	if !errors.Is(err, ErrNoIdentity) {
+		t.Fatalf("expected ErrNoIdentity, got %v", err)
+	}
+}
 
 func TestLoadUUIDRejectsEmptyIdentityFile(t *testing.T) {
 	path := t.TempDir() + "/id"

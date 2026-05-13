@@ -12,6 +12,9 @@ import (
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 
+// ErrNoIdentity is returned when no identity file exists on disk.
+var ErrNoIdentity = errors.New("no device identity file found")
+
 // Credentials contains the runtime identity assigned by the server.
 type Credentials struct {
 	UUID  string `json:"uuid"`
@@ -38,7 +41,7 @@ func NewStore(path string) *Store {
 }
 
 // LoadUUID reads the UUID from the storage file.
-// Returns empty string if file doesn't exist.
+// Returns ErrNoIdentity if the file doesn't exist.
 func (s *Store) LoadUUID() (string, error) {
 	credentials, err := s.Load()
 	if err != nil {
@@ -52,7 +55,7 @@ func (s *Store) Load() (Credentials, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Credentials{}, nil
+			return Credentials{}, ErrNoIdentity
 		}
 		return Credentials{}, err
 	}
