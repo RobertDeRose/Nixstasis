@@ -3,6 +3,7 @@ defmodule NixstasisWeb.ReportLive.Show do
 
   alias Nixstasis.Reporting
   alias Nixstasis.SchemaOptions
+  alias NixstasisWeb.Permissions
 
   @number_operators [
     {">", ">"},
@@ -20,46 +21,44 @@ defmodule NixstasisWeb.ReportLive.Show do
   ]
 
   def mount(%{"id" => id}, session, socket) do
-    cond do
-      not can_view_reports?(session) ->
+    if Permissions.can_view_reports?(session) do
+      report = Reporting.get_custom_report!(id)
+
+      if e2e_report?(report) do
         {:ok,
          socket
-         |> put_flash(:error, "You are not authorized to view reports.")
-         |> push_navigate(to: ~p"/")}
+         |> put_flash(:error, "E2E internal reports are not available in this view.")
+         |> push_navigate(to: ~p"/reports")}
+      else
+        fields = Reporting.report_fields(report)
+        field_type_by_column = build_field_type_map(report, fields)
+        preference_scope = Reporting.preference_scope(session)
+        filter_column = first_field_key(fields)
+        filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
 
-      true ->
-        report = Reporting.get_custom_report!(id)
-
-        if e2e_report?(report) do
-          {:ok,
-           socket
-           |> put_flash(:error, "E2E internal reports are not available in this view.")
-           |> push_navigate(to: ~p"/reports")}
-        else
-          fields = Reporting.report_fields(report)
-          field_type_by_column = build_field_type_map(report, fields)
-          preference_scope = Reporting.preference_scope(session)
-          filter_column = first_field_key(fields)
-          filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
-
-          {:ok,
-           socket
-           |> assign(:can_view_reports, true)
-           |> assign(:can_manage_reports, can_manage_reports?(session))
-           |> assign(:report, report)
-           |> assign(:fields, fields)
-           |> assign(:field_type_by_column, field_type_by_column)
-           |> assign(:results, [])
-           |> assign(:preference_scope, preference_scope)
-           |> assign(:preferences_enabled?, preference_scope != nil)
-           |> assign(:preferences_reset?, false)
-           |> assign(:sort_by, "")
-           |> assign(:sort_dir, "asc")
-           |> assign(:filter_column, filter_column)
-           |> assign(:filter_operator, filter_operator)
-           |> assign(:filter_value, "")
-           |> assign(:operators, operators_for_type(field_type_for_column(field_type_by_column, filter_column)))}
-        end
+        {:ok,
+         socket
+         |> assign(:can_view_reports, true)
+         |> assign(:can_manage_reports, Permissions.can_manage_reports?(session))
+         |> assign(:report, report)
+         |> assign(:fields, fields)
+         |> assign(:field_type_by_column, field_type_by_column)
+         |> assign(:results, [])
+         |> assign(:preference_scope, preference_scope)
+         |> assign(:preferences_enabled?, preference_scope != nil)
+         |> assign(:preferences_reset?, false)
+         |> assign(:sort_by, "")
+         |> assign(:sort_dir, "asc")
+         |> assign(:filter_column, filter_column)
+         |> assign(:filter_operator, filter_operator)
+         |> assign(:filter_value, "")
+         |> assign(:operators, operators_for_type(field_type_for_column(field_type_by_column, filter_column)))}
+      end
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You are not authorized to view reports.")
+       |> push_navigate(to: ~p"/")}
     end
   end
 
@@ -310,25 +309,6 @@ defmodule NixstasisWeb.ReportLive.Show do
     source = report.config["source"] || report.config[:source]
     source == "e2e"
   end
-
-  defp can_view_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_view"] == true
-  end
-
-  defp can_manage_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_manage"] == true
-  end
-
-  defp report_permissions(session) when is_map(session) do
-    case Map.get(session, "report_permissions") do
-      permissions when is_map(permissions) -> permissions
-      _ -> %{}
-    end
-  end
-
-  defp report_permissions(_session), do: %{}
 
   defp authorized_socket?(socket) do
     socket.assigns[:can_view_reports] == true

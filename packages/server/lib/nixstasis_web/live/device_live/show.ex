@@ -4,10 +4,11 @@ defmodule NixstasisWeb.DeviceLive.Show do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.SshKeyManager
+  alias NixstasisWeb.Permissions
 
   @impl true
   def mount(_params, session, socket) do
-    permissions = device_permissions(session)
+    permissions = Permissions.device_permissions(session)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
@@ -16,8 +17,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
     {:ok,
      socket
      |> assign(:device_permissions, permissions)
-     |> assign(:can_view_device_details?, can_view_device_details?(permissions))
-     |> assign(:can_remote_access_device?, can_remote_access_device?(permissions))
+     |> assign(:can_view_device_details?, Permissions.can_view_device_details?(permissions))
+     |> assign(:can_remote_access_device?, Permissions.can_remote_access_device?(permissions))
      |> assign(:remote_access_auto_open?, true)}
   end
 
@@ -25,8 +26,27 @@ defmodule NixstasisWeb.DeviceLive.Show do
   def handle_params(%{"id" => id}, _, socket) do
     return_to = Map.get(socket.assigns, :return_to, "/devices")
 
-    cond do
-      not can_view_device_details?(socket.assigns.device_permissions, id) ->
+    if Permissions.can_view_device_details?(socket.assigns.device_permissions, id) do
+      handle_authorized_device(socket, id, return_to)
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "You are not authorized to view device details.")
+       |> push_navigate(to: return_to)}
+    end
+  end
+
+  defp handle_authorized_device(socket, id, return_to) do
+    case safe_get_device(id) do
+      {:ok, device} ->
+        view =
+          if Devices.online?(device),
+            do: setup_device_view(socket, device, return_to),
+            else: assign_device_view(socket, device, return_to)
+
+        {:noreply, view}
+
+      :error ->
         {:noreply,
          socket
          |> put_flash(:error, "Device not found or unavailable")
@@ -44,7 +64,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     device = socket.assigns.device
 
     cond do
-      not can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
+      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
         {:noreply, put_flash(socket, :error, "You are not authorized to reinitialize remote access for this device.")}
 
       Devices.online?(device) ->
@@ -63,7 +83,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     device = socket.assigns.device
 
     cond do
-      not can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
+      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
         {:noreply, put_flash(socket, :error, "You are not authorized to start remote access for this device.")}
 
       socket.assigns.device_offline ->
@@ -330,77 +350,6 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> Map.get(:remote_access_lease_ref)
     |> Devices.close_remote_access_lease()
   end
-
-  defp can_view_device_details?(permissions, device_id \\ nil)
-
-  defp can_view_device_details?(permissions, nil) when is_map(permissions) do
-    permissions["can_view"] == true
-  end
-
-  defp can_view_device_details?(permissions, device_id) when is_map(permissions) do
-    permissions["can_view"] == true and device_authorized?(permissions, device_id)
-  end
-
-  defp can_view_device_details?(_, _), do: false
-
-  defp can_remote_access_device?(permissions, device_id \\ nil)
-
-  defp can_remote_access_device?(permissions, nil) when is_map(permissions) do
-    permissions["can_remote_access"] == true
-  end
-
-  defp can_remote_access_device?(permissions, device_id) when is_map(permissions) do
-    permissions["can_remote_access"] == true and device_authorized?(permissions, device_id)
-  end
-
-  defp can_remote_access_device?(_, _), do: false
-
-  defp device_permissions(session) when is_map(session) do
-    case Map.get(session, "device_permissions") do
-      permissions when is_map(permissions) -> permissions
-      _ -> %{}
-    end
-  end
-
-  defp device_permissions(_session), do: %{}
-
-  defp device_authorized?(permissions, device_id) when is_binary(device_id) do
-    case authorized_device_ids(permissions) do
-      nil -> true
-      ids -> MapSet.member?(ids, device_id)
-    end
-  end
-
-  defp device_authorized?(_permissions, _device_id), do: false
-
-  defp authorized_device_ids(permissions) when is_map(permissions) do
-    ids =
-      [
-        Map.get(permissions, "device_id"),
-        Map.get(permissions, "device_ids"),
-        Map.get(permissions, "allowed_device_ids")
-      ]
-      |> Enum.flat_map(&normalize_authorized_device_ids/1)
-      |> Enum.uniq()
-
-    cond do
-      ids != [] -> MapSet.new(ids)
-      scoped_device_permissions?(permissions) -> MapSet.new()
-      true -> nil
-    end
-  end
-
-  defp authorized_device_ids(_permissions), do: nil
-
-  defp scoped_device_permissions?(permissions) when is_map(permissions) do
-    Enum.any?(["device_id", "device_ids", "allowed_device_ids"], &Map.has_key?(permissions, &1))
-  end
-
-  defp scoped_device_permissions?(_permissions), do: false
-
-  defp normalize_authorized_device_ids(value) when is_binary(value), do: [value]
-  defp normalize_authorized_device_ids(values) when is_list(values), do: Enum.filter(values, &is_binary/1)
-  defp normalize_authorized_device_ids(_value), do: []
 
   defp line_chart_config do
     %{
