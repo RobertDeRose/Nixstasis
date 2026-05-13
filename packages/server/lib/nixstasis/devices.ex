@@ -6,6 +6,7 @@ defmodule Nixstasis.Devices do
   use GenServer
 
   require Ash.Query
+  require Logger
   import Ecto.Query, only: [from: 2]
 
   alias Nixstasis.Domain
@@ -824,9 +825,13 @@ defmodule Nixstasis.Devices do
 
       :ok
     rescue
-      _ -> :ok
+      error ->
+        Logger.warning("Failed to clear remote access flag for #{device_id}: #{Exception.message(error)}")
+        :ok
     catch
-      :exit, _ -> :ok
+      :exit, reason ->
+        Logger.warning("Failed to clear remote access flag for #{device_id}: #{inspect(reason)}")
+        :ok
     end
   end
 
@@ -883,7 +888,12 @@ defmodule Nixstasis.Devices do
     |> Ash.Query.filter(device_id == ^device_id and id == ^command_id)
     |> Ash.read_one!(domain: Domain)
   rescue
-    _ -> nil
+    error ->
+      Logger.warning(
+        "Failed to fetch pending command #{inspect(command_id)} for device #{device_id}: #{Exception.message(error)}"
+      )
+
+      nil
   end
 
   defp command_result_status(result) do
