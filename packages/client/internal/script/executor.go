@@ -22,6 +22,15 @@ func NewExecutor(config RuntimeConfig) *Executor {
 
 // ExecuteScripts runs all scripts and returns a result map keyed by script name.
 func (e *Executor) ExecuteScripts(ctx context.Context, scripts []ScriptInfo) (map[string]ScriptResult, error) {
+	// Share a single Runtime (and thus a single MQTT connection) across all
+	// script executions within this poll cycle.
+	rt := NewRuntime(e.config)
+	defer func() {
+		if err := rt.Close(); err != nil {
+			slog.Debug("Failed to close shared runtime", "error", err)
+		}
+	}()
+
 	results := make(chan ScriptResult, len(scripts))
 	var wg sync.WaitGroup
 
@@ -29,7 +38,7 @@ func (e *Executor) ExecuteScripts(ctx context.Context, scripts []ScriptInfo) (ma
 		wg.Add(1)
 		go func(info ScriptInfo) {
 			defer wg.Done()
-			results <- e.executeScript(ctx, info)
+			results <- e.executeScript(ctx, rt, info)
 		}(script)
 	}
 
@@ -47,14 +56,7 @@ func (e *Executor) ExecuteScripts(ctx context.Context, scripts []ScriptInfo) (ma
 	return mapped, nil
 }
 
-func (e *Executor) executeScript(ctx context.Context, info ScriptInfo) ScriptResult {
-	rt := NewRuntime(e.config)
-	defer func() {
-		if err := rt.Close(); err != nil {
-			slog.Debug("Failed to close runtime", "error", err)
-		}
-	}()
-
+func (e *Executor) executeScript(ctx context.Context, rt *Runtime, info ScriptInfo) ScriptResult {
 	start := time.Now()
 	result := ScriptResult{ScriptName: info.Name, ValidationStatus: ValidationSkipped}
 
