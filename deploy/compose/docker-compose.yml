@@ -1,28 +1,50 @@
 services:
   nixstasis:
-    image: ${NIXSTASIS_SERVER_IMAGE_REF}
+    image: ${NIXSTASIS_SERVER_IMAGE_REF:-nixstasis-server:dev}
     build:
       context: ../../packages
       dockerfile: server/Dockerfile
-    env_file:
-      - .env
     environment:
       PHX_SERVER: "true"
-      PORT: ${PORT}
+      PORT: ${PORT:-4000}
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      PHX_HOST: ${PHX_HOST}
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      CHECK_ORIGIN_EXTRA: ${CHECK_ORIGIN_EXTRA:-}
+      NIXSTASIS_FORCE_SSL: ${NIXSTASIS_FORCE_SSL:-true}
+      NIXSTASIS_TLS_OBSERVATIONS_ENABLED: ${NIXSTASIS_TLS_OBSERVATIONS_ENABLED:-false}
+      NIXSTASIS_TLS_OBSERVATIONS_TOKEN: ${NIXSTASIS_TLS_OBSERVATIONS_TOKEN:-}
+      NIXSTASIS_E2E_ENABLED: ${NIXSTASIS_E2E_ENABLED:-false}
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${PORT:-4000}:${PORT:-4000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   caddy:
-    image: ${NIXSTASIS_CADDY_IMAGE_REF}
+    image: ${NIXSTASIS_CADDY_IMAGE_REF:-nixstasis-caddy:dev}
     build:
       context: ../../packages/caddy
       dockerfile: Dockerfile
-    env_file:
-      - .env
+    environment:
+      PORT: ${PORT:-4000}
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      CLIENT_ID: ${CLIENT_ID}
+      CLIENT_SECRET: ${CLIENT_SECRET}
+      TENANT_ID: ${TENANT_ID}
+      JWT_KEY: ${JWT_KEY}
+      AUTHORIZED_ROLES: ${AUTHORIZED_ROLES}
+      AUTHORIZED_GROUPS: ${AUTHORIZED_GROUPS}
+      FRPS_DASHBOARD_PORT: ${FRPS_DASHBOARD_PORT}
+      FRPS_HTTP_PORT: ${FRPS_HTTP_PORT}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${BIND_HOST:-0.0.0.0}:80:80"
+      - "${BIND_HOST:-0.0.0.0}:443:443"
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_CONFIG:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
@@ -31,7 +53,7 @@ services:
     restart: unless-stopped
 
   frps:
-    image: ${NIXSTASIS_FRPS_IMAGE_REF}
+    image: ${NIXSTASIS_FRPS_IMAGE_REF:-nixstasis-frps:dev}
     build:
       context: ../../packages/frp
       dockerfile: Dockerfile
@@ -55,20 +77,20 @@ services:
           -e "s/__FRPS_AUTH_TOKEN__/$${escaped_frps_auth_token}/g" \
           -e "s/__BASE_DOMAIN__/${BASE_DOMAIN}/g" \
           /etc/frp/frps.toml.template > /tmp/frps.toml && exec frps -c /tmp/frps.toml
-    env_file:
-      - .env
+    environment:
+      FRPS_AUTH_TOKEN: ${FRPS_AUTH_TOKEN}
+      FRPS_DASHBOARD_USER: ${FRPS_DASHBOARD_USER}
+      FRPS_DASHBOARD_PASSWORD: ${FRPS_DASHBOARD_PASSWORD}
     ports:
-      - "${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"
-      - "${FRPS_HTTP_PORT}:${FRPS_HTTP_PORT}"
-      - "${FRPS_TCPMUX_PORT}:${FRPS_TCPMUX_PORT}"
+      - "${BIND_HOST:-0.0.0.0}:${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"
+      - "${BIND_HOST:-0.0.0.0}:${FRPS_HTTP_PORT}:${FRPS_HTTP_PORT}"
+      - "${BIND_HOST:-0.0.0.0}:${FRPS_TCPMUX_PORT}:${FRPS_TCPMUX_PORT}"
     volumes:
       - ./frps/frps.toml:/etc/frp/frps.toml.template:ro
     restart: unless-stopped
 
   postgres:
-    image: docker.io/postgres:${POSTGRES_VERSION}@${POSTGRES_IMAGE_DIGEST}
-    env_file:
-      - .env
+    image: docker.io/postgres:${POSTGRES_VERSION:-17-alpine}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-nixstasis}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -80,8 +102,25 @@ services:
       retries: 5
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    profiles:
-      - bundled-db
+    restart: unless-stopped
+
+  client:
+    image: ${NIXSTASIS_CLIENT_IMAGE_REF:-nixstasis-client:dev}
+    build:
+      context: ../../packages/client
+      dockerfile: Dockerfile
+    environment:
+      NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-http://nixstasis:4000}
+      NIXSTASIS_FRP_AUTH_TOKEN: ${NIXSTASIS_FRP_AUTH_TOKEN:-}
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    depends_on:
+      - nixstasis
+      - frps
     restart: unless-stopped
 
 volumes:
