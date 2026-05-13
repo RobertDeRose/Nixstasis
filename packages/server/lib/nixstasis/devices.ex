@@ -527,10 +527,15 @@ defmodule Nixstasis.Devices do
     ensure_remote_access_leases_manager!()
     owner = Keyword.get(opts, :owner, self())
     ttl_ms = Keyword.get(opts, :ttl_ms, @remote_access_lease_ttl_ms)
+    lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
 
-    with {:ok, updated} <- set_remote_access(device, true) do
-      lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
-      {:ok, updated, lease_ref}
+    case set_remote_access(device, true) do
+      {:ok, updated} ->
+        {:ok, updated, lease_ref}
+
+      {:error, _reason} = error ->
+        close_remote_access_lease(lease_ref)
+        error
     end
   end
 
