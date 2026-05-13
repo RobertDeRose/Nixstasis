@@ -648,7 +648,14 @@ defmodule Nixstasis.Devices do
   Deletes a device.
   """
   def delete_device(%Device{} = device) do
-    Domain.destroy_device(device)
+    case Domain.destroy_device(device) do
+      :ok = result ->
+        broadcast_device(:device_deleted, device)
+        result
+
+      result ->
+        result
+    end
   end
 
   @doc """
