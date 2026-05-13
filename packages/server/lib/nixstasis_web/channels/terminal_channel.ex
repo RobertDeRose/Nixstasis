@@ -53,10 +53,12 @@ defmodule NixstasisWeb.TerminalChannel do
   end
 
   defp authorize_terminal_join(socket, device_id) do
-    if socket.assigns[:terminal_device_id] in [nil, device_id] do
-      :ok
-    else
-      {:error, :unauthorized}
+    terminal_device_id = socket.assigns[:terminal_device_id]
+
+    cond do
+      is_nil(terminal_device_id) -> {:error, :unauthorized}
+      terminal_device_id == device_id -> :ok
+      true -> {:error, :unauthorized}
     end
   end
 

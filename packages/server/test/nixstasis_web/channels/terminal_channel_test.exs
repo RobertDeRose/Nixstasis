@@ -55,7 +55,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, _, socket} =
       NixstasisWeb.UserSocket
-      |> socket("user_id", %{})
+      |> socket("user_id", %{terminal_device_id: device.id})
       |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
         "token" => session_ref
       })
@@ -86,7 +86,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     assert {:error, %{reason: "unauthorized"}} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: other_device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{other_device.id}", %{
                "token" => wrong_ref
              })
@@ -109,7 +109,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
               executable: "missing-nixstasis-ssh"
             }} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
                "token" => session_ref
              })
@@ -123,7 +123,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     assert {:error, %{reason: reason, code: code}} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
                "token" => session_ref
              })
@@ -140,7 +140,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     assert {:error, %{reason: "session_not_found", code: "session_not_found"}} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
                "token" => Ecto.UUID.generate()
              })
@@ -156,7 +156,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     assert {:error, %{reason: "terminal_unavailable", code: "econnrefused"}} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
                "token" => session_ref
              })
