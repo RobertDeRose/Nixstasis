@@ -1,6 +1,7 @@
 package script
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"reflect"
@@ -11,7 +12,19 @@ import (
 	"go.starlark.net/starlark"
 )
 
-func (r *Runtime) pubAndGetBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+//nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
+func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	ctx := runtimeContext(thread)
+	if ctx.Err() != nil {
+		return nil, ErrTimeout
+	}
+	select {
+	case r.pubAndGetSem <- struct{}{}:
+		defer func() { <-r.pubAndGetSem }()
+	case <-ctx.Done():
+		return nil, ErrTimeout
+	}
+
 	var topic string
 	var msg string
 	var replyTopic string
@@ -41,6 +54,9 @@ func (r *Runtime) pubAndGetBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args
 	acceptCriteria, err := parseAcceptCriteria(accept)
 	if err != nil {
 		return nil, err
+	}
+	if ctx.Err() != nil {
+		return nil, ErrTimeout
 	}
 
 	client, err := r.connectMQTT()
@@ -78,9 +94,22 @@ func (r *Runtime) pubAndGetBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args
 	select {
 	case payload := <-responseCh:
 		return starlark.String(string(payload)), nil
+	case <-ctx.Done():
+		return nil, ErrTimeout
 	case <-time.After(5 * time.Second):
 		return starlark.None, nil
 	}
+}
+
+func runtimeContext(thread *starlark.Thread) context.Context {
+	if thread == nil {
+		return context.Background()
+	}
+	ctx, ok := thread.Local(runtimeContextThreadKey).(context.Context)
+	if !ok || ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
 func parseAcceptCriteria(accept *starlark.Dict) (map[string]any, error) {
