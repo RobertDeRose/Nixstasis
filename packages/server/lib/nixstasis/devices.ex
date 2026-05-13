@@ -24,6 +24,10 @@ defmodule Nixstasis.Devices do
     {:ok, %{leases: %{}, device_refs: %{}}}
   end
 
+  def start_link(:remote_access_leases) do
+    GenServer.start_link(__MODULE__, :remote_access_leases, name: @remote_access_leases_name)
+  end
+
   @impl true
   def handle_call({:open_remote_access_lease, device_id, owner, ttl_ms}, _from, state) do
     lease_ref = Ecto.UUID.generate()
@@ -754,15 +758,9 @@ defmodule Nixstasis.Devices do
   end
 
   defp ensure_remote_access_leases_manager! do
-    case Process.whereis(@remote_access_leases_name) do
-      nil ->
-        case GenServer.start(__MODULE__, :remote_access_leases, name: @remote_access_leases_name) do
-          {:ok, _pid} -> :ok
-          {:error, {:already_started, _pid}} -> :ok
-        end
-
-      _pid ->
-        :ok
+    unless Process.whereis(@remote_access_leases_name) do
+      raise RuntimeError,
+        message: "#{inspect(@remote_access_leases_name)} is not running; check supervision tree ordering"
     end
   end
 
