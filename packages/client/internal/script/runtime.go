@@ -164,7 +164,10 @@ func starlarkValueToGo(value starlark.Value) (any, error) {
 	case starlark.String:
 		return string(v), nil
 	case starlark.Int:
-		i, _ := v.Int64()
+		i, ok := v.Int64()
+		if !ok {
+			return nil, fmt.Errorf("integer value %s exceeds int64 range", v.String())
+		}
 		return i, nil
 	case starlark.Float:
 		return float64(v), nil
