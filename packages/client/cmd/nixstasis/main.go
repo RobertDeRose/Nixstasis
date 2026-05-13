@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/logging"
 )
 
-var cfg *config.Config
+type configContextKey struct{}
 
 var rootCmd = &cobra.Command{
 	Use:           "nixstasis",
@@ -23,6 +24,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		var err error
 		var defaultCfg *config.Config
+		var cfg *config.Config
 
 		defaultCfg, err = config.GetDefaultConfig()
 		if err != nil {
@@ -31,7 +33,7 @@ var rootCmd = &cobra.Command{
 		logging.Setup(defaultCfg.Log.Level, defaultCfg.Log.Format)
 
 		if shouldSkipConfig(cmd) {
-			cfg = defaultCfg
+			cmd.SetContext(context.WithValue(cmd.Context(), configContextKey{}, defaultCfg))
 			return nil
 		}
 
@@ -40,6 +42,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
 		slog.Debug("Configuration loaded", "config", cfg)
+		cmd.SetContext(context.WithValue(cmd.Context(), configContextKey{}, cfg))
 
 		return nil
 	},
@@ -62,8 +65,9 @@ func runMain() int {
 	defer rec.Stop()
 
 	if err := run(); err != nil {
-		// On failure, write the flight recorder trace for post-mortem debugging.
-		writeFlightRecorderTrace(rec)
+		if shouldWriteFlightRecorderTrace() {
+			writeFlightRecorderTrace(rec)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -73,6 +77,21 @@ func runMain() int {
 
 func run() error {
 	return rootCmd.Execute()
+}
+
+func commandConfig(cmd *cobra.Command) (*config.Config, error) {
+	if cmd == nil {
+		return nil, fmt.Errorf("command is nil")
+	}
+	cfg, ok := cmd.Context().Value(configContextKey{}).(*config.Config)
+	if !ok || cfg == nil {
+		return nil, fmt.Errorf("config not loaded")
+	}
+	return cfg, nil
+}
+
+func shouldWriteFlightRecorderTrace() bool {
+	return os.Getenv("NIXSTASIS_WRITE_TRACE_ON_ERROR") == "true"
 }
 
 func writeFlightRecorderTrace(rec *trace.FlightRecorder) {
@@ -87,12 +106,19 @@ func writeFlightRecorderTrace(rec *trace.FlightRecorder) {
 		fmt.Fprintf(os.Stderr, "failed to create trace file: %v\n", err)
 		return
 	}
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(f.Name())
+		}
+	}()
 	defer f.Close()
 
 	if _, err := rec.WriteTo(f); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write flight recorder trace: %v\n", err)
 		return
 	}
+	success = true
 	fmt.Fprintf(os.Stderr, "flight recorder trace written to %s\n", f.Name())
 }
 

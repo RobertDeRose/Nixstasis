@@ -25,8 +25,12 @@ import (
 var pollCmd = &cobra.Command{
 	Use:   "poll",
 	Short: "Start the telemetry polling loop",
-	Run: func(_ *cobra.Command, _ []string) {
-		runPoll()
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		cfg, err := commandConfig(cmd)
+		if err != nil {
+			return err
+		}
+		return runPoll(cfg)
 	},
 }
 
@@ -34,9 +38,8 @@ func init() {
 	rootCmd.AddCommand(pollCmd)
 }
 
-var startTime = time.Now()
-
-func runPoll() {
+func runPoll(cfg *config.Config) error {
+	startTime := time.Now()
 	slog.Info("Starting polling service")
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -46,21 +49,15 @@ func runPoll() {
 	store := identity.NewStore(config.IdentityPath())
 	credentials, err := store.Load()
 	if err != nil {
-		slog.Warn("No device identity found. Please run 'nixstasis register' first.", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("no device identity found, please run 'nixstasis register' first: %w", err)
 	}
 	if credentials.UUID == "" || credentials.Token == "" {
-		slog.Warn("Device credentials are incomplete. Please run 'nixstasis register' after approval.")
-		os.Exit(1)
+		return fmt.Errorf("device credentials are incomplete, please run 'nixstasis register' after approval")
 	}
 	uuid := credentials.UUID
 	slog.Info("Device identity loaded", "uuid", uuid)
 
 	// 2. Setup Components
-	if cfg == nil {
-		slog.Error("Config not loaded")
-		os.Exit(1)
-	}
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
 	executor := script.NewExecutor(script.RuntimeConfig{
@@ -76,39 +73,35 @@ func runPoll() {
 	frpManager := frp.NewManager()
 	cmdHandler := commands.NewHandlerWithAuthorizedKeys(cfg.Scripts.Dir, cfg.Runtime.AuthorizedKeysPath)
 
-	ticker := time.NewTicker(pollInterval(cfg))
-	defer ticker.Stop()
-
 	var consecutiveFailures int
+	interval := pollInterval(cfg)
 
 	// Run immediately once
-	if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
+	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
+	nextDelay := nextPollDelay(consecutiveFailures, interval)
+	timer := time.NewTimer(nextDelay)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
-			return
-		case <-ticker.C:
-			if delay := backoffDelay(consecutiveFailures, pollInterval(cfg)); delay > 0 {
-				slog.Info("Backing off before next poll", "delay", delay, "consecutive_failures", consecutiveFailures)
-				select {
-				case <-ctx.Done():
-					slog.Info("Shutting down polling service", "reason", ctx.Err())
-					return
-				case <-time.After(delay):
-				}
-			}
-
-			if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
+			return nil
+		case <-timer.C:
+			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
 				consecutiveFailures = 0
 			}
+			nextDelay = nextPollDelay(consecutiveFailures, interval)
+			if consecutiveFailures > 0 {
+				slog.Info("Backing off before next poll", "delay", nextDelay, "consecutive_failures", consecutiveFailures)
+			}
+			timer.Reset(nextDelay)
 		}
 	}
 }
@@ -129,11 +122,18 @@ func pollInterval(cfg *config.Config) time.Duration {
 
 const maxBackoff = 5 * time.Minute
 
-// backoffDelay returns an additional delay with jitter based on the number
-// of consecutive poll failures. Returns 0 when there are no failures.
+func nextPollDelay(failures int, base time.Duration) time.Duration {
+	if failures <= 0 {
+		return base
+	}
+	return backoffDelay(failures, base)
+}
+
+// backoffDelay returns the full delay with jitter based on the number of
+// consecutive poll failures.
 func backoffDelay(failures int, base time.Duration) time.Duration {
 	if failures <= 0 {
-		return 0
+		return base
 	}
 
 	// Exponential: base * 2^(failures-1), capped at maxBackoff.
@@ -145,8 +145,13 @@ func backoffDelay(failures int, base time.Duration) time.Duration {
 		delay = maxBackoff
 	}
 
+	jitterWindow := delay / 2
+	if jitterWindow <= 1 {
+		return delay
+	}
+
 	// Add jitter: +/- 25% of delay, clamped so the result is always positive.
-	jitter := time.Duration(rand.Int64N(int64(delay/2))) - delay/4
+	jitter := time.Duration(rand.Int64N(int64(jitterWindow))) - delay/4
 	d := delay + jitter
 	if d <= 0 {
 		d = 1
@@ -154,7 +159,7 @@ func backoffDelay(failures int, base time.Duration) time.Duration {
 	return d
 }
 
-func pollOnce(ctx context.Context, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string) error {
+func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string, startTime time.Time) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
@@ -186,7 +191,7 @@ func pollOnce(ctx context.Context, client *transport.Client, executor *script.Ex
 	payload := telemetry.Payload{
 		Device: telemetry.DeviceStatus{
 			Identity: id,
-			Uptime:   getUptime(),
+			Uptime:   uptimeSeconds(startTime),
 		},
 		Scripts: scriptReports,
 		Meta: telemetry.PollMeta{
@@ -378,7 +383,6 @@ func hydrateCommandPayloads(ctx context.Context, fetcher commandPayloadFetcher, 
 	return ready, failures
 }
 
-func getUptime() int64 {
-	// Simple process uptime for now
+func uptimeSeconds(startTime time.Time) int64 {
 	return int64(time.Since(startTime).Seconds())
 }
