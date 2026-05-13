@@ -239,6 +239,15 @@ defmodule Nixstasis.DevicesTest do
       assert is_nil(Devices.get_device!(device.id).api_token_hash)
     end
 
+    test "update_device/2 rejects approval status regressions" do
+      rejected = device_fixture(%{mac_address: "88:88:88:88:88:89", approval_status: :rejected})
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Devices.update_device(rejected, %{approval_status: :pending})
+
+      assert Devices.get_device!(rejected.id).approval_status == :rejected
+    end
+
     test "approve_device/1 forces secure registration before runtime auth" do
       pending = device_fixture(%{approval_status: :pending})
 
