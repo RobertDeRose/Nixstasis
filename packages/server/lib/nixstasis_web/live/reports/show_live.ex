@@ -3,6 +3,7 @@ defmodule NixstasisWeb.ReportLive.Show do
 
   alias Nixstasis.Reporting
   alias Nixstasis.SchemaOptions
+  alias NixstasisWeb.Permissions
 
   @number_operators [
     {">", ">"},
@@ -21,7 +22,7 @@ defmodule NixstasisWeb.ReportLive.Show do
 
   def mount(%{"id" => id}, session, socket) do
     cond do
-      not can_view_reports?(session) ->
+      not Permissions.can_view_reports?(session) ->
         {:ok,
          socket
          |> put_flash(:error, "You are not authorized to view reports.")
@@ -45,7 +46,7 @@ defmodule NixstasisWeb.ReportLive.Show do
           {:ok,
            socket
            |> assign(:can_view_reports, true)
-           |> assign(:can_manage_reports, can_manage_reports?(session))
+           |> assign(:can_manage_reports, Permissions.can_manage_reports?(session))
            |> assign(:report, report)
            |> assign(:fields, fields)
            |> assign(:field_type_by_column, field_type_by_column)
@@ -310,25 +311,6 @@ defmodule NixstasisWeb.ReportLive.Show do
     source = report.config["source"] || report.config[:source]
     source == "e2e"
   end
-
-  defp can_view_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_view"] == true
-  end
-
-  defp can_manage_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_manage"] == true
-  end
-
-  defp report_permissions(session) when is_map(session) do
-    case Map.get(session, "report_permissions") do
-      permissions when is_map(permissions) -> permissions
-      _ -> %{}
-    end
-  end
-
-  defp report_permissions(_session), do: %{}
 
   defp authorized_socket?(socket) do
     socket.assigns[:can_view_reports] == true

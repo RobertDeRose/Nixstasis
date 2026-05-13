@@ -3,6 +3,7 @@ defmodule NixstasisWeb.ReportLive.Index do
 
   alias Nixstasis.Reporting
   alias Nixstasis.Reporting.CustomReport
+  alias NixstasisWeb.Permissions
   alias Nixstasis.SchemaOptions
 
   @default_filters %{"name" => "", "field_query" => "", "field_queries" => []}
@@ -10,14 +11,14 @@ defmodule NixstasisWeb.ReportLive.Index do
   def mount(_params, session, socket) do
     preference_scope = Reporting.preference_scope(session)
 
-    if can_view_reports?(session) do
+    if Permissions.can_view_reports?(session) do
       {:ok,
        socket
        |> assign(:can_view_reports, true)
        |> assign(:preference_scope, preference_scope)
        |> assign(:preferences_enabled?, preference_scope != nil)
        |> assign(:preferences_reset?, false)
-       |> assign(:can_manage_reports, can_manage_reports?(session))
+       |> assign(:can_manage_reports, Permissions.can_manage_reports?(session))
        |> assign(:schema_field_options, schema_field_options())
        |> assign(:report_to_delete, nil)
        |> assign(:sort_by, "name")
@@ -260,25 +261,6 @@ defmodule NixstasisWeb.ReportLive.Index do
       ""
     end
   end
-
-  defp can_manage_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_manage"] == true
-  end
-
-  defp can_view_reports?(session) do
-    permissions = report_permissions(session)
-    permissions["can_view"] == true
-  end
-
-  defp report_permissions(session) when is_map(session) do
-    case Map.get(session, "report_permissions") do
-      permissions when is_map(permissions) -> permissions
-      _ -> %{}
-    end
-  end
-
-  defp report_permissions(_session), do: %{}
 
   defp authorized_socket?(socket) do
     socket.assigns[:can_view_reports] == true
