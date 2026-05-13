@@ -28,6 +28,7 @@ fi
 
 # GitHub API URL for releases
 API_URL="https://api.github.com/repos/${REPO}/releases/tags/v${DOWNLOAD_VERSION}"
+ASSET_NAME="frp_${DOWNLOAD_VERSION}_linux_${ARCH}.tar.gz"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -37,10 +38,14 @@ RELEASE_DATA=$(curl -fsS "$API_URL")
 
 # Find the download URL for the binary
 ASSET_URL=$(echo "$RELEASE_DATA" | jq -r \
-  --arg ARCH "$ARCH" '.assets[] | select((.name | contains($ARCH)) and (.name | contains("linux"))) | .browser_download_url')
+  --arg ASSET_NAME "$ASSET_NAME" '.assets[] | select(.name == $ASSET_NAME) | .browser_download_url')
 
 if [[ -z ${ASSET_URL} ]]; then
-  fail "No asset found for architecture $ARCH in version $VERSION."
+  fail "No asset found for $ASSET_NAME in version $VERSION."
+fi
+
+if [[ $(echo "$ASSET_URL" | wc -l | tr -d ' ') -ne 1 ]]; then
+  fail "Expected exactly one asset URL for $ASSET_NAME."
 fi
 
 # Download the binary
