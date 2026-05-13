@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"time"
 
@@ -40,6 +41,8 @@ func NewClient(cfg config.APIConfig) *Client {
 }
 
 // SetAPIKey configures the per-device API key used for runtime endpoints.
+// It is called once during startup after registration completes, before the
+// poll loop begins.  The single-writer lifecycle means no mutex is needed.
 func (c *Client) SetAPIKey(apiKey string) {
 	c.apiKey = apiKey
 }
@@ -239,6 +242,19 @@ func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []
 	reqBody := CommandResultsRequest{Results: results}
 
 	return c.doJSON(ctx, http.MethodPost, url, reqBody, nil, http.StatusOK, http.StatusAccepted)
+}
+
+var payloadRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
+
+// ValidatePayloadRef checks that a payload reference is safe for URL interpolation.
+func ValidatePayloadRef(ref string) error {
+	if ref == "" {
+		return fmt.Errorf("empty payload ref")
+	}
+	if !payloadRefPattern.MatchString(ref) {
+		return fmt.Errorf("invalid payload ref %q", ref)
+	}
+	return nil
 }
 
 // FetchCommandPayload retrieves a payload by reference.

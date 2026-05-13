@@ -256,6 +256,15 @@ func hydrateCommandPayloads(ctx context.Context, fetcher commandPayloadFetcher, 
 			continue
 		}
 
+		if err := transport.ValidatePayloadRef(cmd.PayloadRef); err != nil {
+			failures = append(failures, transport.CommandResult{
+				CommandID: cmd.CommandID,
+				Status:    transport.CommandStatusFailed,
+				Error:     "invalid_payload_ref: " + err.Error(),
+			})
+			continue
+		}
+
 		fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		payload, err := fetcher.FetchCommandPayload(fetchCtx, uuid, cmd.PayloadRef)
 		cancel()
