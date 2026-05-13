@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -18,12 +19,24 @@ import (
 // ErrTimeout is returned when a script execution exceeds its allowed runtime.
 var ErrTimeout = errors.New("script timeout")
 
+// maxMQTTConnectAttempts is the maximum number of consecutive MQTT connection
+// failures before the Runtime stops attempting for the rest of this poll cycle.
+// A new Runtime is created each poll cycle, so the breaker resets automatically.
+const maxMQTTConnectAttempts = 3
+
 // Runtime executes Starlark scripts with a configured set of builtins.
 type Runtime struct {
 	config     RuntimeConfig
 	builtins   starlark.StringDict
 	mqttMu     sync.Mutex
 	mqttClient mqtt.Client
+	mqttFailures int
+	// pubAndGetSem serializes pub_and_get calls. Capacity MUST be 1 because
+	// the shared MQTT client's Subscribe/Unsubscribe are not scoped per-call;
+	// allowing concurrent pub_and_get on the same reply topic would race the
+	// subscription handler.
+	pubAndGetSem chan struct{}
+	mqttSeq      atomic.Uint64
 }
 
 // NewRuntime constructs a Runtime with configured timeouts, builtins, and safety defaults.
