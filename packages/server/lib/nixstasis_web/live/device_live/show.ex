@@ -1,6 +1,8 @@
 defmodule NixstasisWeb.DeviceLive.Show do
   use NixstasisWeb, :live_view
 
+  require Logger
+
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.SshKeyManager
@@ -196,6 +198,11 @@ defmodule NixstasisWeb.DeviceLive.Show do
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
+    {:noreply, socket}
+  end
+
+  def handle_info(message, socket) do
+    Logger.debug("#{__MODULE__} unhandled message: #{inspect(message)}")
     {:noreply, socket}
   end
 
