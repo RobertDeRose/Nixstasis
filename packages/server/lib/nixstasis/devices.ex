@@ -849,23 +849,28 @@ defmodule Nixstasis.Devices do
     |> Ash.read!(domain: Domain)
   end
 
-  defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) do
-    cond do
-      Map.has_key?(attrs, :approval_status) or Map.has_key?(attrs, "approval_status") ->
-        broadcast_device(:device_approval_status_changed, device)
+  defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) and map_size(attrs) > 0 do
+    events =
+      []
+      |> maybe_add_update_event(attrs, :approval_status, :device_approval_status_changed)
+      |> maybe_add_update_event(attrs, :last_seen_at, :device_last_seen_updated)
+      |> maybe_add_update_event(attrs, :remote_access_requested, :device_remote_access_changed)
 
-      Map.has_key?(attrs, :last_seen_at) or Map.has_key?(attrs, "last_seen_at") ->
-        broadcast_device(:device_last_seen_updated, device)
-
-      Map.has_key?(attrs, :remote_access_requested) or Map.has_key?(attrs, "remote_access_requested") ->
-        broadcast_device(:device_remote_access_changed, device)
-
-      true ->
-        broadcast_device(:device_updated, device)
+    case events do
+      [] -> broadcast_device(:device_updated, device)
+      events -> Enum.each(events, &broadcast_device(&1, device))
     end
   end
 
   defp broadcast_update_for_attrs(_device, _attrs), do: :ok
+
+  defp maybe_add_update_event(events, attrs, key, event) do
+    if Map.has_key?(attrs, key) or Map.has_key?(attrs, to_string(key)) do
+      [event | events]
+    else
+      events
+    end
+  end
 
   defp broadcast_device(event, %Device{} = device) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "devices", {event, device_broadcast_payload(device)})
