@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,13 +37,14 @@ var startTime = time.Now()
 func runPoll() {
 	slog.Info("Starting polling service")
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// 1. Load Identity
 	store := identity.NewStore(config.IdentityPath())
 	credentials, err := store.Load()
 	if err != nil {
 		slog.Warn("No device identity found. Please run 'nixstasis register' first.", "error", err)
-		// We exit here because without a UUID we cannot report telemetry.
-		// In a production daemon, we might want to trigger registration or wait.
 		os.Exit(1)
 	}
 	if credentials.UUID == "" || credentials.Token == "" {
@@ -75,13 +78,19 @@ func runPoll() {
 	defer ticker.Stop()
 
 	// Run immediately once
-	if err := pollOnce(client, executor, frpManager, cmdHandler, uuid); err != nil {
+	if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 	}
 
-	for range ticker.C {
-		if err := pollOnce(client, executor, frpManager, cmdHandler, uuid); err != nil {
-			slog.Error("Poll failed", "error", err)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Shutting down polling service", "reason", ctx.Err())
+			return
+		case <-ticker.C:
+			if err := pollOnce(ctx, client, executor, frpManager, cmdHandler, uuid); err != nil {
+				slog.Error("Poll failed", "error", err)
+			}
 		}
 	}
 }
@@ -100,9 +109,8 @@ func pollInterval(cfg *config.Config) time.Duration {
 	return 30 * time.Second
 }
 
-func pollOnce(client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string) error {
+func pollOnce(ctx context.Context, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string) error {
 	pollStart := time.Now()
-	ctx := context.Background()
 
 	// Re-detect dynamic identity details (IP might change)
 	mac, err := identity.GetPrimaryMAC()
@@ -124,7 +132,7 @@ func pollOnce(client *transport.Client, executor *script.Executor, frpManager *f
 	if err != nil {
 		slog.Warn("Error discovering scripts", "error", err)
 	}
-	scriptReports, scriptErrors := runScripts(executor, scripts)
+	scriptReports, scriptErrors := runScripts(ctx, executor, scripts)
 
 	// Get FRP Status
 	frpStatus := frpManager.GetStatus()
@@ -185,11 +193,10 @@ func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
 	return frpConfig
 }
 
-func runScripts(executor *script.Executor, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
+func runScripts(ctx context.Context, executor *script.Executor, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
 	scripts = script.SelectLatestScripts(scripts)
 
 	scriptStart := time.Now()
-	ctx := context.Background() // TODO: Timeout for whole poll?
 	scriptResults, err := executor.ExecuteScripts(ctx, scripts)
 	if err != nil {
 		slog.Error("Error executing scripts", "error", err)
