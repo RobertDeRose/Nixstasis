@@ -669,7 +669,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
     assert {:ok, _, socket} =
              NixstasisWeb.UserSocket
-             |> socket("user_id", %{})
+             |> socket("user_id", %{terminal_device_id: device_id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device_id}", %{"token" => session_ref})
 
     socket

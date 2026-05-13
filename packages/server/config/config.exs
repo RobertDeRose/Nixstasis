@@ -11,7 +11,7 @@ config :mime, extensions: %{"json" => "application/vnd.api+json"}, types: %{"app
 config :ash_json_api, show_public_calculations_when_loaded?: false, authorize_update_destroy_with_error?: true
 
 config :ash,
-  allow_forbidden_field_for_relationships_by_default?: true,
+  allow_forbidden_field_for_relationships_by_default?: false,
   include_embedded_source_by_default?: false,
   show_keysets_for_all_actions?: false,
   default_page_type: :keyset,
