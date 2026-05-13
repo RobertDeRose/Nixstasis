@@ -16,6 +16,8 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 )
 
+const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 // execCommandContext allows mocking the command execution in tests.
 var execCommandContext = exec.CommandContext
 
@@ -78,7 +80,10 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	if env == nil {
 		env = os.Environ()
 	}
-	cmd.Env = append(env, "FRPS_AUTH_TOKEN="+frpConfig.AuthToken)
+	cmd.Env = append(env,
+		"FRPS_AUTH_TOKEN="+frpConfig.AuthToken,
+		"FRPS_SERVER_ADDR="+frpConfig.ServerAddr,
+	)
 	m.cmd = cmd
 
 	if err := cmd.Start(); err != nil {
@@ -132,15 +137,14 @@ func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error)
 	}
 
 	replacements := map[string]string{
-		"{{ .Envs.FRPS_AUTH_TOKEN }}": frpConfig.AuthToken,
-		"{{ .Envs.NAME }}":            frpConfig.Name,
+		"{{ .Envs.NAME }}": frpConfig.Name,
 	}
 
 	rendered := stripTemplateCommentPlaceholders(string(template))
 	for placeholder, value := range replacements {
 		rendered = strings.ReplaceAll(rendered, placeholder, value)
 	}
-	if strings.Contains(rendered, "{{") {
+	if unresolvedNonEnvPlaceholder(rendered) {
 		return "", fmt.Errorf("frpc config contains unresolved template placeholders")
 	}
 
@@ -166,8 +170,19 @@ func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error)
 
 var templateCommentPattern = regexp.MustCompile(`(?m)^\s*#.*\{\{.*\}\}.*$`)
 
+// envPlaceholderPattern matches FRP-native {{ .Envs.VAR }} placeholders that
+// frpc resolves from its own process environment at startup.
+var envPlaceholderPattern = regexp.MustCompile(`\{\{\s*\.Envs\.\w+\s*\}\}`)
+
 func stripTemplateCommentPlaceholders(template string) string {
 	return templateCommentPattern.ReplaceAllString(template, "")
+}
+
+// unresolvedNonEnvPlaceholder returns true if the rendered config still
+// contains {{ ... }} placeholders that are NOT frpc-native .Envs references.
+func unresolvedNonEnvPlaceholder(rendered string) bool {
+	cleaned := envPlaceholderPattern.ReplaceAllString(rendered, "")
+	return strings.Contains(cleaned, "{{")
 }
 
 // Stop terminates the frpc process.

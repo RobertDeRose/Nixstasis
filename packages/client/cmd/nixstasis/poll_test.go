@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,10 +38,34 @@ type fakeCommandClient struct {
 	results []transport.CommandResult
 }
 
+type fakePayloadFetcher struct {
+	delay time.Duration
+	inFlight atomic.Int64
+	maxInFlight atomic.Int64
+}
+
 func (f *fakeCommandClient) SendCommandResults(_ context.Context, _ string, results []transport.CommandResult) error {
 	f.called = true
 	f.results = results
 	return nil
+}
+
+func (f *fakePayloadFetcher) FetchCommandPayload(ctx context.Context, _ string, ref string) (*transport.CommandPayload, error) {
+	current := f.inFlight.Add(1)
+	defer f.inFlight.Add(-1)
+	for {
+		maxInFlight := f.maxInFlight.Load()
+		if current <= maxInFlight || f.maxInFlight.CompareAndSwap(maxInFlight, current) {
+			break
+		}
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(f.delay):
+		return &transport.CommandPayload{Data: ref}, nil
+	}
 }
 
 func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) {
@@ -66,7 +92,7 @@ func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) 
 }
 
 func TestRuntimeFRPConfigPreservesConfiguredName(t *testing.T) {
-	base := config.FRPConfig{AuthToken: "secret-token", Name: "configured-name"}
+	base := config.FRPConfig{AuthToken: "secret-token", Name: "configured-name", ServerAddr: "frps.internal"}
 
 	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff")
 
@@ -75,6 +101,9 @@ func TestRuntimeFRPConfigPreservesConfiguredName(t *testing.T) {
 	}
 	if got.AuthToken != "secret-token" {
 		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
+	}
+	if got.ServerAddr != "frps.internal" {
+		t.Fatalf("runtimeFRPConfig() server addr = %q", got.ServerAddr)
 	}
 }
 
@@ -90,5 +119,30 @@ func TestRuntimeFRPConfigFallsBackToGeneratedDeviceName(t *testing.T) {
 	}
 	if got.AuthToken != "secret-token" {
 		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
+	}
+	if got.ServerAddr != "nixstasis.example.com" {
+		t.Fatalf("runtimeFRPConfig() server addr = %q", got.ServerAddr)
+	}
+}
+
+func TestHydrateCommandPayloadsUsesBoundedParallelism(t *testing.T) {
+	fetcher := &fakePayloadFetcher{delay: 20 * time.Millisecond}
+	cmds := make([]transport.CommandRequest, 12)
+	for i := range cmds {
+		cmds[i] = transport.CommandRequest{
+			CommandID:  fmt.Sprintf("cmd-%d", i),
+			PayloadRef: fmt.Sprintf("payload-%d", i),
+		}
+	}
+
+	ready, failures := hydrateCommandPayloads(context.Background(), fetcher, "device-1", cmds)
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures, got %+v", failures)
+	}
+	if len(ready) != len(cmds) {
+		t.Fatalf("expected %d ready commands, got %d", len(cmds), len(ready))
+	}
+	if got := fetcher.maxInFlight.Load(); got < 2 || got > 8 {
+		t.Fatalf("expected bounded parallel fetches between 2 and 8, got %d", got)
 	}
 }

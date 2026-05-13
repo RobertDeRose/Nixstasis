@@ -10,6 +10,7 @@ scripts:
 frp:
   auth_token: ""
   name: "atom-001122334455"
+  server_addr: "nixstasis.example.com"
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"
