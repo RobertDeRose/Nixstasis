@@ -635,8 +635,8 @@ defmodule Nixstasis.Devices do
         broadcast_update_for_attrs(device, attrs)
         result
 
-      result ->
-        result
+      {:error, _reason} = error ->
+        error
     end
   end
 
