@@ -93,6 +93,37 @@ def main():
 	}
 }
 
+func TestGivenConfiguredScriptsDir_WhenInstallScript_ThenWritesThere(t *testing.T) {
+	scriptsDir := t.TempDir()
+	handler := NewHandler(scriptsDir)
+	content := strings.TrimSpace(`---
+name: server_installed
+version: "1"
+schema:
+  type: object
+---
+def main():
+    return {}
+`)
+
+	results := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-install",
+		Type:      "install_script",
+		Payload:   &transport.CommandPayload{Data: content},
+	}})
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Status != transport.CommandStatusOK {
+		t.Fatalf("expected install to succeed, got status=%s error=%s", results[0].Status, results[0].Error)
+	}
+	installedPath := filepath.Join(scriptsDir, "server_installed_1.stary")
+	if _, err := os.Stat(installedPath); err != nil {
+		t.Fatalf("expected script installed in configured scripts dir: %v", err)
+	}
+}
+
 func TestGivenPathTraversalScriptVersion_WhenRemoveScript_ThenFails(t *testing.T) {
 	handler := NewHandler(t.TempDir())
 	results := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
