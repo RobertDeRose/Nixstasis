@@ -8,6 +8,7 @@ defmodule NixstasisWeb.Router do
     plug(:put_root_layout, html: {NixstasisWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(NixstasisWeb.Plugs.DevicePermissions)
   end
 
   pipeline :api do

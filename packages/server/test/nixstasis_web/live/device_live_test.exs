@@ -222,10 +222,13 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "not authorized to view device details"
     end
 
-    test "device details navigation is blocked when permission context is missing", %{conn: conn} do
+    test "device details navigation is blocked when permissions explicitly deny access", %{conn: conn} do
       device = create_device!(%{mac_address: "DE:AD:BE:EF:00:02"})
 
-      conn = conn |> recycle() |> init_test_session(%{})
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => false})
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
@@ -323,10 +326,13 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert message =~ "not authorized"
     end
 
-    test "rejects device detail access when permission context is missing", %{conn: conn} do
+    test "rejects device detail access when permissions explicitly deny access", %{conn: conn} do
       device = create_device!(%{mac_address: "E0:E0:E0:E0:E0:E1"})
 
-      conn = conn |> recycle() |> init_test_session(%{})
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => false})
 
       assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} =
                live(conn, ~p"/devices/#{device.id}")
