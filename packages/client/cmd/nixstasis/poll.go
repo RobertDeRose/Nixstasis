@@ -236,7 +236,7 @@ func handleCommandResponses(ctx context.Context, client commandResultsClient, fe
 	results := handler.ExecuteBatch(ctx, ready)
 	results = append(results, preResults...)
 
-	sendCtx, cancel := context.WithTimeout(ctx, time.Second)
+	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	return client.SendCommandResults(sendCtx, uuid, results)
