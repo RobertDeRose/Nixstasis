@@ -48,6 +48,8 @@ defmodule NixstasisWeb.DashboardLiveTest do
 
       {:ok, device} = Devices.update_device(device, %{last_seen_at: DateTime.utc_now()})
       send(view.pid, {:device_last_seen_updated, device})
+      # Flush the debounce timer so the refresh happens immediately in tests
+      send(view.pid, :debounced_refresh)
 
       assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-value", "1")
     end

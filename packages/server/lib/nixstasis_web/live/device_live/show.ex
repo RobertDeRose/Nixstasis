@@ -141,12 +141,34 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
+  def handle_info({:device_last_seen_updated, %{id: device_id}}, %{assigns: %{device: %Device{id: device_id}}} = socket) do
+    was_offline = socket.assigns.device_offline
+
+    case safe_get_device(device_id) do
+      {:ok, device} ->
+        now_offline = not Devices.online?(device)
+
+        if was_offline != now_offline do
+          {:noreply, refresh_device_view(socket, device)}
+        else
+          {:noreply, socket}
+        end
+
+      :error ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:device_last_seen_updated, _payload}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({event, %{id: device_id}}, %{assigns: %{device: %Device{id: device_id}}} = socket)
       when event in [
              :device_created,
              :device_registered,
              :device_updated,
-             :device_last_seen_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
@@ -167,7 +189,6 @@ defmodule NixstasisWeb.DeviceLive.Show do
              :device_created,
              :device_registered,
              :device_updated,
-             :device_last_seen_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do

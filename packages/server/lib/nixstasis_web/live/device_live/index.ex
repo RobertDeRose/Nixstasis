@@ -274,9 +274,15 @@ defmodule NixstasisWeb.DeviceLive.Index do
      |> push_navigate(to: ~p"/devices")}
   end
 
+  @refresh_debounce_ms 5_000
+
   @impl true
   def handle_info({NixstasisWeb.DeviceLive.FormComponent, {:saved, device}}, socket) do
     {:noreply, stream_insert(socket, :devices, device)}
+  end
+
+  def handle_info({:device_last_seen_updated, _device}, socket) do
+    {:noreply, schedule_debounced_refresh(socket)}
   end
 
   def handle_info({event, _device}, socket)
@@ -284,11 +290,17 @@ defmodule NixstasisWeb.DeviceLive.Index do
              :device_registered,
              :device_created,
              :device_updated,
-             :device_last_seen_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
     {:noreply, refresh_devices(socket)}
+  end
+
+  def handle_info(:debounced_refresh, socket) do
+    {:noreply,
+     socket
+     |> assign(:refresh_timer, nil)
+     |> refresh_devices()}
   end
 
   def handle_info({:clear_flash, key}, socket) do
@@ -336,6 +348,17 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:selected_ids, selected_ids)
     |> assign(:total_count, length(devices))
     |> stream(:devices, devices, reset: true)
+  end
+
+  defp schedule_debounced_refresh(socket) do
+    existing = Map.get(socket.assigns, :refresh_timer)
+
+    if existing do
+      socket
+    else
+      timer = Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
+      assign(socket, :refresh_timer, timer)
+    end
   end
 
   defp list_visible_devices(assigns) do
