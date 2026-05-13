@@ -23,6 +23,15 @@ type Store struct {
 	path string
 }
 
+func syncDir(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
+
 // NewStore creates a new Store instance.
 func NewStore(path string) *Store {
 	return &Store{path: path}
@@ -104,16 +113,42 @@ func (s *Store) write(data []byte) error {
 		return err
 	}
 
-	tmpFile := s.path + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0o600); err != nil {
+	tmpFile, err := os.CreateTemp(dir, filepath.Base(s.path)+".tmp.*")
+	if err != nil {
 		return err
 	}
-	if err := os.Chmod(tmpFile, 0o600); err != nil {
+	tmpPath := tmpFile.Name()
+
+	// Clean up the temp file on any failure path.
+	success := false
+	defer func() {
+		if !success {
+			os.Remove(tmpPath)
+		}
+	}()
+
+	if err := tmpFile.Chmod(0o600); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
 		return err
 	}
 
-	if err := os.Rename(tmpFile, s.path); err != nil {
+	if err := os.Rename(tmpPath, s.path); err != nil {
 		return err
 	}
-	return os.Chmod(s.path, 0o600)
+	if err := syncDir(dir); err != nil {
+		return err
+	}
+	success = true
+	return nil
 }
