@@ -11,6 +11,10 @@ defmodule Nixstasis.Devices.SshKeyManager do
   @impl true
   def init(:terminal_sessions), do: {:ok, %{sessions: %{}}}
 
+  def start_link(:terminal_sessions) do
+    GenServer.start_link(__MODULE__, :terminal_sessions, name: @terminal_sessions_name)
+  end
+
   @impl true
   def handle_call({:create_terminal_session, device_id, private_key, ttl_ms}, _from, state) do
     session_ref = Ecto.UUID.generate()
@@ -157,15 +161,9 @@ defmodule Nixstasis.Devices.SshKeyManager do
   end
 
   defp ensure_terminal_sessions_manager! do
-    case Process.whereis(@terminal_sessions_name) do
-      nil ->
-        case GenServer.start(__MODULE__, :terminal_sessions, name: @terminal_sessions_name) do
-          {:ok, _pid} -> :ok
-          {:error, {:already_started, _pid}} -> :ok
-        end
-
-      _pid ->
-        :ok
+    unless Process.whereis(@terminal_sessions_name) do
+      raise RuntimeError,
+        message: "#{inspect(@terminal_sessions_name)} is not running; check supervision tree ordering"
     end
   end
 
