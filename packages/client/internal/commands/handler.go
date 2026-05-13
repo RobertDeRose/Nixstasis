@@ -197,8 +197,8 @@ func (h *Handler) listScripts(ctx context.Context, commandID string) transport.C
 	}
 }
 
-func (h *Handler) installScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload) transport.CommandResult {
-	path, content, err := resolveInstallSource(args, payload)
+func (h *Handler) installScript(ctx context.Context, commandID string, _ []string, payload *transport.CommandPayload) transport.CommandResult {
+	content, err := resolveInstallContent(payload)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
@@ -207,7 +207,7 @@ func (h *Handler) installScript(ctx context.Context, commandID string, args []st
 		return failureResult(commandID, "timeout")
 	}
 
-	fm, rawText, err := loadInstallScript(path, content)
+	fm, _, err := script.ParseStaryContent(content)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
@@ -236,7 +236,7 @@ func (h *Handler) installScript(ctx context.Context, commandID string, args []st
 	}
 
 	destPath := filepath.Join(installDir, script.InstallFilename(fm.Name, fm.Version))
-	if err := installScriptFile(path, rawText, destPath); err != nil {
+	if err := writeFile(destPath, content); err != nil {
 		return failureResult(commandID, err.Error())
 	}
 	if ctx.Err() != nil {
@@ -297,24 +297,11 @@ func failureResult(commandID, reason string) transport.CommandResult {
 	}
 }
 
-func resolveInstallSource(args []string, payload *transport.CommandPayload) (path, content string, err error) {
-	content = stringField(payload, "content")
-	if path == "" && len(args) > 0 {
-		path = args[0]
+func resolveInstallContent(payload *transport.CommandPayload) (string, error) {
+	if payload == nil || payload.Data == "" {
+		return "", fmt.Errorf("missing script content")
 	}
-	if path == "" && content == "" {
-		return "", "", fmt.Errorf("missing path or content")
-	}
-	return path, content, nil
-}
-
-func loadInstallScript(path, content string) (script.FrontMatter, string, error) {
-	if path != "" {
-		fm, _, err := script.ParseStaryFile(path)
-		return fm, "", err
-	}
-	fm, _, err := script.ParseStaryContent(content)
-	return fm, content, err
+	return payload.Data, nil
 }
 
 func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) error {
@@ -328,20 +315,14 @@ func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) err
 	return nil
 }
 
-func installScriptFile(path, rawText, destPath string) error {
-	if path != "" {
-		return copyFile(path, destPath)
-	}
-	return writeFile(destPath, rawText)
-}
-
 func resolveRemoveTarget(args []string, payload *transport.CommandPayload) (name, version string, err error) {
-	name = stringField(payload, "name")
-	version = stringField(payload, "version")
+	if payload != nil {
+		name = payload.Name
+	}
 	if name == "" && len(args) > 0 {
 		name = args[0]
 	}
-	if version == "" && len(args) > 1 {
+	if len(args) > 1 {
 		version = args[1]
 	}
 	if name == "" {
@@ -375,30 +356,14 @@ func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (scr
 	return script.ScriptInfo{}, fmt.Errorf("script not found")
 }
 
-func stringField(payload *transport.CommandPayload, key string) string {
-	if payload == nil {
-		return ""
-	}
-	switch key {
-	case "content":
-		return payload.Data
-	case "name":
-		return payload.Name
-	case "version":
-		return ""
-	case "path":
-		return payload.Name
-	default:
-		return ""
-	}
-}
-
 func resolveSSHAuthorize(publicKey string, args []string, payload *transport.CommandPayload) (key, path string, err error) {
 	key = publicKey
-	if key == "" {
-		key = stringField(payload, "content")
+	if key == "" && payload != nil {
+		key = payload.Data
 	}
-	path = stringField(payload, "path")
+	if payload != nil {
+		path = payload.Name
+	}
 	if key == "" && len(args) > 0 {
 		key = args[0]
 	}
