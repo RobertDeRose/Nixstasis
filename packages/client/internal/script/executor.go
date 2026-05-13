@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+// maxConcurrentScripts limits the number of scripts executing in parallel
+// to avoid exhausting file descriptors, subprocess limits, or MQTT connections.
+const maxConcurrentScripts = 20
+
 // Executor runs scripts and returns structured results.
 type Executor struct {
 	config RuntimeConfig
@@ -32,28 +36,65 @@ func (e *Executor) ExecuteScripts(ctx context.Context, scripts []ScriptInfo) (ma
 	}()
 
 	results := make(chan ScriptResult, len(scripts))
+	jobs := make(chan ScriptInfo, len(scripts))
 	var wg sync.WaitGroup
 
-	for _, script := range scripts {
+	workerCount := min(maxConcurrentScripts, len(scripts))
+	for range workerCount {
 		wg.Add(1)
-		go func(info ScriptInfo) {
+		go func() {
 			defer wg.Done()
-			results <- e.executeScript(ctx, rt, info)
-		}(script)
+			for info := range jobs {
+				select {
+				case <-ctx.Done():
+					results <- canceledScriptResult(info)
+				default:
+					results <- e.executeScript(ctx, rt, info)
+				}
+			}
+		}()
 	}
+
+	for _, script := range scripts {
+		jobs <- script
+	}
+	close(jobs)
 
 	wg.Wait()
 	close(results)
 
 	mapped := make(map[string]ScriptResult)
+	var errs []error
 	for res := range results {
 		if res.ScriptName == "" {
 			continue
 		}
 		mapped[res.ScriptName] = res
+		if res.Error != nil {
+			errs = append(errs, fmt.Errorf("%s: %s", res.ScriptName, res.Error.Message))
+		}
 	}
 
-	return mapped, nil
+	return mapped, errors.Join(errs...)
+}
+
+func canceledScriptResult(info ScriptInfo) ScriptResult {
+	name := info.Name
+	if name == "" {
+		fm, _, err := ParseStaryFile(info.Path)
+		if err == nil && fm.Name != "" {
+			name = fm.Name
+		} else {
+			name = filepath.Base(info.Path)
+		}
+	}
+
+	return ScriptResult{
+		ScriptName:       name,
+		Status:           StatusTimeout,
+		ValidationStatus: ValidationSkipped,
+		Error:            &ScriptError{Type: ErrorTimeout, Message: ErrTimeout.Error()},
+	}
 }
 
 func (e *Executor) executeScript(ctx context.Context, rt *Runtime, info ScriptInfo) ScriptResult {

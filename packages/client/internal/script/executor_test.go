@@ -74,8 +74,10 @@ def main():
 	cancel()
 
 	results, err := executor.ExecuteScripts(ctx, []ScriptInfo{{Path: path}})
-	if err != nil {
-		t.Fatalf("execute scripts: %v", err)
+	// err is non-nil because the canceled context causes a timeout error in
+	// the result, which ExecuteScripts now surfaces.
+	if err == nil {
+		t.Fatal("expected error from canceled context")
 	}
 
 	res := results["ok"]
