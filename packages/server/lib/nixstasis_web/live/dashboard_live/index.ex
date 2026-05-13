@@ -1,6 +1,8 @@
 defmodule NixstasisWeb.DashboardLive.Index do
   use NixstasisWeb, :live_view
 
+  require Logger
+
   alias Nixstasis.Dashboard
 
   @impl true
@@ -24,6 +26,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
       when event in [
              :device_registered,
              :device_created,
+             :device_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
@@ -39,6 +42,11 @@ defmodule NixstasisWeb.DashboardLive.Index do
      socket
      |> assign(:refresh_timer, nil)
      |> assign(:stats, Dashboard.get_vital_stats())}
+  end
+
+  def handle_info(message, socket) do
+    Logger.debug("#{__MODULE__} unhandled message: #{inspect(message)}")
+    {:noreply, socket}
   end
 
   defp schedule_debounced_refresh(socket) do

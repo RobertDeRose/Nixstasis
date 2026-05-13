@@ -1,6 +1,8 @@
 defmodule NixstasisWeb.DeviceLive.Index do
   use NixstasisWeb, :live_view
 
+  require Logger
+
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
   alias NixstasisWeb.Permissions
@@ -303,6 +305,11 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   def handle_info({:clear_flash, key}, socket) do
     {:noreply, clear_flash(socket, key)}
+  end
+
+  def handle_info(message, socket) do
+    Logger.debug("#{__MODULE__} unhandled message: #{inspect(message)}")
+    {:noreply, socket}
   end
 
   defp get_params(assigns) do
