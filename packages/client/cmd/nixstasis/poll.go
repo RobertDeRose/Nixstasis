@@ -162,20 +162,21 @@ func pollOnce(ctx context.Context, client *transport.Client, executor *script.Ex
 		slog.Error("Failed to handle command responses", "error", err)
 	}
 
+	// Re-read FRP status right before acting to avoid TOCTOU race with
+	// the status snapshot sent in the telemetry payload above.
+	currentFRPStatus := frpManager.GetStatus()
+
 	if resp.RemoteAccessRequested {
-		if !frpStatus.Active {
+		if !currentFRPStatus.Active {
 			slog.Info("Server requested remote access, starting FRP")
-			// Assuming default config location for now
 			configPath := config.FRPCConfigPath()
 			frpConfig := runtimeFRPConfig(cfg.FRP, mac)
-			// Check if config exists, if not, maybe we can't start?
-			// Or we assume it's there.
 			if err := frpManager.StartWithConfig(ctx, configPath, frpConfig); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
 	} else {
-		if frpStatus.Active {
+		if currentFRPStatus.Active {
 			slog.Info("Server disabled remote access, stopping FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP", "error", err)
