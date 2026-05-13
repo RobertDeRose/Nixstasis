@@ -47,7 +47,6 @@ func (r *Runtime) pubAndGetBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args
 	if err != nil {
 		return nil, err
 	}
-	defer client.Disconnect(250)
 
 	responseCh := make(chan []byte, 1)
 	var handler mqtt.MessageHandler = func(_ mqtt.Client, message mqtt.Message) {
@@ -184,15 +183,21 @@ func (r *Runtime) connectMQTT() (mqtt.Client, error) {
 		return r.mqttClient, nil
 	}
 
+	if r.mqttFailures >= maxMQTTConnectAttempts {
+		return nil, fmt.Errorf("mqtt connect circuit open: %d consecutive failures, skipping until next poll cycle", r.mqttFailures)
+	}
+
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(r.config.MQTTBroker)
-	opts.SetClientID(fmt.Sprintf("nixstasis-stary-%d", time.Now().UnixNano()))
+	opts.SetClientID(fmt.Sprintf("nixstasis-stary-%d-%d", time.Now().UnixNano(), r.mqttSeq.Add(1)))
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); !token.WaitTimeout(5*time.Second) || token.Error() != nil {
+		r.mqttFailures++
 		return nil, fmt.Errorf("mqtt connect failed: %w", token.Error())
 	}
 
+	r.mqttFailures = 0
 	r.mqttClient = client
 	return client, nil
 }
