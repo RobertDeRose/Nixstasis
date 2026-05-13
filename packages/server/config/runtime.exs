@@ -69,7 +69,12 @@ if config_env() == :prod do
 
   endpoint_config = [
     url: [host: host, port: 443, scheme: "https"],
-    check_origin: ["//#{host}"],
+    check_origin:
+      ["//#{host}"] ++
+        case System.get_env("CHECK_ORIGIN_EXTRA") do
+          nil -> []
+          extra -> Enum.map(String.split(extra, ",", trim: true), &"//#{String.trim(&1)}")
+        end,
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
