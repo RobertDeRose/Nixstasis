@@ -2,6 +2,9 @@
 
 set -eu
 
+# Development helper only. Production Caddy images are built with the Dockerfile,
+# which pins the Caddy builder and runner images by digest.
+
 OUTPUT_DIR="${OUTPUT_DIR:-build/root-dir/opt/caddy/bin}"
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
 PROD_ENV_FILE="${PROD_ENV_FILE:-$ROOT_DIR/prod.env}"
