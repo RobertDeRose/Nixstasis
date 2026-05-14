@@ -3,6 +3,7 @@
 set -eu
 
 DIST_DIR="${DIST_DIR:-dist}"
+VERIFY_INSTALLERS="${VERIFY_INSTALLERS:-false}"
 
 fail() {
   echo "$1" >&2
@@ -61,6 +62,112 @@ list_rpm_members() {
   fail "rpm or bsdtar is required to inspect RPM artifacts"
 }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return
+  fi
+
+  fail "sha256sum or shasum is required to verify installer manifests"
+}
+
+verify_installer_manifest() {
+  extract_dir="$1"
+  manifest="$extract_dir/artifacts.json"
+
+  require_file "$manifest"
+
+  python3 - "$manifest" "$extract_dir" <<'PY'
+import json
+import os
+import sys
+
+manifest_path = sys.argv[1]
+extract_dir = sys.argv[2]
+
+with open(manifest_path, encoding="utf-8") as f:
+    manifest = json.load(f)
+
+for key in ("version", "arch", "build_date", "files"):
+    if key not in manifest:
+        raise SystemExit(f"manifest missing key: {key}")
+
+if not isinstance(manifest["files"], list) or not manifest["files"]:
+    raise SystemExit("manifest files must be a non-empty list")
+
+required = {
+    "nixstasis",
+    "frpc",
+    "frpc.toml",
+    "config.example.yaml",
+    "nixstasis-poll.service",
+    "nixstasis-poll.path",
+    "nixstasis-registration.service",
+    "install.sh",
+}
+covered = set()
+
+for entry in manifest["files"]:
+    for key in ("path", "sha256", "mode"):
+        if key not in entry:
+            raise SystemExit(f"manifest file entry missing key: {key}")
+    path = entry["path"]
+    if os.path.isabs(path) or ".." in path.split(os.sep):
+        raise SystemExit(f"manifest path must be relative and safe: {path}")
+    if not os.path.isfile(os.path.join(extract_dir, path)):
+        raise SystemExit(f"manifest path missing from installer: {path}")
+    covered.add(path)
+
+missing = sorted(required - covered)
+if missing:
+    raise SystemExit("manifest missing required paths: " + ", ".join(missing))
+PY
+
+  python3 - "$manifest" "$extract_dir" <<'PY'
+import hashlib
+import json
+import os
+import sys
+
+manifest_path = sys.argv[1]
+extract_dir = sys.argv[2]
+
+with open(manifest_path, encoding="utf-8") as f:
+    manifest = json.load(f)
+
+for entry in manifest["files"]:
+    path = os.path.join(extract_dir, entry["path"])
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual != entry["sha256"]:
+        raise SystemExit(
+            f"sha256 mismatch for {entry['path']}: expected {entry['sha256']}, got {actual}"
+        )
+PY
+}
+
+verify_installer_members() {
+  extract_dir="$1"
+
+  require_file "$extract_dir/install.sh"
+  require_file "$extract_dir/nixstasis"
+  require_file "$extract_dir/frpc"
+  require_file "$extract_dir/frpc.toml"
+  require_file "$extract_dir/config.example.yaml"
+  require_file "$extract_dir/nixstasis-poll.service"
+  require_file "$extract_dir/nixstasis-poll.path"
+  require_file "$extract_dir/nixstasis-registration.service"
+  verify_installer_manifest "$extract_dir"
+}
+
 verify_common_members() {
   members="$1"
   binary_path="$2"
@@ -108,3 +215,23 @@ for package in "$DIST_DIR"/*.rpm; do
   verify_common_members "$(list_rpm_members "$package")" "usr/bin/nixstasis"
 done
 [ "$RPM_COUNT" -gt 0 ] || fail "no rpm artifacts found in $DIST_DIR"
+
+RUN_COUNT=0
+for installer in "$DIST_DIR"/*.run; do
+  [ -e "$installer" ] || continue
+  RUN_COUNT=$((RUN_COUNT + 1))
+  case "$installer" in
+    *nixstasis*) ;;
+    *) fail "installer name must use nixstasis naming: $installer" ;;
+  esac
+
+  (
+    extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixstasis-installer-verify.XXXXXX")
+    trap 'rm -rf "$extract_dir"' EXIT HUP INT TERM
+    sh "$installer" --noexec --target "$extract_dir" >/dev/null
+    verify_installer_members "$extract_dir"
+  )
+done
+if [ "$VERIFY_INSTALLERS" = true ]; then
+  [ "$RUN_COUNT" -gt 0 ] || fail "no self-extracting installer artifacts found in $DIST_DIR"
+fi
