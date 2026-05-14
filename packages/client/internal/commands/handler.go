@@ -338,6 +338,9 @@ func validateScriptTarget(name, version string) error {
 	if err := script.ValidateInstallIdentifier("script name", name); err != nil {
 		return err
 	}
+	if version == "" {
+		return nil
+	}
 	return script.ValidateInstallIdentifier("script version", version)
 }
 
