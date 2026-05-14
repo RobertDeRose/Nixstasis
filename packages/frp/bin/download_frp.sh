@@ -64,12 +64,11 @@ if [[ $(echo "$ASSET_URL" | wc -l | tr -d ' ') -ne 1 ]]; then
   fail "Expected exactly one asset URL for $ASSET_NAME."
 fi
 
-# Download the binary
-echo "Downloading $(basename "${ASSET_URL}")"
 ARCHIVE_PATH=$(mktemp "${TMPDIR:-/tmp}/frp.XXXXXX.tar.gz")
 CHECKSUMS_PATH=$(mktemp "${TMPDIR:-/tmp}/frp-checksums.XXXXXX")
+STAGING_DIR=$(mktemp -d "${TMPDIR:-/tmp}/frp-staging.XXXXXX")
 cleanup() {
-  rm -f "$ARCHIVE_PATH" "$CHECKSUMS_PATH"
+  rm -rf "$ARCHIVE_PATH" "$CHECKSUMS_PATH" "$STAGING_DIR"
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -81,15 +80,18 @@ curl -fsSL "$ASSET_URL" -o "$ARCHIVE_PATH"
 actual_sha=$(sha256_file "$ARCHIVE_PATH")
 [[ "$actual_sha" = "$expected_sha" ]] || fail "Checksum mismatch for $ASSET_NAME."
 
-if tar zxvf "$ARCHIVE_PATH" -C "${OUTPUT_DIR}" --strip-components=1 --wildcards '*frp*'; then
-  chmod +x "${OUTPUT_DIR}/frpc"
-  chmod +x "${OUTPUT_DIR}/frps"
-  upx --lzma -q "${OUTPUT_DIR}/frpc"
-  upx --lzma -q "${OUTPUT_DIR}/frps"
-  rm -f "${OUTPUT_DIR}/"*.toml
-  mv "${OUTPUT_DIR}/LICENSE" "${OUTPUT_DIR}/.."
-  echo "Download completed"
-else
-  echo "Download failed"
-  exit 1
-fi
+tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR" --strip-components=1 \
+  "frp_${DOWNLOAD_VERSION}_linux_${ARCH}/frpc" \
+  "frp_${DOWNLOAD_VERSION}_linux_${ARCH}/frps" \
+  "frp_${DOWNLOAD_VERSION}_linux_${ARCH}/LICENSE"
+
+[[ -f "$STAGING_DIR/frpc" ]] || fail "frpc missing from $ASSET_NAME."
+[[ -f "$STAGING_DIR/frps" ]] || fail "frps missing from $ASSET_NAME."
+
+upx --lzma -q "$STAGING_DIR/frpc"
+upx --lzma -q "$STAGING_DIR/frps"
+
+install -m 0755 "$STAGING_DIR/frpc" "$OUTPUT_DIR/frpc"
+install -m 0755 "$STAGING_DIR/frps" "$OUTPUT_DIR/frps"
+install -m 0644 "$STAGING_DIR/LICENSE" "$OUTPUT_DIR/../LICENSE"
+echo "Download completed"
