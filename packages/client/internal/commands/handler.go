@@ -230,7 +230,7 @@ func (h *Handler) installScript(ctx context.Context, commandID string, _ []strin
 		return failureResult(commandID, err.Error())
 	}
 
-	installDir := script.DefaultInstallDir()
+	installDir := h.scriptsDir
 	if err := ensureDir(installDir); err != nil {
 		return failureResult(commandID, err.Error())
 	}
@@ -263,7 +263,7 @@ func (h *Handler) removeScript(ctx context.Context, commandID string, args []str
 		return failureResult(commandID, "timeout")
 	}
 
-	scripts, err := script.DiscoverScripts(script.DefaultInstallDir())
+	scripts, err := script.DiscoverScripts(h.scriptsDir)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
