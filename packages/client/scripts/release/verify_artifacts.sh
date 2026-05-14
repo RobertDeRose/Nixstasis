@@ -2,7 +2,7 @@
 
 set -eu
 
-DIST_DIR="dist"
+DIST_DIR="${DIST_DIR:-dist}"
 
 fail() {
   echo "$1" >&2
