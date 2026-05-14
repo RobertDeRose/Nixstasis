@@ -10,6 +10,18 @@ import (
 	"strings"
 )
 
+func syncDir(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open dir for sync: %w", err)
+	}
+	defer dir.Close()
+	if err := dir.Sync(); err != nil {
+		return fmt.Errorf("sync dir: %w", err)
+	}
+	return nil
+}
+
 func ensureDir(path string) error {
 	if err := os.MkdirAll(path, 0o750); err != nil {
 		return fmt.Errorf("create scripts dir: %w", err)
@@ -82,6 +94,9 @@ func appendAuthorizedKey(path, key string) error {
 	}
 	if err := os.Rename(tmpPath, cleanPath); err != nil {
 		return fmt.Errorf("replace authorized_keys: %w", err)
+	}
+	if err := syncDir(filepath.Dir(cleanPath)); err != nil {
+		return err
 	}
 	return enforceAuthorizedKeysMode(cleanPath)
 }
