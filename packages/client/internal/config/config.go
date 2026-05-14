@@ -50,6 +50,7 @@ type ScriptsConfig struct {
 type FRPConfig struct {
 	AuthToken string `mapstructure:"auth_token"`
 	Name      string `mapstructure:"name"`
+	ServerAddr string `mapstructure:"server_addr"`
 }
 
 // RuntimeConfig holds opt-in script command capabilities.
@@ -78,6 +79,7 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
 	v.SetDefault("frp.name", "")
+	v.SetDefault("frp.server_addr", "nixstasis.example.com")
 	v.SetDefault("runtime.exec_work_dir", "/")
 	v.SetDefault("runtime.authorized_keys_path", defaultAuthorizedKeysPath)
 	v.SetDefault("log.level", "info")
