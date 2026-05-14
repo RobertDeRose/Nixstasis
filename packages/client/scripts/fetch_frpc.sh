@@ -73,6 +73,8 @@ set -a
 set +a
 
 : "${FRP_VERSION:?FRP_VERSION must be set in $PROD_ENV_FILE}"
+: "${FRP_LINUX_AMD64_SHA256:?FRP_LINUX_AMD64_SHA256 must be set in $PROD_ENV_FILE}"
+: "${FRP_LINUX_ARM64_SHA256:?FRP_LINUX_ARM64_SHA256 must be set in $PROD_ENV_FILE}"
 
 FRP_RELEASE_VERSION="$FRP_VERSION"
 FRP_FETCH_SCRIPT="$ROOT_DIR/packages/frp/bin/download_frp.sh"
@@ -86,7 +88,10 @@ fetch_archive() {
   artifact_dir="$TMP_DIR/frp-$arch"
   target_binary="$TARGET_DIR/frpc_$arch"
 
-  VERSION="$FRP_RELEASE_VERSION" ARCH="$arch" COMPRESS=false OUTPUT_DIR="$artifact_dir" \
+  VERSION="$FRP_RELEASE_VERSION" \
+    FRP_LINUX_AMD64_SHA256="$FRP_LINUX_AMD64_SHA256" \
+    FRP_LINUX_ARM64_SHA256="$FRP_LINUX_ARM64_SHA256" \
+    ARCH="$arch" COMPRESS=false OUTPUT_DIR="$artifact_dir" \
     "$FRP_FETCH_SCRIPT"
   cp "$artifact_dir/frpc" "$target_binary"
   chmod 0755 "$target_binary"
