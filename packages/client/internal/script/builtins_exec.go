@@ -1,4 +1,3 @@
-// Package script provides Starlark execution support and builtins.
 package script
 
 import (
@@ -52,7 +51,7 @@ var blockedExecEnvKeys = map[string]struct{}{
 	"RUBYOPT":           {},
 }
 
-func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var cmdName string
 	var argList *starlark.List
 
@@ -82,7 +81,7 @@ func (r *Runtime) execCmdBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args s
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	ctx, cancel := context.WithTimeout(runtimeContext(thread), r.config.Timeout)
 	defer cancel()
 
 	// #nosec G204 -- command is resolved from an explicit pinned allowlist.
