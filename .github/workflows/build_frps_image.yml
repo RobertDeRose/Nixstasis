@@ -58,6 +58,8 @@ jobs:
           file: packages/frp/Dockerfile
           build-args: |
             FRP_VERSION=${{ env.FRP_VERSION }}
+            FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
+            FRP_LINUX_ARM64_SHA256=${{ env.FRP_LINUX_ARM64_SHA256 }}
           push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

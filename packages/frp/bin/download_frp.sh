@@ -51,6 +51,11 @@ API_URL="https://api.github.com/repos/${REPO}/releases/tags/v${DOWNLOAD_VERSION}
 ASSET_NAME="frp_${DOWNLOAD_VERSION}_linux_${ARCH}.tar.gz"
 BASE_URL="https://github.com/${REPO}/releases/download/v${DOWNLOAD_VERSION}"
 CHECKSUMS_URL="$BASE_URL/frp_sha256_checksums.txt"
+case "$ARCH" in
+  amd64) PINNED_SHA256="${FRP_LINUX_AMD64_SHA256:-}" ;;
+  arm64) PINNED_SHA256="${FRP_LINUX_ARM64_SHA256:-}" ;;
+  *) PINNED_SHA256="" ;;
+esac
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -78,9 +83,13 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-curl -fsSL "$CHECKSUMS_URL" -o "$CHECKSUMS_PATH"
-expected_sha=$(awk -v asset="$ASSET_NAME" '$2 == asset {print $1}' "$CHECKSUMS_PATH")
-[[ -n "$expected_sha" ]] || fail "Missing checksum for $ASSET_NAME."
+if [[ -n "$PINNED_SHA256" ]]; then
+  expected_sha="$PINNED_SHA256"
+else
+  curl -fsSL "$CHECKSUMS_URL" -o "$CHECKSUMS_PATH"
+  expected_sha=$(awk -v asset="$ASSET_NAME" '$2 == asset {print $1}' "$CHECKSUMS_PATH")
+  [[ -n "$expected_sha" ]] || fail "Missing checksum for $ASSET_NAME."
+fi
 
 curl -fsSL "$ASSET_URL" -o "$ARCHIVE_PATH"
 actual_sha=$(sha256_file "$ARCHIVE_PATH")

@@ -22,32 +22,3 @@ else
   echo "Download failed"
   exit 1
 fi
-
-[ -f "$PROD_ENV_FILE" ] || fail "missing prod env file: $PROD_ENV_FILE"
-
-set -a
-. "$PROD_ENV_FILE"
-set +a
-
-: "${FRP_VERSION:?FRP_VERSION must be set in $PROD_ENV_FILE}"
-
-FRP_RELEASE_VERSION="$FRP_VERSION"
-FRP_FETCH_SCRIPT="$ROOT_DIR/packages/frp/bin/download_frp.sh"
-
-ensure_tools
-TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/nixstasis-frpc.XXXXXX")
-trap cleanup EXIT HUP INT TERM
-
-fetch_archive() {
-  arch="$1"
-  artifact_dir="$TMP_DIR/frp-$arch"
-  target_binary="$TARGET_DIR/frpc_$arch"
-
-  VERSION="$FRP_RELEASE_VERSION" ARCH="$arch" COMPRESS=false OUTPUT_DIR="$artifact_dir" \
-    "$FRP_FETCH_SCRIPT"
-  cp "$artifact_dir/frpc" "$target_binary"
-  chmod 0755 "$target_binary"
-}
-
-fetch_archive amd64
-fetch_archive arm64

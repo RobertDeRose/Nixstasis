@@ -57,6 +57,10 @@ services:
     build:
       context: ../../packages/frp
       dockerfile: Dockerfile
+      args:
+        FRP_VERSION: ${FRP_VERSION}
+        FRP_LINUX_AMD64_SHA256: ${FRP_LINUX_AMD64_SHA256}
+        FRP_LINUX_ARM64_SHA256: ${FRP_LINUX_ARM64_SHA256}
     command:
       - /bin/sh
       - -c
