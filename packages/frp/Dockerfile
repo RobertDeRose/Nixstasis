@@ -8,6 +8,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY bin/download_frp.sh /usr/local/bin/download_frp.sh
+COPY bin/frps-entrypoint.sh /usr/local/bin/frps-entrypoint.sh
 
 RUN arch="$(dpkg --print-architecture)" && \
     case "$arch" in \
@@ -22,4 +23,4 @@ RUN arch="$(dpkg --print-architecture)" && \
 
 EXPOSE 7000 8080 8081 2022
 
-CMD ["frps", "-c", "/etc/frp/frps.toml"]
+ENTRYPOINT ["/usr/local/bin/frps-entrypoint.sh"]
