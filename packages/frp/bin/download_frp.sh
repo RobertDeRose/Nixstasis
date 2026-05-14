@@ -1,8 +1,22 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Inputs
 REPO="fatedier/frp"                     # GitHub repository
 OUTPUT_DIR="build/root-dir/opt/frp/bin" # Directory to save the binary
+
+fail() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+for tool in curl jq tar upx; do
+  command -v "$tool" >/dev/null 2>&1 || fail "$tool is required"
+done
+
+: "${VERSION:?VERSION is required}"
+: "${ARCH:?ARCH is required}"
 
 # Check if the version number has exactly four parts
 if [[ $(echo "${VERSION}" | tr -cd '.' | wc -c) -eq 3 ]]; then
@@ -19,15 +33,14 @@ API_URL="https://api.github.com/repos/${REPO}/releases/tags/v${DOWNLOAD_VERSION}
 mkdir -p "$OUTPUT_DIR"
 
 # Get release data
-RELEASE_DATA=$(curl -s "$API_URL")
+RELEASE_DATA=$(curl -fsS "$API_URL")
 
 # Find the download URL for the binary
 ASSET_URL=$(echo "$RELEASE_DATA" | jq -r \
   --arg ARCH "$ARCH" '.assets[] | select((.name | contains($ARCH)) and (.name | contains("linux"))) | .browser_download_url')
 
 if [[ -z ${ASSET_URL} ]]; then
-  echo "Error: No asset found for architecture $ARCH in version $VERSION."
-  exit 1
+  fail "No asset found for architecture $ARCH in version $VERSION."
 fi
 
 # Download the binary
