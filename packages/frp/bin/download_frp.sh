@@ -3,15 +3,14 @@
 set -euo pipefail
 
 # Inputs
-REPO="fatedier/frp"                     # GitHub repository
-OUTPUT_DIR="build/root-dir/opt/frp/bin" # Directory to save the binary
+REPO="fatedier/frp" # GitHub repository
 
 fail() {
   echo "Error: $1" >&2
   exit 1
 }
 
-for tool in curl jq tar upx; do
+for tool in curl jq tar; do
   command -v "$tool" >/dev/null 2>&1 || fail "$tool is required"
 done
 
@@ -31,6 +30,13 @@ sha256_file() {
 
 : "${VERSION:?VERSION is required}"
 : "${ARCH:?ARCH is required}"
+
+COMPRESS="${COMPRESS:-false}"
+OUTPUT_DIR="${OUTPUT_DIR:-build/artifacts/frp/linux_${ARCH}/bin}"
+
+if [[ "$COMPRESS" = "true" ]]; then
+  command -v upx >/dev/null 2>&1 || fail "upx is required when COMPRESS=true"
+fi
 
 # Check if the version number has exactly four parts
 if [[ $(echo "${VERSION}" | tr -cd '.' | wc -c) -eq 3 ]]; then
@@ -88,8 +94,10 @@ tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR" --strip-components=1 \
 [[ -f "$STAGING_DIR/frpc" ]] || fail "frpc missing from $ASSET_NAME."
 [[ -f "$STAGING_DIR/frps" ]] || fail "frps missing from $ASSET_NAME."
 
-upx --lzma -q "$STAGING_DIR/frpc"
-upx --lzma -q "$STAGING_DIR/frps"
+if [[ "$COMPRESS" = "true" ]]; then
+  upx --lzma -q "$STAGING_DIR/frpc"
+  upx --lzma -q "$STAGING_DIR/frps"
+fi
 
 install -m 0755 "$STAGING_DIR/frpc" "$OUTPUT_DIR/frpc"
 install -m 0755 "$STAGING_DIR/frps" "$OUTPUT_DIR/frps"
