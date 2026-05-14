@@ -19,6 +19,8 @@ const MaxCommandsPerPoll = 50
 
 const maxConcurrentNonSerialCommands = 8
 
+var afterCommandCommitHook = func() {}
+
 // Handler executes supported command types.
 type Handler struct {
 	scriptsDir         string
@@ -141,6 +143,7 @@ func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string,
 	if err := appendAuthorizedKey(path, key); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	afterCommandCommitHook()
 	if ctx.Err() != nil {
 		return transport.CommandResult{
 			CommandID: commandID,
@@ -246,8 +249,18 @@ func (h *Handler) installScript(ctx context.Context, commandID string, _ []strin
 	if err := writeFile(destPath, content); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	afterCommandCommitHook()
 	if ctx.Err() != nil {
-		return failureResult(commandID, "timeout")
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output: map[string]any{
+				"name":                   fm.Name,
+				"version":                fm.Version,
+				"path":                   destPath,
+				"timed_out_after_commit": true,
+			},
+		}
 	}
 
 	return transport.CommandResult{
@@ -282,8 +295,17 @@ func (h *Handler) removeScript(ctx context.Context, commandID string, args []str
 	if err := removeFile(target.Path); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	afterCommandCommitHook()
 	if ctx.Err() != nil {
-		return failureResult(commandID, "timeout")
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output: map[string]any{
+				"name":                   name,
+				"version":                target.Version,
+				"timed_out_after_commit": true,
+			},
+		}
 	}
 
 	return transport.CommandResult{

@@ -124,6 +124,30 @@ def main():
 	}
 }
 
+func TestGivenInstallCommitAndExpiredContext_WhenExecuteBatch_ThenSuccessReported(t *testing.T) {
+	scriptsDir := t.TempDir()
+	handler := NewHandler(scriptsDir)
+	content := strings.TrimSpace(`---
+name: server_installed
+version: "1"
+schema:
+  type: object
+---
+	def main():
+	    return {}
+`)
+
+	originalHook := afterCommandCommitHook
+	defer func() { afterCommandCommitHook = originalHook }()
+	ctx, cancel := context.WithCancel(context.Background())
+	afterCommandCommitHook = cancel
+	result := handler.installScript(ctx, "cmd-install", nil, &transport.CommandPayload{Data: content})
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected install_script to succeed once committed, got status=%s error=%s", result.Status, result.Error)
+	}
+}
+
 func TestGivenPathTraversalScriptVersion_WhenRemoveScript_ThenFails(t *testing.T) {
 	handler := NewHandler(t.TempDir())
 	results := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
@@ -239,13 +263,34 @@ func TestSSHAuthorizeAcceptsTopLevelPublicKeyAtConfiguredPath(t *testing.T) {
 func TestSSHAuthorizeDoesNotReportFailureAfterCommit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
 	handler := NewHandlerWithAuthorizedKeys("", path)
+	originalHook := afterCommandCommitHook
+	defer func() { afterCommandCommitHook = originalHook }()
 	ctx, cancel := context.WithCancel(context.Background())
+	afterCommandCommitHook = cancel
 
 	result := handler.sshAuthorize(ctx, "cmd-9", testPublicKey, nil, nil)
-	cancel()
 
 	if result.Status != transport.CommandStatusOK {
 		t.Fatalf("expected ssh_authorize to succeed once committed, got %s: %s", result.Status, result.Error)
+	}
+}
+
+func TestGivenRemoveCommitAndExpiredContext_WhenExecuteBatch_ThenSuccessReported(t *testing.T) {
+	scriptsDir := t.TempDir()
+	path := filepath.Join(scriptsDir, "safe_1.stary")
+	if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	handler := NewHandler(scriptsDir)
+	originalHook := afterCommandCommitHook
+	defer func() { afterCommandCommitHook = originalHook }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	afterCommandCommitHook = cancel
+	result := handler.removeScript(ctx, "cmd-remove", []string{"safe", "1"}, nil)
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected remove_script to succeed once committed, got status=%s error=%s", result.Status, result.Error)
 	}
 }
 
