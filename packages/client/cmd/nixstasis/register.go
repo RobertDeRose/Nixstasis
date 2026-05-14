@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,8 +17,12 @@ import (
 var registerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register the device with the Nixstasis server",
-	Run: func(_ *cobra.Command, _ []string) {
-		runRegister()
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		cfg, err := commandConfig(cmd)
+		if err != nil {
+			return err
+		}
+		return runRegister(cfg)
 	},
 }
 
@@ -26,7 +30,7 @@ func init() {
 	rootCmd.AddCommand(registerCmd)
 }
 
-func runRegister() {
+func runRegister(cfg *config.Config) error {
 	slog.Info("Starting registration process")
 
 	// 1. Detect Identity
@@ -36,7 +40,7 @@ func runRegister() {
 		// We can't register without a MAC, so fatal exit
 		// But in a loop we might want to retry detection?
 		// For now, fail fast as hardware likely won't change in seconds.
-		return
+		return fmt.Errorf("failed to detect MAC address: %w", err)
 	}
 
 	ip, err := identity.GetPrimaryIP(context.Background())
@@ -81,9 +85,7 @@ func runRegister() {
 	}
 
 	if err != nil {
-		slog.Error("Failed to register device after retries", "error", err)
-		// Return with error code
-		os.Exit(1)
+		return fmt.Errorf("failed to register device after %d retries: %w", maxRetries, err)
 	}
 
 	slog.Info("Registration successful", "uuid", credentials.UUID, "token_issued", credentials.Token != "")
@@ -91,9 +93,9 @@ func runRegister() {
 	// 4. Save credentials
 	store := identity.NewStore(config.IdentityPath())
 	if err := store.Save(identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}); err != nil {
-		slog.Error("Failed to save credentials", "error", err)
-		return
+		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	slog.Info("Credentials persisted successfully")
+	return nil
 }
