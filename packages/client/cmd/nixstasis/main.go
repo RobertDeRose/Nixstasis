@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime/trace"
 
 	"github.com/spf13/cobra"
@@ -61,6 +62,8 @@ func runMain() int {
 	defer rec.Stop()
 
 	if err := run(); err != nil {
+		// On failure, write the flight recorder trace for post-mortem debugging.
+		writeFlightRecorderTrace(rec)
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -70,6 +73,27 @@ func runMain() int {
 
 func run() error {
 	return rootCmd.Execute()
+}
+
+func writeFlightRecorderTrace(rec *trace.FlightRecorder) {
+	dir := filepath.Join(os.TempDir(), "nixstasis")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create trace directory: %v\n", err)
+		return
+	}
+
+	f, err := os.CreateTemp(dir, "trace-*.out")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create trace file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	if _, err := rec.WriteTo(f); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write flight recorder trace: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "flight recorder trace written to %s\n", f.Name())
 }
 
 func shouldSkipConfig(cmd *cobra.Command) bool {
