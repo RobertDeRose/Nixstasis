@@ -29,37 +29,44 @@ Nixstasis with one command and no manual file placement.
 1. Produce a `.run` self-extracting archive for each release architecture
    (`linux/amd64`, `linux/arm64`).
 2. Each archive contains a flat staging directory with:
-   - `nixstasis` binary (copied from GoReleaser `dist/` build output)
-   - `frpc` binary (arch-matched, from `build/root-dir/usr/libexec/nixstasis/`)
-   - `frpc.toml` (from `build/root-dir/etc/nixstasis/`)
-   - `config.example.yaml` (from `build/root-dir/usr/share/nixstasis/`)
-   - `nixstasis-poll.service` (from `build/root-dir/lib/systemd/system/`)
-   - `nixstasis-poll.path` (from `build/root-dir/lib/systemd/system/`)
-   - `nixstasis-registration.service` (from `build/root-dir/lib/systemd/system/`)
-   - `install.sh` (FHS placement script)
-   - `artifacts.json` (manifest)
+
+- `nixstasis` binary (copied from GoReleaser `dist/` build output)
+- `frpc` binary (arch-matched, from `build/root-dir/usr/libexec/nixstasis/`)
+- `frpc.toml` (from `build/root-dir/etc/nixstasis/`)
+- `config.example.yaml` (from `build/root-dir/usr/share/nixstasis/`)
+- `nixstasis-poll.service` (from `build/root-dir/lib/systemd/system/`)
+- `nixstasis-poll.path` (from `build/root-dir/lib/systemd/system/`)
+- `nixstasis-registration.service` (from `build/root-dir/lib/systemd/system/`)
+- `install.sh` (FHS placement script)
+- `artifacts.json` (manifest)
+
 3. `install.sh` maps flat archive files to their FHS paths:
-   - `nixstasis` -> `/usr/bin/nixstasis`
-   - `frpc` -> `/usr/libexec/nixstasis/frpc`
-   - `frpc.toml` -> `/etc/nixstasis/frpc.toml` (only if not already present)
-   - `config.example.yaml` -> `/usr/share/nixstasis/config.example.yaml`
-   - Seeds `/etc/nixstasis/config.yaml` from `config.example.yaml` if not
-     already present (matching nfpm postinstall behavior)
-   - `nixstasis-poll.service` -> `/lib/systemd/system/nixstasis-poll.service`
-   - `nixstasis-poll.path` -> `/lib/systemd/system/nixstasis-poll.path`
-   - `nixstasis-registration.service` -> `/lib/systemd/system/nixstasis-registration.service`
+
+- `nixstasis` -> `/usr/bin/nixstasis`
+- `frpc` -> `/usr/libexec/nixstasis/frpc`
+- `frpc.toml` -> `/etc/nixstasis/frpc.toml` (only if not already present)
+- `config.example.yaml` -> `/usr/share/nixstasis/config.example.yaml`
+- Seeds `/etc/nixstasis/config.yaml` from `config.example.yaml` if not already
+  present (matching nfpm postinstall behavior)
+- `nixstasis-poll.service` -> `/lib/systemd/system/nixstasis-poll.service`
+- `nixstasis-poll.path` -> `/lib/systemd/system/nixstasis-poll.path`
+- `nixstasis-registration.service` -> `/lib/systemd/system/nixstasis-registration.service`
+
 4. `install.sh` must be idempotent and safe for upgrades:
-   - Overwrite binaries and systemd units unconditionally.
-   - Preserve existing `/etc/nixstasis/frpc.toml` and
-     `/etc/nixstasis/config.yaml` unless `--force-config` is passed.
-   - Print installed file paths and versions to stdout.
+
+- Overwrite binaries and systemd units unconditionally.
+- Preserve existing `/etc/nixstasis/frpc.toml` and
+  `/etc/nixstasis/config.yaml` unless `--force-config` is passed.
+- Print installed file paths and versions to stdout.
+
 5. `artifacts.json` contains:
-   - `version`: release version string (sourced from GoReleaser
-     `dist/metadata.json`)
-   - `arch`: target architecture
-   - `build_date`: ISO 8601 timestamp
-   - `files`: array of `{path, sha256, mode}` entries for every bundled file
-     (paths are flat archive-relative names, not FHS destinations)
+
+- `version`: release version string (sourced from GoReleaser `dist/metadata.json`)
+- `arch`: target architecture
+- `build_date`: ISO 8601 timestamp
+- `files`: array of `{path, sha256, mode}` entries for every bundled file
+  (paths are flat archive-relative names, not FHS destinations)
+
 6. The release workflow produces `.run` archives into `dist/` after
    `verify_artifacts.sh` passes, and uploads them alongside existing release
    artifacts.
@@ -202,7 +209,9 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 ## Affected Docs
 
 - `packages/client/README.md` (document `.run` installer usage)
-- `docs/src/planned-features.md` (update status to `in-spec`)
+- `docs/src/planned-features.md` (keep feature status and delivered behavior
+  reconciled as the feature moves from `in-spec` to `in-progress` and
+  `completed`)
 
 ## Suggested Validation
 
