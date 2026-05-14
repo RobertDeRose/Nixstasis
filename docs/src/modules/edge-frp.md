@@ -19,7 +19,7 @@
 - `deploy/compose/docker-compose.yml`
 - `packages/frp/Dockerfile`
 - `packages/client/internal/frp/manager.go`
-- `packages/client/build/root-dir/etc/nixstasis/frpc.toml`
+- `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex`
 
 ## Public Interfaces

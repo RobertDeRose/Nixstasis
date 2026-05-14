@@ -35,8 +35,8 @@ archives:
       - nixstasis
     formats: [tar.gz]
     files:
-      - src: build/root-dir/etc/nixstasis/frpc.toml
-        dst: etc/nixstasis/frpc.toml
+      - src: build/root-dir/usr/share/nixstasis/frpc.toml
+        dst: usr/share/nixstasis/frpc.toml
       - src: build/root-dir/usr/share/nixstasis/config.example.yaml
         dst: usr/share/nixstasis/config.example.yaml
       - src: build/root-dir/usr/libexec/nixstasis/frpc_{{ .Arch }}
@@ -60,8 +60,8 @@ nfpms:
       postinstall: ./scripts/release/postinstall.sh
       preremove: ./scripts/release/preremove.sh
     contents:
-      - src: build/root-dir/etc/nixstasis/frpc.toml
-        dst: /etc/nixstasis/frpc.toml
+      - src: build/root-dir/usr/share/nixstasis/frpc.toml
+        dst: /usr/share/nixstasis/frpc.toml
       - src: build/root-dir/usr/share/nixstasis/config.example.yaml
         dst: /usr/share/nixstasis/config.example.yaml
       - src: build/root-dir/usr/libexec/nixstasis/frpc_{{ .Arch }}

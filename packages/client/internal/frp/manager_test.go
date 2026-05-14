@@ -19,6 +19,11 @@ func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
+	for _, arg := range os.Args {
+		if arg == systemctlPath {
+			return
+		}
+	}
 	// Simulate a long-running process
 	select {}
 }
@@ -33,18 +38,19 @@ func fakeExecCommand(ctx context.Context, command string, args ...string) *exec.
 }
 
 func TestManager_Lifecycle(t *testing.T) {
-	// Swap the exec command
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
-	configPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 	mgr := NewManager()
 
 	tests := []struct {
 		name        string
 		action      func(t *testing.T) error
 		wantActive  bool
-		wantPID     bool // true if PID should be non-zero
+		wantPID     bool
 		expectError bool
 	}{
 		{
@@ -117,9 +123,11 @@ func TestManager_RealStatus(t *testing.T) {
 func TestManagerUsesBundledFRPCPath(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 	if err := mgr.Start(context.Background(), configPath); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
@@ -129,18 +137,32 @@ func TestManagerUsesBundledFRPCPath(t *testing.T) {
 		t.Fatal("expected command to be initialized")
 	}
 
-	if got := mgr.cmd.Args[3]; got != config.FRPCBinaryPath() {
-		t.Fatalf("frpc binary = %q", got)
+	if !argsContainSequence(mgr.cmd.Args, "--", config.FRPCBinaryPath(), "-c", configPath) {
+		t.Fatalf("expected systemd-run to launch bundled frpc, got %#v", mgr.cmd.Args)
 	}
 }
 
-func TestManagerPassesFRPAuthToken(t *testing.T) {
+func TestManagerPassesAllEnvVars(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, "auth.token = \"{{ .Envs.FRPS_AUTH_TOKEN }}\"\n")
-	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{AuthToken: "secret-token"}); err != nil {
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+
+	frpConfig := config.FRPConfig{
+		AuthToken:     "secret-token",
+		Name:          "atom-aabbcc",
+		ServerAddr:    "frps.internal",
+		ServerPort:    7001,
+		WebServerAddr: "127.0.0.2",
+		WebServerPort: 7401,
+		HTTPLocalAddr: "127.0.0.1:8443",
+		SSHLocalPort:  2222,
+	}
+
+	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
 		t.Fatalf("StartWithConfig() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
@@ -149,93 +171,219 @@ func TestManagerPassesFRPAuthToken(t *testing.T) {
 		t.Fatal("expected command to be initialized")
 	}
 
-	if got := envValue(mgr.cmd.Env, "FRPS_AUTH_TOKEN"); got != "secret-token" {
-		t.Fatalf("FRPS_AUTH_TOKEN = %q", got)
+	checks := map[string]string{
+		"FRPS_AUTH_TOKEN":      "secret-token",
+		"FRPS_SERVER_ADDR":     "frps.internal",
+		"FRPS_SERVER_PORT":     "7001",
+		"NAME":                 "atom-aabbcc",
+		"SSH_NAME":             "atom-aabbcc-ssh",
+		"FRPC_WEB_SERVER_ADDR": "127.0.0.2",
+		"FRPC_WEB_SERVER_PORT": "7401",
+		"FRPC_HTTP_LOCAL_ADDR": "127.0.0.1:8443",
+		"FRPC_SSH_LOCAL_PORT":  "2222",
+	}
+
+	for key, want := range checks {
+		if got := envValue(mgr.cmd.Env, key); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
 	}
 }
 
-func TestManagerPassesFRPServerAddr(t *testing.T) {
+func TestManagerPassesConfigPathDirectlyToFRPC(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, "serverAddr = \"{{ .Envs.FRPS_SERVER_ADDR }}\"\n")
-	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{ServerAddr: "frps.internal"}); err != nil {
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+
+	frpConfig := config.FRPConfig{
+		Name:          "test",
+		WebServerAddr: "127.0.0.1",
+	}
+
+	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
 		t.Fatalf("StartWithConfig() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
 
-	if mgr.cmd == nil {
-		t.Fatal("expected command to be initialized")
+	// The config path passed to frpc -c should be the original template path,
+	// not a rendered temp file.
+	args := mgr.cmd.Args
+	for i, arg := range args {
+		if arg == "-c" && i+1 < len(args) {
+			if args[i+1] != configPath {
+				t.Fatalf("frpc -c path = %q, want %q (original template)", args[i+1], configPath)
+			}
+			return
+		}
+	}
+	t.Fatal("expected -c flag in frpc command args")
+}
+
+func TestManagerUsesSystemdRunWhenAvailable(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+	frpConfig := config.FRPConfig{
+		AuthToken:     "secret-token",
+		Name:          "atom-aabbcc",
+		ServerAddr:    "frps.internal",
+		ServerPort:    7001,
+		WebServerAddr: "127.0.0.1",
+		WebServerPort: 7401,
+		HTTPLocalAddr: "127.0.0.1:8443",
+		SSHLocalPort:  2222,
 	}
 
-	if got := envValue(mgr.cmd.Env, "FRPS_SERVER_ADDR"); got != "frps.internal" {
-		t.Fatalf("FRPS_SERVER_ADDR = %q", got)
+	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
+		t.Fatalf("StartWithConfig() error = %v", err)
+	}
+	defer func() { _ = mgr.Stop() }()
+
+	if got := mgr.cmd.Args[3]; got != systemdRunPath {
+		t.Fatalf("command = %q, want %q", got, systemdRunPath)
+	}
+	args := strings.Join(mgr.cmd.Args, "\x00")
+	for _, want := range []string{
+		"--unit\x00" + frpcTransientUnit,
+		"--wait",
+		"--collect",
+		"--property\x00PrivateTmp=true",
+		"--property\x00Restart=on-failure",
+		"--setenv\x00FRPS_AUTH_TOKEN=secret-token",
+		"--setenv\x00FRPS_SERVER_ADDR=frps.internal",
+		"--\x00" + config.FRPCBinaryPath() + "\x00-c\x00" + configPath,
+	} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("systemd-run args missing %q in %#v", want, mgr.cmd.Args)
+		}
 	}
 }
 
-func TestRenderConfigReplacesPackagedPlaceholders(t *testing.T) {
-	configPath := writeFRPConfig(t, strings.Join([]string{
-		`auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
-		`name = "{{ .Envs.NAME }}"`,
-		`subdomain = "{{ .Envs.NAME }}"`,
-	}, "\n"))
+func TestStartWithConfigRejectsEmptyName(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
-	renderedPath, err := renderConfig(configPath, config.FRPConfig{AuthToken: "secret-token", Name: "atom-aabbcc"})
-	if err != nil {
-		t.Fatalf("renderConfig() error = %v", err)
-	}
-	defer func() { _ = os.Remove(renderedPath) }()
-
-	rendered, err := os.ReadFile(renderedPath)
-	if err != nil {
-		t.Fatalf("read rendered config: %v", err)
-	}
-
-	text := string(rendered)
-	if unresolvedNonEnvPlaceholder(text) {
-		t.Fatalf("rendered config still contains non-env placeholders: %s", text)
-	}
-	if !strings.Contains(text, `{{ .Envs.FRPS_AUTH_TOKEN }}`) {
-		t.Fatalf("rendered config should preserve auth token env placeholder: %s", text)
-	}
-	if !strings.Contains(text, `name = "atom-aabbcc"`) {
-		t.Fatalf("rendered config missing name: %s", text)
-	}
-	if !strings.Contains(text, `subdomain = "atom-aabbcc"`) {
-		t.Fatalf("rendered config missing runtime subdomain name: %s", text)
-	}
-}
-
-func TestRenderConfigAllowsTemplateCommentsInPackagedConfig(t *testing.T) {
-	configPath := writeFRPConfig(t, strings.Join([]string{
-		`# This file is processed by gomplate ({{ .Envs.NAME }})`,
-		`auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
-		`name = "{{ .Envs.NAME }}"`,
-	}, "\n"))
-
-	renderedPath, err := renderConfig(configPath, config.FRPConfig{AuthToken: "secret-token", Name: "atom-aabbcc"})
-	if err != nil {
-		t.Fatalf("renderConfig() error = %v", err)
-	}
-	defer func() { _ = os.Remove(renderedPath) }()
-
-	rendered, err := os.ReadFile(renderedPath)
-	if err != nil {
-		t.Fatalf("read rendered config: %v", err)
-	}
-
-	if unresolvedNonEnvPlaceholder(string(rendered)) {
-		t.Fatalf("rendered config still contains non-env placeholders: %s", string(rendered))
-	}
-}
-
-func TestRenderConfigRequiresName(t *testing.T) {
+	mgr := NewManager()
 	configPath := writeFRPConfig(t, `name = "{{ .Envs.NAME }}"`)
 
-	_, err := renderConfig(configPath, config.FRPConfig{AuthToken: "secret-token"})
-	if err == nil || !strings.Contains(err.Error(), "requires a non-empty name") {
+	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
+		WebServerAddr: "127.0.0.1",
+	})
+	if err == nil || !strings.Contains(err.Error(), "non-empty name") {
 		t.Fatalf("expected missing-name error, got %v", err)
+	}
+}
+
+func TestStartWithConfigRejectsNonLoopbackWebServerAddr(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `webServer.addr = "{{ .Envs.FRPC_WEB_SERVER_ADDR }}"`)
+
+	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
+		Name:          "test",
+		WebServerAddr: "0.0.0.0",
+	})
+	if err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("expected loopback validation error, got %v", err)
+	}
+}
+
+func TestStartWithConfigRequiresSystemd(t *testing.T) {
+	execCommandContext = fakeExecCommand
+	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return false }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+
+	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
+		Name:          "test",
+		WebServerAddr: "127.0.0.1",
+	})
+	if err == nil || !strings.Contains(err.Error(), "systemd is required") {
+		t.Fatalf("expected systemd requirement error, got %v", err)
+	}
+}
+
+func TestLoopbackAddr(t *testing.T) {
+	tests := []struct {
+		addr string
+		want bool
+	}{
+		{"127.0.0.1", true},
+		{"localhost", true},
+		{"::1", true},
+		{"[::1]", true},
+		{"0.0.0.0", false},
+		{"192.168.1.1", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.addr, func(t *testing.T) {
+			if got := loopbackAddr(tt.addr); got != tt.want {
+				t.Errorf("loopbackAddr(%q) = %v, want %v", tt.addr, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
+	configPath := filepath.Join("..", "..", "build", "root-dir", "usr", "share", "nixstasis", "frpc.toml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read packaged frpc config: %v", err)
+	}
+
+	text := string(data)
+
+	// String values should be quoted in the template
+	quotedPlaceholders := []string{
+		`"{{ .Envs.FRPS_SERVER_ADDR }}"`,
+		`"{{ .Envs.FRPS_AUTH_TOKEN }}"`,
+		`"{{ .Envs.NAME }}"`,
+		`"{{ .Envs.SSH_NAME }}"`,
+		`"{{ .Envs.FRPC_WEB_SERVER_ADDR }}"`,
+		`"{{ .Envs.FRPC_HTTP_LOCAL_ADDR }}"`,
+	}
+	for _, want := range quotedPlaceholders {
+		if !strings.Contains(text, want) {
+			t.Errorf("packaged frpc config missing quoted placeholder %s", want)
+		}
+	}
+
+	// Integer values should be unquoted
+	unquotedPlaceholders := []string{
+		"{{ .Envs.FRPS_SERVER_PORT }}",
+		"{{ .Envs.FRPC_WEB_SERVER_PORT }}",
+		"{{ .Envs.FRPC_SSH_LOCAL_PORT }}",
+	}
+	for _, want := range unquotedPlaceholders {
+		if !strings.Contains(text, want) {
+			t.Errorf("packaged frpc config missing placeholder %s", want)
+		}
+	}
+
+	// Template should document frpc-native expansion, not client rendering
+	if strings.Contains(text, "client renders") {
+		t.Error("packaged frpc config should not document client-side rendering")
+	}
+	if !strings.Contains(text, "frpc expands") {
+		t.Error("packaged frpc config should document frpc-native expansion")
 	}
 }
 
@@ -251,105 +399,60 @@ func TestPackagedConfigExampleProvidesFRPName(t *testing.T) {
 	}
 }
 
-func TestManagerStartWithConfigRendersRuntimeValuesForProcess(t *testing.T) {
+func TestManagerStartWithConfigTracksConfigPath(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, strings.Join([]string{
-		`auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
-		`name = "{{ .Envs.NAME }}"`,
-	}, "\n"))
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 
-	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{AuthToken: "secret-token", Name: "atom-aabbcc"}); err != nil {
+	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
+		Name:          "atom-aabbcc",
+		WebServerAddr: "127.0.0.1",
+	}); err != nil {
 		t.Fatalf("StartWithConfig() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
 
 	status := mgr.GetStatus()
-	if status.ConnectionString == "" {
-		t.Fatal("expected rendered config path to be tracked")
-	}
-
-	rendered, err := os.ReadFile(status.ConnectionString)
-	if err != nil {
-		t.Fatalf("read rendered runtime config: %v", err)
-	}
-
-	text := string(rendered)
-	if !strings.Contains(text, `{{ .Envs.FRPS_AUTH_TOKEN }}`) {
-		t.Fatalf("runtime config should preserve auth token env placeholder: %s", text)
-	}
-	if !strings.Contains(text, `name = "atom-aabbcc"`) {
-		t.Fatalf("runtime config missing name: %s", text)
+	if status.ConnectionString != configPath {
+		t.Fatalf("ConnectionString = %q, want %q", status.ConnectionString, configPath)
 	}
 }
 
-func TestManagerStartUsesFallbackNameForPackagedTemplate(t *testing.T) {
+func TestManagerStartUsesFallbackName(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := filepath.Join("..", "..", "build", "root-dir", "etc", "nixstasis", "frpc.toml")
+	configPath := writeFRPConfig(t, `name = "{{ .Envs.NAME }}"`)
 
+	// Start() uses defaultProxyName ("nixstasis") when no name is provided
 	if err := mgr.Start(context.Background(), configPath); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = mgr.Stop() }()
 
-	status := mgr.GetStatus()
-	if status.ConnectionString == "" {
-		t.Fatal("expected rendered config path to be tracked")
+	if got := envValue(mgr.cmd.Env, "NAME"); got != "nixstasis" {
+		t.Fatalf("NAME = %q, want %q", got, "nixstasis")
 	}
-
-	rendered, err := os.ReadFile(status.ConnectionString)
-	if err != nil {
-		t.Fatalf("read rendered fallback config: %v", err)
-	}
-
-	text := string(rendered)
-	if unresolvedNonEnvPlaceholder(text) {
-		t.Fatalf("rendered config still contains non-env placeholders: %s", text)
-	}
-	if !strings.Contains(text, `name = "nixstasis"`) {
-		t.Fatalf("rendered config missing fallback name: %s", text)
-	}
-	if !strings.Contains(text, `subdomain = "nixstasis"`) {
-		t.Fatalf("rendered config missing fallback subdomain: %s", text)
-	}
-	if !strings.Contains(text, `customDomains = ["nixstasis-ssh"]`) {
-		t.Fatalf("rendered config missing fallback ssh domain: %s", text)
-	}
-}
-
-func TestPackagedConfigDocumentsNativeFRPCEnvExpansion(t *testing.T) {
-	configPath := filepath.Join("..", "..", "build", "root-dir", "etc", "nixstasis", "frpc.toml")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read packaged frpc config: %v", err)
-	}
-
-	text := string(data)
-	if strings.Contains(text, "gomplate") {
-		t.Fatalf("packaged frpc config should not document gomplate preprocessing: %s", text)
-	}
-	if !strings.Contains(text, "frpc expands {{ .Envs.* }}") {
-		t.Fatalf("packaged frpc config should document frpc-native env expansion: %s", text)
-	}
-	if !strings.Contains(text, `auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`) {
-		t.Fatalf("packaged frpc config should preserve FRPS_AUTH_TOKEN env placeholder: %s", text)
-	}
-	if !strings.Contains(text, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`) {
-		t.Fatalf("packaged frpc config should preserve FRPS_SERVER_ADDR env placeholder: %s", text)
+	if got := envValue(mgr.cmd.Env, "SSH_NAME"); got != "nixstasis-ssh" {
+		t.Fatalf("SSH_NAME = %q, want %q", got, "nixstasis-ssh")
 	}
 }
 
 func TestManagerStopWaitsForOwnedProcessCleanup(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 	if err := mgr.Start(context.Background(), configPath); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
@@ -406,13 +509,15 @@ func TestManagerStopWaitsForOwnedProcessCleanup(t *testing.T) {
 func TestManagerStopDoesNotClearReplacementProcess(t *testing.T) {
 	execCommandContext = fakeExecCommand
 	defer func() { execCommandContext = exec.CommandContext }()
+	systemdAvailable = func() bool { return true }
+	defer func() { systemdAvailable = defaultSystemdAvailable }()
 
 	originalHook := afterStopWaitHook
 	defer func() { afterStopWaitHook = originalHook }()
 
 	mgr := NewManager()
-	firstConfigPath := writeFRPConfig(t, "serverAddr = \"nixstasis.example.com\"\n")
-	secondConfigPath := writeFRPConfig(t, "serverAddr = \"replacement.example.com\"\n")
+	firstConfigPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+	secondConfigPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 
 	if err := mgr.Start(context.Background(), firstConfigPath); err != nil {
 		t.Fatalf("Start() error = %v", err)
@@ -447,9 +552,6 @@ func TestManagerStopDoesNotClearReplacementProcess(t *testing.T) {
 	if finalStatus.ConnectionString == "" {
 		t.Fatalf("expected replacement connection string, got %+v", finalStatus)
 	}
-	if finalStatus.ConnectionString == firstStatus.ConnectionString {
-		t.Fatalf("expected replacement connection string to differ, got %+v", finalStatus)
-	}
 }
 
 func writeFRPConfig(t *testing.T, content string) string {
@@ -469,4 +571,20 @@ func envValue(env []string, key string) string {
 	}
 
 	return ""
+}
+
+func argsContainSequence(args []string, want ...string) bool {
+	for i := 0; i+len(want) <= len(args); i++ {
+		matched := true
+		for j := range want {
+			if args[i+j] != want[j] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
