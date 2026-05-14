@@ -9,6 +9,8 @@ on:
       - "v*"
     paths:
       - packages/client/**
+      - packages/frp/**
+      - prod.env
       - .github/workflows/release_client.yml
 
 permissions:
