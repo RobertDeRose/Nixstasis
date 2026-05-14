@@ -20,9 +20,7 @@ fail() {
 }
 
 ensure_tools() {
-  command -v curl >/dev/null 2>&1 || fail "curl is required to fetch the pinned frpc archives"
-  command -v tar >/dev/null 2>&1 || fail "tar is required to extract the pinned frpc archives"
-  command -v awk >/dev/null 2>&1 || fail "awk is required to parse frpc checksums"
+  command -v cp >/dev/null 2>&1 || fail "cp is required to stage frpc binaries"
 }
 
 sha256_file() {
@@ -77,46 +75,22 @@ set +a
 : "${FRP_VERSION:?FRP_VERSION must be set in $PROD_ENV_FILE}"
 
 FRP_RELEASE_VERSION="$FRP_VERSION"
-FRP_BASE_URL="https://github.com/fatedier/frp/releases/download/v${FRP_RELEASE_VERSION}"
-FRP_CHECKSUMS_URL="$FRP_BASE_URL/frp_sha256_checksums.txt"
-FRP_LINUX_AMD64_ASSET="frp_${FRP_RELEASE_VERSION}_linux_amd64.tar.gz"
-FRP_LINUX_ARM64_ASSET="frp_${FRP_RELEASE_VERSION}_linux_arm64.tar.gz"
+FRP_FETCH_SCRIPT="$ROOT_DIR/packages/frp/bin/download_frp.sh"
 
 ensure_tools
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/nixstasis-frpc.XXXXXX")
 trap cleanup EXIT HUP INT TERM
 
-CHECKSUMS_FILE="$TMP_DIR/frp_sha256_checksums.txt"
-curl -fsSL "$FRP_CHECKSUMS_URL" -o "$CHECKSUMS_FILE"
-
-lookup_checksum() {
-  asset_name="$1"
-  checksum=$(awk -v asset_name="$asset_name" '$2 == asset_name {print $1}' "$CHECKSUMS_FILE")
-  [ -n "$checksum" ] || fail "missing checksum for $asset_name in $FRP_CHECKSUMS_URL"
-  printf '%s\n' "$checksum"
-}
-
-download_archive() {
+fetch_archive() {
   arch="$1"
-  asset_url="$2"
-  expected_sha256="$3"
-  archive_name=$(basename "$asset_url")
-  archive_path="$TMP_DIR/$archive_name"
+  artifact_dir="$TMP_DIR/frp-$arch"
   target_binary="$TARGET_DIR/frpc_$arch"
 
-  curl -fsSL "$asset_url" -o "$archive_path"
-
-  actual_sha256="$(sha256_file "$archive_path")"
-  if [ "$actual_sha256" != "$expected_sha256" ]; then
-    fail "frpc archive checksum mismatch for $asset_url: expected $expected_sha256, got $actual_sha256"
-  fi
-
-  frpc_member=$(tar -tzf "$archive_path" | grep '/frpc$' | head -n 1)
-  [ -n "$frpc_member" ] || fail "missing frpc in archive: $archive_name"
-
-  tar -xOf "$archive_path" "$frpc_member" > "$target_binary"
+  VERSION="$FRP_RELEASE_VERSION" ARCH="$arch" COMPRESS=false OUTPUT_DIR="$artifact_dir" \
+    "$FRP_FETCH_SCRIPT"
+  cp "$artifact_dir/frpc" "$target_binary"
   chmod 0755 "$target_binary"
 }
 
-download_archive amd64 "$FRP_BASE_URL/$FRP_LINUX_AMD64_ASSET" "$(lookup_checksum "$FRP_LINUX_AMD64_ASSET")"
-download_archive arm64 "$FRP_BASE_URL/$FRP_LINUX_ARM64_ASSET" "$(lookup_checksum "$FRP_LINUX_ARM64_ASSET")"
+fetch_archive amd64
+fetch_archive arm64
