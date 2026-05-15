@@ -157,3 +157,68 @@ production-like environment.
   - A browser/UI or E2E journey that launches a terminal and executes a harmless
     command through SSH.
 - Suggested first workflow command: `/start-feature dev-laptop-remote-access`
+
+### `self-extracting-installer`
+
+- Status: in-spec
+- Overview:
+  - Build a CI-produced self-extracting installer archive for non-Nix, non-deb,
+    non-rpm installs. The archive bundles the client binary, arch-matched `frpc`,
+    configs, systemd units, and an artifact manifest into a single `.run` file
+    that extracts and installs to FHS paths.
+- Requirements:
+  - Produce a self-extracting archive per supported architecture as part of the
+    client release workflow.
+  - Include an install script that copies files to `/usr/bin/`,
+    `/usr/libexec/nixstasis/`, `/etc/nixstasis/`,
+    `/usr/share/nixstasis/`, and `/lib/systemd/system/`.
+  - Include an `artifacts.json` manifest with version, arch, sha256 per file,
+    file modes, and build timestamp.
+  - Consume `frpc` from `packages/frp` via the shared acquisition path, not a
+    separate download.
+  - Extend client release CI so `.run` files are produced and verified alongside
+    existing archives, `.deb`, and `.rpm` packages.
+  - Extend `verify_artifacts.sh` to validate `.run` archive contents and
+    manifest integrity.
+- Constraints:
+  - Do not embed `frpc` in the Go client binary.
+  - `FRPS_SERVER_ADDR` remains a runtime env var, not baked into the archive.
+  - Systemd units must use `PrivateTmp=true`.
+  - `build/root-dir` stays as the GoReleaser staging source.
+  - `packages/frp` remains the shared source of truth for FRP version and
+    checksums.
+- Non-goals:
+  - Replacing `.deb` or `.rpm` packaging for distros that support them.
+  - Interactive TUI installer or configuration wizard.
+  - Automatic service enablement or start on install.
+  - Uninstall support.
+- Success criteria:
+  - A `.run` file for each release architecture is published to GitHub Releases.
+  - Running the `.run` file on a clean Linux system installs all required files
+    to their FHS paths.
+  - Existing `/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml` files are
+    preserved on upgrade unless the installer is explicitly forced to replace
+    them.
+  - `artifacts.json` in the archive matches the installed bundle contents by
+    sha256.
+  - `verify_artifacts.sh` catches content or manifest drift in CI.
+- Risks and tradeoffs:
+  - `makeself` adds a release CI dependency.
+  - Self-extracting archives are less auditable than plain tarballs, so the
+    installer must support no-exec extraction for inspection.
+  - Install script upgrade behavior must avoid overwriting operator-owned config.
+- Dependencies:
+  - `packages/frp/bin/download_frp.sh`
+  - `packages/client/scripts/fetch_frpc.sh`
+  - `.github/workflows/release_client.yml`
+  - `packages/client/scripts/release/verify_artifacts.sh`
+  - `packages/client/build/root-dir/`
+  - `prod.env`
+- Suggested validation:
+  - CI step that builds the `.run` archive from snapshot artifacts and verifies
+    extraction plus manifest integrity.
+  - Fresh-install and upgrade tests for file placement, modes, and config
+    preservation.
+  - Manual smoke test on Alpine or Arch to confirm FHS placement without
+    `dpkg`/`rpm`.
+- Suggested first workflow command: `/start-feature self-extracting-installer`

@@ -11,5 +11,5 @@
 - [ ] T008 Test upgrade install: install once, modify `/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml`, install again, confirm configs are preserved and binaries are replaced.
 - [ ] T009 Test `--force-config`: install with existing configs, re-install with `--force-config`, confirm both `frpc.toml` and `config.yaml` are overwritten.
 - [ ] T010 Update `packages/client/README.md` to document `.run` installer usage, extraction with `--noexec --target`, and config seeding behavior.
-- [ ] T011 Update `docs/src/planned-features.md` status from `planned` to `in-progress`.
+- [ ] T011 Update `docs/src/planned-features.md` status from `in-spec` to `in-progress` when implementation starts, then to `completed` during close-out.
 - [ ] T999 Close out the feature by confirming docs, scripts, CI workflow, and delivered behavior agree.
