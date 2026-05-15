@@ -1,3 +1,6 @@
+# NOTE: This reusable workflow is not currently called by any other workflow.
+# It was written for the original Debian packaging pipeline (caddy/frp).
+# Remove it if no caller is added by the time Docker-only CI is complete.
 name: Check Config
 on:
   workflow_call:
