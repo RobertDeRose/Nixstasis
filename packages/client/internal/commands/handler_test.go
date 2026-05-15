@@ -278,7 +278,16 @@ func TestSSHAuthorizeDoesNotReportFailureAfterCommit(t *testing.T) {
 func TestGivenRemoveCommitAndExpiredContext_WhenExecuteBatch_ThenSuccessReported(t *testing.T) {
 	scriptsDir := t.TempDir()
 	path := filepath.Join(scriptsDir, "safe_1.stary")
-	if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
+	content := strings.TrimSpace(`---
+name: safe
+version: "1"
+schema:
+  type: object
+---
+def main():
+    return {}
+`)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write script: %v", err)
 	}
 	handler := NewHandler(scriptsDir)
