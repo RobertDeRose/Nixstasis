@@ -48,15 +48,16 @@ deploy/compose/scripts/dev-lab.sh exec nixstasis /bin/bash
 
 ## Production
 
-1. Copy `.env.example` to `.env` and fill every required value.
+1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, and `AUTHORIZED_GROUPS`.
 2. Set `BIND_HOST=0.0.0.0` and `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
 5. Run migrations: `docker compose run --rm nixstasis /app/bin/migrate`
 
 For an external PostgreSQL instance, point `DATABASE_URL` at the managed
-database. The bundled `postgres` service will start but can be ignored or
-removed.
+database. The bundled PostgreSQL service will start but can be ignored or
+removed. When using the bundled PostgreSQL service, keep `DATABASE_URL`
+targeting the compose `postgres` host.
 
 ## Environment Files
 
@@ -81,9 +82,17 @@ removed.
 - Public ingress terminates at Caddy.
 - Phoenix runs on `PORT=4000` internally.
 - Caddy TLS approval: `GET /api/v1/check_domain`.
+- Caddy asks `http://nixstasis:${PORT}/api/v1/check_domain` before issuing device certs.
 - Reserved hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
   `frp-admin.<base-domain>`.
+- Wildcard device hosts require `authorize with entra_policy` before proxying.
+- AuthCrunch policy must allow roles `${AUTHORIZED_ROLES}` and groups `${AUTHORIZED_GROUPS}`.
 - Migrations are explicit, not part of container startup.
+
+Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.
+
+The container entrypoints wait for the `DATABASE_URL` host and port to accept
+connections before the Phoenix release starts or migrations run.
 
 ## Client Container
 

@@ -18,8 +18,6 @@ import (
 
 const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
 // execCommandContext allows mocking the command execution in tests.
 var execCommandContext = exec.CommandContext
 
