@@ -10,3 +10,5 @@ SyslogIdentifier=nixstasis
 ExecStart=/usr/bin/nixstasis poll
 Restart=always
 RestartSec=120s
+StartLimitIntervalSec=600
+StartLimitBurst=5
