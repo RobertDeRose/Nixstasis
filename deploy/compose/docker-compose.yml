@@ -103,7 +103,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: docker.io/postgres:${POSTGRES_VERSION:-17-alpine}
+    image: docker.io/postgres:${POSTGRES_VERSION:?POSTGRES_VERSION is required}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-nixstasis}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
