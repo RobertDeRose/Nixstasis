@@ -8,317 +8,373 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 )
 
-// TestHelperProcess isn't a real test; it's used to mock exec.Command
-// This is a standard Go pattern for mocking os/exec.
-func TestHelperProcess(_ *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
+// commandLog captures commands invoked via execCommandContext during a test.
+type commandLog struct {
+	mu       sync.Mutex
+	calls    []capturedCommand
+	isActive bool // controls what systemctl is-active returns
+}
+
+type capturedCommand struct {
+	command string
+	args    []string
+	env     []string
+}
+
+// fakeExec returns a mock exec function that records calls and uses
+// TestHelperProcess for actual execution. systemctl is-active returns
+// success (exit 0) when cl.isActive is true.
+func (cl *commandLog) fakeExec() func(ctx context.Context, command string, args ...string) *exec.Cmd {
+	return func(ctx context.Context, command string, args ...string) *exec.Cmd {
+		cl.mu.Lock()
+		defer cl.mu.Unlock()
+
+		// Record the call for assertions.
+		cl.calls = append(cl.calls, capturedCommand{command: command, args: args})
+
+		// For systemctl is-active, return exit 0 or 1 based on cl.isActive.
+		if command == systemctlPath && len(args) > 0 && args[0] == "is-active" {
+			if cl.isActive {
+				return exec.CommandContext(ctx, "true")
+			}
+			return exec.CommandContext(ctx, "false")
+		}
+
+		// For systemctl stop, just succeed.
+		if command == systemctlPath && len(args) > 0 && args[0] == "stop" {
+			cl.isActive = false
+			return exec.CommandContext(ctx, "true")
+		}
+
+		// For systemd-run, succeed and mark as active.
+		if command == systemdRunPath {
+			cl.isActive = true
+			return exec.CommandContext(ctx, "true")
+		}
+
+		// Fallback: succeed.
+		return exec.CommandContext(ctx, "true")
 	}
-	for _, arg := range os.Args {
-		if arg == systemctlPath {
-			return
+}
+
+func (cl *commandLog) lastSystemdRun() *capturedCommand {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	for i := len(cl.calls) - 1; i >= 0; i-- {
+		if cl.calls[i].command == systemdRunPath {
+			return &cl.calls[i]
 		}
 	}
-	// Simulate a long-running process
-	select {}
+	return nil
 }
 
-func fakeExecCommand(ctx context.Context, command string, args ...string) *exec.Cmd {
-	cs := make([]string, 0, 3+len(args))
-	cs = append(cs, "-test.run=TestHelperProcess", "--", command)
-	cs = append(cs, args...)
-	cmd := exec.CommandContext(ctx, os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-	return cmd
-}
-
-func TestManager_Lifecycle(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
+func setupTest(t *testing.T) (*commandLog, func()) {
+	t.Helper()
+	cl := &commandLog{}
+	origExec := execCommandContext
+	origSys := systemdAvailable
+	execCommandContext = cl.fakeExec()
 	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-	mgr := NewManager()
-
-	tests := []struct {
-		name        string
-		action      func(t *testing.T) error
-		wantActive  bool
-		wantPID     bool
-		expectError bool
-	}{
-		{
-			name: "Start FRP",
-			action: func(_ *testing.T) error {
-				return mgr.Start(context.Background(), configPath)
-			},
-			wantActive:  true,
-			wantPID:     true,
-			expectError: false,
-		},
-		{
-			name: "Start FRP (Idempotent)",
-			action: func(_ *testing.T) error {
-				return mgr.Start(context.Background(), configPath)
-			},
-			wantActive:  true,
-			wantPID:     true,
-			expectError: false,
-		},
-		{
-			name: "Stop FRP",
-			action: func(_ *testing.T) error {
-				return mgr.Stop()
-			},
-			wantActive:  false,
-			wantPID:     false,
-			expectError: false,
-		},
-		{
-			name: "Stop FRP (Idempotent)",
-			action: func(_ *testing.T) error {
-				return mgr.Stop()
-			},
-			wantActive:  false,
-			wantPID:     false,
-			expectError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.action(t)
-			if (err != nil) != tt.expectError {
-				t.Errorf("Action returned error: %v, expectError: %v", err, tt.expectError)
-			}
-
-			status := mgr.GetStatus()
-			if status.Active != tt.wantActive {
-				t.Errorf("Active status = %v, want %v", status.Active, tt.wantActive)
-			}
-
-			if tt.wantPID && status.PID == 0 {
-				t.Error("Expected PID to be set")
-			} else if !tt.wantPID && status.PID != 0 {
-				t.Errorf("Expected PID 0, got %d", status.PID)
-			}
-		})
+	return cl, func() {
+		execCommandContext = origExec
+		systemdAvailable = origSys
 	}
 }
 
-func TestManager_RealStatus(t *testing.T) {
-	mgr := NewManager()
-	s := mgr.GetStatus()
-	if s.Active {
-		t.Error("New manager should be inactive")
+func validFRPConfig() config.FRPConfig {
+	return config.FRPConfig{
+		AuthToken:     "secret-token",
+		Name:          "atom-aabbcc",
+		ServerAddr:    "frps.internal",
+		ServerPort:    7001,
+		WebServerAddr: "127.0.0.1",
+		WebServerPort: 7401,
+		HTTPLocalAddr: "127.0.0.1:8443",
+		SSHLocalPort:  2222,
 	}
 }
 
-func TestManagerUsesBundledFRPCPath(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
+// --- Start / Stop / IsActive ---
+
+func TestManager_StartStop(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
 
 	mgr := NewManager()
 	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-	if err := mgr.Start(context.Background(), configPath); err != nil {
+
+	// Initially inactive.
+	if mgr.IsActive() {
+		t.Fatal("expected inactive before start")
+	}
+
+	// Start should invoke systemd-run.
+	if err := mgr.Start(configPath, validFRPConfig()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
-	defer func() { _ = mgr.Stop() }()
 
-	if mgr.cmd == nil {
-		t.Fatal("expected command to be initialized")
+	// After start, IsActive should return true.
+	if !mgr.IsActive() {
+		t.Fatal("expected active after start")
 	}
 
-	if !argsContainSequence(mgr.cmd.Args, "--", config.FRPCBinaryPath(), "-c", configPath) {
-		t.Fatalf("expected systemd-run to launch bundled frpc, got %#v", mgr.cmd.Args)
+	// Idempotent start should be a no-op.
+	callsBefore := len(cl.calls)
+	if err := mgr.Start(configPath, validFRPConfig()); err != nil {
+		t.Fatalf("idempotent Start() error = %v", err)
 	}
-}
-
-func TestManagerPassesAllEnvVars(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	mgr := NewManager()
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-
-	frpConfig := config.FRPConfig{
-		AuthToken:     "secret-token",
-		Name:          "atom-aabbcc",
-		ServerAddr:    "frps.internal",
-		ServerPort:    7001,
-		WebServerAddr: "127.0.0.2",
-		WebServerPort: 7401,
-		HTTPLocalAddr: "127.0.0.1:8443",
-		SSHLocalPort:  2222,
-	}
-
-	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
-		t.Fatalf("StartWithConfig() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
-
-	if mgr.cmd == nil {
-		t.Fatal("expected command to be initialized")
-	}
-
-	checks := map[string]string{
-		"FRPS_AUTH_TOKEN":      "secret-token",
-		"FRPS_SERVER_ADDR":     "frps.internal",
-		"FRPS_SERVER_PORT":     "7001",
-		"NAME":                 "atom-aabbcc",
-		"SSH_NAME":             "atom-aabbcc-ssh",
-		"FRPC_WEB_SERVER_ADDR": "127.0.0.2",
-		"FRPC_WEB_SERVER_PORT": "7401",
-		"FRPC_HTTP_LOCAL_ADDR": "127.0.0.1:8443",
-		"FRPC_SSH_LOCAL_PORT":  "2222",
-	}
-
-	for key, want := range checks {
-		if got := envValue(mgr.cmd.Env, key); got != want {
-			t.Errorf("%s = %q, want %q", key, got, want)
+	// Should have checked is-active but not called systemd-run again.
+	found := false
+	cl.mu.Lock()
+	for i := callsBefore; i < len(cl.calls); i++ {
+		if cl.calls[i].command == systemdRunPath {
+			found = true
 		}
 	}
+	cl.mu.Unlock()
+	if found {
+		t.Fatal("idempotent Start should not call systemd-run again")
+	}
+
+	// Stop should invoke systemctl stop.
+	if err := mgr.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if mgr.IsActive() {
+		t.Fatal("expected inactive after stop")
+	}
+
+	// Idempotent stop should succeed.
+	if err := mgr.Stop(); err != nil {
+		t.Fatalf("idempotent Stop() error = %v", err)
+	}
 }
 
-func TestManagerPassesConfigPathDirectlyToFRPC(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
+func TestManager_GetStatus(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
+	_ = cl
+
+	mgr := NewManager()
+
+	// Inactive status.
+	status := mgr.GetStatus()
+	if status.Active {
+		t.Error("expected inactive status")
+	}
+	if status.ConnectionString != "" {
+		t.Errorf("expected empty ConnectionString, got %q", status.ConnectionString)
+	}
+
+	// Make active.
+	cl.isActive = true
+	status = mgr.GetStatus()
+	if !status.Active {
+		t.Error("expected active status")
+	}
+	if status.ConnectionString != frpcTransientUnit {
+		t.Errorf("ConnectionString = %q, want %q", status.ConnectionString, frpcTransientUnit)
+	}
+}
+
+// --- systemd-run argument assertions ---
+
+func TestStart_SystemdRunArgs(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
 
 	mgr := NewManager()
 	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
 
-	frpConfig := config.FRPConfig{
-		Name:          "test",
-		WebServerAddr: "127.0.0.1",
+	if err := mgr.Start(configPath, validFRPConfig()); err != nil {
+		t.Fatalf("Start() error = %v", err)
 	}
 
-	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
-		t.Fatalf("StartWithConfig() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
-
-	// The config path passed to frpc -c should be the original template path,
-	// not a rendered temp file.
-	args := mgr.cmd.Args
-	for i, arg := range args {
-		if arg == "-c" && i+1 < len(args) {
-			if args[i+1] != configPath {
-				t.Fatalf("frpc -c path = %q, want %q (original template)", args[i+1], configPath)
-			}
-			return
-		}
-	}
-	t.Fatal("expected -c flag in frpc command args")
-}
-
-func TestManagerUsesSystemdRunWhenAvailable(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	mgr := NewManager()
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-	frpConfig := config.FRPConfig{
-		AuthToken:     "secret-token",
-		Name:          "atom-aabbcc",
-		ServerAddr:    "frps.internal",
-		ServerPort:    7001,
-		WebServerAddr: "127.0.0.1",
-		WebServerPort: 7401,
-		HTTPLocalAddr: "127.0.0.1:8443",
-		SSHLocalPort:  2222,
+	run := cl.lastSystemdRun()
+	if run == nil {
+		t.Fatal("expected systemd-run call")
 	}
 
-	if err := mgr.StartWithConfig(context.Background(), configPath, frpConfig); err != nil {
-		t.Fatalf("StartWithConfig() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
+	args := strings.Join(run.args, "\x00")
 
-	if got := mgr.cmd.Args[3]; got != systemdRunPath {
-		t.Fatalf("command = %q, want %q", got, systemdRunPath)
-	}
-	args := strings.Join(mgr.cmd.Args, "\x00")
-	for _, want := range []string{
-		"--unit\x00" + frpcTransientUnit,
-		"--wait",
+	requiredFragments := []string{
+		"--quiet",
 		"--collect",
+		"--service-type=simple",
+		"--unit\x00" + frpcTransientUnit,
 		"--property\x00PrivateTmp=true",
 		"--property\x00Restart=on-failure",
 		"--setenv\x00FRPS_AUTH_TOKEN=secret-token",
 		"--setenv\x00FRPS_SERVER_ADDR=frps.internal",
-		"--\x00" + config.FRPCBinaryPath() + "\x00-c\x00" + configPath,
-	} {
+		"--setenv\x00FRPS_SERVER_PORT=7001",
+		"--setenv\x00NAME=atom-aabbcc",
+		"--setenv\x00SSH_NAME=atom-aabbcc-ssh",
+		"--setenv\x00FRPC_WEB_SERVER_ADDR=127.0.0.1",
+		"--setenv\x00FRPC_WEB_SERVER_PORT=7401",
+		"--setenv\x00FRPC_HTTP_LOCAL_ADDR=127.0.0.1:8443",
+		"--setenv\x00FRPC_SSH_LOCAL_PORT=2222",
+	}
+
+	for _, want := range requiredFragments {
 		if !strings.Contains(args, want) {
-			t.Fatalf("systemd-run args missing %q in %#v", want, mgr.cmd.Args)
+			t.Errorf("systemd-run args missing %q\ngot: %v", want, run.args)
+		}
+	}
+
+	// Should end with -- nixstasis frp-session
+	if !argsContainSequence(run.args, "--") {
+		t.Error("expected -- separator in systemd-run args")
+	}
+	// The command after -- should contain "frp-session"
+	for i, arg := range run.args {
+		if arg == "--" && i+2 < len(run.args) {
+			if run.args[i+2] != "frp-session" {
+				t.Errorf("expected frp-session subcommand, got %q", run.args[i+2])
+			}
+			break
 		}
 	}
 }
 
-func TestStartWithConfigRejectsEmptyName(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
+func TestStart_NoWaitFlag(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, `name = "{{ .Envs.NAME }}"`)
+	configPath := writeFRPConfig(t, `test = true`)
 
-	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
-		WebServerAddr: "127.0.0.1",
-	})
+	if err := mgr.Start(configPath, validFRPConfig()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	run := cl.lastSystemdRun()
+	if run == nil {
+		t.Fatal("expected systemd-run call")
+	}
+	for _, arg := range run.args {
+		if arg == "--wait" {
+			t.Fatal("fire-and-forget model must not use --wait")
+		}
+	}
+}
+
+// --- Validation ---
+
+func TestStart_RejectsEmptyName(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `test = true`)
+
+	cfg := validFRPConfig()
+	cfg.Name = ""
+	err := mgr.Start(configPath, cfg)
 	if err == nil || !strings.Contains(err.Error(), "non-empty name") {
 		t.Fatalf("expected missing-name error, got %v", err)
 	}
 }
 
-func TestStartWithConfigRejectsNonLoopbackWebServerAddr(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
+func TestStart_RejectsEmptyAuthToken(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, `webServer.addr = "{{ .Envs.FRPC_WEB_SERVER_ADDR }}"`)
+	configPath := writeFRPConfig(t, `test = true`)
 
-	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
-		Name:          "test",
-		WebServerAddr: "0.0.0.0",
-	})
+	cfg := validFRPConfig()
+	cfg.AuthToken = ""
+	err := mgr.Start(configPath, cfg)
+	if err == nil || !strings.Contains(err.Error(), "non-empty auth_token") {
+		t.Fatalf("expected missing-auth_token error, got %v", err)
+	}
+}
+
+func TestStart_RejectsEmptyServerAddr(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `test = true`)
+
+	cfg := validFRPConfig()
+	cfg.ServerAddr = ""
+	err := mgr.Start(configPath, cfg)
+	if err == nil || !strings.Contains(err.Error(), "non-empty server_addr") {
+		t.Fatalf("expected missing-server_addr error, got %v", err)
+	}
+}
+
+func TestStart_RejectsNonLoopbackWebServerAddr(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `test = true`)
+
+	cfg := validFRPConfig()
+	cfg.WebServerAddr = "0.0.0.0"
+	err := mgr.Start(configPath, cfg)
 	if err == nil || !strings.Contains(err.Error(), "loopback") {
 		t.Fatalf("expected loopback validation error, got %v", err)
 	}
 }
 
-func TestStartWithConfigRequiresSystemd(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return false }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
+func TestStart_RejectsInvalidPorts(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
 
 	mgr := NewManager()
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+	configPath := writeFRPConfig(t, `test = true`)
 
-	err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
-		Name:          "test",
-		WebServerAddr: "127.0.0.1",
-	})
+	cfg := validFRPConfig()
+	cfg.ServerPort = 0
+	err := mgr.Start(configPath, cfg)
+	if err == nil || !strings.Contains(err.Error(), "server_port") {
+		t.Fatalf("expected port validation error, got %v", err)
+	}
+}
+
+func TestStart_RejectsInvalidHTTPLocalAddr(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `test = true`)
+
+	cfg := validFRPConfig()
+	cfg.HTTPLocalAddr = "nocolon"
+	err := mgr.Start(configPath, cfg)
+	if err == nil || !strings.Contains(err.Error(), "host:port") {
+		t.Fatalf("expected http_local_addr validation error, got %v", err)
+	}
+}
+
+func TestStart_RequiresSystemd(t *testing.T) {
+	origExec := execCommandContext
+	origSys := systemdAvailable
+	defer func() {
+		execCommandContext = origExec
+		systemdAvailable = origSys
+	}()
+	cl := &commandLog{}
+	execCommandContext = cl.fakeExec()
+	systemdAvailable = func() bool { return false }
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `test = true`)
+
+	err := mgr.Start(configPath, validFRPConfig())
 	if err == nil || !strings.Contains(err.Error(), "systemd is required") {
 		t.Fatalf("expected systemd requirement error, got %v", err)
 	}
 }
+
+// --- loopbackAddr ---
 
 func TestLoopbackAddr(t *testing.T) {
 	tests := []struct {
@@ -342,6 +398,52 @@ func TestLoopbackAddr(t *testing.T) {
 	}
 }
 
+// --- systemdRunEnv ---
+
+func TestSystemdRunEnv_MinimalEnv(t *testing.T) {
+	env := systemdRunEnv()
+	foundPATH := false
+	for _, e := range env {
+		if strings.HasPrefix(e, "PATH=") {
+			foundPATH = true
+		}
+		// Should not contain template vars.
+		if strings.HasPrefix(e, "FRPS_") || strings.HasPrefix(e, "NAME=") {
+			t.Errorf("systemdRunEnv should not contain template vars, got %q", e)
+		}
+	}
+	if !foundPATH {
+		t.Error("systemdRunEnv should include PATH")
+	}
+}
+
+// --- frpcTemplateEnv ---
+
+func TestFRPCTemplateEnv(t *testing.T) {
+	cfg := validFRPConfig()
+	env := frpcTemplateEnv(cfg)
+
+	checks := map[string]string{
+		"FRPS_AUTH_TOKEN":      "secret-token",
+		"FRPS_SERVER_ADDR":     "frps.internal",
+		"FRPS_SERVER_PORT":     "7001",
+		"NAME":                 "atom-aabbcc",
+		"SSH_NAME":             "atom-aabbcc-ssh",
+		"FRPC_WEB_SERVER_ADDR": "127.0.0.1",
+		"FRPC_WEB_SERVER_PORT": "7401",
+		"FRPC_HTTP_LOCAL_ADDR": "127.0.0.1:8443",
+		"FRPC_SSH_LOCAL_PORT":  "2222",
+	}
+
+	for key, want := range checks {
+		if got := envValue(env, key); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+	}
+}
+
+// --- Packaged config assertions ---
+
 func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 	configPath := filepath.Join("..", "..", "build", "root-dir", "usr", "share", "nixstasis", "frpc.toml")
 	data, err := os.ReadFile(configPath)
@@ -351,7 +453,6 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 
 	text := string(data)
 
-	// String values should be quoted in the template
 	quotedPlaceholders := []string{
 		`"{{ .Envs.FRPS_SERVER_ADDR }}"`,
 		`"{{ .Envs.FRPS_AUTH_TOKEN }}"`,
@@ -366,7 +467,6 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 		}
 	}
 
-	// Integer values should be unquoted
 	unquotedPlaceholders := []string{
 		"{{ .Envs.FRPS_SERVER_PORT }}",
 		"{{ .Envs.FRPC_WEB_SERVER_PORT }}",
@@ -378,7 +478,6 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 		}
 	}
 
-	// Template should document frpc-native expansion, not client rendering
 	if strings.Contains(text, "client renders") {
 		t.Error("packaged frpc config should not document client-side rendering")
 	}
@@ -399,160 +498,7 @@ func TestPackagedConfigExampleProvidesFRPName(t *testing.T) {
 	}
 }
 
-func TestManagerStartWithConfigTracksConfigPath(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	mgr := NewManager()
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-
-	if err := mgr.StartWithConfig(context.Background(), configPath, config.FRPConfig{
-		Name:          "atom-aabbcc",
-		WebServerAddr: "127.0.0.1",
-	}); err != nil {
-		t.Fatalf("StartWithConfig() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
-
-	status := mgr.GetStatus()
-	if status.ConnectionString != configPath {
-		t.Fatalf("ConnectionString = %q, want %q", status.ConnectionString, configPath)
-	}
-}
-
-func TestManagerStartUsesFallbackName(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	mgr := NewManager()
-	configPath := writeFRPConfig(t, `name = "{{ .Envs.NAME }}"`)
-
-	// Start() uses defaultProxyName ("nixstasis") when no name is provided
-	if err := mgr.Start(context.Background(), configPath); err != nil {
-		t.Fatalf("Start() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
-
-	if got := envValue(mgr.cmd.Env, "NAME"); got != "nixstasis" {
-		t.Fatalf("NAME = %q, want %q", got, "nixstasis")
-	}
-	if got := envValue(mgr.cmd.Env, "SSH_NAME"); got != "nixstasis-ssh" {
-		t.Fatalf("SSH_NAME = %q, want %q", got, "nixstasis-ssh")
-	}
-}
-
-func TestManagerStopWaitsForOwnedProcessCleanup(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	mgr := NewManager()
-	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-	if err := mgr.Start(context.Background(), configPath); err != nil {
-		t.Fatalf("Start() error = %v", err)
-	}
-
-	stopDone := make(chan error, 1)
-	statusDuringStop := make(chan ConnectionStatus, 1)
-	var once sync.Once
-
-	go func() {
-		stopDone <- mgr.Stop()
-	}()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		if time.Now().After(deadline) {
-			t.Fatal("timed out waiting for active status during stop")
-		}
-
-		status := mgr.GetStatus()
-		if status.Active {
-			once.Do(func() { statusDuringStop <- status })
-			break
-		}
-
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	select {
-	case err := <-stopDone:
-		if err != nil {
-			t.Fatalf("Stop() error = %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Stop() did not return")
-	}
-
-	duringStop := <-statusDuringStop
-	if !duringStop.Active || duringStop.PID == 0 {
-		t.Fatalf("expected active process ownership during stop, got %+v", duringStop)
-	}
-
-	finalStatus := mgr.GetStatus()
-	if finalStatus.Active {
-		t.Fatalf("expected inactive final status, got %+v", finalStatus)
-	}
-	if finalStatus.PID != 0 {
-		t.Fatalf("expected PID cleared after shutdown, got %+v", finalStatus)
-	}
-	if finalStatus.ConnectionString != "" {
-		t.Fatalf("expected connection string cleared after shutdown, got %+v", finalStatus)
-	}
-}
-
-func TestManagerStopDoesNotClearReplacementProcess(t *testing.T) {
-	execCommandContext = fakeExecCommand
-	defer func() { execCommandContext = exec.CommandContext }()
-	systemdAvailable = func() bool { return true }
-	defer func() { systemdAvailable = defaultSystemdAvailable }()
-
-	originalHook := afterStopWaitHook
-	defer func() { afterStopWaitHook = originalHook }()
-
-	mgr := NewManager()
-	firstConfigPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-	secondConfigPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
-
-	if err := mgr.Start(context.Background(), firstConfigPath); err != nil {
-		t.Fatalf("Start() error = %v", err)
-	}
-
-	firstStatus := mgr.GetStatus()
-	if !firstStatus.Active || firstStatus.PID == 0 {
-		t.Fatalf("expected initial process to be active, got %+v", firstStatus)
-	}
-
-	afterStopWaitHook = func() {
-		if err := mgr.Start(context.Background(), secondConfigPath); err != nil {
-			t.Fatalf("replacement Start() error = %v", err)
-		}
-	}
-
-	if err := mgr.Stop(); err != nil {
-		t.Fatalf("Stop() error = %v", err)
-	}
-	defer func() { _ = mgr.Stop() }()
-
-	finalStatus := mgr.GetStatus()
-	if !finalStatus.Active {
-		t.Fatalf("expected replacement process to remain active, got %+v", finalStatus)
-	}
-	if finalStatus.PID == 0 {
-		t.Fatalf("expected replacement PID to be set, got %+v", finalStatus)
-	}
-	if finalStatus.PID == firstStatus.PID {
-		t.Fatalf("expected replacement PID to differ from original, got %+v", finalStatus)
-	}
-	if finalStatus.ConnectionString == "" {
-		t.Fatalf("expected replacement connection string, got %+v", finalStatus)
-	}
-}
+// --- Helpers ---
 
 func writeFRPConfig(t *testing.T, content string) string {
 	t.Helper()
@@ -569,7 +515,6 @@ func envValue(env []string, key string) string {
 			return after
 		}
 	}
-
 	return ""
 }
 
