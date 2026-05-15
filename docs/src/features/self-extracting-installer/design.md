@@ -31,7 +31,7 @@ install Nixstasis with one command and no manual file placement.
 
 - `nixstasis` binary (copied from GoReleaser `dist/` build output)
 - `frpc` binary (arch-matched, from `build/root-dir/usr/libexec/nixstasis/`)
-- `frpc.toml` (from `build/root-dir/etc/nixstasis/`)
+- `frpc.toml` (from `build/root-dir/usr/share/nixstasis/`)
 - `config.example.yaml` (from `build/root-dir/usr/share/nixstasis/`)
 - `nixstasis-poll.service` (from `build/root-dir/lib/systemd/system/`)
 - `nixstasis-poll.path` (from `build/root-dir/lib/systemd/system/`)
@@ -43,7 +43,8 @@ install Nixstasis with one command and no manual file placement.
 
 - `nixstasis` -> `/usr/bin/nixstasis`
 - `frpc` -> `/usr/libexec/nixstasis/frpc`
-- `frpc.toml` -> `/etc/nixstasis/frpc.toml` (only if not already present)
+- `frpc.toml` -> `/usr/share/nixstasis/frpc.toml` (always replaced on upgrade;
+  client-owned, not operator-edited)
 - `config.example.yaml` -> `/usr/share/nixstasis/config.example.yaml`
 - Seeds `/etc/nixstasis/config.yaml` from `config.example.yaml` if not already
   present (matching nfpm postinstall behavior)
@@ -54,8 +55,8 @@ install Nixstasis with one command and no manual file placement.
 4. `install.sh` must be idempotent and safe for upgrades:
 
 - Overwrite binaries and systemd units unconditionally.
-- Preserve existing `/etc/nixstasis/frpc.toml` and
-  `/etc/nixstasis/config.yaml` unless `--force-config` is passed.
+- Preserve existing `/etc/nixstasis/config.yaml` unless `--force-config` is
+  passed.
 - Print installed file paths and versions to stdout.
 
 5. `artifacts.json` contains:
@@ -112,7 +113,7 @@ the `.run` archive:
 4. Copy `frpc` from `build/root-dir/usr/libexec/nixstasis/frpc_<arch>` and
    rename to `frpc`.
 5. Copy config files from `build/root-dir/`:
-   - `etc/nixstasis/frpc.toml` -> `frpc.toml`
+   - `usr/share/nixstasis/frpc.toml` -> `frpc.toml`
    - `usr/share/nixstasis/config.example.yaml` -> `config.example.yaml`
 6. Copy systemd units from `build/root-dir/lib/systemd/system/`:
    - `nixstasis-poll.service`

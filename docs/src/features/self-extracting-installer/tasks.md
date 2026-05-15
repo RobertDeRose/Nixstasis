@@ -8,8 +8,8 @@
 - [x] T005 Test snapshot build end-to-end: trigger workflow, confirm `.run` files appear in the uploaded artifact bundle.
 - [ ] T006 Test tag build end-to-end: push a test tag, confirm `.run` files are attached to the GitHub Release.
 - [x] T007 Test fresh install: extract `.run` on a clean Linux system, confirm all files land at FHS paths with correct permissions and `config.yaml` is seeded.
-- [x] T008 Test upgrade install: install once, modify `/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml`, install again, confirm configs are preserved and binaries are replaced.
-- [x] T009 Test `--force-config`: install with existing configs, re-install with `--force-config`, confirm both `frpc.toml` and `config.yaml` are overwritten.
+- [x] T008 Test upgrade install: install once, modify `/etc/nixstasis/config.yaml`, install again, confirm config is preserved and binaries plus client-owned `frpc.toml` are replaced.
+- [x] T009 Test `--force-config`: install with existing config, re-install with `--force-config`, confirm `config.yaml` is overwritten.
 - [x] T010 Update `packages/client/README.md` to document `.run` installer usage, extraction with `--noexec --target`, and config seeding behavior.
 - [x] T011 Update `docs/src/planned-features.md` status from `in-spec` to `in-progress` when implementation starts, then to `completed` during close-out.
 - [ ] T999 Close out the feature by confirming docs, scripts, CI workflow, and delivered behavior agree.

@@ -11,7 +11,7 @@ Usage: install.sh [--force-config]
 Installs the Nixstasis client bundle to system paths.
 
 Options:
-  --force-config  overwrite existing /etc/nixstasis/frpc.toml and config.yaml
+  --force-config  overwrite existing /etc/nixstasis/config.yaml
   -h, --help      show this help
 EOF
 }
@@ -59,9 +59,12 @@ install_config() {
 
 install_file nixstasis /usr/bin/nixstasis 0755
 install_file frpc /usr/libexec/nixstasis/frpc 0755
-install_config frpc.toml /etc/nixstasis/frpc.toml 0644
+install_file frpc.toml /usr/share/nixstasis/frpc.toml 0644
 install_file config.example.yaml /usr/share/nixstasis/config.example.yaml 0644
 install_config config.example.yaml /etc/nixstasis/config.yaml 0644
+if [ -e /etc/nixstasis/frpc.toml ]; then
+  echo "warning: /etc/nixstasis/frpc.toml is no longer read; move custom values into /etc/nixstasis/config.yaml" >&2
+fi
 install_file nixstasis-poll.service /lib/systemd/system/nixstasis-poll.service 0644
 install_file nixstasis-poll.path /lib/systemd/system/nixstasis-poll.path 0644
 install_file nixstasis-registration.service /lib/systemd/system/nixstasis-registration.service 0644

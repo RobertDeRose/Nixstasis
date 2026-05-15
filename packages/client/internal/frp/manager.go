@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
-	"regexp"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,9 +17,19 @@ import (
 )
 
 const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+const systemdRunPath = "systemd-run"
+const systemctlPath = "systemctl"
+const frpcTransientUnit = "nixstasis-frpc"
 
 // execCommandContext allows mocking the command execution in tests.
 var execCommandContext = exec.CommandContext
+
+var defaultSystemdAvailable = func() bool {
+	_, err := os.Stat("/run/systemd/system")
+	return err == nil
+}
+
+var systemdAvailable = defaultSystemdAvailable
 
 var afterStopWaitHook = func() {}
 
@@ -48,10 +58,21 @@ func NewManager() *Manager {
 // The provided context is ignored for the process lifecycle to ensure it persists
 // independent of the request context, but is kept for interface compatibility.
 func (m *Manager) Start(ctx context.Context, configPath string) error {
-	return m.StartWithConfig(ctx, configPath, config.FRPConfig{Name: defaultProxyName})
+	cfg, err := config.GetDefaultConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load default frp config: %w", err)
+	}
+	frpConfig := cfg.FRP
+	if frpConfig.Name == "" {
+		frpConfig.Name = defaultProxyName
+	}
+	return m.StartWithConfig(ctx, configPath, frpConfig)
 }
 
 // StartWithConfig launches the frpc process with additional runtime config.
+// The frpc.toml template is passed directly to frpc; all {{ .Envs.* }}
+// placeholders are resolved by frpc from the process environment that this
+// method constructs from the FRPConfig values.
 func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfig config.FRPConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -61,54 +82,42 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 		return nil
 	}
 
-	renderedConfigPath, err := renderConfig(configPath, frpConfig)
-	if err != nil {
+	if err := validateFRPConfig(frpConfig); err != nil {
 		return err
 	}
+	if !systemdAvailable() {
+		return fmt.Errorf("systemd is required to start frpc transient service")
+	}
 
-	slog.Info("Starting FRP tunnel", "config", renderedConfigPath)
+	slog.Info("Starting FRP tunnel", "config", configPath)
 
 	// Create a context that we can cancel to kill the process
 	cmdCtx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
 	m.waitCh = make(chan struct{})
 
-	// -c configPath is standard for frpc
+	args := frpcCommandArgs(configPath, frpConfig)
+
+	// Pass the template directly to frpc; it expands {{ .Envs.* }} natively.
 	//nolint:contextcheck // Intentional creation of new context for background process
-	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", renderedConfigPath)
-	pathValue := os.Getenv("PATH")
-	if pathValue == "" {
-		pathValue = defaultFRPExecPath
-	}
-	baseEnv := []string{"PATH=" + pathValue}
-	if home := os.Getenv("HOME"); home != "" {
-		baseEnv = append(baseEnv, "HOME="+home)
-	}
-	if tmpDir := os.Getenv("TMPDIR"); tmpDir != "" {
-		baseEnv = append(baseEnv, "TMPDIR="+tmpDir)
-	}
-	cmd.Env = append(baseEnv,
-		"FRPS_AUTH_TOKEN="+frpConfig.AuthToken,
-		"FRPS_SERVER_ADDR="+frpConfig.ServerAddr,
-	)
+	cmd := execCommandContext(cmdCtx, systemdRunPath, args...)
+	cmd.Env = frpEnv(frpConfig)
 	m.cmd = cmd
 
 	if err := cmd.Start(); err != nil {
 		m.cancel()
-		_ = os.Remove(renderedConfigPath)
 		return fmt.Errorf("failed to start frpc: %w", err)
 	}
 
 	m.status.Active = true
 	m.status.PID = cmd.Process.Pid
 	m.status.StartTime = time.Now()
-	m.status.ConnectionString = renderedConfigPath // Storing config path as proxy for connection string for now
+	m.status.ConnectionString = configPath
 	waitCh := m.waitCh
 
 	// Wait for process in background to handle cleanup if it crashes
 	go func() {
 		defer close(waitCh)
-		defer func() { _ = os.Remove(renderedConfigPath) }()
 
 		err := cmd.Wait()
 		slog.Info("FRP process exited", "error", err)
@@ -133,63 +142,81 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	return nil
 }
 
-func renderConfig(configPath string, frpConfig config.FRPConfig) (string, error) {
-	template, err := os.ReadFile(configPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read frpc config: %w", err)
+func frpcCommandArgs(configPath string, frpConfig config.FRPConfig) []string {
+	args := []string{
+		"--unit", frpcTransientUnit,
+		"--wait",
+		"--collect",
+		"--property", "PrivateTmp=true",
+		"--property", "Restart=on-failure",
 	}
-
-	if frpConfig.Name == "" && strings.Contains(string(template), "{{ .Envs.NAME }}") {
-		return "", fmt.Errorf("frpc config requires a non-empty name")
+	for _, entry := range frpcTemplateEnv(frpConfig) {
+		args = append(args, "--setenv", entry)
 	}
-
-	replacements := map[string]string{
-		"{{ .Envs.NAME }}": frpConfig.Name,
-	}
-
-	rendered := stripTemplateCommentPlaceholders(string(template))
-	for placeholder, value := range replacements {
-		rendered = strings.ReplaceAll(rendered, placeholder, value)
-	}
-	if unresolvedNonEnvPlaceholder(rendered) {
-		return "", fmt.Errorf("frpc config contains unresolved template placeholders")
-	}
-
-	file, err := os.CreateTemp(os.TempDir(), "nixstasis-frpc-*.toml")
-	if err != nil {
-		return "", fmt.Errorf("failed to create rendered frpc config: %w", err)
-	}
-	path := file.Name()
-	defer file.Close()
-
-	if err := file.Chmod(0o600); err != nil {
-		_ = os.Remove(path)
-		return "", fmt.Errorf("failed to secure rendered frpc config: %w", err)
-	}
-
-	if _, err := file.WriteString(rendered); err != nil {
-		_ = os.Remove(path)
-		return "", fmt.Errorf("failed to write rendered frpc config: %w", err)
-	}
-
-	return path, nil
+	args = append(args, "--", config.FRPCBinaryPath(), "-c", configPath)
+	return args
 }
 
-var templateCommentPattern = regexp.MustCompile(`(?m)^\s*#.*\{\{.*\}\}.*$`)
+// frpEnv builds the environment for the frpc subprocess.  Every
+// {{ .Envs.* }} placeholder in frpc.toml must have a corresponding entry
+// here so frpc can resolve it at startup.
+func frpEnv(frpConfig config.FRPConfig) []string {
+	pathValue := os.Getenv("PATH")
+	if pathValue == "" {
+		pathValue = defaultFRPExecPath
+	}
+	env := []string{"PATH=" + pathValue}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
+	if tmpDir := os.Getenv("TMPDIR"); tmpDir != "" {
+		env = append(env, "TMPDIR="+tmpDir)
+	}
 
-// envPlaceholderPattern matches FRP-native {{ .Envs.VAR }} placeholders that
-// frpc resolves from its own process environment at startup.
-var envPlaceholderPattern = regexp.MustCompile(`\{\{\s*\.Envs\.\w+\s*\}\}`)
+	env = append(env,
+		frpcTemplateEnv(frpConfig)...,
+	)
 
-func stripTemplateCommentPlaceholders(template string) string {
-	return templateCommentPattern.ReplaceAllString(template, "")
+	return env
 }
 
-// unresolvedNonEnvPlaceholder returns true if the rendered config still
-// contains {{ ... }} placeholders that are NOT frpc-native .Envs references.
-func unresolvedNonEnvPlaceholder(rendered string) bool {
-	cleaned := envPlaceholderPattern.ReplaceAllString(rendered, "")
-	return strings.Contains(cleaned, "{{")
+func frpcTemplateEnv(frpConfig config.FRPConfig) []string {
+	return []string{
+		"FRPS_AUTH_TOKEN=" + frpConfig.AuthToken,
+		"FRPS_SERVER_ADDR=" + frpConfig.ServerAddr,
+		"FRPS_SERVER_PORT=" + strconv.Itoa(frpConfig.ServerPort),
+		"NAME=" + frpConfig.Name,
+		"SSH_NAME=" + frpConfig.Name + "-ssh",
+		"FRPC_WEB_SERVER_ADDR=" + frpConfig.WebServerAddr,
+		"FRPC_WEB_SERVER_PORT=" + strconv.Itoa(frpConfig.WebServerPort),
+		"FRPC_HTTP_LOCAL_ADDR=" + frpConfig.HTTPLocalAddr,
+		"FRPC_SSH_LOCAL_PORT=" + strconv.Itoa(frpConfig.SSHLocalPort),
+	}
+}
+
+// validateFRPConfig checks that the FRPConfig is safe to pass to frpc.
+func validateFRPConfig(frpConfig config.FRPConfig) error {
+	if frpConfig.Name == "" {
+		return fmt.Errorf("frpc config requires a non-empty name")
+	}
+	if !loopbackAddr(frpConfig.WebServerAddr) {
+		return fmt.Errorf("frp web_server_addr must be a loopback address (127.0.0.1, ::1, or localhost)")
+	}
+	return nil
+}
+
+// loopbackAddr returns true if the address is a loopback address.
+func loopbackAddr(value string) bool {
+	if value == "localhost" {
+		return true
+	}
+	// Strip brackets for IPv6 addresses (e.g., "[::1]")
+	stripped := value
+	if len(stripped) > 2 && stripped[0] == '[' && stripped[len(stripped)-1] == ']' {
+		stripped = stripped[1 : len(stripped)-1]
+	}
+	ip := net.ParseIP(stripped)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Stop terminates the frpc process.
@@ -205,6 +232,11 @@ func (m *Manager) Stop() error {
 	waitCh := m.waitCh
 	cmd := m.cmd
 	m.mu.Unlock()
+
+	stopCmd := execCommandContext(context.Background(), systemctlPath, "stop", frpcTransientUnit+".service")
+	if err := stopCmd.Run(); err != nil {
+		return fmt.Errorf("failed to stop frpc transient service: %w", err)
+	}
 
 	if cancel != nil {
 		cancel()

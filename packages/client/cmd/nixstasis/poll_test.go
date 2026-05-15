@@ -39,8 +39,8 @@ type fakeCommandClient struct {
 }
 
 type fakePayloadFetcher struct {
-	delay time.Duration
-	inFlight atomic.Int64
+	delay       time.Duration
+	inFlight    atomic.Int64
 	maxInFlight atomic.Int64
 }
 
@@ -91,10 +91,19 @@ func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) 
 	}
 }
 
-func TestRuntimeFRPConfigPreservesConfiguredName(t *testing.T) {
-	base := config.FRPConfig{AuthToken: "secret-token", Name: "configured-name", ServerAddr: "frps.internal"}
+func TestRuntimeFRPConfigPreservesConfiguredValues(t *testing.T) {
+	base := config.FRPConfig{
+		AuthToken:     "secret-token",
+		Name:          "configured-name",
+		ServerAddr:    "frps.internal",
+		ServerPort:    7001,
+		WebServerAddr: "127.0.0.2",
+		WebServerPort: 7401,
+		HTTPLocalAddr: "127.0.0.1:8443",
+		SSHLocalPort:  2222,
+	}
 
-	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff")
+	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff", "identity-token")
 
 	if got.Name != "configured-name" {
 		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
@@ -105,23 +114,28 @@ func TestRuntimeFRPConfigPreservesConfiguredName(t *testing.T) {
 	if got.ServerAddr != "frps.internal" {
 		t.Fatalf("runtimeFRPConfig() server addr = %q", got.ServerAddr)
 	}
+	if got.ServerPort != 7001 || got.WebServerAddr != "127.0.0.2" || got.WebServerPort != 7401 || got.HTTPLocalAddr != "127.0.0.1:8443" || got.SSHLocalPort != 2222 {
+		t.Fatalf("runtimeFRPConfig() did not preserve FRP settings: %+v", got)
+	}
 }
 
-func TestRuntimeFRPConfigFallsBackToGeneratedDeviceName(t *testing.T) {
-	base := config.FRPConfig{AuthToken: "secret-token"}
+func TestRuntimeFRPConfigFallsBackToGeneratedDeviceNameAndIdentityToken(t *testing.T) {
+	base := config.FRPConfig{}
 	mac := "aa:bb:cc:dd:ee:ff"
 
-	got := runtimeFRPConfig(base, mac)
+	got := runtimeFRPConfig(base, mac, "identity-token")
 	want := identity.GenerateDeviceName(mac)
 
 	if got.Name != want {
 		t.Fatalf("runtimeFRPConfig() name = %q, want %q", got.Name, want)
 	}
-	if got.AuthToken != "secret-token" {
+	if got.AuthToken != "identity-token" {
 		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
 	}
-	if got.ServerAddr != "nixstasis.example.com" {
-		t.Fatalf("runtimeFRPConfig() server addr = %q", got.ServerAddr)
+	// ServerAddr is not defaulted here; Viper provides that default at config
+	// load time. runtimeFRPConfig only derives Name from MAC.
+	if got.ServerAddr != "" {
+		t.Fatalf("runtimeFRPConfig() should not default server addr, got %q", got.ServerAddr)
 	}
 }
 

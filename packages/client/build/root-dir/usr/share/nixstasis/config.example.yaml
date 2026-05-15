@@ -9,8 +9,13 @@ scripts:
 
 frp:
   auth_token: ""
-  name: "atom-001122334455"
+  name: ""
   server_addr: "nixstasis.example.com"
+  server_port: 7000
+  web_server_addr: "127.0.0.1"
+  web_server_port: 7400
+  http_local_addr: "127.0.0.1:443"
+  ssh_local_port: 22
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"

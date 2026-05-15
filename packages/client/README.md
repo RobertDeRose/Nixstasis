@@ -136,7 +136,7 @@ with `--clients N`.
 ## Packaging
 
 GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs. Release CI also builds
-self-extracting `.run` installers for Linux hosts that do not use deb or rpm packages.
+self-extracting `.run` installers for systemd Linux hosts that do not use deb or rpm packages.
 
 1. Review the shared production version pins:
 
@@ -167,16 +167,17 @@ On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
 
 The self-extracting installer contains the same assets plus an `install.sh`
-script and an `artifacts.json` manifest. Run it as root:
+script and an `artifacts.json` manifest. It requires a running systemd host.
+Run it as root:
 
 ```bash
 sudo ./nixstasis-<version>-linux-<arch>.run
 ```
 
-The installer overwrites binaries and systemd units, preserves existing
-`/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml`, and seeds
-`/etc/nixstasis/config.yaml` from the example template on fresh installs. Use
-`--force-config` to replace existing config files:
+The installer overwrites binaries, systemd units, and the client-owned FRP
+template at `/usr/share/nixstasis/frpc.toml`. It preserves existing
+`/etc/nixstasis/config.yaml` and seeds it from the example template on fresh
+installs. Use `--force-config` to replace the existing config file:
 
 ```bash
 sudo ./nixstasis-<version>-linux-<arch>.run -- --force-config
@@ -200,8 +201,10 @@ mode.
 
 The bundled FRP client template sets
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
-from `frp.server_addr` in `/etc/nixstasis/config.yaml`. Device subdomains are
-requested under `atom-<normalized-device-id>.<base-domain>`.
+from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
+the registered device token by default. Device subdomains are requested under
+`atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
+as an override.
 
 For local-only packaging experiments, you can still override the bundled binary:
 

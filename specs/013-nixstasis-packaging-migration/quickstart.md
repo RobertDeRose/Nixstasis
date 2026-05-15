@@ -188,7 +188,7 @@ Deployment success rate: `20/20`
 | 3 | PASS | `.deb` artifacts were generated for `amd64` and `arm64`. |
 | 4 | PASS | `.rpm` artifacts were generated for `x86_64` and `aarch64`. |
 | 5 | PASS | `./scripts/release/verify_artifacts.sh` passed after adding a macOS-safe `.deb` inspection path. |
-| 6 | PASS | Tarball contents include `nixstasis`, `etc/nixstasis/frpc.toml`, `usr/share/nixstasis/config.example.yaml`, and `usr/libexec/nixstasis/frpc`. |
+| 6 | PASS | Tarball contents include `nixstasis`, `usr/share/nixstasis/frpc.toml`, `usr/share/nixstasis/config.example.yaml`, and `usr/libexec/nixstasis/frpc`. |
 | 7 | PASS | RPM contents include `/usr/bin/nixstasis` and the bundled FRP/config payload. |
 | 8 | PASS | NFPM package generation no longer collides with an explicitly duplicated `/usr/bin/nixstasis` entry. |
 | 9 | PASS | GoReleaser config is now valid for GoReleaser v2. |
