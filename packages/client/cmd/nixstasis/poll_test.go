@@ -103,7 +103,7 @@ func TestRuntimeFRPConfigPreservesConfiguredValues(t *testing.T) {
 		SSHLocalPort:  2222,
 	}
 
-	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff", "identity-token")
+	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff")
 
 	if got.Name != "configured-name" {
 		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
@@ -119,18 +119,18 @@ func TestRuntimeFRPConfigPreservesConfiguredValues(t *testing.T) {
 	}
 }
 
-func TestRuntimeFRPConfigFallsBackToGeneratedDeviceNameAndIdentityToken(t *testing.T) {
+func TestRuntimeFRPConfigFallsBackToGeneratedDeviceNameOnly(t *testing.T) {
 	base := config.FRPConfig{}
 	mac := "aa:bb:cc:dd:ee:ff"
 
-	got := runtimeFRPConfig(base, mac, "identity-token")
+	got := runtimeFRPConfig(base, mac)
 	want := identity.GenerateDeviceName(mac)
 
 	if got.Name != want {
 		t.Fatalf("runtimeFRPConfig() name = %q, want %q", got.Name, want)
 	}
-	if got.AuthToken != "identity-token" {
-		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
+	if got.AuthToken != "" {
+		t.Fatalf("runtimeFRPConfig() should not default auth token, got %q", got.AuthToken)
 	}
 	// ServerAddr is not defaulted here; Viper provides that default at config
 	// load time. runtimeFRPConfig only derives Name from MAC.
