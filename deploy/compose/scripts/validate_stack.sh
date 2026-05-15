@@ -56,12 +56,12 @@ require_exact_env_value() {
 
 require_caddy_text() {
   pattern="$1"
-  rg -n "$pattern" "$CADDYFILE" >/dev/null || fail "missing Caddy policy text: $pattern"
+  grep -En "$pattern" "$CADDYFILE" >/dev/null || fail "missing Caddy policy text: $pattern"
 }
 
 reject_caddy_text() {
   pattern="$1"
-  if rg -n "$pattern" "$CADDYFILE" >/dev/null; then
+  if grep -En "$pattern" "$CADDYFILE" >/dev/null; then
     fail "forbidden Caddy policy text: $pattern"
   fi
 }
