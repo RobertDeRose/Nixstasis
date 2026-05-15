@@ -1,0 +1,33 @@
+# FRP Client Configuration Template
+# frpc expands {{ .Envs.* }} placeholders from its process environment at startup.
+# The Nixstasis client passes all values as environment variables; do not edit
+# this file for site-specific settings — use /etc/nixstasis/config.yaml instead.
+
+serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"
+serverPort = {{ .Envs.FRPS_SERVER_PORT }}
+auth.method = "token"
+auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"
+webServer.addr = "{{ .Envs.FRPC_WEB_SERVER_ADDR }}"
+webServer.port = {{ .Envs.FRPC_WEB_SERVER_PORT }}
+log.to = "console"
+
+# Proxy Configuration 1: HTTP Access to Local Web Server
+# Exposes the local web server via a subdomain on the FRP server.
+[[proxies]]
+name = "{{ .Envs.NAME }}"
+type = "http"
+# The subdomain requested on the server (e.g., atom-<normalized-device-id>.<base-domain>)
+subdomain = "{{ .Envs.NAME }}"
+
+[proxies.plugin]
+type = "http2https"
+localAddr = "{{ .Envs.FRPC_HTTP_LOCAL_ADDR }}"
+
+# Proxy Configuration 2: SSH Access
+# Exposes the local SSH server via TCP multiplexing.
+[[proxies]]
+name = "{{ .Envs.SSH_NAME }}"
+type = "tcpmux"
+multiplexer = "httpconnect"
+customDomains = ["{{ .Envs.SSH_NAME }}"]
+localPort = {{ .Envs.FRPC_SSH_LOCAL_PORT }}

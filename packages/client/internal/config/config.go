@@ -18,7 +18,7 @@ const (
 	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
 	defaultAuthorizedKeysPath = "/var/lib/nixstasis/.ssh/authorized_keys"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
-	defaultFRPCConfig         = "/etc/nixstasis/frpc.toml"
+	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 )
 
 // Config holds the top-level configuration structure.
@@ -48,9 +48,14 @@ type ScriptsConfig struct {
 
 // FRPConfig holds configuration for FRP tunnel connectivity.
 type FRPConfig struct {
-	AuthToken string `mapstructure:"auth_token"`
-	Name      string `mapstructure:"name"`
-	ServerAddr string `mapstructure:"server_addr"`
+	AuthToken     string `mapstructure:"auth_token"`
+	Name          string `mapstructure:"name"`
+	ServerAddr    string `mapstructure:"server_addr"`
+	ServerPort    int    `mapstructure:"server_port"`
+	WebServerAddr string `mapstructure:"web_server_addr"`
+	WebServerPort int    `mapstructure:"web_server_port"`
+	HTTPLocalAddr string `mapstructure:"http_local_addr"`
+	SSHLocalPort  int    `mapstructure:"ssh_local_port"`
 }
 
 // RuntimeConfig holds opt-in script command capabilities.
@@ -80,6 +85,11 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("frp.auth_token", "")
 	v.SetDefault("frp.name", "")
 	v.SetDefault("frp.server_addr", "nixstasis.example.com")
+	v.SetDefault("frp.server_port", 7000)
+	v.SetDefault("frp.web_server_addr", "127.0.0.1")
+	v.SetDefault("frp.web_server_port", 7400)
+	v.SetDefault("frp.http_local_addr", "127.0.0.1:443")
+	v.SetDefault("frp.ssh_local_port", 22)
 	v.SetDefault("runtime.exec_work_dir", "/")
 	v.SetDefault("runtime.authorized_keys_path", defaultAuthorizedKeysPath)
 	v.SetDefault("log.level", "info")

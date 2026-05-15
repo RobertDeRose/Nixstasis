@@ -81,7 +81,7 @@ verify_common_members() {
   binary_path="$2"
 
   require_member "$members" "$binary_path"
-  require_member "$members" "etc/nixstasis/frpc.toml"
+  require_member "$members" "usr/share/nixstasis/frpc.toml"
   require_member "$members" "usr/share/nixstasis/config.example.yaml"
   require_member "$members" "usr/libexec/nixstasis/frpc"
 }

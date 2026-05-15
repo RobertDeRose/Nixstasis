@@ -15,7 +15,7 @@ func TestPathsUseNixstasisDefaults(t *testing.T) {
 		t.Fatalf("IdentityPath() = %q", got)
 	}
 
-	if got := FRPCConfigPath(); got != "/etc/nixstasis/frpc.toml" {
+	if got := FRPCConfigPath(); got != "/usr/share/nixstasis/frpc.toml" {
 		t.Fatalf("FRPCConfigPath() = %q", got)
 	}
 
