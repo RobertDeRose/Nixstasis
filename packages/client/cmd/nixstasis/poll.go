@@ -220,7 +220,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client,
 			slog.Info("Server requested remote access, starting FRP")
 			configPath := config.FRPCConfigPath()
 			frpConfig := runtimeFRPConfig(cfg.FRP, mac, frpAuthToken)
-			if err := frpManager.StartWithConfig(ctx, configPath, frpConfig); err != nil {
+			if err := frpManager.Start(configPath, frpConfig); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
 		}
