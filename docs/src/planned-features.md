@@ -160,7 +160,7 @@ production-like environment.
 
 ### `self-extracting-installer`
 
-- Status: in-spec
+- Status: in-progress
 - Overview:
   - Build a CI-produced self-extracting installer archive for non-Nix, non-deb,
     non-rpm installs. The archive bundles the client binary, arch-matched `frpc`,

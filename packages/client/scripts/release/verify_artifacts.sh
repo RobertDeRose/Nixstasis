@@ -3,6 +3,7 @@
 set -eu
 
 DIST_DIR="${DIST_DIR:-dist}"
+VERIFY_INSTALLERS="${VERIFY_INSTALLERS:-false}"
 
 fail() {
   echo "$1" >&2
@@ -61,6 +62,20 @@ list_rpm_members() {
   fail "rpm or bsdtar is required to inspect RPM artifacts"
 }
 
+verify_installer_members() {
+  extract_dir="$1"
+
+  require_file "$extract_dir/install.sh"
+  require_file "$extract_dir/nixstasis"
+  require_file "$extract_dir/frpc"
+  require_file "$extract_dir/frpc.toml"
+  require_file "$extract_dir/config.example.yaml"
+  require_file "$extract_dir/nixstasis-poll.service"
+  require_file "$extract_dir/nixstasis-poll.path"
+  require_file "$extract_dir/nixstasis-registration.service"
+  verify_installer_manifest "$extract_dir"
+}
+
 verify_common_members() {
   members="$1"
   binary_path="$2"
@@ -108,3 +123,23 @@ for package in "$DIST_DIR"/*.rpm; do
   verify_common_members "$(list_rpm_members "$package")" "usr/bin/nixstasis"
 done
 [ "$RPM_COUNT" -gt 0 ] || fail "no rpm artifacts found in $DIST_DIR"
+
+RUN_COUNT=0
+for installer in "$DIST_DIR"/makeself/*/*/*.run; do
+  [ -e "$installer" ] || continue
+  RUN_COUNT=$((RUN_COUNT + 1))
+  case "$installer" in
+    *nixstasis*) ;;
+    *) fail "installer name must use nixstasis naming: $installer" ;;
+  esac
+
+  (
+    extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixstasis-installer-verify.XXXXXX")
+    trap 'rm -rf "$extract_dir"' EXIT HUP INT TERM
+    sh "$installer" --noexec --target "$extract_dir" >/dev/null
+    verify_installer_members "$extract_dir"
+  )
+done
+if [ "$VERIFY_INSTALLERS" = true ]; then
+  [ "$RUN_COUNT" -gt 0 ] || fail "no self-extracting installer artifacts found in $DIST_DIR"
+fi
