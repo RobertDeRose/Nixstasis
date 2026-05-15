@@ -77,7 +77,7 @@ func runPoll(cfg *config.Config) error {
 	interval := pollInterval(cfg)
 
 	// Run immediately once
-	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, credentials.Token, startTime); err != nil {
+	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
@@ -91,7 +91,7 @@ func runPoll(cfg *config.Config) error {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return nil
 		case <-timer.C:
-			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, credentials.Token, startTime); err != nil {
+			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
@@ -159,7 +159,7 @@ func backoffDelay(failures int, base time.Duration) time.Duration {
 	return d
 }
 
-func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string, frpAuthToken string, startTime time.Time) error {
+func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string, startTime time.Time) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
@@ -219,7 +219,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client,
 		if !currentFRPStatus.Active {
 			slog.Info("Server requested remote access, starting FRP")
 			configPath := config.FRPCConfigPath()
-			frpConfig := runtimeFRPConfig(cfg.FRP, mac, frpAuthToken)
+			frpConfig := runtimeFRPConfig(cfg.FRP, mac)
 			if err := frpManager.Start(configPath, frpConfig); err != nil {
 				slog.Error("Failed to start FRP", "error", err)
 			}
@@ -236,11 +236,8 @@ func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client,
 	return nil
 }
 
-func runtimeFRPConfig(base config.FRPConfig, mac string, authToken string) config.FRPConfig {
+func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
 	frpConfig := base
-	if frpConfig.AuthToken == "" {
-		frpConfig.AuthToken = authToken
-	}
 	if frpConfig.Name == "" {
 		frpConfig.Name = identity.GenerateDeviceName(mac)
 	}

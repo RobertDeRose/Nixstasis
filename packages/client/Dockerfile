@@ -57,7 +57,6 @@ COPY --from=builder /nixstasis /usr/bin/nixstasis
 COPY build/root-dir/lib/systemd/system/ /lib/systemd/system/
 
 # Install default config
-COPY build/root-dir/etc/nixstasis/ /etc/nixstasis/
 COPY build/root-dir/usr/share/nixstasis/ /usr/share/nixstasis/
 
 # Create nixstasis user and directories
