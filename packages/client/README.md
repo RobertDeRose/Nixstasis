@@ -135,7 +135,8 @@ with `--clients N`.
 
 ## Packaging
 
-GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs.
+GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs. Release CI also builds
+self-extracting `.run` installers for Linux hosts that do not use deb or rpm packages.
 
 1. Review the shared production version pins:
 
@@ -164,6 +165,38 @@ The generated archive and native packages install these client assets:
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
+
+The self-extracting installer contains the same assets plus an `install.sh`
+script and an `artifacts.json` manifest. Run it as root:
+
+```bash
+sudo ./nixstasis-<version>-linux-<arch>.run
+```
+
+The installer overwrites binaries and systemd units, preserves existing
+`/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml`, and seeds
+`/etc/nixstasis/config.yaml` from the example template on fresh installs. Use
+`--force-config` to replace existing config files:
+
+```bash
+sudo ./nixstasis-<version>-linux-<arch>.run -- --force-config
+```
+
+To inspect the installer without running it:
+
+```bash
+sh ./dist/makeself/nixstasis-installer/linux<arch>/nixstasis-<version>-linux-<arch>.run --noexec --target /tmp/nixstasis-installer
+```
+
+Do not use `bash -n` or `sh -n` as an installer integrity check. A makeself
+installer is a shell stub with appended archive bytes, so shell syntax checkers
+can report false heredoc errors after the script payload boundary. Use
+`mise release:verify` to extract and validate the payload.
+
+The `.run` installer removes GoReleaser's makeself support files
+(`postinstall.sh` and `package.lsm`) after a normal install. They can still
+appear when inspecting with `--noexec` because makeself disables cleanup in that
+mode.
 
 The bundled FRP client template sets
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
