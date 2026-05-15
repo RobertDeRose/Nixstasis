@@ -236,6 +236,19 @@ func TestSSHAuthorizeAcceptsTopLevelPublicKeyAtConfiguredPath(t *testing.T) {
 	}
 }
 
+func TestSSHAuthorizeDoesNotReportFailureAfterCommit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
+	handler := NewHandlerWithAuthorizedKeys("", path)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	result := handler.sshAuthorize(ctx, "cmd-9", testPublicKey, nil, nil)
+	cancel()
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_authorize to succeed once committed, got %s: %s", result.Status, result.Error)
+	}
+}
+
 func TestSSHAuthorizeRejectsNonCanonicalRequestedPath(t *testing.T) {
 	dir := t.TempDir()
 	allowed := filepath.Join(dir, "allowed", "authorized_keys")
