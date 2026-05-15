@@ -10,6 +10,7 @@ import (
 )
 
 func TestRunFRPSession_MissingConfig(t *testing.T) {
+	resetFRPSessionFlags(t)
 	// Set config path to a non-existent file.
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/nonexistent/frpc.toml")
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/true")
@@ -21,6 +22,7 @@ func TestRunFRPSession_MissingConfig(t *testing.T) {
 }
 
 func TestRunFRPSession_MissingBinary(t *testing.T) {
+	resetFRPSessionFlags(t)
 	configPath := t.TempDir() + "/frpc.toml"
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -35,6 +37,7 @@ func TestRunFRPSession_MissingBinary(t *testing.T) {
 }
 
 func TestRunFRPSession_SuccessfulRun(t *testing.T) {
+	resetFRPSessionFlags(t)
 	configPath := t.TempDir() + "/frpc.toml"
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -42,14 +45,18 @@ func TestRunFRPSession_SuccessfulRun(t *testing.T) {
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", configPath)
 	// Use "true" as the frpc binary — exits 0 immediately.
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/true")
+	t.Setenv("FRPS_AUTH_TOKEN", "secret-token")
 
 	origExec := execCommand
 	defer func() { execCommand = origExec }()
 
 	var capturedArgs []string
+	var capturedCmd *exec.Cmd
 	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		capturedArgs = append([]string{name}, args...)
-		return exec.CommandContext(ctx, name, args...)
+		cmd := exec.CommandContext(ctx, name, args...)
+		capturedCmd = cmd
+		return cmd
 	}
 
 	err := runFRPSession(nil)
@@ -61,9 +68,43 @@ func TestRunFRPSession_SuccessfulRun(t *testing.T) {
 	if len(capturedArgs) < 3 || capturedArgs[1] != "-c" || capturedArgs[2] != configPath {
 		t.Fatalf("expected frpc -c %s, got %v", configPath, capturedArgs)
 	}
+	if capturedCmd == nil || envValue(capturedCmd.Env, "FRPS_AUTH_TOKEN") != "secret-token" {
+		t.Fatalf("expected frpc env to include FRPS_AUTH_TOKEN")
+	}
+}
+
+func TestRunFRPSession_UsesExplicitPaths(t *testing.T) {
+	resetFRPSessionFlags(t)
+	configPath := t.TempDir() + "/frpc.toml"
+	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	frpcPath := "/usr/bin/true"
+	frpSessionConfigPath = configPath
+	frpSessionBinaryPath = frpcPath
+	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/nonexistent/wrong.toml")
+	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/nonexistent/wrong-frpc")
+	t.Setenv("FRPS_AUTH_TOKEN", "secret-token")
+
+	origExec := execCommand
+	defer func() { execCommand = origExec }()
+
+	var capturedArgs []string
+	execCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		capturedArgs = append([]string{name}, args...)
+		return exec.CommandContext(ctx, name, args...)
+	}
+
+	if err := runFRPSession(nil); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(capturedArgs) < 3 || capturedArgs[0] != frpcPath || capturedArgs[2] != configPath {
+		t.Fatalf("expected explicit frpc/config paths, got %v", capturedArgs)
+	}
 }
 
 func TestRunFRPSession_ContextCancellation(t *testing.T) {
+	resetFRPSessionFlags(t)
 	configPath := t.TempDir() + "/frpc.toml"
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -90,12 +131,14 @@ func TestRunFRPSession_ContextCancellation(t *testing.T) {
 }
 
 func TestRunFRPSession_FRPCFailure(t *testing.T) {
+	resetFRPSessionFlags(t)
 	configPath := t.TempDir() + "/frpc.toml"
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", configPath)
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/false")
+	t.Setenv("FRPS_AUTH_TOKEN", "secret-token")
 
 	origExec := execCommand
 	defer func() { execCommand = origExec }()
@@ -117,4 +160,19 @@ func TestRunFRPSession_FRPCFailure(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("runFRPSession did not return in time")
 	}
+}
+
+func resetFRPSessionFlags(t *testing.T) {
+	t.Helper()
+	frpSessionConfigPath = ""
+	frpSessionBinaryPath = ""
+}
+
+func envValue(env []string, key string) string {
+	for _, entry := range env {
+		if before, after, ok := strings.Cut(entry, "="); ok && before == key {
+			return after
+		}
+	}
+	return ""
 }
