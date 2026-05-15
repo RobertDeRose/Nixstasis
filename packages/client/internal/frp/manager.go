@@ -18,6 +18,8 @@ import (
 
 const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 // execCommandContext allows mocking the command execution in tests.
 var execCommandContext = exec.CommandContext
 
@@ -76,11 +78,18 @@ func (m *Manager) StartWithConfig(_ context.Context, configPath string, frpConfi
 	// -c configPath is standard for frpc
 	//nolint:contextcheck // Intentional creation of new context for background process
 	cmd := execCommandContext(cmdCtx, config.FRPCBinaryPath(), "-c", renderedConfigPath)
-	env := cmd.Env
-	if env == nil {
-		env = os.Environ()
+	pathValue := os.Getenv("PATH")
+	if pathValue == "" {
+		pathValue = defaultFRPExecPath
 	}
-	cmd.Env = append(env,
+	baseEnv := []string{"PATH=" + pathValue}
+	if home := os.Getenv("HOME"); home != "" {
+		baseEnv = append(baseEnv, "HOME="+home)
+	}
+	if tmpDir := os.Getenv("TMPDIR"); tmpDir != "" {
+		baseEnv = append(baseEnv, "TMPDIR="+tmpDir)
+	}
+	cmd.Env = append(baseEnv,
 		"FRPS_AUTH_TOKEN="+frpConfig.AuthToken,
 		"FRPS_SERVER_ADDR="+frpConfig.ServerAddr,
 	)
