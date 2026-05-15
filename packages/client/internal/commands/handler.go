@@ -141,6 +141,13 @@ func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string,
 	if err := appendAuthorizedKey(path, key); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	if ctx.Err() != nil {
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output:    map[string]any{"path": path, "timed_out_after_commit": true},
+		}
+	}
 	return transport.CommandResult{
 		CommandID: commandID,
 		Status:    transport.CommandStatusOK,
