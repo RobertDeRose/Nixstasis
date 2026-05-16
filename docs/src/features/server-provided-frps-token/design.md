@@ -115,8 +115,8 @@ Remote access token rendering cases:
 
 ## Docs And Contracts Affected
 
-- `specs/004-rewrite-client-go/contracts/device-api.yaml`
-- `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
+- `docs/src/client-server-interface.md`
+- `docs/src/modules/deployment-compose.md`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/README.md`

@@ -96,6 +96,9 @@
 
 - Go client device traffic uses JSON routes under `/api/v1/devices`.
 - Browser UI uses Phoenix LiveView over HTTP and LiveView WebSocket transport.
+- Device detail uses the `/devices/:id` LiveView route and may render as a modal
+  overlay over the Devices list; the old REST modal API is not part of the
+  supported surface.
 - Terminal UI uses Phoenix Channels over WebSocket.
 - Caddy on-demand TLS calls `/api/v1/check_domain`.
 - E2E harness calls `/e2e` routes with `X-E2E-Protocol-Version` on run creation.

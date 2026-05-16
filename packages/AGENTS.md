@@ -21,7 +21,8 @@ and don't need any work at this time.
   - `frp`: Downloads the latest release from GitHub and generate a Debian Package
   - `server`: The original Prototype server application written in Python and Reflex
   - `nixstasis`: The new Elixir based server application currently in development
-- `specs`: Contains specifications for features for the new Elixir based server application using [spec-kit](https://github.com/github/spec-kit)
+- `docs/src/features`: Contains docs-driven feature designs and task history for
+  ongoing and completed work.
 
 ## Code Standards
 
