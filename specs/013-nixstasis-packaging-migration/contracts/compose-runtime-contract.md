@@ -33,7 +33,7 @@ Define the operator-facing deployment contract for the supported `deploy/compose
 | `TENANT_ID` | Yes | `caddy` | AuthCrunch tenant identifier. |
 | `JWT_KEY` | Yes | `caddy` | AuthCrunch signing key material. |
 | `FRPS_BIND_PORT` | Yes | `frps` | Control/bind port for FRPS. |
-| `FRPS_AUTH_TOKEN` | Yes | `frps` | Shared authentication token for FRP clients. |
+| `FRPS_AUTH_TOKEN` | Yes | `frps`, `nixstasis` | Shared authentication token for FRP clients. FRPS uses it for upstream token auth; Phoenix returns it only in authenticated heartbeat responses while remote access is requested for that device. |
 | `FRPS_HTTP_PORT` | Yes | `frps` | HTTP tunnel port for FRPS. |
 | `FRPS_DASHBOARD_PORT` | Yes | `frps` | Dashboard/admin port for FRPS. |
 | `FRPS_DASHBOARD_USER` | Yes | `frps` | Dashboard/admin username for FRPS. |
