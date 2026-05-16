@@ -2,10 +2,9 @@
 
 This page records missing, ambiguous, or conflicting signals observable from repository files. It does not prescribe changes.
 
-## Missing Specs
+## Missing Docs
 
-- No spec directory `006` is present in `specs`.
-- No dedicated architecture spec exists for AuthCrunch claim mapping beyond README notes.
+- No dedicated architecture doc exists for AuthCrunch claim mapping beyond README notes.
 - No dedicated production authentication contract for Phoenix-internal APIs is present beyond Caddy/AuthCrunch deployment configuration.
 - No single OpenAPI document covers both `/api/v1` controller endpoints and `/e2e` endpoints in `packages/server/priv/static/openapi.yaml`; that file is generated for Ash JSON:API.
 

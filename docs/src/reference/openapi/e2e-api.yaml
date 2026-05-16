@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: Nixstasis E2E API
+  version: 1.0.0
+  description: Bespoke Phoenix controller API for client-driven end-to-end test runs.
+paths:
+  /e2e/suites:
+    get:
+      summary: List configured E2E suites
+      responses:
+        "200":
+          description: Suite list
+  /e2e/runs:
+    get:
+      summary: List E2E runs
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERun"
+    post:
+      summary: Create or reuse an E2E run
+      parameters:
+        - in: header
+          name: X-E2E-Protocol-Version
+          required: true
+          schema:
+            type: string
+            example: "1"
+          description: Required E2E protocol version. Legacy client_version/server_version request fields are not accepted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/E2ERunCreateRequest"
+      responses:
+        "201":
+          description: Run created
+        "400":
+          description: Invalid request or action/expect pair
+        "409":
+          description: Environment is locked by another active run
+        "422":
+          description: Protocol mismatch, seed failure, or persistence failure
+  /e2e/runs/{run_id}:
+    get:
+      summary: Fetch E2E run details
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run details
+  /e2e/runs/{run_id}/cancel:
+    post:
+      summary: Cancel an in-progress E2E run
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Cancellation accepted
+  /e2e/runs/{run_id}/results:
+    get:
+      summary: List journey results for a run
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Result list
+    post:
+      summary: Submit journey results for a run
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/E2ERunResultSubmit"
+      responses:
+        "202":
+          description: Results accepted
+        "400":
+          description: Invalid request
+        "422":
+          description: Persistence failure
+  /e2e/runs/{run_id}/results/{journey_id}/log:
+    get:
+      summary: Fetch retained log content for one journey result
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: journey_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Log content
+        "410":
+          description: Log unavailable because it was pruned or missing
+components:
+  schemas:
+    E2ERunCreateRequest:
+      type: object
+      required: [suite_id, environment_label, trigger_source]
+      properties:
+        suite_id:
+          type: string
+        journey_ids:
+          type: array
+          items:
+            type: string
+        environment_label:
+          type: string
+        trigger_source:
+          type: string
+          enum: [manual, ci]
+        idempotency_key:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+      not:
+        anyOf:
+          - required: [client_version]
+          - required: [server_version]
+    E2ERun:
+      type: object
+      properties:
+        id:
+          type: string
+        suite_id:
+          type: string
+        journey_ids:
+          type: array
+          items:
+            type: string
+        environment_label:
+          type: string
+        protocol_version:
+          type: string
+          example: "1"
+        status:
+          type: string
+          enum: [queued, running, passed, failed, cancelled, blocked]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    E2ERunResultSubmit:
+      type: object
+      required: [journey_id, status]
+      properties:
+        journey_id:
+          type: string
+        status:
+          type: string
+        failure_step:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        log_ref:
+          type: string
+          nullable: true
+        duration_ms:
+          type: integer

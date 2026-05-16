@@ -17,7 +17,7 @@
 - `packages/client/internal/transport/client.go`
 - `packages/client/internal/transport/register_test.go`
 - `packages/client/internal/transport/client_runtime_test.go`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml`
+- `docs/src/client-server-interface.md`
 
 ## Public Interfaces
 
@@ -61,11 +61,14 @@
   - Sends `mac_address`, optional `product_name`, and optional `metadata`.
   - Expects `201` and response `data.id`.
   - Approved devices receive `data.api_token`; pending devices omit it until approval.
+  - Re-registering the same MAC address updates the existing device record rather
+    than creating a duplicate identity.
 - `Poll`:
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
   - Sends `telemetry` and `connection_status`.
   - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and optional response `data.remote_access_token` plus optional `data.commands`.
+  - HTTP `429` indicates the server rate limit rejected the heartbeat.
 - `SendCommandResults`:
   - `POST {baseURL}/api/v1/devices/{uuid}/command_results`
   - Sends `results` array.
@@ -79,4 +82,4 @@
 Traceable references:
 
 - `packages/client/internal/transport/client.go:21-212`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:7-170`
+- `docs/src/client-server-interface.md`
