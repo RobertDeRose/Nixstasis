@@ -127,7 +127,7 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
-For development laptop remote-access validation, use the dev-lab script at
+For Compose dev-harness remote-access validation, use the dev-lab script at
 `deploy/compose/scripts/dev-lab.sh` from the repository root. It starts the full
 stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
