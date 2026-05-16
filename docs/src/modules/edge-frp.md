@@ -57,7 +57,12 @@
 ## Client-Server Interaction Details
 
 - The server sets `remote_access_requested` on devices.
-- Client polling reads `remote_access_requested` and starts/stops FRPC.
+- Client polling reads `remote_access_requested` and starts/stops FRPC through a
+  transient systemd unit.
+- FRPC reads `/usr/share/nixstasis/frpc.toml` directly; frpc expands runtime
+  `{{ .Envs.* }}` placeholders from the session environment.
+- The FRPS auth token is passed from the launcher to `frp-session` as a systemd
+  credential rather than as a `systemd-run --setenv` value.
 - Caddy proxies wildcard HTTP traffic to FRPS HTTP vhost port.
 - Server SSH terminal uses FRP TCP mux through `ncat --proxy-type http`.
 
