@@ -207,7 +207,7 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 		"--unit\x00" + frpcTransientUnit,
 		"--property\x00PrivateTmp=true",
 		"--property\x00Restart=on-failure",
-		"--setenv\x00FRPS_AUTH_TOKEN=secret-token",
+		"--property\x00LoadCredential=" + frpsAuthTokenCredential + ":",
 		"--setenv\x00FRPS_SERVER_ADDR=frps.internal",
 		"--setenv\x00FRPS_SERVER_PORT=7001",
 		"--setenv\x00NAME=atom-aabbcc",
@@ -223,6 +223,9 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 			t.Errorf("systemd-run args missing %q\ngot: %v", want, run.args)
 		}
 	}
+	if strings.Contains(args, "FRPS_AUTH_TOKEN=secret-token") {
+		t.Fatalf("systemd-run args must not expose FRPS auth token: %v", run.args)
+	}
 
 	// Should end with -- nixstasis frp-session
 	if !argsContainSequence(run.args, "--") {
@@ -233,6 +236,12 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 		if arg == "--" && i+2 < len(run.args) {
 			if run.args[i+2] != "frp-session" {
 				t.Errorf("expected frp-session subcommand, got %q", run.args[i+2])
+			}
+			if !argsContainSequence(run.args[i+3:], "--config", configPath) {
+				t.Errorf("expected frp-session --config %q in args: %v", configPath, run.args)
+			}
+			if !argsContainSequence(run.args[i+3:], "--frpc", config.FRPCBinaryPath()) {
+				t.Errorf("expected frp-session --frpc %q in args: %v", config.FRPCBinaryPath(), run.args)
 			}
 			break
 		}
@@ -423,7 +432,6 @@ func TestFRPCTemplateEnv(t *testing.T) {
 	env := frpcTemplateEnv(cfg)
 
 	checks := map[string]string{
-		"FRPS_AUTH_TOKEN":      "secret-token",
 		"FRPS_SERVER_ADDR":     "frps.internal",
 		"FRPS_SERVER_PORT":     "7001",
 		"NAME":                 "atom-aabbcc",
@@ -438,6 +446,9 @@ func TestFRPCTemplateEnv(t *testing.T) {
 		if got := envValue(env, key); got != want {
 			t.Errorf("%s = %q, want %q", key, got, want)
 		}
+	}
+	if got := envValue(env, "FRPS_AUTH_TOKEN"); got != "" {
+		t.Fatalf("frpcTemplateEnv must not expose FRPS_AUTH_TOKEN, got %q", got)
 	}
 }
 

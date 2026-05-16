@@ -8,6 +8,7 @@ Wants=network-online.target
 Type=simple
 SyslogIdentifier=nixstasis
 ExecStart=/usr/bin/nixstasis poll
+PrivateTmp=true
 Restart=always
 RestartSec=120s
 StartLimitIntervalSec=600

@@ -12,16 +12,20 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 )
 
-const defaultFRPExecPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-const systemdRunPath = "systemd-run"
-const systemctlPath = "systemctl"
-const frpcTransientUnit = "nixstasis-frpc"
+const (
+	defaultFRPExecPath      = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	systemdRunPath          = "systemd-run"
+	systemctlPath           = "systemctl"
+	frpcTransientUnit       = "nixstasis-frpc"
+	frpsAuthTokenCredential = "FRPS_AUTH_TOKEN" // #nosec G101 -- credential name, not a credential value.
+)
 
 // execCommandContext allows mocking command execution in tests.
 var execCommandContext = exec.CommandContext
@@ -65,7 +69,13 @@ func (m *Manager) Start(configPath string, frpConfig config.FRPConfig) error {
 
 	slog.Info("Starting FRP tunnel", "config", configPath, "name", frpConfig.Name)
 
-	args := systemdRunArgs(configPath, frpConfig)
+	credentialPath, cleanup, err := writeCredential(frpsAuthTokenCredential, frpConfig.AuthToken)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	args := systemdRunArgs(configPath, frpConfig, credentialPath)
 	cmd := execCommandContext(context.Background(), systemdRunPath, args...)
 	cmd.Env = systemdRunEnv()
 
@@ -116,15 +126,17 @@ func (m *Manager) GetStatus() ConnectionStatus {
 // The transient unit runs `nixstasis frp-session` which handles timeout
 // and launches frpc. Environment variables are passed via --setenv so
 // frpc can expand {{ .Envs.* }} placeholders natively.
-func systemdRunArgs(configPath string, frpConfig config.FRPConfig) []string {
-	args := []string{
+func systemdRunArgs(configPath string, frpConfig config.FRPConfig, credentialPath string) []string {
+	args := make([]string, 0, 18+2*len(frpcTemplateEnv(frpConfig)))
+	args = append(args,
 		"--quiet",
 		"--collect",
 		"--service-type=simple",
 		"--unit", frpcTransientUnit,
 		"--property", "PrivateTmp=true",
 		"--property", "Restart=on-failure",
-	}
+		"--property", "LoadCredential="+frpsAuthTokenCredential+":"+credentialPath,
+	)
 
 	// Pass FRP config as env vars for frpc template expansion.
 	for _, entry := range frpcTemplateEnv(frpConfig) {
@@ -138,9 +150,29 @@ func systemdRunArgs(configPath string, frpConfig config.FRPConfig) []string {
 		// Fall back to PATH-based lookup.
 		nixstasisBin = "nixstasis"
 	}
-	args = append(args, "--", nixstasisBin, "frp-session")
+	args = append(args, "--", nixstasisBin, "frp-session", "--config", configPath, "--frpc", config.FRPCBinaryPath())
 
 	return args
+}
+
+func writeCredential(name, value string) (path string, cleanup func(), err error) {
+	dir, err := os.MkdirTemp("", "nixstasis-frp-credential-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create credential directory: %w", err)
+	}
+	cleanup = func() {
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Error("failed to remove FRP credential directory", "error", err)
+		}
+	}
+
+	path = filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to write FRP credential: %w", err)
+	}
+
+	return path, cleanup, nil
 }
 
 // systemdRunEnv returns the minimal environment for the systemd-run process.
@@ -161,7 +193,6 @@ func systemdRunEnv() []string {
 // {{ .Envs.* }} placeholders in frpc.toml.
 func frpcTemplateEnv(frpConfig config.FRPConfig) []string {
 	return []string{
-		"FRPS_AUTH_TOKEN=" + frpConfig.AuthToken,
 		"FRPS_SERVER_ADDR=" + frpConfig.ServerAddr,
 		"FRPS_SERVER_PORT=" + strconv.Itoa(frpConfig.ServerPort),
 		"NAME=" + frpConfig.Name,
