@@ -37,7 +37,7 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"remote_access_requested":false,"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
+		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
 	}))
 	defer server.Close()
 
@@ -64,6 +64,9 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	}
 	if resp == nil || len(resp.Commands) != 1 || resp.Commands[0].CommandID != "c1" {
 		t.Fatalf("unexpected poll response: %#v", resp)
+	}
+	if resp.RemoteAccessToken != "shared-secret" {
+		t.Fatalf("remote access token = %q", resp.RemoteAccessToken)
 	}
 }
 
