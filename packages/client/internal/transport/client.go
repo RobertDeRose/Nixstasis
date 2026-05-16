@@ -208,8 +208,8 @@ type CommandResult struct {
 
 // PollResponse represents the response from the poll endpoint.
 type PollResponse struct {
-	RemoteAccessRequested bool             `json:"remote_access_requested"`
-	Commands              []CommandRequest `json:"commands,omitempty"`
+	RemoteAccessToken string           `json:"remote_access_token"`
+	Commands          []CommandRequest `json:"commands,omitempty"`
 }
 
 // Poll sends the collected telemetry payload to the Nixstasis API.

@@ -122,8 +122,9 @@ func (m *Manager) GetStatus() ConnectionStatus {
 
 // systemdRunArgs builds the systemd-run command arguments.
 // The transient unit runs `nixstasis frp-session` which handles timeout
-// and launches frpc. Environment variables are passed via --setenv so
-// frpc can expand {{ .Envs.* }} placeholders natively.
+// and launches frpc. Non-secret template values are passed via --setenv so frpc
+// can expand {{ .Envs.* }} placeholders natively. FRPS_AUTH_TOKEN is passed as a
+// systemd credential to avoid exposing it in transient unit metadata.
 func systemdRunArgs(configPath string, frpConfig config.FRPConfig, credentialPath string) []string {
 	args := []string{
 		"--quiet",
@@ -135,7 +136,7 @@ func systemdRunArgs(configPath string, frpConfig config.FRPConfig, credentialPat
 		"--property", "LoadCredential=" + frpsAuthTokenCredential + ":" + credentialPath,
 	}
 
-	// Pass FRP config as env vars for frpc template expansion.
+	// Pass non-secret FRP config as env vars for frpc template expansion.
 	for _, entry := range frpcTemplateEnv(frpConfig) {
 		args = append(args, "--setenv", entry)
 	}
