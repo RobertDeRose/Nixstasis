@@ -202,7 +202,8 @@ mode.
 The bundled FRP client template sets
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
 from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
-the registered device token by default. Device subdomains are requested under
+`frp.auth_token` until the server-provided token flow replaces that static
+client setting. Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
 as an override.
 
