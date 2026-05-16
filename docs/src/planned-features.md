@@ -67,6 +67,11 @@ production-like environment.
 - DuckDNS support is documented as optional manual setup guidance; no DNS-provider
   abstraction was added.
 
+## Backlog
+
+- Document `exec_cmd` intent as deny-by-default and allowlist-gated by absolute
+  executable path.
+
 ## Feature Map
 
 ### `compose-dev-harness`

@@ -22,7 +22,8 @@ Elixir/Phoenix, respectively.
 - `packages/server`: Phoenix server application.
 - `deploy/compose`: Supported server deployment assets for this migration.
 - `packages/caddy`: Caddy image and legacy packaging assets.
-- `packages/frp`: Debian packaging for FRP.
+- `packages/frp`: FRPS image build assets and shared FRP binary acquisition
+  scripts used by server/client packaging flows.
 - `specs`: Feature specs and task checklists for the rewrites and ongoing work.
 
 ## Package READMEs

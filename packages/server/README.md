@@ -108,8 +108,11 @@ your local database before continuing.
 
 ## Rewrite Status
 
-From specs `001`, `002`, and `003`, the core server rewrite (devices, monitoring, dashboard, and UI polish) is
-complete. The device list enhancement work in `specs/005-enhance-device-list` is still pending.
+From specs `001`, `002`, and `003`, the core server rewrite (devices,
+monitoring, dashboard, and UI polish) is complete. Device list filtering,
+sorting, search, selection, and bulk approval flows from
+`specs/005-enhance-device-list` are implemented in the current LiveView and API
+surface.
 
 ## Report View Improvements (Spec 010)
 
