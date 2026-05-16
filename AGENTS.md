@@ -6,7 +6,7 @@ Start here when working in this repository.
 
 - Prefer the smallest correct change.
 - Keep documentation and implementation aligned in the same unit of work.
-- Do not treat a task as complete if the code and docs/specs disagree.
+- Do not treat a task as complete if the code and docs-driven feature docs disagree.
 
 ## Ash Codegen
 
@@ -34,7 +34,6 @@ Start here when working in this repository.
   - `deploy`
   - `ci`
   - `docs`
-  - `specs`
   - `tooling`
   - `repo`
 

@@ -17,7 +17,7 @@ SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_CONFIG_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml"
 CLIENT_FRPC_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/frpc.toml"
-CONTRACT_DOC="$ROOT_DIR/specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md"
+CONTRACT_DOC="$ROOT_DIR/docs/src/modules/deployment-compose.md"
 
 fail() {
   echo "$1" >&2

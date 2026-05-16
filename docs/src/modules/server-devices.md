@@ -81,6 +81,11 @@
 - `POST /api/v1/devices/:device_id/command_results` calls `Devices.acknowledge_command_results/2`.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
 - Device detail LiveView queues `ssh_authorize` commands before terminal session startup.
+- Device detail is reached through `/devices/:id`; opening remote-access tabs may
+  set `remote_access_requested`, and close/cleanup paths must clear stale remote
+  access intent.
+- PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
+  should degrade gracefully when FRP, SSH, or device data is unavailable.
 
 Traceable references:
 

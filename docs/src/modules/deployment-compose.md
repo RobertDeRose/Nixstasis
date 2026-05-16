@@ -54,6 +54,51 @@
   - `FRPS_DASHBOARD_PASSWORD`
   - `FRPS_TCPMUX_PORT`
 
+## Runtime Contract
+
+- `DATABASE_URL`: PostgreSQL connection URL consumed by the Phoenix `nixstasis`
+  service. It may point at bundled PostgreSQL or an external PostgreSQL host.
+- `SECRET_KEY_BASE`: Phoenix release secret consumed by `nixstasis`.
+- `PHX_HOST`: Public Phoenix host behind Caddy.
+- `PORT`: Phoenix container port. The supported Compose deployment uses `4000`.
+- `BASE_DOMAIN`: Root domain used for `nixstasis`, `auth`, `frp-admin`, and
+  wildcard device hostnames.
+- `CLIENT_ID`: Entra application client identifier consumed by Caddy auth.
+- `CLIENT_SECRET`: Entra application secret consumed by Caddy auth.
+- `TENANT_ID`: Entra tenant identifier consumed by Caddy auth.
+- `JWT_KEY`: Caddy auth JWT signing key.
+- `FRPS_BIND_PORT`: FRPS bind port for client tunnel connections.
+- `FRPS_AUTH_TOKEN`: Shared FRPS auth token consumed by `frps`, `nixstasis`,
+  and managed clients when remote access is requested.
+- `FRPS_HTTP_PORT`: FRPS HTTP virtual host port used by Caddy wildcard proxying.
+- `FRPS_DASHBOARD_PORT`: FRPS dashboard port used behind authenticated Caddy
+  ingress.
+- `FRPS_DASHBOARD_USER`: FRPS dashboard username.
+- `FRPS_DASHBOARD_PASSWORD`: FRPS dashboard password.
+- `FRPS_TCPMUX_PORT`: FRPS TCP mux port for TCP remote access.
+
+### Hostnames
+
+- `nixstasis.<base-domain>`: public Phoenix application host behind Caddy.
+- `auth.<base-domain>`: AuthCrunch/OIDC callback and auth host.
+- `frp-admin.<base-domain>`: authenticated FRPS dashboard host.
+- `atom-<normalized-device-id>.<base-domain>`: device remote-access host pattern
+  routed through Caddy wildcard TLS and FRPS HTTP vhost support.
+
+### Endpoints
+
+- `check_domain`: Phoenix ask endpoint used by Caddy on-demand TLS to authorize
+  wildcard device hostnames before proxying to FRPS.
+
+### Artifact Rules
+
+- Server startup and database migrations are separate operations; application
+  startup must not implicitly run migrations.
+- Externally sourced runtime artifacts must be pinned by digest or checksum.
+- Client release artifacts install bundled `frpc` at
+  `/usr/libexec/nixstasis/frpc` so managed devices do not depend on a separate
+  FRP package.
+
 ## Dependencies
 
 ### Internal

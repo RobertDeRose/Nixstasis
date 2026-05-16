@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: Nixstasis Device API
+  version: 1.0.0
+  description: Bespoke Phoenix controller API used by managed devices and Caddy TLS approval.
+paths:
+  /api/v1/devices:
+    get:
+      summary: List devices with optional filters
+      parameters:
+        - in: query
+          name: product
+          schema:
+            type: string
+        - in: query
+          name: account_number
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Device list response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  /api/v1/devices/register:
+    post:
+      summary: Register a managed device
+      description: Registration is the credential issuance boundary. Approved devices receive an API token; pending devices do not.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mac_address]
+              properties:
+                mac_address:
+                  type: string
+                  example: "00:11:22:33:44:55"
+                product_name:
+                  type: string
+                  example: atom-001122334455
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Registration accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      api_token:
+                        type: string
+                        nullable: true
+                        description: Present only after server approval.
+        "400":
+          description: Invalid registration payload
+  /api/v1/devices/{id}/heartbeat:
+    post:
+      summary: Submit device heartbeat and telemetry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: api_key
+          required: true
+          schema:
+            type: string
+          description: Device runtime token issued after approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                telemetry:
+                  type: object
+                  additionalProperties: true
+                connection_status:
+                  type: object
+                  properties:
+                    active:
+                      type: boolean
+                    connection_string:
+                      type: string
+                    pid:
+                      type: integer
+                    start_time:
+                      type: string
+                      format: date-time
+      responses:
+        "200":
+          description: Heartbeat acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      remote_access_token:
+                        type: string
+                        nullable: true
+                        description: Shared FRPS token. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                      commands:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CommandRequest"
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: Device is not approved
+        "429":
+          description: Heartbeat rejected by rate limit
+  /api/v1/devices/{id}/command_results:
+    post:
+      summary: Submit command execution results
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: api_key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CommandResult"
+      responses:
+        "200":
+          description: Command results accepted
+        "400":
+          description: Missing or malformed results list
+        "422":
+          description: Command result processing failed
+  /api/v1/devices/{id}/command_payloads/{ref}:
+    get:
+      summary: Fetch deferred command payload
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: api_key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandPayload"
+        "404":
+          description: Payload not found
+  /api/v1/check_domain:
+    get:
+      summary: Authorize Caddy on-demand TLS host
+      parameters:
+        - in: query
+          name: domain
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain is permitted
+        "401":
+          description: Domain is not permitted
+components:
+  schemas:
+    CommandRequest:
+      type: object
+      properties:
+        command_id:
+          type: string
+        type:
+          type: string
+          enum: [list_scripts, install_script, remove_script, ssh_authorize]
+        args:
+          type: array
+          items:
+            type: string
+        payload_ref:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    CommandResult:
+      type: object
+      required: [command_id, status]
+      properties:
+        command_id:
+          type: string
+        status:
+          type: string
+          enum: [OK, FAILED]
+        output:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+          nullable: true
+    CommandPayload:
+      type: object
+      properties:
+        content_type:
+          type: string
+        name:
+          type: string
+        data:
+          type: string
