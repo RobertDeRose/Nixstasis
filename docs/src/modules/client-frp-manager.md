@@ -17,7 +17,7 @@
 - `packages/client/internal/frp/manager.go`
 - `packages/client/internal/frp/types.go`
 - `packages/client/internal/frp/manager_test.go`
-- `packages/client/build/root-dir/etc/nixstasis/frpc.toml`
+- `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
 - `packages/client/internal/config/config.go`
 - `packages/client/cmd/nixstasis/poll.go`
 

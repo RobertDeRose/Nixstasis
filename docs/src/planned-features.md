@@ -196,9 +196,9 @@ production-like environment.
   - A `.run` file for each release architecture is published to GitHub Releases.
   - Running the `.run` file on a clean Linux system installs all required files
     to their FHS paths.
-  - Existing `/etc/nixstasis/frpc.toml` and `/etc/nixstasis/config.yaml` files are
-    preserved on upgrade unless the installer is explicitly forced to replace
-    them.
+  - Existing `/etc/nixstasis/config.yaml` is preserved on upgrade unless the
+    installer is explicitly forced to replace it; client-owned `frpc.toml` is
+    updated on every upgrade from `/usr/share/nixstasis/frpc.toml`.
   - `artifacts.json` in the archive matches the installed bundle contents by
     sha256.
   - `verify_artifacts.sh` catches content or manifest drift in CI.

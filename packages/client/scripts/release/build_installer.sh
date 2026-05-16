@@ -127,7 +127,7 @@ mkdir -p "$STAGING_DIR"
 
 install -m 0755 "$BINARY_PATH" "$STAGING_DIR/nixstasis"
 install -m 0755 "$FRPC_PATH" "$STAGING_DIR/frpc"
-install -m 0644 build/root-dir/etc/nixstasis/frpc.toml "$STAGING_DIR/frpc.toml"
+install -m 0644 build/root-dir/usr/share/nixstasis/frpc.toml "$STAGING_DIR/frpc.toml"
 install -m 0644 build/root-dir/usr/share/nixstasis/config.example.yaml "$STAGING_DIR/config.example.yaml"
 install -m 0644 build/root-dir/lib/systemd/system/nixstasis-poll.service "$STAGING_DIR/nixstasis-poll.service"
 install -m 0644 build/root-dir/lib/systemd/system/nixstasis-poll.path "$STAGING_DIR/nixstasis-poll.path"

@@ -16,7 +16,7 @@ SERVER_MIGRATE="$ROOT_DIR/packages/server/bin/migrate"
 SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_CONFIG_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml"
-CLIENT_FRPC_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/etc/nixstasis/frpc.toml"
+CLIENT_FRPC_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/frpc.toml"
 CONTRACT_DOC="$ROOT_DIR/specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md"
 
 fail() {
@@ -161,6 +161,14 @@ require_text "$CLIENT_README" 'https://nixstasis\.example\.com'
 require_text "$CLIENT_README" '/etc/nixstasis/config\.yaml'
 require_text "$CLIENT_CONFIG_TEMPLATE" 'https://nixstasis\.example\.com'
 require_text "$CLIENT_FRPC_TEMPLATE" 'serverAddr = "\{\{ \.Envs\.FRPS_SERVER_ADDR \}\}"'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPS_SERVER_PORT \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPS_AUTH_TOKEN \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.NAME \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.SSH_NAME \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPC_WEB_SERVER_ADDR \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPC_WEB_SERVER_PORT \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPC_HTTP_LOCAL_ADDR \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPC_SSH_LOCAL_PORT \}\}'
 require_text "$CLIENT_FRPC_TEMPLATE" 'atom-<normalized-device-id>\.<base-domain>'
 
 require_text "$CONTRACT_DOC" 'DATABASE_URL'
