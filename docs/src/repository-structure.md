@@ -8,7 +8,8 @@
 - `mise.toml`: local tool version/configuration entry point.
 - `prod.env`: shared production version pins referenced by release/deployment workflows.
 - `book.toml`: mdBook configuration.
-- `src/`: generated mdBook source tree.
+- `docs/src`: mdBook documentation source tree.
+- `book/`: generated mdBook output.
 
 ## Server: `packages/server`
 
@@ -37,7 +38,7 @@
 - Major paths:
   - `cmd/nixstasis`: Cobra CLI commands.
   - `internal/config`: config loading and default paths.
-  - `internal/identity`: local device identity detection and stored UUID handling.
+  - `internal/identity`: local device identity detection and stored runtime credentials.
   - `internal/transport`: HTTP client for Phoenix `/api/v1` device endpoints.
   - `internal/telemetry`: telemetry payload types.
   - `internal/script`: Stary/Starlark parsing, validation, execution, builtins, reports, and REPL support.

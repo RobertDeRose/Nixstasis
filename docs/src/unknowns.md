@@ -1,25 +1,29 @@
-# Known Gaps & Unknowns
+# Operational Unknowns
 
-This page records missing, ambiguous, or conflicting signals observable from repository files. It does not prescribe changes.
+This page records missing, ambiguous, or conflicting operational signals
+observable from repository files. It does not prescribe changes.
 
 ## Missing Docs
 
-- No dedicated architecture doc exists for AuthCrunch claim mapping beyond README notes.
-- No dedicated production authentication contract for Phoenix-internal APIs is present beyond Caddy/AuthCrunch deployment configuration.
-- No single OpenAPI document covers both `/api/v1` controller endpoints and `/e2e` endpoints in `packages/server/priv/static/openapi.yaml`; that file is generated for Ash JSON:API.
+- No single generated OpenAPI document covers Ash JSON:API, `/api/v1`
+  controller endpoints, and `/e2e` endpoints. The current contract split is
+  explained in [API & Runtime Contracts](reference/contracts.md).
 
 ## Ambiguities
 
-- README describes AuthCrunch group transforms as future follow-up work; current Caddyfile authorization policy allows roles `*`.
+- Production AuthCrunch role and claim mapping is future work tracked in
+  [Planned Features](planned-features.md), not an unresolved operational unknown.
 
 ## Conflicting Signals Between Code and Specs
 
-- Ash JSON:API OpenAPI output covers `/api/json` resources, while the Go client uses `/api/v1` controller endpoints.
+- Ash JSON:API OpenAPI output covers `/api/json` resources, while the Go client
+  uses `/api/v1` controller endpoints. Future API unification is tracked in
+  [Planned Features](planned-features.md).
 
 ## Areas Where Intent Is Unclear
 
-- Whether the LiveView UI should consume AuthCrunch-injected headers for role-aware behavior; README states this is future work.
-- Whether the separate production authentication contract for Phoenix-internal APIs should be a docs page, a spec, or generated API documentation.
+- Whether the separate production authentication contract for Phoenix-internal
+  APIs should be a docs page, a design spec, or generated API documentation.
 
 Traceable references:
 

@@ -203,6 +203,8 @@ Traceable references:
   - `put_secure_browser_headers`
 - Supported Compose ingress places Caddy/AuthCrunch in front of Phoenix for public hosts.
 - Caddy authorization policy injects headers with claims and validates bearer header according to Caddyfile config.
+- The high-level split between browser, device, Caddy, Ash JSON:API, and E2E
+  API surfaces is summarized in [Architecture Overview](architecture.md).
 - Terminal sockets require Phoenix tokens:
   - socket token signed for `terminal_socket`.
   - join payload contains an opaque server-side terminal session ref.

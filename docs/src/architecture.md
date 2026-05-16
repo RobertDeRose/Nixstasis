@@ -49,6 +49,26 @@ flowchart TB
 - Deployment layer:
   - `deploy/compose/docker-compose.yml` defines `nixstasis`, `caddy`, `frps`, and optional `postgres` services.
 
+## Repository Structure
+
+Nixstasis is organized around deployable runtime boundaries rather than one
+monolithic application tree.
+
+- `packages/server`: Phoenix, LiveView, Ash, Ecto/PostgreSQL, OTP workers,
+  device APIs, E2E APIs, and the browser UI.
+- `packages/client`: Go CLI/client runtime for registration, polling, local
+  identity, Stary/Starlark scripts, command execution, FRPC lifecycle, and E2E
+  journeys.
+- `deploy/compose`: supported server deployment path and runtime contract for
+  Phoenix, Caddy, FRPS, and PostgreSQL.
+- `packages/caddy`: Caddy build with the AuthCrunch plugin used by the public
+  edge.
+- `packages/frp`: FRP image/package build assets and pinned FRP acquisition.
+- `packages/shared/e2e_log_viewer`: shared static E2E report/log viewer assets.
+- `docs/src/features`: docs-driven feature designs and task history.
+
+See [Project Structure](repository-structure.md) for path-by-path details.
+
 ## Component Relationships
 
 - Caddy routes `nixstasis.<base-domain>` to Phoenix at `nixstasis:4000`.
@@ -60,6 +80,50 @@ flowchart TB
 - Phoenix queues device commands as pending commands and returns them in heartbeat responses.
 - The Go client executes supported command types and posts command results back to Phoenix.
 - Browser terminal sessions connect through Phoenix Channels on `terminal:*` and server-side `Nixstasis.Devices.SshClient` opens an SSH process through FRP TCP muxing.
+
+## Product Data Model
+
+The server treats managed devices as long-lived identities with dynamic
+telemetry payloads.
+
+- Registration is keyed by device identity such as MAC address and product
+  context; re-registration updates the existing device rather than creating a
+  duplicate identity.
+- Unknown or unapproved devices enter the pending-approval workflow and do not
+  receive runtime API credentials until approved.
+- Approved devices receive a persistent runtime API token used by heartbeat,
+  command-result, and deferred command-payload endpoints.
+- Device telemetry is stored as dynamic JSON payloads so Stary/Starlark scripts
+  and product schemas can evolve without one table per product type.
+- Alert rules and report builders use schema-aware fields where practical, while
+  runtime telemetry remains flexible enough for product-specific payloads.
+
+Device lifecycle details live in [Data Flow](data-flow.md), API payloads live in
+[Client-Server Interface](client-server-interface.md), and package internals live
+in [Server Devices](modules/server-devices.md) and [Client Identity](modules/client-identity.md).
+
+## API And Authentication Surfaces
+
+Nixstasis intentionally has multiple API surfaces with different consumers.
+
+- Browser routes and LiveView sockets are reached through Caddy/AuthCrunch in
+  the supported deployment. Caddy is the public authentication edge.
+- Device runtime APIs live under `/api/v1/devices/...` and are used by the Go
+  client. Registration issues credentials; heartbeat, command results, and
+  payload fetches use the approved device API token.
+- Caddy on-demand TLS approval calls `GET /api/v1/check_domain` from inside the
+  Compose network.
+- Ash JSON:API routes live under `/api/json` and have generated OpenAPI in
+  `packages/server/priv/static/openapi.yaml`.
+- E2E harness APIs live under `/e2e` and are gated by
+  `NixstasisWeb.Plugs.E2EEnabled`.
+
+The current docs distinguish these contracts in [API & Runtime Contracts](reference/contracts.md).
+Future consolidation of practical bespoke APIs into Ash-backed generated
+OpenAPI is tracked as planned work, not as current architecture.
+
+AuthCrunch claim and role mapping is deployment-sensitive and remains an area to
+document more explicitly as the authorization model hardens.
 
 Traceable references:
 

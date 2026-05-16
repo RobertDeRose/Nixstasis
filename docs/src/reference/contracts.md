@@ -5,6 +5,8 @@ the retired spec-kit contract files.
 
 ## HTTP APIs
 
+- [Architecture Overview](../architecture.md): high-level API and authentication
+  surfaces for browser, device, Caddy, Ash JSON:API, and E2E consumers.
 - [Client-Server Interface](../client-server-interface.md): Go client `/api/v1`,
   E2E `/e2e`, authentication, response shapes, and error handling.
 - [OpenAPI Contracts](openapi/index.md): maintained OpenAPI definitions for

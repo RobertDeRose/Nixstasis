@@ -74,6 +74,12 @@ production-like environment.
 - Move bespoke Phoenix controller APIs under Ash-backed actions/resources where
   practical so their OpenAPI contracts can be generated from the same source of
   truth as the `/api/json` surface.
+- Define the production AuthCrunch/Phoenix role and claim contract, including
+  header mapping, LiveView authorization behavior, and operator role semantics.
+- Add production operations runbooks for backup/restore, secret rotation,
+  incident response, HA expectations, and production monitoring.
+- Add richer API examples for common success, validation-error, authorization,
+  and edge-case responses across maintained API contracts.
 
 ## Feature Map
 
@@ -378,3 +384,174 @@ production-like environment.
 - Run `mdbook build docs` and ensure Reference links describe the final contract
     source of truth.
 - Suggested first workflow command: `/start-feature ash-api-contract-unification`
+
+### `authcrunch-role-contract`
+
+- Status: planned
+- Overview:
+- Define the production authorization contract between Caddy/AuthCrunch and the
+    Phoenix application. Document which claims or headers Caddy forwards, how
+    roles/groups map to operator capabilities, and whether LiveView screens use
+    those claims for role-aware behavior.
+- Requirements:
+- Inventory AuthCrunch-related Caddy configuration, Phoenix request handling,
+    LiveView session data, and any existing role/group assumptions.
+- Define the canonical forwarded headers or session fields Phoenix may trust
+    after Caddy/AuthCrunch authentication.
+- Define operator roles and the capabilities each role grants for dashboard,
+    devices, remote access, alerts, reports, settings, and E2E surfaces.
+- Document behavior for missing, malformed, or insufficient claims.
+- Decide whether role-aware UI behavior belongs in LiveView assigns, plugs,
+    policies, or a separate authorization module.
+- Update operations docs so deployment operators know which AuthCrunch groups or
+    claims must be configured.
+- Constraints:
+- Do not weaken the requirement that public browser traffic reaches Phoenix
+    through Caddy/AuthCrunch in the supported deployment.
+- Do not treat device API tokens, E2E enablement, or terminal session tokens as
+    substitutes for browser/operator authorization.
+- Keep local development shortcuts clearly separate from production role
+    enforcement.
+- Non-goals:
+- Replacing AuthCrunch as the browser authentication edge.
+- Changing the device runtime API authentication contract.
+- Implementing a full multi-tenant RBAC product unless the role inventory proves
+    it is required.
+- Success criteria:
+- Operators can configure AuthCrunch groups/claims and know which Nixstasis
+    capabilities each role enables.
+- Phoenix behavior for missing or insufficient role claims is documented and
+    tested.
+- The docs clearly distinguish browser/operator authorization from device API,
+    E2E, and terminal-session authentication.
+- Risks and tradeoffs:
+- Browser authorization rules can drift if they are encoded only in Caddy and not
+    visible to Phoenix UI logic.
+- Over-modeling roles too early can add complexity before production operator
+    needs are proven.
+- Dependencies:
+- `deploy/compose/caddy/Caddyfile`
+- `packages/server/lib/nixstasis_web/router.ex`
+- `packages/server/lib/nixstasis_web/controllers/`
+- `packages/server/lib/nixstasis_web/live/`
+- `docs/src/modules/edge-caddy.md`
+- `docs/src/client-server-interface.md`
+- Suggested validation:
+- Add request/LiveView tests for allowed and denied role scenarios once the
+    contract is implemented.
+- Run `mdbook build docs` and ensure Architecture, Operations, and Reference
+    pages all point to the final authorization contract.
+- Suggested first workflow command: `/start-feature authcrunch-role-contract`
+
+### `production-operations-runbooks`
+
+- Status: planned
+- Overview:
+- Add production operations runbooks that go beyond the Compose deployment
+    contract. Cover backup/restore, secret rotation, incident response,
+    monitoring, upgrade checks, and explicit HA/non-HA expectations for the
+    supported deployment shape.
+- Requirements:
+- Document PostgreSQL backup and restore workflows for bundled and external
+    database modes.
+- Document secret rotation procedures for Phoenix secrets, AuthCrunch/OIDC
+    values, JWT key material, FRPS auth/dashboard credentials, and database
+    credentials.
+- Document operational health checks for Phoenix, Caddy, FRPS, PostgreSQL,
+    device heartbeat freshness, E2E retention, and remote-access availability.
+- Document incident-response playbooks for failed migrations, broken TLS
+    approval, FRPS token exposure, device credential compromise, and E2E
+    retention/log failures.
+- Document upgrade and rollback validation steps for Compose services and client
+    release artifacts.
+- State HA/scaling boundaries clearly: what the supported Compose deployment
+    does and does not guarantee.
+- Constraints:
+- Do not imply unsupported HA or clustered deployment semantics unless they are
+    implemented and tested.
+- Keep production runbooks separate from local development harness guidance.
+- Preserve `deploy/compose` as the supported server deployment path.
+- Non-goals:
+- Building a hosted operations platform.
+- Replacing operator-specific backup tooling.
+- Implementing HA as part of the documentation feature.
+- Success criteria:
+- A production operator can restore service from backup using documented steps.
+- A production operator can rotate each documented secret without guessing which
+    services must restart.
+- The docs identify observable symptoms, immediate mitigations, and validation
+    checks for common incidents.
+- HA and scaling expectations are explicit rather than implied.
+- Risks and tradeoffs:
+- Runbooks can become stale if they duplicate scripts without linking to source
+    validation.
+- Over-prescriptive backup tooling can conflict with an operator's managed
+    database platform.
+- Dependencies:
+- `deploy/compose/docker-compose.yml`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/README.md`
+- `docs/src/modules/deployment-compose.md`
+- `docs/src/runtime-boundaries.md`
+- Suggested validation:
+- Exercise backup/restore against a disposable Compose stack.
+- Run runtime contract checks before and after documented secret rotation steps.
+- Run `mdbook build docs` and verify Operations navigation points to the new
+    runbooks.
+- Suggested first workflow command: `/start-feature production-operations-runbooks`
+
+### `rich-api-examples`
+
+- Status: planned
+- Overview:
+- Add example-rich API documentation for maintained HTTP contracts. Provide
+    representative requests and responses for successful calls, validation
+    errors, authorization failures, conflict/locking behavior, and important
+    edge cases across `/api/v1`, `/e2e`, builder APIs, and retained bespoke
+    OpenAPI files.
+- Requirements:
+- Add examples for device registration, pending approval, approved credential
+    issuance, heartbeat, command delivery, command results, deferred payload
+    fetches, and Caddy `check_domain` decisions.
+- Add examples for E2E run creation, idempotent reuse, environment lock
+    conflicts, protocol mismatch, seed failures, result submission, cancellation,
+    and missing/pruned logs.
+- Add examples for builder schema option lookup, validation success, validation
+    failure, stale selections, missing schemas, and authorization failures where
+    applicable.
+- Add examples for report and alert-rule API surfaces that remain hand-maintained
+    outside generated Ash OpenAPI.
+- Keep OpenAPI examples and prose examples synchronized, or link one canonical
+    source from the other.
+- Constraints:
+- Do not invent behavior that is not implemented or tested.
+- Distinguish Ash-generated `/api/json` examples from bespoke `/api/v1` and
+    `/e2e` controller examples.
+- Keep secrets, real tokens, hostnames, and operator data out of examples.
+- Non-goals:
+- Replacing generated Ash OpenAPI.
+- Changing API behavior.
+- Creating exhaustive API tutorials for every LiveView browser route.
+- Success criteria:
+- API consumers can copy representative request/response shapes for each durable
+    runtime contract.
+- Error examples cover the common failure classes operators and client authors
+    must handle.
+- `mdbook build docs` succeeds and OpenAPI references remain linked from the
+    Reference section.
+- Risks and tradeoffs:
+- Examples can drift unless they are derived from tests or reviewed when
+    controllers change.
+- Too many examples can obscure the canonical contract if not organized by API
+    surface.
+- Dependencies:
+- `docs/src/client-server-interface.md`
+- `docs/src/reference/openapi/`
+- `packages/server/priv/static/openapi.yaml`
+- `packages/server/lib/nixstasis_web/controllers/`
+- `packages/client/internal/transport/client.go`
+- Suggested validation:
+- Compare examples against controller tests and client transport tests.
+- Run `mdbook build docs` and, where practical, OpenAPI validation for example
+    payloads.
+- Suggested first workflow command: `/start-feature rich-api-examples`
