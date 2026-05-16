@@ -145,7 +145,8 @@ Traceable references:
 
 ### Internal Services
 
-- `nixstasis` service listens on `PORT=4000` for the supported Compose deployment.
+- `nixstasis` service listens on `PORT=4000` inside the Compose network; Caddy
+  is the public HTTP(S) ingress.
 - `postgres` is always included; production can override `DATABASE_URL` to use
   an external managed database.
 - `frps` is reached by Caddy on internal service ports and by FRPC on published FRP ports.
