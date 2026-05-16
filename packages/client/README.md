@@ -20,7 +20,7 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - Make
 
 ### Commands
