@@ -2,22 +2,22 @@
 
 ## Setup
 
-- [ ] T000 Confirm the active worktree is `feat/server-provided-frps-token` and
+- [x] T000 Confirm the active worktree is `feat/server-provided-frps-token` and
   the feature spec matches the intended heartbeat-provided FRPS token contract.
-- [ ] T000a Rebase or merge `main` before implementation so this branch includes
+- [x] T000a Rebase or merge `main` before implementation so this branch includes
   the completed self-extracting-installer docs and systemd credential model.
 
 ## Contract And Deployment
 
-- [ ] T001 Update `deploy/compose/docker-compose.yml` so the `nixstasis` service
+- [x] T001 Update `deploy/compose/docker-compose.yml` so the `nixstasis` service
   receives `FRPS_AUTH_TOKEN` in addition to the `frps` service.
-- [ ] T002 Update `deploy/compose/scripts/check_runtime_contract.sh` to assert
+- [x] T002 Update `deploy/compose/scripts/check_runtime_contract.sh` to assert
   that `FRPS_AUTH_TOKEN` is wired into both `frps` and `nixstasis` runtime
   configuration.
-- [ ] T003 Update
+- [x] T003 Update
   `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
   to document `FRPS_AUTH_TOKEN` as consumed by both services.
-- [ ] T004 Update `specs/004-rewrite-client-go/contracts/device-api.yaml` to
+- [x] T004 Update `specs/004-rewrite-client-go/contracts/device-api.yaml` to
   replace `remote_access_requested` with `remote_access_token` in the heartbeat
   response schema.
 

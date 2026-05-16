@@ -81,6 +81,9 @@ targeting the compose `postgres` host.
 
 - Public ingress terminates at Caddy.
 - Phoenix runs on `PORT=4000` internally.
+- `FRPS_AUTH_TOKEN` is provided to both `frps` and `nixstasis`; FRPS uses it for
+  token auth, and Phoenix only returns it to authenticated device heartbeats while
+  remote access is requested for that device.
 - Caddy TLS approval: `GET /api/v1/check_domain`.
 - Caddy asks `http://nixstasis:${PORT}/api/v1/check_domain` before issuing device certs.
 - Reserved hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
