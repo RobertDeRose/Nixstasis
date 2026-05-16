@@ -28,7 +28,9 @@ Traceable references:
 - `poll` creates a ticker from configured poll interval and repeatedly calls `pollOnce`.
 - `script.Executor` runs discovered scripts concurrently with goroutines and a `sync.WaitGroup`.
 - `commands.Handler` executes batches concurrently where command type allows it.
-- `frp.Manager` starts `frpc` as an OS process and waits for process exit in a background goroutine.
+- `frp.Manager` launches a `nixstasis-frpc` transient systemd unit with
+  `systemd-run`; that unit runs the hidden `nixstasis frp-session` subcommand,
+  which starts the bundled `frpc` process with a one-hour timeout.
 
 Traceable references:
 
@@ -36,7 +38,8 @@ Traceable references:
 - `packages/client/cmd/nixstasis/poll.go:35-83`
 - `packages/client/internal/script/executor.go:23-48`
 - `packages/client/internal/commands/handler.go:27-76`
-- `packages/client/internal/frp/manager.go:47-109`
+- `packages/client/internal/frp/manager.go`
+- `packages/client/cmd/nixstasis/frp_session.go`
 
 ### Starlark Execution Environment
 

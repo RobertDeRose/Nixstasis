@@ -6,17 +6,21 @@
 
 ## Runtime Context
 
-- Client process manager for bundled `frpc`.
+- Client launcher for the bundled `frpc` transient systemd unit.
 
 ## Purpose
 
-- Renders FRPC configuration, starts/stops the FRPC process, tracks FRP connection state, and reports state to heartbeat payloads.
+- Starts/stops the FRPC transient systemd unit, passes runtime template values to
+  frpc, checks connection state through systemd, and reports state to heartbeat
+  payloads.
 
 ## Key Files
 
 - `packages/client/internal/frp/manager.go`
 - `packages/client/internal/frp/types.go`
 - `packages/client/internal/frp/manager_test.go`
+- `packages/client/cmd/nixstasis/frp_session.go`
+- `packages/client/cmd/nixstasis/frp_session_test.go`
 - `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
 - `packages/client/internal/config/config.go`
 - `packages/client/cmd/nixstasis/poll.go`
@@ -29,8 +33,8 @@
 - Functions and methods:
   - `NewManager`
   - `(*Manager).Start`
-  - `(*Manager).StartWithConfig`
   - `(*Manager).Stop`
+  - `(*Manager).IsActive`
   - `(*Manager).GetStatus`
   - `config.FRPCBinaryPath`
   - `config.FRPCConfigPath`
@@ -44,17 +48,24 @@
 ### External
 
 - OS process execution via `os/exec`.
-- Temporary filesystem for rendered config files.
+- systemd transient units via `systemd-run` and `systemctl`.
 
 ## Client-Server Interaction Details
 
 - Heartbeat responses include `remote_access_requested`.
-- If `remote_access_requested` is true and FRP is inactive, `pollOnce` starts FRPC using configured FRP values.
+- If `remote_access_requested` is true and FRP is inactive, `pollOnce` starts the
+  `nixstasis-frpc` transient unit using configured FRP values.
 - If `remote_access_requested` is false and FRP is active, `pollOnce` stops FRPC.
 - FRP status is included in subsequent heartbeat requests as `connection_status`.
+- `frpc.toml` remains client-owned in `/usr/share/nixstasis/frpc.toml` and frpc
+  expands `{{ .Envs.* }}` placeholders from the session environment.
+- FRPS auth is passed to the transient unit as a systemd credential and converted
+  to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure in
+  `systemd-run --setenv` metadata.
 
 Traceable references:
 
-- `packages/client/internal/frp/manager.go:21-169`
-- `packages/client/cmd/nixstasis/poll.go:111-154`
-- `packages/client/internal/config/config.go:121-129`
+- `packages/client/internal/frp/manager.go`
+- `packages/client/cmd/nixstasis/frp_session.go`
+- `packages/client/cmd/nixstasis/poll.go`
+- `packages/client/internal/config/config.go`

@@ -21,6 +21,11 @@ const defaultSessionTimeout = 1 * time.Hour
 // execCommand allows test injection for the frpc child process.
 var execCommand = exec.CommandContext
 
+var (
+	frpSessionConfigPath string
+	frpSessionBinaryPath string
+)
+
 var frpSessionCmd = &cobra.Command{
 	Use:    "frp-session",
 	Short:  "Run an FRP tunnel session with timeout (used by systemd transient unit)",
@@ -35,12 +40,20 @@ var frpSessionCmd = &cobra.Command{
 }
 
 func init() {
+	frpSessionCmd.Flags().StringVar(&frpSessionConfigPath, "config", "", "frpc config path")
+	frpSessionCmd.Flags().StringVar(&frpSessionBinaryPath, "frpc", "", "frpc binary path")
 	rootCmd.AddCommand(frpSessionCmd)
 }
 
 func runFRPSession(cfg *config.Config) error {
-	configPath := config.FRPCConfigPath()
-	frpcBinary := config.FRPCBinaryPath()
+	configPath := frpSessionConfigPath
+	if configPath == "" {
+		configPath = config.FRPCConfigPath()
+	}
+	frpcBinary := frpSessionBinaryPath
+	if frpcBinary == "" {
+		frpcBinary = config.FRPCBinaryPath()
+	}
 	timeout := defaultSessionTimeout
 
 	if _, err := os.Stat(configPath); err != nil {
@@ -69,11 +82,15 @@ func runFRPSession(cfg *config.Config) error {
 		}
 	}()
 
+	authToken, err := credentialValue("FRPS_AUTH_TOKEN")
+	if err != nil {
+		return err
+	}
+
 	cmd := execCommand(ctx, frpcBinary, "-c", configPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	// Inherit environment — systemd-run --setenv passes the template vars
-	// directly to this process, and frpc reads them via {{ .Envs.* }}.
+	cmd.Env = append(os.Environ(), "FRPS_AUTH_TOKEN="+authToken)
 
 	if err := cmd.Run(); err != nil {
 		// Context cancellation (timeout or signal) is a normal exit path.
@@ -86,4 +103,25 @@ func runFRPSession(cfg *config.Config) error {
 
 	slog.Info("FRP session ended normally")
 	return nil
+}
+
+func credentialValue(name string) (string, error) {
+	credentialsDir := os.Getenv("CREDENTIALS_DIRECTORY")
+	if credentialsDir == "" {
+		value := os.Getenv(name)
+		if value == "" {
+			return "", fmt.Errorf("missing required credential %s", name)
+		}
+		return value, nil
+	}
+
+	data, err := os.ReadFile(filepath.Join(credentialsDir, name)) // #nosec G304 -- systemd credentials directory and credential name are controlled by the unit.
+	if err != nil {
+		return "", fmt.Errorf("failed to read credential %s: %w", name, err)
+	}
+	value := string(data)
+	if value == "" {
+		return "", fmt.Errorf("missing required credential %s", name)
+	}
+	return value, nil
 }
