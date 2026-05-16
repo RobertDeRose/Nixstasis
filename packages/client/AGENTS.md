@@ -73,7 +73,6 @@ type Config struct {
     Extra   map[string]any `json:",unknown"` // Capture unknown fields
 }
 
-// Stream marshaling without intermediate buffers
 var buf bytes.Buffer
 if err := json.MarshalWrite(&buf, config); err != nil {
     return err
