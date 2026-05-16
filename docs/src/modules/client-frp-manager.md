@@ -52,10 +52,15 @@
 
 ## Client-Server Interaction Details
 
-- Heartbeat responses include `remote_access_requested`.
-- If `remote_access_requested` is true and FRP is inactive, `pollOnce` starts the
-  `nixstasis-frpc` transient unit using configured FRP values.
-- If `remote_access_requested` is false and FRP is active, `pollOnce` stops FRPC.
+- Heartbeat responses include `remote_access_token` only while remote access is
+  requested for the device.
+- If `remote_access_token` is non-empty and FRP is inactive, `pollOnce` starts
+  the `nixstasis-frpc` transient unit using configured non-secret FRP values and
+  the heartbeat token.
+- If `remote_access_token` is absent or empty and FRP is active, `pollOnce` stops
+  FRPC.
+- If the heartbeat token changes while FRP is active, `pollOnce` restarts FRPC
+  with the current token.
 - FRP status is included in subsequent heartbeat requests as `connection_status`.
 - `frpc.toml` remains client-owned in `/usr/share/nixstasis/frpc.toml` and frpc
   expands `{{ .Envs.* }}` placeholders from the session environment.
