@@ -225,7 +225,7 @@ production-like environment.
 
 ### `server-provided-frps-token`
 
-- Status: in progress
+- Status: implemented
 - Overview:
   - Move the remote-access trigger from a boolean heartbeat response flag to a
     server-provided FRPS auth token. When the server wants a client to open
