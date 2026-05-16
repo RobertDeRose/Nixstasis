@@ -1,12 +1,12 @@
-# Development Laptop Remote Access
+# Compose Dev Harness
 
 ## Feature Name
 
-`dev-laptop-remote-access`
+`compose-dev-harness`
 
 ## Goal
 
-Provide a repeatable development-laptop workflow that can validate the Nixstasis
+Provide a repeatable Compose development harness that can validate the Nixstasis
 remote-access stack without a public domain by default. The workflow must run the
 server-side stack, exercise Caddy dynamic TLS approval with local certificates,
 register or simulate a managed device, connect FRPC to FRPS, and launch an SSH
@@ -18,7 +18,7 @@ normal development.
 
 ## Source Of Intent
 
-- `docs/src/planned-features.md`, feature `dev-laptop-remote-access`
+- `docs/src/planned-features.md`, feature `compose-dev-harness`
 - `docs/src/runtime-boundaries.md`
 - `docs/src/modules/deployment-compose.md`
 - `docs/src/modules/server-web.md`
@@ -74,8 +74,8 @@ that starts the server stack and seeds N pre-approved virtual devices via releas
 RPC. Virtual devices are seeded idempotently by MAC address and bypass
 registration, polling, and FRPC entirely. This path validates server UI, database,
 and API behavior but does not exercise the Go client or FRP tunnel path. The dev
-lab uses a tracked `dev.env` with hardcoded development defaults (no placeholder
-secrets), uses `NIXSTASIS_FORCE_SSL=false`, and a single `docker-compose.yml`
+lab uses a tracked `dev.env` with hardcoded development defaults (no template
+secrets), uses `NIXSTASIS_FORCE_SSL=false`, and the Compose development harness
 with `docker compose --env-file dev.env`.
 
 ### Default Laptop Mode

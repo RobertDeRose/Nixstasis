@@ -78,8 +78,11 @@ Semantics:
   only when `device.remote_access_requested` is true.
 - Keep `HeartbeatJSON.show/1` focused on rendering response data. It receives or
   calls the helper result and conditionally includes `remote_access_token`:
-  - absent when `device.remote_access_requested` is false.
-  - configured `FRPS_AUTH_TOKEN` when `device.remote_access_requested` is true.
+
+Remote access token rendering cases:
+
+- Absent when `device.remote_access_requested` is false.
+- Configured `FRPS_AUTH_TOKEN` when `device.remote_access_requested` is true.
 - If remote access is requested but `FRPS_AUTH_TOKEN` is missing, the heartbeat
   should continue returning telemetry/command responses and omit the token. The
   helper should log a clear error so the UI timeout is diagnosable.

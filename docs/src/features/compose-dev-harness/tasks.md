@@ -1,4 +1,4 @@
-# Tasks: Development Laptop Remote Access
+# Tasks: Compose Dev Harness
 
 - [x] T000 Confirm feature scope against the reviewed spec before implementation.
 - [x] T001 Inspect current Compose, Caddy, FRPS, server terminal, and client FRP configuration paths.
