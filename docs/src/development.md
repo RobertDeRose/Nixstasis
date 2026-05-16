@@ -16,6 +16,12 @@ exercise Nixstasis locally. These docs are not production operating procedures.
 - Optional public-fidelity validation can use DuckDNS or an operator-owned domain
   when public ACME behavior needs to be tested.
 
+## Accessibility
+
+All user-facing features must meet WCAG 2.1 AA accessibility targets. This
+includes contrast ratios, keyboard focus visibility, form labels, error
+announcements, and modal dialog behavior.
+
 ## Validation Boundaries
 
 - Local development should preserve the production-shaped boundary where browser
