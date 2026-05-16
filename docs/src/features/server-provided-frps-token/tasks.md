@@ -87,5 +87,5 @@
 
 ## Completion
 
-- [ ] T999 Confirm implementation, docs/contracts, and tests agree; summarize any
+- [x] T999 Confirm implementation, docs/contracts, and tests agree; summarize any
   intentional follow-up work such as per-device FRPS auth.
