@@ -23,15 +23,15 @@
 
 ## Server Implementation
 
-- [ ] T005 Add a small server helper for resolving the heartbeat FRPS token from
+- [x] T005 Add a small server helper for resolving the heartbeat FRPS token from
   `FRPS_AUTH_TOKEN` only when `device.remote_access_requested` is true.
-- [ ] T006 Update `HeartbeatJSON.show/1` to emit `remote_access_token` instead of
+- [x] T006 Update `HeartbeatJSON.show/1` to emit `remote_access_token` instead of
   `remote_access_requested`.
-- [ ] T007 Add or update heartbeat controller tests for token absent when remote
+- [x] T007 Add or update heartbeat controller tests for token absent when remote
   access is not requested.
-- [ ] T008 Add heartbeat controller coverage for token present when remote access
+- [x] T008 Add heartbeat controller coverage for token present when remote access
   is requested and `FRPS_AUTH_TOKEN` is configured.
-- [ ] T009 Add heartbeat controller coverage for remote access requested with
+- [x] T009 Add heartbeat controller coverage for remote access requested with
   missing `FRPS_AUTH_TOKEN`, matching the selected omit-token/log-error behavior.
 
 ## Client Implementation
