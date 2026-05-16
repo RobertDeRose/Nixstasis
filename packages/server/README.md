@@ -52,10 +52,10 @@ The underlying helper task is `mix db.ensure`.
 - The abandoned Debian packaging path is not part of the supported deployment
   surface for this feature.
 
-For development laptop remote-access validation, use the local-only Compose
-helpers under `deploy/compose/scripts`. Laptop mode keeps browser access through
-Caddy, publishes Phoenix on loopback only for token-protected diagnostics, and
-uses Caddy internal certificates instead of public ACME issuance.
+For Compose dev-harness remote-access validation, use the local-only Compose
+helpers under `deploy/compose/scripts`. Dev-harness mode keeps browser access
+through Caddy, publishes Phoenix on loopback only for token-protected diagnostics,
+and uses Caddy internal certificates instead of public ACME issuance.
 
 ### LiveDebugger (optional)
 
