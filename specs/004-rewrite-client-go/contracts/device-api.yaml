@@ -97,9 +97,9 @@ paths:
                   data:
                     type: object
                     properties:
-                      remote_access_requested:
-                        type: boolean
-                        description: If true, client should start FRP
+                      remote_access_token:
+                        type: string
+                        description: Shared FRPS token. If present and non-empty, client should start FRP with this token; if omitted or empty, client should stop FRP.
                       commands:
                         type: array
                         items:

@@ -55,6 +55,19 @@ require_wildcard_authorize_before_proxy() {
   ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
 }
 
+require_compose_service_env() {
+  service="$1"
+  env_name="$2"
+
+  awk -v service="$service" -v env_name="$env_name" '
+    $0 ~ "^  " service ":$" { in_service = 1; next }
+    in_service && /^  [[:alnum:]_-]+:$/ { in_service = 0 }
+    in_service && $0 ~ "^[[:space:]]+" env_name ": \\$\\{" env_name "\\}" { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$ROOT_DIR/deploy/compose/docker-compose.yml" ||
+    fail "missing $env_name environment wiring for compose service $service"
+}
+
 for file in \
   "$ENV_EXAMPLE" \
   "$CADDYFILE" \
@@ -85,6 +98,7 @@ require_text "$ENV_EXAMPLE" '^JWT_KEY='
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_ROLES='
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_GROUPS='
 require_text "$ENV_EXAMPLE" '^FRPS_BIND_PORT='
+require_text "$ENV_EXAMPLE" '^FRPS_AUTH_TOKEN='
 require_text "$ENV_EXAMPLE" '^FRPS_HTTP_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_DASHBOARD_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_TCPMUX_PORT='
@@ -116,6 +130,8 @@ require_text "$SERVER_RUNTIME" 'required_env!\("PHX_HOST"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("BASE_DOMAIN"\)'
 require_text "$SERVER_RUNTIME" 'Deployment\.port\(\)'
 require_text "$SERVER_RUNTIME" 'PORT must be 4000 for supported Compose deployment'
+require_compose_service_env nixstasis FRPS_AUTH_TOKEN
+require_compose_service_env frps FRPS_AUTH_TOKEN
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'
@@ -153,6 +169,7 @@ require_text "$SERVER_README" 'CLIENT_SECRET'
 require_text "$SERVER_README" 'TENANT_ID'
 require_text "$SERVER_README" 'JWT_KEY'
 require_text "$SERVER_README" 'FRPS_BIND_PORT'
+require_text "$SERVER_README" 'FRPS_AUTH_TOKEN'
 require_text "$SERVER_README" 'FRPS_HTTP_PORT'
 require_text "$SERVER_README" 'FRPS_DASHBOARD_PORT'
 require_text "$SERVER_README" 'FRPS_TCPMUX_PORT'
@@ -181,6 +198,7 @@ require_text "$CONTRACT_DOC" 'CLIENT_SECRET'
 require_text "$CONTRACT_DOC" 'TENANT_ID'
 require_text "$CONTRACT_DOC" 'JWT_KEY'
 require_text "$CONTRACT_DOC" 'FRPS_BIND_PORT'
+require_text "$CONTRACT_DOC" 'FRPS_AUTH_TOKEN.*`frps`, `nixstasis`'
 require_text "$CONTRACT_DOC" 'FRPS_HTTP_PORT'
 require_text "$CONTRACT_DOC" 'FRPS_DASHBOARD_PORT'
 require_text "$CONTRACT_DOC" 'FRPS_TCPMUX_PORT'

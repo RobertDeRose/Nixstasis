@@ -117,6 +117,7 @@ Semantics:
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/README.md`
+- `packages/server/README.md`
 - `packages/client/README.md`
 - `packages/client/scripts/mock_api/main.go`
 - `packages/client/internal/frp/manager.go`
