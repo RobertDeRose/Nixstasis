@@ -74,12 +74,12 @@
 
 ## Verification
 
-- [ ] T016 Run client tests with `GOEXPERIMENT=jsonv2 go test -race ./...` from
+- [x] T016 Run client tests with `GOEXPERIMENT=jsonv2 go test -race ./...` from
   `packages/client`.
-- [ ] T017 Run targeted server tests for heartbeat response behavior.
-- [ ] T018 Run `mix precommit` from `packages/server` after server changes.
-- [ ] T019 Run the compose runtime contract checker.
-- [ ] T020 Review diffs to ensure no FRPS token is persisted to client config,
+- [x] T017 Run targeted server tests for heartbeat response behavior.
+- [x] T018 Run `mix precommit` from `packages/server` after server changes.
+- [x] T019 Run the compose runtime contract checker.
+- [x] T020 Review diffs to ensure no FRPS token is persisted to client config,
   identity, logs, or docs as a client-owned static value.
 - [x] T021 Search docs and code for stale heartbeat response references to
   `remote_access_requested`; keep device state references only where they still
