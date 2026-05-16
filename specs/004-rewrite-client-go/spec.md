@@ -58,11 +58,11 @@ As a Support Engineer, I need the device to establish a reverse tunnel (FRP) whe
 
 **Why this priority**: Essential for maintenance but secondary to basic monitoring.
 
-**Independent Test**: Can be tested by forcing the mock API to return `remote_access_requested: true`.
+**Independent Test**: Can be tested by forcing the mock API to return a non-empty `remote_access_token`.
 
 **Acceptance Scenarios**:
 
-1. **Given** a poll response containing `remote_access_requested: true`, **When** the tunnel is not currently running, **Then** the client starts the FRP process (frpc).
+1. **Given** a poll response containing a non-empty `remote_access_token`, **When** the tunnel is not currently running, **Then** the client starts the FRP process (frpc) with that token.
 2. **Given** the tunnel starts, **When** the connection is established, **Then** the client immediately notifies the server with the connection string.
 3. **Given** a running tunnel, **When** the process exceeds the 1-hour hard timeout, **Then** the client terminates the process to prevent stale connections.
 4. **Given** the tunnel stops (gracefully or forcefully), **When** it terminates, **Then** the client notifies the server to clear the connection string.

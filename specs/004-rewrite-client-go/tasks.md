@@ -88,7 +88,7 @@
 
 **Goal**: Start/Stop `frpc` tunnel based on API response.
 
-**Independent Test**: Mock API returns `remote_access_requested: true`, verify `frpc` starts.
+**Independent Test**: Mock API returns a non-empty `remote_access_token`, verify `frpc` starts.
 
 ### Tests for User Story 3 ⚠️
 
