@@ -44,10 +44,8 @@
 ## Client-Server Interaction Details
 
 - Commands originate in `PollResponse.Commands` from `POST /api/v1/devices/:device_id/heartbeat`.
-- Supported command types:
-  - `list_scripts`
-  - `install_script`
-  - `remove_script`
+- Supported command types are `list_scripts`, `install_script`, `remove_script`,
+  and `ssh_authorize`.
 - Commands with deferred payload references are hydrated through `FetchCommandPayload` before execution.
 - Results are sent to `POST /api/v1/devices/:device_id/command_results`.
 

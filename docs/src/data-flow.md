@@ -54,10 +54,8 @@ Traceable references:
 3. Heartbeat response serializes commands to the client.
 4. Client receives commands in `PollResponse.Commands`.
 5. Client fetches any deferred payload with `GET /api/v1/devices/:uuid/command_payloads/:ref`.
-6. Client command handler executes supported commands:
-   - `list_scripts`
-   - `install_script`
-   - `remove_script`
+6. Client command handler executes supported commands: `list_scripts`,
+   `install_script`, `remove_script`, and `ssh_authorize`.
 7. Client posts results to `POST /api/v1/devices/:uuid/command_results?api_key=...`.
 8. Phoenix `DeviceCommandController.command_results/2` calls `Devices.acknowledge_command_results/2`.
 

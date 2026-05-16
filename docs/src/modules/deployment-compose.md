@@ -63,6 +63,7 @@
 - `packages/frp/Dockerfile`
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/frps/frps.toml`
+- `packages/frp/bin/download_frp.sh`
 
 ### External
 
@@ -78,6 +79,8 @@
   to point at an external managed database.
 - Release image references are pinned in Compose configuration; local development
   builds images locally with `dev` tags.
+- `packages/frp` currently provides FRPS image build assets and the shared FRP
+  binary acquisition script used by server/client packaging flows.
 - E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
 - Development laptop mode uses the same single `docker-compose.yml` with a
   tracked `dev.env` file passed via `docker compose --env-file dev.env`.
