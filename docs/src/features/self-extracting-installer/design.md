@@ -9,8 +9,8 @@
 Produce a single `.run` self-extracting archive per supported architecture as
 part of the client release pipeline. The archive bundles the client binary,
 arch-matched `frpc`, configuration templates, systemd units, and an artifact
-manifest so that operators on Linux distros without `dpkg` or `rpm` can install
-Nixstasis with one command and no manual file placement.
+manifest so that operators on systemd Linux distros without `dpkg` or `rpm` can
+install Nixstasis with one command and no manual file placement.
 
 ## Source Of Intent
 
@@ -19,8 +19,7 @@ Nixstasis with one command and no manual file placement.
 
 ## Users
 
-- Operators running Alpine, Arch, or other Linux distros without native
-  deb/rpm support.
+- Operators running systemd Linux distros without native deb/rpm support.
 - CI pipelines that need a single download artifact for fleet provisioning.
 - Developers validating the install experience without building from source.
 
@@ -67,12 +66,12 @@ Nixstasis with one command and no manual file placement.
 - `files`: array of `{path, sha256, mode}` entries for every bundled file
   (paths are flat archive-relative names, not FHS destinations)
 
-6. The release workflow produces `.run` archives into `dist/` after
+1. The release workflow produces `.run` archives into `dist/` after
    `verify_artifacts.sh` passes, and uploads them alongside existing release
    artifacts.
-7. `verify_artifacts.sh` is extended to validate `.run` archive contents and
+2. `verify_artifacts.sh` is extended to validate `.run` archive contents and
    manifest integrity.
-8. `frpc` is consumed from `build/root-dir/usr/libexec/nixstasis/frpc_<arch>`
+3. `frpc` is consumed from `build/root-dir/usr/libexec/nixstasis/frpc_<arch>`
    (already staged by `fetch_frpc.sh` before GoReleaser runs), not downloaded
    separately.
 
@@ -132,13 +131,17 @@ the `.run` archive:
 
 1. Checks for root privileges (`id -u` equals 0; avoids `$EUID` which is
    bash-only).
-2. Creates target directories if they do not exist.
-3. Installs binaries and systemd units with correct permissions.
-4. Conditionally installs config files:
-   - Skip `/etc/nixstasis/frpc.toml` if it exists (unless `--force-config`).
-   - Seed `/etc/nixstasis/config.yaml` from `config.example.yaml` if it does
-     not exist (unless `--force-config`, which overwrites both).
-5. Prints a summary of installed files and a reminder to configure
+2. Requires a running systemd host.
+3. Creates target directories if they do not exist.
+4. Installs binaries and systemd units with correct permissions.
+5. Conditionally installs config files:
+
+- Always install `/usr/share/nixstasis/frpc.toml` from the archive so client
+  upgrades can update the FRP template.
+- Seed `/etc/nixstasis/config.yaml` from `config.example.yaml` if it does not
+  exist (unless `--force-config`, which overwrites both).
+
+6. Prints a summary of installed files and a reminder to configure
    `/etc/nixstasis/config.yaml` and run `systemctl enable`.
 
 ### Manifest Format
@@ -155,7 +158,8 @@ the `.run` archive:
     {"path": "config.example.yaml", "sha256": "...", "mode": "0644"},
     {"path": "nixstasis-poll.service", "sha256": "...", "mode": "0644"},
     {"path": "nixstasis-poll.path", "sha256": "...", "mode": "0644"},
-    {"path": "nixstasis-registration.service", "sha256": "...", "mode": "0644"}
+    {"path": "nixstasis-registration.service", "sha256": "...", "mode": "0644"},
+    {"path": "install.sh", "sha256": "...", "mode": "0755"}
   ]
 }
 ```
@@ -182,11 +186,16 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 4. Validates every file listed in `artifacts.json` exists and its sha256
    matches.
 5. Validates the archive contains `install.sh`, `nixstasis`, and `frpc`.
+6. Requires at least one `.run` file only when `VERIFY_INSTALLERS=true`, so the
+   existing pre-installer artifact verification step can still validate tar,
+   deb, and rpm outputs before installers are built.
 
 ## Risks And Tradeoffs
 
 - `makeself` is a CI runtime dependency; pinning its version prevents
-  surprising format changes.
+  surprising format changes. This feature uses the Ubuntu 24.04 package first;
+  explicit version pinning can be added later if release reproducibility needs
+  it.
 - Self-extracting archives are less auditable than plain tarballs; operators
   who prefer inspection can use `--noexec --target <dir>` to extract without
   running.
@@ -218,8 +227,8 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 - CI step that builds `.run` from snapshot artifacts, extracts, and verifies
   manifest integrity.
 - Extraction test on Ubuntu 24.04 (CI runner) confirming all files land.
-- Manual smoke test on Alpine or Arch to confirm FHS placement without
-  `dpkg`/`rpm`.
+- Manual smoke test on a systemd distro without `dpkg`/`rpm` to confirm FHS
+  placement.
 - Upgrade test: install v1, then install v2, confirm binaries are replaced but
   config is preserved.
 - Config seeding test: fresh install seeds `config.yaml` from example; upgrade
