@@ -56,7 +56,7 @@ flowchart TB
 - Caddy routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
 - Caddy on-demand TLS calls `http://nixstasis:4000/api/v1/check_domain`.
 - The Go client calls Phoenix JSON endpoints under `/api/v1/devices/...`.
-- The Go client starts `frpc` when the server heartbeat response has `remote_access_requested: true`.
+- The Go client starts `frpc` when the server heartbeat response includes a non-empty `remote_access_token`.
 - Phoenix queues device commands as pending commands and returns them in heartbeat responses.
 - The Go client executes supported command types and posts command results back to Phoenix.
 - Browser terminal sessions connect through Phoenix Channels on `terminal:*` and server-side `Nixstasis.Devices.SshClient` opens an SSH process through FRP TCP muxing.

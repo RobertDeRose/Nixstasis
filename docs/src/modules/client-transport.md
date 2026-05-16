@@ -65,7 +65,7 @@
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
   - Sends `telemetry` and `connection_status`.
   - Requires the issued device token as `api_key` query parameter.
-  - Expects `200` or `202` and response `data.remote_access_requested` plus optional `data.commands`.
+  - Expects `200` or `202` and optional response `data.remote_access_token` plus optional `data.commands`.
 - `SendCommandResults`:
   - `POST {baseURL}/api/v1/devices/{uuid}/command_results`
   - Sends `results` array.

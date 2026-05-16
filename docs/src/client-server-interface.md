@@ -88,7 +88,7 @@ Response shape:
 ```json
 {
   "data": {
-    "remote_access_requested": true,
+    "remote_access_token": "shared-frps-token",
     "commands": [
       {
         "command_id": "...",

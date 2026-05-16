@@ -35,9 +35,9 @@ Traceable references:
 9. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry and connection status.
 10. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
 11. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, evaluates rules, and pops pending commands.
-12. Server returns `remote_access_requested` and optional command list.
+12. Server returns optional `remote_access_token` and optional command list.
 13. Client hydrates deferred command payloads, executes commands, and posts command results.
-14. Client starts or stops FRPC according to `remote_access_requested` and current FRP status.
+14. Client starts, stops, or restarts FRPC according to `remote_access_token` and current FRP status.
 
 Traceable references:
 
@@ -80,12 +80,12 @@ Traceable references:
 1. Browser opens `/devices/:id`.
 2. `DeviceLive.Show.handle_params/3` loads device.
 3. If device is online, `setup_device_view/3` sets `remote_access_requested` to true when not already requested.
-4. Next client heartbeat receives `remote_access_requested: true`.
-5. Client starts FRPC through `frp.Manager.StartWithConfig` when FRP is inactive.
-6. FRPC connects to FRPS with rendered configuration and auth token.
+4. Next client heartbeat receives a non-empty `remote_access_token`.
+5. Client starts FRPC through the FRP manager when FRP is inactive.
+6. FRPC connects to FRPS with rendered configuration and the heartbeat-provided token.
 7. Caddy wildcard host routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
 8. When LiveView terminates, `DeviceLive.Show.terminate/2` sets `remote_access_requested` to false.
-9. Next client heartbeat can stop FRPC when remote access is no longer requested.
+9. Next client heartbeat omits `remote_access_token`, so the client can stop FRPC.
 
 Traceable references:
 
