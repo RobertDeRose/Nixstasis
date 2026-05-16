@@ -192,8 +192,9 @@ sh ./nixstasis-<version>-linux-<arch>.run --noexec --target /tmp/nixstasis-insta
 The bundled FRP client template sets
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
 from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
-`frp.auth_token` until the server-provided token flow replaces that static
-client setting. Device subdomains are requested under
+the `remote_access_token` returned by the server heartbeat response and passes
+it to the transient FRPC unit as the `FRPS_AUTH_TOKEN` systemd credential.
+`frp.auth_token` is not the normal remote-access token source. Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
 as an override.
 

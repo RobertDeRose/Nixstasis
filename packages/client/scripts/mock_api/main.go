@@ -31,15 +31,16 @@ type deviceState struct {
 }
 
 type server struct {
-	mu              sync.Mutex
-	devices         map[string]*deviceState
-	remoteAccessOn  bool
-	allowUnknownIDs bool
+	mu                sync.Mutex
+	devices           map[string]*deviceState
+	remoteAccessToken string
+	allowUnknownIDs   bool
 }
 
 func main() {
 	addr := flag.String("addr", ":4000", "listen address")
-	remoteAccess := flag.Bool("remote-access", false, "set remote_access_requested=true on poll responses")
+	remoteAccess := flag.Bool("remote-access", false, "include a mock remote_access_token in poll responses")
+	remoteAccessToken := flag.String("remote-access-token", "mock-frps-token", "remote_access_token value returned when --remote-access is set")
 	allowUnknown := flag.Bool("allow-unknown", true, "accept polls from unknown devices")
 	logDest := flag.String("log", "", "log destination: 'stderr' or file path (default: discard)")
 	flag.Parse()
@@ -50,9 +51,9 @@ func main() {
 	}
 
 	srv := &server{
-		devices:         make(map[string]*deviceState),
-		remoteAccessOn:  *remoteAccess,
-		allowUnknownIDs: *allowUnknown,
+		devices:           make(map[string]*deviceState),
+		remoteAccessToken: remoteAccessResponseToken(*remoteAccess, *remoteAccessToken),
+		allowUnknownIDs:   *allowUnknown,
 	}
 
 	mux := http.NewServeMux()
@@ -90,6 +91,13 @@ func main() {
 			log.Printf("server error: %v", err)
 		}
 	}
+}
+
+func remoteAccessResponseToken(enabled bool, token string) string {
+	if !enabled {
+		return ""
+	}
+	return token
 }
 
 func configureLogging(destination string) io.Closer {
@@ -214,8 +222,8 @@ func (s *server) handlePoll(w http.ResponseWriter, r *http.Request, id string) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
-			"remote_access_requested": s.remoteAccessOn,
-			"commands":                commands,
+			"remote_access_token": s.remoteAccessToken,
+			"commands":            commands,
 		},
 	})
 }

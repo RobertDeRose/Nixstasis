@@ -133,7 +133,7 @@ Traceable references:
 
 - Client device API base contract uses `/api/v1/devices/...` paths.
 - Device registration returns a UUID in `data.id`.
-- Heartbeat response can include `remote_access_requested` and `commands`.
+- Heartbeat response can include `remote_access_token` and `commands`.
 - Command result status values are `OK` or `FAILED` in the Go transport contract.
 - E2E run creation uses protocol-version header and rejects legacy `client_version`/`server_version` fields.
 - Only one active E2E run per environment is allowed by the E2E environment lock flow.

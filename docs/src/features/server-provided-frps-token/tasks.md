@@ -56,20 +56,20 @@
 
 ## Documentation
 
-- [ ] T015c Update `packages/client/README.md` so operator guidance no longer
+- [x] T015c Update `packages/client/README.md` so operator guidance no longer
   treats `frp.auth_token` as the normal remote-access token source.
-- [ ] T015d Update `docs/src/modules/client-frp-manager.md` so heartbeat response
+- [x] T015d Update `docs/src/modules/client-frp-manager.md` so heartbeat response
   docs describe `remote_access_token`, not `remote_access_requested`.
-- [ ] T015e Update `docs/src/modules/edge-frp.md` so FRP interaction docs describe
+- [x] T015e Update `docs/src/modules/edge-frp.md` so FRP interaction docs describe
   server-provided token start/stop behavior and systemd credentials.
-- [ ] T015f Update `docs/src/runtime-boundaries.md` if the client/server trust or
+- [x] T015f Update `docs/src/runtime-boundaries.md` if the client/server trust or
   process boundaries need new FRPS token wording.
-- [ ] T015g Ensure `docs/src/planned-features.md` records this reviewed feature
+- [x] T015g Ensure `docs/src/planned-features.md` records this reviewed feature
   accurately.
 
 ## Test Support
 
-- [ ] T015h Update `packages/client/scripts/mock_api/main.go` so test/dev polling
+- [x] T015h Update `packages/client/scripts/mock_api/main.go` so test/dev polling
   can return `remote_access_token` instead of `remote_access_requested`.
 
 ## Verification
@@ -81,7 +81,7 @@
 - [ ] T019 Run the compose runtime contract checker.
 - [ ] T020 Review diffs to ensure no FRPS token is persisted to client config,
   identity, logs, or docs as a client-owned static value.
-- [ ] T021 Search docs and code for stale heartbeat response references to
+- [x] T021 Search docs and code for stale heartbeat response references to
   `remote_access_requested`; keep device state references only where they still
   describe server-side persisted intent.
 
