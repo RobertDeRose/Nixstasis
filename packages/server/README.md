@@ -108,13 +108,12 @@ your local database before continuing.
 
 ## Rewrite Status
 
-From specs `001`, `002`, and `003`, the core server rewrite (devices,
-monitoring, dashboard, and UI polish) is complete. Device list filtering,
-sorting, search, selection, and bulk approval flows from
-`specs/005-enhance-device-list` are implemented in the current LiveView and API
-surface.
+From the migrated feature docs, the core server rewrite (devices, monitoring,
+dashboard, and UI polish) is complete. Device list filtering, sorting, search,
+selection, and bulk approval flows are implemented in the current LiveView and
+API surface.
 
-## Report View Improvements (Spec 010)
+## Report View Improvements
 
 Current scope for custom reports includes:
 

@@ -15,9 +15,9 @@
   that `FRPS_AUTH_TOKEN` is wired into both `frps` and `nixstasis` runtime
   configuration.
 - [x] T003 Update
-  `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
+  `docs/src/modules/deployment-compose.md`
   to document `FRPS_AUTH_TOKEN` as consumed by both services.
-- [x] T004 Update `specs/004-rewrite-client-go/contracts/device-api.yaml` to
+- [x] T004 Update `docs/src/client-server-interface.md` to
   replace `remote_access_requested` with `remote_access_token` in the heartbeat
   response schema.
 

@@ -38,6 +38,12 @@ Traceable references:
 
 ### Device Registration
 
+Device registration is the credential issuance boundary. The request identifies
+the host by MAC address and product metadata; the server may create a pending
+device record or update an existing record for the same MAC address. Approved
+devices receive a persistent API token in the response. Pending devices do not
+receive a token until an operator approves them.
+
 Request:
 
 ```json
@@ -65,9 +71,14 @@ Response shape:
 Traceable references:
 
 - `packages/client/internal/transport/client.go:86-120`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:8-42`
+- `docs/src/features/go-client-rewrite/design.md`
 
 ### Heartbeat
+
+Heartbeat requests authenticate with the registration-issued device API token.
+Rate-limited devices receive HTTP `429`. Heartbeats update the server's
+`last_seen_at` view of the device, submit telemetry, and return any command or
+remote-access directives.
 
 Request:
 
@@ -104,9 +115,13 @@ Response shape:
 Traceable references:
 
 - `packages/client/internal/transport/client.go:123-187`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:43-106`
+- `docs/src/features/go-client-rewrite/design.md`
 
 ### Command Results
+
+Command results are correlated by `command_id`. A heartbeat or command-result
+batch that repeats a command identifier should not execute duplicate work; later
+duplicates are reported as `FAILED` with a `duplicate_command_id` reason.
 
 Request:
 
@@ -136,7 +151,7 @@ Traceable references:
 
 - `packages/client/internal/transport/client.go:189-200`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-19`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:107-141`
+- `docs/src/features/go-client-rewrite/design.md`
 
 ### Command Payload
 
@@ -154,7 +169,7 @@ Traceable references:
 
 - `packages/client/internal/transport/client.go:202-212`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:28-38`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:142-170`
+- `docs/src/features/go-client-rewrite/design.md`
 
 ## E2E API Mapping
 
@@ -169,7 +184,9 @@ Traceable references:
 | `POST /e2e/runs/:id/results` | `E2ERunResultController.create/2` | Submit results |
 | `GET /e2e/runs/:id/results/:journey_id/log` | `E2ERunResultController.log/2` | Fetch journey log |
 
-Run creation requires `X-E2E-Protocol-Version`.
+Run creation requires `X-E2E-Protocol-Version`; protocol version `1` is the
+default supported version. Legacy `client_version`/`server_version` fields are
+not accepted as the version-pairing contract.
 
 Traceable references:
 
@@ -224,7 +241,7 @@ Traceable references:
 
 ## Versioning Strategy
 
-- Device API contract document declares OpenAPI `version: 1.0.0`.
+- Device API is documented by this interface page and transport/controller tests.
 - E2E API run creation requires protocol version header `X-E2E-Protocol-Version`.
 - E2E JSONL logs use schema `e2e_log.v1` according to README.
 - Repository tooling currently installs Go `1.26.2` through `mise.toml`; the
@@ -232,7 +249,7 @@ Traceable references:
 
 Traceable references:
 
-- `specs/004-rewrite-client-go/contracts/device-api.yaml:1-5`
+- `docs/src/features/go-client-rewrite/design.md`
 - `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-25`
 - `README.md:123-135`
 - `packages/client/go.mod:1-13`

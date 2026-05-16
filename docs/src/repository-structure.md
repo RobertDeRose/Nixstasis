@@ -61,15 +61,14 @@
 - `packages/shared/e2e_log_viewer`:
   - Shared static E2E log viewer assets.
 
-## Specs and Workflows
+## Features and Workflows
 
-- `specs`: feature specifications, plans, data models, contracts, quickstarts, and task checklists.
+- `docs/src/features`: docs-driven feature designs and task history.
 - `.github/workflows`: build, release, E2E Pages, and config-check workflows.
-- `.specify`: spec-kit workflows, scripts, templates, and memory files.
 
 ## Separation of Concerns
 
 - Server code is isolated under `packages/server`.
 - Client code is isolated under `packages/client`.
 - Infrastructure and deployment configuration is isolated under `deploy/compose`, `packages/caddy`, and `packages/frp`.
-- Cross-cutting specs and repository automation live under `specs`, `.github`, and `.specify`.
+- Cross-cutting feature docs and repository automation live under `docs/src/features` and `.github`.

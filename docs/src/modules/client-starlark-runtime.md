@@ -26,8 +26,8 @@
 - `packages/client/internal/script/builtins_exec.go`
 - `packages/client/internal/script/builtins_mqtt.go`
 - `packages/client/cmd/nixstasis/install_script.go`
-- `specs/007-starlark-script-system/spec.md`
-- `specs/007-starlark-script-system/contracts/cli.md`
+- `docs/src/features/starlark-script-system/design.md`
+- `packages/client/README.md`
 
 ## Public Interfaces
 
@@ -78,6 +78,16 @@
 
 - Script outputs are transformed into telemetry reports during `pollOnce` and sent inside the heartbeat `telemetry` object.
 - Server-issued commands can install or remove scripts through `internal/commands.Handler`.
+- `.stary` scripts contain YAML front matter plus a Starlark body. Validation
+  compiles front matter schemas before installed scripts can contribute
+  telemetry.
+- Script execution is bounded: executions have a five-second timeout and emit a
+  slow-script warning after three seconds.
+- `script test` prints normalized YAML output on success and exits non-zero
+  without telemetry output when validation or execution fails.
+- Server command batches are correlated by command ID. Duplicate command IDs in a
+  batch are ignored after the first occurrence and reported as failed with a
+  `duplicate_command_id` reason.
 
 Traceable references:
 

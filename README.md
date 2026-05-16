@@ -24,7 +24,7 @@ Elixir/Phoenix, respectively.
 - `packages/caddy`: Caddy image and legacy packaging assets.
 - `packages/frp`: FRPS image build assets and shared FRP binary acquisition
   scripts used by server/client packaging flows.
-- `specs`: Feature specs and task checklists for the rewrites and ongoing work.
+- `docs/src/features`: Docs-driven feature designs and task history.
 
 ## Package READMEs
 
@@ -223,7 +223,7 @@ Files that make up this example journey:
 | Dashboard page | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex` | Server | Runs/results/log visualization. |
 | Migrations | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server | Schema for runs/results and reliability hardening fields. |
 | Seed script | `packages/server/priv/e2e/seed.exs` | Server | Baseline data reset before run acceptance. |
-| OpenAPI contract | `specs/008-server-client-e2e-tests/contracts/e2e-runs.openapi.yaml` | Both | Contract reference for endpoints/payloads/errors. |
+| E2E API docs | `docs/src/modules/server-e2e.md`, `docs/src/client-server-interface.md` | Both | Contract reference for endpoints/payloads/errors. |
 
 ## Architecture Overview
 
@@ -289,7 +289,7 @@ flowchart TB
     style Device fill:#F3E5F5,stroke:#4A148C,stroke-width:4px,color:#000
 ``` -->
 
-## Status Snapshot (from specs task checklists)
+## Status Snapshot
 
 - **Client rewrite (Go)**: Core functionality is implemented, including registration, heartbeat polling, command polling,
   FRP config rendering, script execution guardrails, and native packaging.

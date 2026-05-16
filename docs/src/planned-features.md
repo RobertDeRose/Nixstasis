@@ -71,6 +71,9 @@ production-like environment.
 
 - Document `exec_cmd` intent as deny-by-default and allowlist-gated by absolute
   executable path.
+- Move bespoke Phoenix controller APIs under Ash-backed actions/resources where
+  practical so their OpenAPI contracts can be generated from the same source of
+  truth as the `/api/json` surface.
 
 ## Feature Map
 
@@ -296,8 +299,8 @@ production-like environment.
 - `packages/client/internal/frp/manager.go`
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/scripts/check_runtime_contract.sh`
-- `specs/004-rewrite-client-go/contracts/device-api.yaml`
-- `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
+- `docs/src/client-server-interface.md`
+- `docs/src/modules/deployment-compose.md`
 - Suggested validation:
 - Server controller tests for `remote_access_token` omitted when remote access
     is false and present when true with `FRPS_AUTH_TOKEN` configured.
@@ -306,3 +309,72 @@ production-like environment.
 - Runtime contract check proving the Phoenix service receives
     `FRPS_AUTH_TOKEN`.
 - Suggested first workflow command: `/start-feature server-provided-frps-token`
+
+### `ash-api-contract-unification`
+
+- Status: planned
+- Overview:
+- Rework the custom Phoenix controller APIs that represent durable product
+    contracts so they are exposed through Ash actions/resources where practical,
+    allowing OpenAPI generation to become the source of truth for those APIs.
+    Keep explicitly workflow-only endpoints as Phoenix controllers only when Ash
+    would make the contract less clear.
+- Requirements:
+- Inventory every bespoke route under `/api/v1` and `/e2e` and classify it as
+    resource/action-oriented or workflow-only.
+- Move resource/action-oriented device, builder, and E2E APIs to Ash-backed
+    actions/resources or Ash JSON:API routes where the behavior maps cleanly.
+- Preserve current wire contracts for the Go client, Caddy `check_domain`, and
+    E2E harness unless a deliberate versioned contract change is documented.
+- Generate OpenAPI docs for the migrated Ash-backed APIs and remove duplicate
+    hand-maintained OpenAPI sections when the generated docs cover them fully.
+- Keep any remaining hand-written Phoenix controller contracts under
+    `docs/src/reference/openapi/` with an explicit reason why they are not
+    Ash-generated.
+- Constraints:
+- Do not break existing Go client registration, heartbeat, command result, or
+    command payload behavior without a versioned migration plan.
+- Do not force terminal, Caddy TLS approval, or E2E workflow endpoints into Ash
+    if a controller boundary is clearer or safer.
+- Maintain authentication and authorization semantics for device API keys,
+    Caddy/AuthCrunch, and E2E enablement gates.
+- Non-goals:
+- Replacing Ash JSON:API with a separate OpenAPI generator.
+- Converting browser LiveView routes to API routes.
+- Changing the public deployment or FRP runtime contract.
+- Success criteria:
+- Generated OpenAPI covers every API route that is implemented as an Ash-backed
+    product contract.
+- Remaining bespoke OpenAPI files only document endpoints that intentionally stay
+    outside Ash, with rationale in the reference docs.
+- Client/server integration tests prove the Go client and E2E harness still work
+    against the migrated API surface.
+- The Reference section clearly distinguishes generated Ash OpenAPI from any
+    retained bespoke contracts.
+- Risks and tradeoffs:
+- Some endpoints are protocol workflows rather than CRUD resources, and forcing
+    them into Ash may obscure behavior or complicate error handling.
+- Moving stable client APIs can create compatibility risk unless responses,
+    status codes, and auth failures remain byte-for-byte compatible or versioned.
+- Dependencies:
+- `packages/server/lib/nixstasis_web/router.ex`
+- `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_result_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/builder_schema_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
+- `packages/server/lib/nixstasis/domain.ex`
+- `packages/server/priv/static/openapi.yaml`
+- `docs/src/reference/openapi/`
+- Suggested validation:
+- Diff generated OpenAPI before/after and confirm migrated paths appear in the
+    generated document.
+- Run Go client transport tests and server controller/domain tests for each
+    migrated route.
+- Run the E2E harness against the migrated `/e2e` contract if E2E routes are
+    moved or wrapped by Ash.
+- Run `mdbook build docs` and ensure Reference links describe the final contract
+    source of truth.
+- Suggested first workflow command: `/start-feature ash-api-contract-unification`
