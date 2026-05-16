@@ -14,7 +14,7 @@ This page records missing, ambiguous, or conflicting signals observable from rep
 - Root prompt states Go 1.26, while `packages/client/go.mod` declares `go 1.25.4` and package guidance references Go 1.25.x.
 - `packages/server/README.md` says the `specs/005-enhance-device-list` work is pending, while implementation includes device list filtering, search, sorting, selection, and bulk approve/reject handlers.
 - `specs/012-improve-devices-modal/spec.md` describes device modal behavior, while current router includes `live "/devices/:id", DeviceLive.Show, :show` and API endpoints for `/api/v1/devices/:device_id/modal`.
-- README describes AuthCrunch group transforms as future TODO; current Caddyfile authorization policy allows roles `*`.
+- README describes AuthCrunch group transforms as future follow-up work; current Caddyfile authorization policy allows roles `*`.
 
 ## Conflicting Signals Between Code and Specs
 
