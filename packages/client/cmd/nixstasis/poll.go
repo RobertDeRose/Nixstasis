@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -75,9 +76,10 @@ func runPoll(cfg *config.Config) error {
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)
+	pollState := &remoteAccessPollState{}
 
 	// Run immediately once
-	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
+	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
@@ -91,7 +93,7 @@ func runPoll(cfg *config.Config) error {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return nil
 		case <-timer.C:
-			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime); err != nil {
+			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
@@ -159,7 +161,28 @@ func backoffDelay(failures int, base time.Duration) time.Duration {
 	return d
 }
 
-func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client, executor *script.Executor, frpManager *frp.Manager, cmdHandler *commands.Handler, uuid string, startTime time.Time) error {
+type pollClient interface {
+	Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*transport.PollResponse, error)
+	SendCommandResults(ctx context.Context, uuid string, results []transport.CommandResult) error
+	FetchCommandPayload(ctx context.Context, uuid, ref string) (*transport.CommandPayload, error)
+}
+
+type scriptRunner interface {
+	ExecuteScripts(ctx context.Context, scripts []script.ScriptInfo) (map[string]script.ScriptResult, error)
+}
+
+type frpController interface {
+	Start(configPath string, frpConfig config.FRPConfig) error
+	Stop() error
+	GetStatus() frp.ConnectionStatus
+}
+
+type remoteAccessPollState struct {
+	tokenHash string
+}
+
+//nolint:gocyclo // Poll orchestration intentionally keeps telemetry, commands, and FRP decisions in one cycle.
+func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, executor scriptRunner, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
@@ -215,13 +238,26 @@ func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client,
 	// the status snapshot sent in the telemetry payload above.
 	currentFRPStatus := frpManager.GetStatus()
 
-	if resp.RemoteAccessRequested {
-		if !currentFRPStatus.Active {
-			slog.Info("Server requested remote access, starting FRP")
-			configPath := config.FRPCConfigPath()
-			frpConfig := runtimeFRPConfig(cfg.FRP, mac)
-			if err := frpManager.Start(configPath, frpConfig); err != nil {
-				slog.Error("Failed to start FRP", "error", err)
+	switch {
+	case resp.RemoteAccessToken != "":
+		remoteAccessTokenHash := tokenHash(resp.RemoteAccessToken)
+		switch {
+		case !currentFRPStatus.Active:
+			startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+		case state != nil && state.tokenHash != "" && state.tokenHash != remoteAccessTokenHash:
+			slog.Info("Server remote access token changed, restarting FRP")
+			if err := frpManager.Stop(); err != nil {
+				slog.Error("Failed to stop FRP before restart", "error", err)
+			} else {
+				state.tokenHash = ""
+				startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+			}
+		case state != nil && state.tokenHash == "":
+			slog.Info("Server remote access token state unknown, restarting FRP")
+			if err := frpManager.Stop(); err != nil {
+				slog.Error("Failed to stop FRP before restart", "error", err)
+			} else {
+				startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
 			}
 		}
 	default:
@@ -229,22 +265,46 @@ func pollOnce(ctx context.Context, cfg *config.Config, client *transport.Client,
 			slog.Info("Server disabled remote access, stopping FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP", "error", err)
+			} else if state != nil {
+				state.tokenHash = ""
 			}
+		} else if state != nil {
+			state.tokenHash = ""
 		}
 	}
 
 	return nil
 }
 
+func startFRP(frpManager frpController, cfg *config.Config, mac, authToken, authTokenHash string, state *remoteAccessPollState) {
+	slog.Info("Server requested remote access, starting FRP")
+	configPath := config.FRPCConfigPath()
+	frpConfig := runtimeFRPConfig(cfg.FRP, mac)
+	frpConfig.AuthToken = authToken
+	if err := frpManager.Start(configPath, frpConfig); err != nil {
+		slog.Error("Failed to start FRP", "error", err)
+		return
+	}
+	if state != nil {
+		state.tokenHash = authTokenHash
+	}
+}
+
+func tokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return fmt.Sprintf("%x", sum[:])
+}
+
 func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
 	frpConfig := base
+	frpConfig.AuthToken = ""
 	if frpConfig.Name == "" {
 		frpConfig.Name = identity.GenerateDeviceName(mac)
 	}
 	return frpConfig
 }
 
-func runScripts(ctx context.Context, executor *script.Executor, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
+func runScripts(ctx context.Context, executor scriptRunner, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
 	scripts = script.SelectLatestScripts(scripts)
 
 	scriptStart := time.Now()

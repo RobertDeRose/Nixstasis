@@ -36,21 +36,21 @@
 
 ## Client Implementation
 
-- [ ] T010 Update `transport.PollResponse` to use `RemoteAccessToken string`
+- [x] T010 Update `transport.PollResponse` to use `RemoteAccessToken string`
   mapped to `remote_access_token`.
-- [ ] T011 Update `pollOnce` to start FRPC when `RemoteAccessToken` is non-empty
+- [x] T011 Update `pollOnce` to start FRPC when `RemoteAccessToken` is non-empty
   and set `frpConfig.AuthToken` from that response token.
-- [ ] T012 Update `pollOnce` to stop FRPC when `RemoteAccessToken` is empty and
+- [x] T012 Update `pollOnce` to stop FRPC when `RemoteAccessToken` is empty and
   FRPC is currently active.
-- [ ] T013 Ensure `runtimeFRPConfig` does not derive or fallback auth tokens from
+- [x] T013 Ensure `runtimeFRPConfig` does not derive or fallback auth tokens from
   device runtime credentials.
-- [ ] T014 Update client poll/transport tests for token-present and token-absent
+- [x] T014 Update client poll/transport tests for token-present and token-absent
   behavior.
-- [ ] T015 Keep FRP manager validation requiring a non-empty auth token for actual
+- [x] T015 Keep FRP manager validation requiring a non-empty auth token for actual
   starts.
-- [ ] T015a Confirm client start behavior still passes the token via systemd
+- [x] T015a Confirm client start behavior still passes the token via systemd
   `LoadCredential`, not `systemd-run --setenv`.
-- [ ] T015b Update FRP manager comments so `--setenv` is documented as carrying
+- [x] T015b Update FRP manager comments so `--setenv` is documented as carrying
   only non-secret frpc template values, while `FRPS_AUTH_TOKEN` uses systemd
   credentials.
 
