@@ -173,8 +173,8 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 2. Run `build_installer.sh` for `amd64` and `arm64`.
 3. `.run` files are written to `dist/`.
 4. For snapshot builds: `dist/` is already uploaded as `nixstasis-client-snapshot`.
-5. For tag builds: GoReleaser handles release artifact upload; `.run` files need
-   an additional `gh release upload` step or `actions/upload-artifact` attachment.
+5. For tag builds: GoReleaser builds artifacts with publishing skipped, then the
+   workflow creates the GitHub release with the verified files from `dist/`.
 
 ### Verification Extension
 
