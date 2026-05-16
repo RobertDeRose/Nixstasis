@@ -62,4 +62,5 @@
 - [API & Runtime Contracts](reference/contracts.md)
   - [OpenAPI Contracts](reference/openapi/index.md)
 - [Task Reference](reference/tasks.md)
+- [Agent Workflows](reference/agent-workflows.md)
 - [Client-Server Interface](client-server-interface.md)
