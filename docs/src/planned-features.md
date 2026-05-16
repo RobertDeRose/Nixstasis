@@ -222,3 +222,82 @@ production-like environment.
   - Manual smoke test on Alpine or Arch to confirm FHS placement without
     `dpkg`/`rpm`.
 - Suggested first workflow command: `/start-feature self-extracting-installer`
+
+### `server-provided-frps-token`
+
+- Status: planned
+- Overview:
+  - Move the remote-access trigger from a boolean heartbeat response flag to a
+    server-provided FRPS auth token. When the server wants a client to open
+    remote access, the heartbeat response includes the shared FRPS token. The
+    client treats the presence of that token as the start signal, passes it to
+    the transient unit through a systemd credential, and stops FRPC when the
+    token is absent.
+- Requirements:
+  - Replace `remote_access_requested` in the device heartbeat response contract
+    with `remote_access_token`.
+  - Include `remote_access_token` only when remote access is currently requested
+    for the device.
+  - Make the Phoenix server read the shared FRPS token from deployment
+    configuration and expose it only to authenticated device heartbeat responses
+    that need remote access.
+  - Make the Compose `nixstasis` service receive the same `FRPS_AUTH_TOKEN` as
+    the `frps` service.
+  - Make the Go client start FRPC when `remote_access_token` is non-empty and
+    use that value as `FRPS_AUTH_TOKEN` for frpc template expansion.
+  - Make the Go client stop FRPC when `remote_access_token` is absent or empty.
+  - Keep the device runtime API token separate from the FRPS auth token.
+- Constraints:
+  - The current FRPS deployment uses upstream FRP token auth with one shared
+    `FRPS_AUTH_TOKEN`.
+  - Do not add an FRPS authentication plugin or per-device FRPS tokens in this
+    feature.
+  - Do not persist the FRPS token in client config or identity files.
+  - The client-owned `frpc.toml` continues to use `{{ .Envs.FRPS_AUTH_TOKEN }}`
+    and frpc-native environment expansion.
+  - The client continues launching FRPC through the `nixstasis-frpc` transient
+    systemd unit.
+- Non-goals:
+  - Replacing FRP token authentication.
+  - Implementing per-device FRPS auth or revocation.
+  - Changing browser terminal authorization.
+  - Changing how operators request or close remote access in the UI beyond the
+    heartbeat response payload.
+- Success criteria:
+  - A heartbeat for a device without requested remote access returns no FRPS
+    token and the client stops or leaves FRPC stopped.
+  - A heartbeat for a device with requested remote access returns the configured
+    FRPS token and the client starts FRPC with that token in the transient unit
+    credential path.
+  - The device API token is never used as the FRPS token.
+  - Server and client tests cover both token-present and token-absent response
+    paths.
+  - Runtime contract documentation identifies `FRPS_AUTH_TOKEN` as consumed by
+    both `frps` and `nixstasis`.
+- Risks and tradeoffs:
+  - Returning a shared FRPS token to a device exposes that token to the managed
+    host during the active remote-access lease.
+  - A shared token keeps FRPS deployment simple but cannot revoke a single
+    device independently at the FRPS layer.
+  - If `FRPS_AUTH_TOKEN` is missing from the server environment while remote
+    access is requested, clients cannot open FRPC even though the UI requested
+    access.
+- Dependencies:
+  - `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`
+  - `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`
+  - `packages/client/internal/transport/client.go`
+  - `packages/client/cmd/nixstasis/poll.go`
+  - `packages/client/cmd/nixstasis/poll_test.go`
+  - `packages/client/internal/frp/manager.go`
+  - `deploy/compose/docker-compose.yml`
+  - `deploy/compose/scripts/check_runtime_contract.sh`
+  - `specs/004-rewrite-client-go/contracts/device-api.yaml`
+  - `specs/013-nixstasis-packaging-migration/contracts/compose-runtime-contract.md`
+- Suggested validation:
+  - Server controller tests for `remote_access_token` omitted when remote access
+    is false and present when true with `FRPS_AUTH_TOKEN` configured.
+  - Client transport/poll tests for starting FRPC with heartbeat-provided token.
+  - Client poll tests for stopping FRPC when the token is absent.
+  - Runtime contract check proving the Phoenix service receives
+    `FRPS_AUTH_TOKEN`.
+- Suggested first workflow command: `/start-feature server-provided-frps-token`
