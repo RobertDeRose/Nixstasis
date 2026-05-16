@@ -57,6 +57,9 @@
 - Heartbeat controller passes client telemetry and connection status into `Monitoring.heartbeat/2`.
 - `Monitoring.heartbeat/2` updates device `last_seen_at`, persists telemetry, evaluates rules, and returns queued commands to the client.
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
+- Offline timing is runtime-configured through settings instead of hard-coded in
+  the module docs. See [Data Flow](../data-flow.md) for the heartbeat and
+  offline-check sequence.
 
 Traceable references:
 

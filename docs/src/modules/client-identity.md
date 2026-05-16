@@ -10,7 +10,8 @@
 
 ## Purpose
 
-- Detects primary MAC/IP identity, generates device names, persists server-assigned UUIDs, and loads UUIDs for polling.
+- Detects primary MAC/IP identity, generates device names, persists
+  server-assigned runtime credentials, and loads those credentials for polling.
 
 ## Key Files
 
@@ -27,13 +28,16 @@
 
 - Types:
   - `DeviceIdentity`
+  - `Credentials`
   - `Store`
 - Functions and methods:
   - `GetPrimaryMAC`
   - `GetPrimaryIP`
   - `GenerateDeviceName`
   - `NewStore`
+  - `(*Store).Load`
   - `(*Store).LoadUUID`
+  - `(*Store).Save`
   - `(*Store).SaveUUID`
   - `config.IdentityPath`
 
@@ -51,10 +55,18 @@
 ## Client-Server Interaction Details
 
 - `register` detects MAC/IP and sends identity data to `POST /api/v1/devices/register`.
-- `poll` loads the stored UUID from `/etc/nixstasis/id` via `config.IdentityPath()` before sending heartbeat requests.
+- Approved registration responses include an API token. The client stores UUID
+  and token together as JSON at `config.IdentityPath()` with owner-only file
+  permissions.
+- Legacy identity files that contain only a UUID are still readable, but runtime
+  heartbeat, command-result, and command-payload requests require the stored API
+  token once the device is approved.
+- `poll` loads stored credentials from `/etc/nixstasis/id` via
+  `config.IdentityPath()` before sending heartbeat requests.
 
 Traceable references:
 
 - `packages/client/cmd/nixstasis/register.go:28-93`
 - `packages/client/cmd/nixstasis/poll.go:38-47`
+- `packages/client/internal/identity/store.go:18-157`
 - `packages/client/internal/config/config.go:116-119`

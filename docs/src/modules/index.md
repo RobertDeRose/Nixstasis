@@ -28,3 +28,6 @@ This section documents repository modules by runtime context.
 - [Edge FRP](edge-frp.md)
 - [Deployment Compose](deployment-compose.md)
 - [Shared E2E Log Viewer](shared-e2e-log-viewer.md)
+
+Deployment-facing operation docs are surfaced under Operations in the book
+summary; this module index stays organized by runtime context.

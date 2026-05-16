@@ -87,6 +87,20 @@
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 
+## Data Model Notes
+
+- Device records carry stable identity and operational fields such as MAC
+  address, product/product name, account number, approval status, schema
+  definition, last-seen/last-polled timestamps, metadata, and remote-access
+  intent.
+- Telemetry and schema data intentionally remain dynamic JSON structures so
+  product-specific Stary scripts can evolve without one relational table per
+  product payload.
+- Detailed historical product requirements live in
+  [IoT Device Monitoring](../features/iot-device-monitoring/design.md) and
+  [Device Detail Page](../features/device-detail-page/design.md); runtime API
+  payloads live in [Client-Server Interface](../client-server-interface.md).
+
 Traceable references:
 
 - `packages/server/lib/nixstasis/devices.ex:1-360`
