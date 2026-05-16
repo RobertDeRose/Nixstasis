@@ -10,6 +10,22 @@ paths:
       responses:
         "200":
           description: Suite list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        journey_ids:
+                          type: array
+                          items:
+                            type: string
   /e2e/runs:
     get:
       summary: List E2E runs
@@ -44,12 +60,31 @@ paths:
       responses:
         "201":
           description: Run created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
         "400":
           description: Invalid request or action/expect pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
         "409":
           description: Environment is locked by another active run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
         "422":
           description: Protocol mismatch, seed failure, or persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
   /e2e/runs/{run_id}:
     get:
       summary: Fetch E2E run details
@@ -62,6 +97,15 @@ paths:
       responses:
         "200":
           description: Run details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
+        "404":
+          description: Run not found
   /e2e/runs/{run_id}/cancel:
     post:
       summary: Cancel an in-progress E2E run
@@ -74,6 +118,21 @@ paths:
       responses:
         "202":
           description: Cancellation accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
+        "404":
+          description: Run not found
+        "422":
+          description: Persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
   /e2e/runs/{run_id}/results:
     get:
       summary: List journey results for a run
@@ -86,6 +145,17 @@ paths:
       responses:
         "200":
           description: Result list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERunResult"
+        "404":
+          description: Run not found
     post:
       summary: Submit journey results for a run
       parameters:
@@ -109,10 +179,29 @@ paths:
       responses:
         "202":
           description: Results accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERunResult"
         "400":
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+        "404":
+          description: Run not found
         "422":
           description: Persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
   /e2e/runs/{run_id}/results/{journey_id}/log:
     get:
       summary: Fetch retained log content for one journey result
@@ -130,8 +219,28 @@ paths:
       responses:
         "200":
           description: Log content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      run_id:
+                        type: string
+                      journey_id:
+                        type: string
+                      content:
+                        type: string
+        "404":
+          description: Run, result, or log not found
         "410":
           description: Log unavailable because it was pruned or missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
 components:
   schemas:
     E2ERunCreateRequest:
@@ -173,12 +282,13 @@ components:
             type: string
         environment_label:
           type: string
+        trigger_source:
+          $ref: "#/components/schemas/TriggerSource"
         protocol_version:
           type: string
           example: "1"
         status:
-          type: string
-          enum: [queued, running, passed, failed, cancelled, blocked]
+          $ref: "#/components/schemas/E2ERunStatus"
         started_at:
           type: string
           format: date-time
@@ -204,3 +314,59 @@ components:
           nullable: true
         duration_ms:
           type: integer
+    E2ERunResult:
+      type: object
+      properties:
+        id:
+          type: string
+        journey_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, passed, failed, cancelled, blocked, skipped]
+        failure_step:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        log_ref:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+    E2ERunStatus:
+      type: string
+      enum: [queued, running, passed, failed, cancelled, blocked]
+    TriggerSource:
+      type: string
+      enum: [manual, ci]
+    TypedErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - protocol_mismatch
+                - environment_locked
+                - invalid_action_expectation
+                - invalid_request
+                - seed_failed
+                - database_error
+                - log_unavailable
+            message:
+              type: string
+            details:
+              oneOf:
+                - type: string
+                - type: object
+                  additionalProperties: true

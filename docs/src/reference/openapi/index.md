@@ -11,6 +11,7 @@ bespoke routes, so their contracts live here.
   deferred command payloads, device list filtering, and TLS domain approval.
 - [Builder API](builder-api.yaml): schema option lookup and builder selection
   validation.
+- [Report API](report-api.yaml): custom report result preview data.
 - [E2E API](e2e-api.yaml): E2E run lifecycle, results, logs, cancellation, and
   protocol-version requirements.
 

@@ -56,7 +56,8 @@
 
 ## Client-Server Interaction Details
 
-- The server sets `remote_access_requested` on devices.
+- The server stores remote-access intent on devices and exposes the active FRPS
+  token to clients only through heartbeat `remote_access_token` responses.
 - Client polling reads heartbeat `remote_access_token` values and starts/stops
   FRPC through a transient systemd unit. A missing or empty token means FRPC
   should stop or remain stopped.
