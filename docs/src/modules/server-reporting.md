@@ -54,6 +54,12 @@
 
 - Reporting is primarily used by browser LiveView routes under `/reports`.
 - Custom reports are also exposed through Ash JSON:API under `/api/json/custom_reports`.
+- Report list/detail interaction requirements, including filtering, sorting,
+  delete confirmation, and saved view preferences, are captured in
+  [Report View Improvements](../features/report-view-improvements/design.md).
+- Schema-aware alert/report builder option lookup and invalid-selection clearing
+  behavior is captured in
+  [Schema-Driven Builder Dropdowns](../features/schema-driven-builder-dropdowns/design.md).
 
 Traceable references:
 
