@@ -77,7 +77,10 @@ Traceable references:
 
 - Stary/Starlark scripts are external script content read from configured script directories or installed command payloads.
 - Script installation validates front matter and JSON schema before writing installed script files.
-- Script execution runs with Starlark builtins that can interact with MQTT and, when allowed by runtime configuration, OS command execution.
+- Script execution runs with Starlark builtins that can interact with MQTT.
+- OS command execution through `exec_cmd` is deny-by-default and only available
+  when the client runtime configuration maps a requested command name to an
+  absolute allowlisted executable path.
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:

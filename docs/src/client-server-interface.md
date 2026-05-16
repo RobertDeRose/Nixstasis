@@ -227,7 +227,8 @@ Traceable references:
 - Device API contract document declares OpenAPI `version: 1.0.0`.
 - E2E API run creation requires protocol version header `X-E2E-Protocol-Version`.
 - E2E JSONL logs use schema `e2e_log.v1` according to README.
-- Client Go module declares `go 1.25.4` in `go.mod`.
+- Repository tooling currently installs Go `1.26.2` through `mise.toml`; the
+  client module target is `go 1.26` in `go.mod`.
 
 Traceable references:
 

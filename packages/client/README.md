@@ -20,8 +20,8 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ### Prerequisites
 
-- Go 1.25+
-- Make
+- Go 1.26+
+- mise
 
 ### Commands
 
