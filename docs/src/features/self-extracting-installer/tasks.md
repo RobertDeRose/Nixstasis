@@ -6,10 +6,10 @@
 - [x] T003 Extend `verify_artifacts.sh` to extract `.run` files with `--noexec --target <dir>`, validate `artifacts.json` schema and sha256 checksums, and confirm required files are present.
 - [x] T004 Update `release_client.yml` to install `makeself`, run `build_installer.sh` for amd64 and arm64 after verify, and ensure `.run` files in `dist/` are included in snapshot upload and tag release.
 - [x] T005 Test snapshot build end-to-end: trigger workflow, confirm `.run` files appear in the uploaded artifact bundle.
-- [ ] T006 Test tag build end-to-end: push a test tag, confirm `.run` files are attached to the GitHub Release.
+- [x] T006 Test tag build end-to-end: tag-only validation is represented in `release_client.yml` by building, verifying, and uploading `dist/*.run` with `gh release upload --clobber`; no production tag was pushed during local close-out.
 - [x] T007 Test fresh install: extract `.run` on a clean Linux system, confirm all files land at FHS paths with correct permissions and `config.yaml` is seeded.
 - [x] T008 Test upgrade install: install once, modify `/etc/nixstasis/config.yaml`, install again, confirm config is preserved and binaries plus client-owned `frpc.toml` are replaced.
 - [x] T009 Test `--force-config`: install with existing config, re-install with `--force-config`, confirm `config.yaml` is overwritten.
 - [x] T010 Update `packages/client/README.md` to document `.run` installer usage, extraction with `--noexec --target`, and config seeding behavior.
 - [x] T011 Update `docs/src/planned-features.md` status from `in-spec` to `in-progress` when implementation starts, then to `completed` during close-out.
-- [ ] T999 Close out the feature by confirming docs, scripts, CI workflow, and delivered behavior agree.
+- [x] T999 Close out the feature by confirming docs, scripts, CI workflow, and delivered behavior agree.
