@@ -17,6 +17,30 @@
 - Client FRPC to FRPS:
   - FRP tunnel protocol through configured FRPS ports.
 
+## Rate Limiting
+
+All `/api/v1` and `/api/json` requests are rate-limited per device (or per
+remote IP when no device identity is available).
+
+| Scope | Default Limit | Window |
+| --- | --- | --- |
+| Heartbeat (`POST .../heartbeat`) | 30 requests | 60 seconds |
+| Other API requests | 120 requests | 60 seconds |
+
+When the limit is exceeded the server responds with HTTP `429` and body:
+
+```json
+{"error": {"code": "rate_limited", "message": "Rate limit exceeded"}}
+```
+
+Limits are configurable via application config (`:nixstasis, :rate_limit`
+keyword list with `:limit` and `:window_ms` keys).
+
+Traceable references:
+
+- `packages/server/lib/nixstasis_web/plugs/rate_limiter.ex`
+- `packages/server/lib/nixstasis_web/rate_limiter_store.ex`
+
 ## Go Client to Phoenix Endpoint Mapping
 
 | Go Method | HTTP Endpoint | Server Handler | Purpose |

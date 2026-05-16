@@ -17,6 +17,8 @@ services:
       NIXSTASIS_TLS_OBSERVATIONS_TOKEN: ${NIXSTASIS_TLS_OBSERVATIONS_TOKEN:-}
       NIXSTASIS_E2E_ENABLED: ${NIXSTASIS_E2E_ENABLED:-false}
       FRPS_AUTH_TOKEN: ${FRPS_AUTH_TOKEN}
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${PORT:-4000}:${PORT:-4000}"
     depends_on:
       postgres:
         condition: service_healthy
