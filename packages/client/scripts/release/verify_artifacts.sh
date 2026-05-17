@@ -65,15 +65,20 @@ list_rpm_members() {
 verify_installer_members() {
   extract_dir="$1"
 
-  require_file "$extract_dir/install.sh"
-  require_file "$extract_dir/nixstasis"
-  require_file "$extract_dir/frpc"
-  require_file "$extract_dir/frpc.toml"
-  require_file "$extract_dir/config.example.yaml"
-  require_file "$extract_dir/nixstasis-poll.service"
-  require_file "$extract_dir/nixstasis-poll.path"
-  require_file "$extract_dir/nixstasis-registration.service"
-  verify_installer_manifest "$extract_dir"
+  [ ! -e "$extract_dir/nixstasis" ] || fail "installer must not contain root file: nixstasis"
+  [ ! -e "$extract_dir/postinstall.sh" ] || fail "installer must not contain root file: postinstall.sh"
+  require_file "$extract_dir/makeself-entrypoint.sh"
+  require_file "$extract_dir/usr/bin/nixstasis"
+  require_file "$extract_dir/usr/libexec/nixstasis/frpc"
+  require_file "$extract_dir/usr/libexec/nixstasis/postinstall.sh"
+  require_file "$extract_dir/usr/libexec/nixstasis/makeself-cleanup.sh"
+  require_file "$extract_dir/usr/share/nixstasis/frpc.toml"
+  require_file "$extract_dir/usr/share/nixstasis/config.example.yaml"
+  require_file "$extract_dir/lib/systemd/system/nixstasis-poll.service"
+  require_file "$extract_dir/lib/systemd/system/nixstasis-poll.path"
+  require_file "$extract_dir/lib/systemd/system/nixstasis-registration.service"
+  [ -x "$extract_dir/usr/bin/nixstasis" ] || fail "installer member is not executable: $extract_dir/usr/bin/nixstasis"
+  [ -x "$extract_dir/usr/libexec/nixstasis/frpc" ] || fail "installer member is not executable: $extract_dir/usr/libexec/nixstasis/frpc"
 }
 
 verify_common_members() {
