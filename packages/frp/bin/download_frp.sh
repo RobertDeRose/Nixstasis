@@ -46,10 +46,9 @@ else
   DOWNLOAD_VERSION="${VERSION}"
 fi
 
-# GitHub API URL for releases
-API_URL="https://api.github.com/repos/${REPO}/releases/tags/v${DOWNLOAD_VERSION}"
 ASSET_NAME="frp_${DOWNLOAD_VERSION}_linux_${ARCH}.tar.gz"
 BASE_URL="https://github.com/${REPO}/releases/download/v${DOWNLOAD_VERSION}"
+ASSET_URL="$BASE_URL/$ASSET_NAME"
 CHECKSUMS_URL="$BASE_URL/frp_sha256_checksums.txt"
 case "$ARCH" in
   amd64) PINNED_SHA256="${FRP_LINUX_AMD64_SHA256:-}" ;;
@@ -59,21 +58,6 @@ esac
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
-
-# Get release data
-RELEASE_DATA=$(curl -fsS "$API_URL")
-
-# Find the download URL for the binary
-ASSET_URL=$(echo "$RELEASE_DATA" | jq -r \
-  --arg ASSET_NAME "$ASSET_NAME" '.assets[] | select(.name == $ASSET_NAME) | .browser_download_url')
-
-if [[ -z ${ASSET_URL} ]]; then
-  fail "No asset found for $ASSET_NAME in version $VERSION."
-fi
-
-if [[ $(echo "$ASSET_URL" | wc -l | tr -d ' ') -ne 1 ]]; then
-  fail "Expected exactly one asset URL for $ASSET_NAME."
-fi
 
 ARCHIVE_PATH=$(mktemp "${TMPDIR:-/tmp}/frp.XXXXXX.tar.gz")
 CHECKSUMS_PATH=$(mktemp "${TMPDIR:-/tmp}/frp-checksums.XXXXXX")
