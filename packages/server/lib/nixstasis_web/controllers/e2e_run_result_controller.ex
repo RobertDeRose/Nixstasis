@@ -1,12 +1,14 @@
 defmodule NixstasisWeb.E2ERunResultController do
   use NixstasisWeb, :controller
 
+  require Logger
+
   alias Nixstasis.E2E
 
   def index(conn, %{"id" => run_id}) do
-    case E2E.get_run(run_id) do
+    case e2e_context().get_run(run_id) do
       {:ok, _run} ->
-        results = E2E.list_results(run_id)
+        results = e2e_context().list_results(run_id)
         render(conn, :index, results: results)
 
       {:error, :not_found} ->
@@ -15,7 +17,7 @@ defmodule NixstasisWeb.E2ERunResultController do
   end
 
   def create(conn, %{"id" => run_id, "results" => results}) when is_list(results) do
-    case E2E.submit_results(run_id, results) do
+    case e2e_context().submit_results(run_id, results) do
       {:ok, %{results: updated_results}} ->
         conn
         |> put_status(:accepted)
@@ -30,9 +32,11 @@ defmodule NixstasisWeb.E2ERunResultController do
         |> json(error_payload("invalid_request", message))
 
       {:error, {:database_error, reason}} ->
+        Logger.error("Failed to update E2E results for run #{run_id}: #{inspect(reason)}")
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(error_payload("database_error", "Failed to update results", inspect(reason)))
+        |> json(error_payload("database_error", "Failed to update results."))
     end
   end
 
@@ -43,7 +47,7 @@ defmodule NixstasisWeb.E2ERunResultController do
   end
 
   def log(conn, %{"id" => run_id, "journey_id" => journey_id}) do
-    case E2E.fetch_result_log(run_id, journey_id) do
+    case e2e_context().fetch_result_log(run_id, journey_id) do
       {:ok, content} ->
         json(conn, %{data: %{run_id: run_id, journey_id: journey_id, content: content}})
 
@@ -57,8 +61,7 @@ defmodule NixstasisWeb.E2ERunResultController do
     end
   end
 
-  defp error_payload(code, message, details \\ nil) do
-    payload = %{error: %{code: code, message: message}}
-    if details, do: put_in(payload, [:error, :details], details), else: payload
-  end
+  defp error_payload(code, message), do: %{error: %{code: code, message: message}}
+
+  defp e2e_context, do: Application.get_env(:nixstasis, :e2e_context, E2E)
 end

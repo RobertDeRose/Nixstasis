@@ -1,0 +1,15 @@
+bindPort = "__FRPS_BIND_PORT__"
+
+auth.method = "token"
+auth.token = "__FRPS_AUTH_TOKEN__"
+
+webServer.port = "__FRPS_DASHBOARD_PORT__"
+webServer.user = "__FRPS_DASHBOARD_USER__"
+webServer.password = "__FRPS_DASHBOARD_PASSWORD__"
+
+log.to = "console"
+log.level = "info"
+
+tcpmuxHTTPConnectPort = "__FRPS_TCPMUX_PORT__"
+vhostHTTPPort = "__FRPS_HTTP_PORT__"
+subDomainHost = "__BASE_DOMAIN__"

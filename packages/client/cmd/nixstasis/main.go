@@ -2,27 +2,29 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime/trace"
+
+	"github.com/spf13/cobra"
 
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/logging"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var cfg *config.Config
+type configContextKey struct{}
 
 var rootCmd = &cobra.Command{
 	Use:           "nixstasis",
-	Short:         "Nixstasis Client for IoT Monitoring",
+	Short:         "Nixstasis client for IoT monitoring",
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		var err error
 		var defaultCfg *config.Config
+		var cfg *config.Config
 
 		defaultCfg, err = config.GetDefaultConfig()
 		if err != nil {
@@ -31,22 +33,16 @@ var rootCmd = &cobra.Command{
 		logging.Setup(defaultCfg.Log.Level, defaultCfg.Log.Format)
 
 		if shouldSkipConfig(cmd) {
-			cfg = defaultCfg
+			cmd.SetContext(context.WithValue(cmd.Context(), configContextKey{}, defaultCfg))
 			return nil
 		}
 
 		cfg, err = config.Load()
 		if err != nil {
-			var configFileNotFoundErr viper.ConfigFileNotFoundError
-			if errors.As(err, &configFileNotFoundErr) {
-				slog.Warn("No configuration file found, using defaults")
-				cfg = defaultCfg
-			} else {
-				return fmt.Errorf("failed to load configuration: %w", err)
-			}
-		} else {
-			slog.Debug("Configuration loaded", "config", cfg)
+			return fmt.Errorf("failed to load configuration: %w", err)
 		}
+		slog.Debug("Configuration loaded", "config", cfg)
+		cmd.SetContext(context.WithValue(cmd.Context(), configContextKey{}, cfg))
 
 		return nil
 	},
@@ -57,7 +53,7 @@ func main() {
 }
 
 func runMain() int {
-	// Go 1.25 Flight Recorder
+	// Go 1.26 Flight Recorder
 	// Capture execution traces in a ring buffer
 	rec := trace.NewFlightRecorder(trace.FlightRecorderConfig{})
 
@@ -69,6 +65,9 @@ func runMain() int {
 	defer rec.Stop()
 
 	if err := run(); err != nil {
+		if shouldWriteFlightRecorderTrace() {
+			writeFlightRecorderTrace(rec)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -78,6 +77,51 @@ func runMain() int {
 
 func run() error {
 	return rootCmd.Execute()
+}
+
+func commandConfig(cmd *cobra.Command) (*config.Config, error) {
+	if cmd == nil {
+		return nil, fmt.Errorf("command is nil")
+	}
+	cfg, ok := cmd.Context().Value(configContextKey{}).(*config.Config)
+	if !ok || cfg == nil {
+		return nil, fmt.Errorf("config not loaded")
+	}
+	return cfg, nil
+}
+
+func shouldWriteFlightRecorderTrace() bool {
+	return os.Getenv("NIXSTASIS_WRITE_TRACE_ON_ERROR") == "true"
+}
+
+func writeFlightRecorderTrace(rec *trace.FlightRecorder) {
+	dir := filepath.Join(os.TempDir(), "nixstasis")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create trace directory: %v\n", err)
+		return
+	}
+
+	f, err := os.CreateTemp(dir, "trace-*.out")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create trace file: %v\n", err)
+		return
+	}
+	success := false
+	defer func() {
+		if !success {
+			if err := os.Remove(f.Name()); err != nil && !os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "failed to remove incomplete trace file: %v\n", err)
+			}
+		}
+	}()
+	defer f.Close()
+
+	if _, err := rec.WriteTo(f); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write flight recorder trace: %v\n", err)
+		return
+	}
+	success = true
+	fmt.Fprintf(os.Stderr, "flight recorder trace written to %s\n", f.Name())
 }
 
 func shouldSkipConfig(cmd *cobra.Command) bool {

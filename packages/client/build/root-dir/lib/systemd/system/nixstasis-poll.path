@@ -1,5 +1,5 @@
 [Unit]
-Description=Watch if Nixstasis Registration is added
+Description=Watch for Nixstasis registration
 
 [Path]
 PathExists=/etc/nixstasis/id

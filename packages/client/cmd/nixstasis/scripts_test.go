@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +27,11 @@ func TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds(t *testing.
 	tempDir := t.TempDir()
 	t.Setenv("HOME", tempDir)
 
-	cfg = &config.Config{Scripts: config.ScriptsConfig{Dir: tempDir}}
+	listScriptsCmd.SetContext(context.WithValue(
+		context.Background(),
+		configContextKey{},
+		&config.Config{Scripts: config.ScriptsConfig{Dir: tempDir}},
+	))
 
 	sourcePath := filepath.Join(tempDir, "source.stary")
 	if err := os.WriteFile(sourcePath, []byte(testScript), 0o644); err != nil {
@@ -42,7 +47,7 @@ func TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds(t *testing.
 		t.Fatalf("install script: %v", err)
 	}
 
-	installDir := filepath.Join(tempDir, ".nixstasis", "scripts")
+	installDir := filepath.Join(tempDir, ".config", "nixstasis", "scripts")
 	installedPath := filepath.Join(installDir, "test_script.stary")
 	if _, err := os.Stat(installedPath); err != nil {
 		t.Fatalf("expected installed script, got %v", err)

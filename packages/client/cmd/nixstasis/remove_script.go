@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 )
 
 var removeScriptCmd = &cobra.Command{

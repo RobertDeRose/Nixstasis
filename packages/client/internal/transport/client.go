@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"slices"
 	"time"
 
@@ -18,10 +20,14 @@ import (
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/telemetry"
 )
 
+// ErrDevicePendingApproval indicates registration succeeded but no runtime token has been issued yet.
+var ErrDevicePendingApproval = errors.New("device pending approval")
+
 // Client handles API requests.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	apiKey     string
 }
 
 // NewClient creates a new Client instance.
@@ -34,7 +40,14 @@ func NewClient(cfg config.APIConfig) *Client {
 	}
 }
 
-func (c *Client) doJSON(ctx context.Context, method, url string, reqBody, respBody any, expectedStatuses ...int) error {
+// SetAPIKey configures the per-device API key used for runtime endpoints.
+// It is called once during startup after registration completes, before the
+// poll loop begins.  The single-writer lifecycle means no mutex is needed.
+func (c *Client) SetAPIKey(apiKey string) {
+	c.apiKey = apiKey
+}
+
+func (c *Client) doJSON(ctx context.Context, method, endpoint string, reqBody, respBody any, expectedStatuses ...int) error {
 	var bodyReader io.Reader
 	if reqBody != nil {
 		b, err := json.Marshal(reqBody)
@@ -81,16 +94,43 @@ func (c *Client) doJSON(ctx context.Context, method, url string, reqBody, respBo
 	return nil
 }
 
+func (c *Client) deviceURL(path string) string {
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil || c.apiKey == "" {
+		return c.baseURL + path
+	}
+	q := u.Query()
+	q.Set("api_key", c.apiKey)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// DeviceCredentials are issued once the server has approved a device.
+type DeviceCredentials struct {
+	UUID  string
+	Token string
+}
+
 // RegisterDevice registers the device with the Nixstasis API.
 // It returns the assigned UUID or an error.
 func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity) (string, error) {
-	url := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
+	credentials, err := c.RegisterDeviceCredentials(ctx, id)
+	if err != nil && !errors.Is(err, ErrDevicePendingApproval) {
+		return "", err
+	}
+	return credentials.UUID, nil
+}
+
+// RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
+func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.DeviceIdentity) (DeviceCredentials, error) {
+	endpoint := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
 	reqBody := map[string]any{
 		"mac_address": id.MACAddress,
 	}
 
 	if id.Name != "" {
 		reqBody["product_name"] = id.Name
+		reqBody["schema_definition"] = id.RegistrationSchema()
 	}
 
 	if id.IPAddress != "" || id.UUID != "" {
@@ -106,18 +146,22 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 
 	var response struct {
 		Data struct {
-			ID string `json:"id"`
+			ID       string `json:"id"`
+			APIToken string `json:"api_token"`
 		} `json:"data"`
 	}
-	if err := c.doJSON(ctx, http.MethodPost, url, reqBody, &response, http.StatusCreated); err != nil {
-		return "", err
+	if err := c.doJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusCreated); err != nil {
+		return DeviceCredentials{}, err
 	}
 
 	if response.Data.ID == "" {
-		return "", fmt.Errorf("API returned empty device id")
+		return DeviceCredentials{}, fmt.Errorf("API returned empty device id")
+	}
+	if response.Data.APIToken == "" {
+		return DeviceCredentials{UUID: response.Data.ID}, ErrDevicePendingApproval
 	}
 
-	return response.Data.ID, nil
+	return DeviceCredentials{UUID: response.Data.ID, Token: response.Data.APIToken}, nil
 }
 
 // PollRequest represents the body of the poll request.
@@ -144,6 +188,7 @@ type CommandRequest struct {
 	Args       []string        `json:"args,omitempty"`
 	Payload    *CommandPayload `json:"payload,omitempty"`
 	PayloadRef string          `json:"payload_ref,omitempty"`
+	PublicKey  string          `json:"public_key,omitempty"`
 }
 
 // CommandPayload describes the payload attached to a command.
@@ -163,13 +208,13 @@ type CommandResult struct {
 
 // PollResponse represents the response from the poll endpoint.
 type PollResponse struct {
-	RemoteAccessRequested bool             `json:"remote_access_requested"`
-	Commands              []CommandRequest `json:"commands,omitempty"`
+	RemoteAccessToken string           `json:"remote_access_token"`
+	Commands          []CommandRequest `json:"commands,omitempty"`
 }
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
 func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/heartbeat", c.baseURL, uuid)
+	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid))
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
@@ -193,15 +238,28 @@ type CommandResultsRequest struct {
 
 // SendCommandResults posts aggregated command results to the API.
 func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []CommandResult) error {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/command_results", c.baseURL, uuid)
+	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_results", uuid))
 	reqBody := CommandResultsRequest{Results: results}
 
 	return c.doJSON(ctx, http.MethodPost, endpoint, reqBody, nil, http.StatusOK, http.StatusAccepted)
 }
 
+var payloadRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
+
+// ValidatePayloadRef checks that a payload reference is safe for URL interpolation.
+func ValidatePayloadRef(ref string) error {
+	if ref == "" {
+		return fmt.Errorf("empty payload ref")
+	}
+	if !payloadRefPattern.MatchString(ref) {
+		return fmt.Errorf("invalid payload ref %q", ref)
+	}
+	return nil
+}
+
 // FetchCommandPayload retrieves a payload by reference.
 func (c *Client) FetchCommandPayload(ctx context.Context, uuid, ref string) (*CommandPayload, error) {
-	url := fmt.Sprintf("%s/api/v1/devices/%s/command_payloads/%s", c.baseURL, uuid, ref)
+	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", uuid, ref))
 
 	var payload CommandPayload
 	if err := c.doJSON(ctx, http.MethodGet, endpoint, nil, &payload, http.StatusOK); err != nil {

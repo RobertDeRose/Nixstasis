@@ -1,16 +1,27 @@
 defmodule NixstasisWeb.HeartbeatJSON do
+  alias Nixstasis.Devices.FrpsToken
+
   def show(%{commands: commands, device: device}) do
     %{
-      data: %{
-        remote_access_requested: device.remote_access_requested,
-        commands:
-          for(
-            cmd <- commands,
-            do: command_data(cmd)
-          )
-      }
+      data:
+        device
+        |> response_data(commands)
+        |> maybe_put_remote_access_token(FrpsToken.for_heartbeat(device))
     }
   end
+
+  defp response_data(_device, commands) do
+    %{
+      commands:
+        for(
+          cmd <- commands,
+          do: command_data(cmd)
+        )
+    }
+  end
+
+  defp maybe_put_remote_access_token(data, nil), do: data
+  defp maybe_put_remote_access_token(data, token), do: Map.put(data, :remote_access_token, token)
 
   defp command_data(cmd) do
     payload = cmd.command_payload || %{}

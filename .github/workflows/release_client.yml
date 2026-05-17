@@ -1,0 +1,83 @@
+name: Release Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+    paths:
+      - packages/client/**
+      - packages/frp/**
+      - prod.env
+      - .github/workflows/release_client.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/client
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: packages/client/go.mod
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
+        with:
+          install-only: true
+      - name: Validate runtime contract
+        run: ../../deploy/compose/scripts/check_runtime_contract.sh
+      - name: Build snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        run: goreleaser release --snapshot --clean
+      - name: Verify snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        run: ./scripts/release/verify_artifacts.sh
+      - name: Install self-extracting installer tools
+        run: sudo apt-get update && sudo apt-get install -y makeself
+      - name: Verify snapshot self-extracting installers
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        run: VERIFY_INSTALLERS=true ./scripts/release/verify_artifacts.sh
+      - name: Upload snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nixstasis-client-snapshot
+          path: packages/client/dist
+      - name: Build release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: goreleaser release --clean --skip=publish
+      - name: Verify release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: ./scripts/release/verify_artifacts.sh
+      - name: Verify release self-extracting installers
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: VERIFY_INSTALLERS=true ./scripts/release/verify_artifacts.sh
+      - name: Publish release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          assets=(
+            dist/nixstasis_*.deb
+            dist/nixstasis-*.rpm
+            dist/nixstasis_*_linux_*.tar.gz
+            dist/makeself/*/*/nixstasis-*-linux-*.run
+            dist/nixstasis_*_checksums.txt
+          )
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release artifacts found in dist/." >&2
+            exit 1
+          fi
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${assets[@]}" --generate-notes --title "${GITHUB_REF_NAME}"
+          fi

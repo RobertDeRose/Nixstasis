@@ -39,7 +39,8 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:rule_to_delete, nil)
      |> assign(:show_discard_confirm, false)
      |> assign(:no_schema_fields_message, nil)
-     |> assign(:modal_focus_id, "alert-schema-id")}
+     |> assign(:modal_focus_id, "alert-schema-id")
+     |> assign(:success_flash_generation, 0)}
   end
 
   def handle_params(params, _url, socket) do
@@ -57,9 +58,14 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   def handle_event("validate_rule", params, socket) do
     {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
-    {schema_options, schema_option_types} = fetch_schema_option_metadata(schema_id, schema_version)
+
+    {schema_options, schema_option_types} =
+      fetch_schema_option_metadata(schema_id, schema_version)
+
     no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
-    edit_blocked? = socket.assigns.live_action == :edit and present?(socket.assigns.rule_edit_blocked_reason)
+
+    edit_blocked? =
+      socket.assigns.live_action == :edit and present?(socket.assigns.rule_edit_blocked_reason)
 
     condition_field = Map.get(rule_params, "condition_field", "")
     valid_field? = Enum.any?(schema_options, fn {_label, value} -> value == condition_field end)
@@ -77,7 +83,11 @@ defmodule NixstasisWeb.AlertLive.Index do
       end
 
     form = AshPhoenix.Form.validate(socket.assigns.form, normalized_params)
-    issues = if edit_blocked?, do: [], else: AlertRule.validation_issues(schema_option_types, normalized_params)
+
+    issues =
+      if edit_blocked?,
+        do: [],
+        else: AlertRule.validation_issues(schema_option_types, normalized_params)
 
     draft = draft_state_from(schema_id, schema_version, normalized_params)
 
@@ -88,7 +98,10 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:selected_schema_version, schema_version)
      |> assign(:schema_options, schema_options)
      |> assign(:schema_option_types, schema_option_types)
-     |> assign(:schema_issue, if(edit_blocked?, do: nil, else: schema_issue(condition_field, valid_field?, issues)))
+     |> assign(
+       :schema_issue,
+       if(edit_blocked?, do: nil, else: schema_issue(condition_field, valid_field?, issues))
+     )
      |> assign(:no_schema_fields_message, no_schema_fields_message)
      |> assign(:rule_dirty?, dirty_draft?(socket.assigns.rule_initial_draft, draft))
      |> assign(:show_discard_confirm, false)}
@@ -101,7 +114,12 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     no_changes_to_save? =
       socket.assigns.live_action == :edit and
-        not edit_rule_values_changed?(socket.assigns.rule_editing, operator, threshold_value)
+        not edit_rule_values_changed?(
+          socket.assigns.rule_editing,
+          rule_params["condition_field"],
+          operator,
+          threshold_value
+        )
 
     if no_changes_to_save? do
       {:noreply, socket |> assign(:schema_issue, nil)}
@@ -111,7 +129,9 @@ defmodule NixstasisWeb.AlertLive.Index do
           %{"slot_id" => "condition_field", "selected_key" => rule_params["condition_field"]}
         ])
 
-      {schema_options, schema_option_types} = fetch_schema_option_metadata(schema_id, schema_version)
+      {schema_options, schema_option_types} =
+        fetch_schema_option_metadata(schema_id, schema_version)
+
       rule_params = normalize_operator_for_field(rule_params, schema_option_types)
       issues = AlertRule.validation_issues(schema_option_types, rule_params)
       no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
@@ -205,7 +225,8 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   def handle_event("set_rule_sort", %{"by" => by}, socket) do
-    sort_by = if by in ~w(product_name condition_field operator updated_at), do: by, else: "product_name"
+    sort_by =
+      if by in ~w(name product_name condition_field operator updated_at), do: by, else: "product_name"
 
     sort_dir =
       if socket.assigns.rule_sort_by == sort_by and socket.assigns.rule_sort_dir == "asc",
@@ -240,8 +261,12 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> apply_rule_filters()}
   end
 
-  def handle_info({:clear_flash, key}, socket) do
-    {:noreply, clear_flash(socket, key)}
+  def handle_info({:clear_flash, key, generation}, socket) do
+    if socket.assigns.success_flash_generation == generation do
+      {:noreply, clear_flash(socket, key)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def render(assigns) do
@@ -304,7 +329,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                 name="filters[query]"
                 value={@rule_filters["query"]}
                 class="input input-sm input-bordered w-full"
-                placeholder="Filter by schema product, field, operator, or threshold"
+                placeholder="Filter by rule name, schema product, field, operator, or threshold"
               />
             </form>
             <button type="button" phx-click="clear_rule_filters" class="btn btn-sm btn-ghost">
@@ -317,8 +342,8 @@ defmodule NixstasisWeb.AlertLive.Index do
               <thead>
                 <tr>
                   <th class="w-[45%] min-w-[16rem]">
-                    <button type="button" phx-click="set_rule_sort" phx-value-by="product_name" class="link link-hover">
-                      Schema Product {sort_indicator(@rule_sort_by, @rule_sort_dir, "product_name")}
+                    <button type="button" phx-click="set_rule_sort" phx-value-by="name" class="link link-hover">
+                      Rule {sort_indicator(@rule_sort_by, @rule_sort_dir, "name")}
                     </button>
                   </th>
                   <th class="w-[35%]">
@@ -348,7 +373,10 @@ defmodule NixstasisWeb.AlertLive.Index do
                       <% else %>
                         <span class="inline-flex w-24"></span>
                       <% end %>
-                      <span class="truncate">{rule.product_name}</span>
+                      <span class="truncate">
+                        <span class="block font-semibold">{rule.name}</span>
+                        <span class="block text-xs text-base-content/60">{rule.product_name}</span>
+                      </span>
                     </div>
                   </td>
                   <td class="w-[35%]">
@@ -417,6 +445,22 @@ defmodule NixstasisWeb.AlertLive.Index do
         >
           <div class="grid grid-cols-1 gap-4 mb-6">
             <div class="fieldset mb-2">
+              <.input
+                field={@form[:name]}
+                id="alert-rule-name"
+                type="text"
+                label="Rule Name"
+                placeholder="e.g. High temperature"
+                disabled={@live_action == :edit}
+              />
+              <input
+                :if={@live_action == :edit}
+                type="hidden"
+                name="form[name]"
+                value={@form[:name].value || ""}
+              />
+            </div>
+            <div class="fieldset mb-2">
               <label for="alert-schema-id" class="label mb-1 flex items-center gap-2">
                 <span>Schema Product</span>
                 <span
@@ -432,19 +476,28 @@ defmodule NixstasisWeb.AlertLive.Index do
                 name="schema_id"
                 value={@selected_schema_id || ""}
                 class="select select-bordered w-full"
-                disabled={@live_action == :edit}
+                disabled={!is_nil(@rule_edit_blocked_reason)}
               >
                 <option value="">Select product/schema</option>
                 <%= for {label, value} <- schema_id_options(@schema_refs) do %>
                   <option value={value} selected={@selected_schema_id == value}>{label}</option>
                 <% end %>
               </select>
-              <input
-                :if={@live_action == :edit}
-                type="hidden"
-                name="schema_id"
-                value={@selected_schema_id || ""}
-              />
+            </div>
+            <div class="fieldset mb-2">
+              <label for="alert-schema-version" class="label mb-1">Schema Version</label>
+              <select
+                id="alert-schema-version"
+                name="schema_version"
+                value={@selected_schema_version || ""}
+                class="select select-bordered w-full"
+                disabled={!is_nil(@rule_edit_blocked_reason)}
+              >
+                <option value="">Select version</option>
+                <%= for {label, value} <- schema_version_options(@schema_refs, @selected_schema_id) do %>
+                  <option value={value} selected={@selected_schema_version == value}>{label}</option>
+                <% end %>
+              </select>
             </div>
             <p class="text-xs text-base-content/70">
               Rules evaluate telemetry fields from the selected schema version.
@@ -465,13 +518,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                   label="Schema Field"
                   options={@schema_options}
                   prompt="Select schema field"
-                  disabled={@live_action == :edit}
-                />
-                <input
-                  :if={@live_action == :edit}
-                  type="hidden"
-                  name="form[condition_field]"
-                  value={@form[:condition_field].value || ""}
+                  disabled={!is_nil(@rule_edit_blocked_reason)}
                 />
               </div>
               <div>
@@ -580,11 +627,15 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     form =
       AlertRule
-      |> AshPhoenix.Form.for_create(:create, domain: Domain, params: %{"product_name" => selected_schema_id || ""})
+      |> AshPhoenix.Form.for_create(:create,
+        domain: Domain,
+        params: %{"name" => "", "product_name" => selected_schema_id || ""}
+      )
       |> to_form()
 
     initial_draft =
       draft_state_from(selected_schema_id, selected_schema_version, %{
+        "name" => "",
         "product_name" => selected_schema_id || "",
         "condition_field" => "",
         "operator" => "",
@@ -606,7 +657,10 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_edit_blocked_reason, nil)
     |> assign(:rule_to_delete, nil)
     |> assign(:show_discard_confirm, false)
-    |> assign(:no_schema_fields_message, no_schema_fields_message(selected_schema_id, schema_options))
+    |> assign(
+      :no_schema_fields_message,
+      no_schema_fields_message(selected_schema_id, schema_options)
+    )
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -628,7 +682,11 @@ defmodule NixstasisWeb.AlertLive.Index do
       Enum.any?(base_schema_options, fn {_label, key} -> key == rule.condition_field end)
 
     rule_edit_blocked_reason =
-      invalid_rule_edit_reason(field_valid_for_schema?, selected_schema_id, selected_schema_version)
+      invalid_rule_edit_reason(
+        field_valid_for_schema?,
+        selected_schema_id,
+        selected_schema_version
+      )
 
     schema_options = ensure_field_option(base_schema_options, rule.condition_field)
 
@@ -640,6 +698,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     initial_draft =
       draft_state_from(selected_schema_id, selected_schema_version, %{
         "product_name" => rule.product_name,
+        "name" => rule.name,
         "condition_field" => rule.condition_field,
         "operator" => to_string(rule.operator),
         "threshold_value" => rule.threshold_value
@@ -660,7 +719,10 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_edit_blocked_reason, rule_edit_blocked_reason)
     |> assign(:rule_to_delete, nil)
     |> assign(:show_discard_confirm, false)
-    |> assign(:no_schema_fields_message, no_schema_fields_message(selected_schema_id, schema_options))
+    |> assign(
+      :no_schema_fields_message,
+      no_schema_fields_message(selected_schema_id, schema_options)
+    )
   end
 
   defp apply_action(socket, :index, _params) do
@@ -685,7 +747,9 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   defp normalize_rule_payload(params, socket) do
     rule_params = extract_rule_params(params)
-    submitted_schema_id = blank_to_nil(Map.get(params, "schema_id", socket.assigns.selected_schema_id))
+
+    submitted_schema_id =
+      blank_to_nil(Map.get(params, "schema_id", socket.assigns.selected_schema_id))
 
     schema_id =
       cond do
@@ -701,6 +765,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     rule_params =
       rule_params
       |> Map.put("product_name", schema_id || "")
+      |> maybe_restore_rule_name(socket)
       |> maybe_restore_condition_field(socket)
       |> Map.put("operator", normalize_operator(Map.get(rule_params, "operator")))
 
@@ -711,7 +776,15 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp normalize_operator(""), do: "="
   defp normalize_operator(value), do: value
 
-  defp maybe_restore_condition_field(rule_params, %{assigns: %{live_action: :edit, rule_editing: rule}}) do
+  defp maybe_restore_rule_name(rule_params, %{assigns: %{live_action: :edit, rule_editing: rule}}) do
+    Map.put(rule_params, "name", rule.name || "")
+  end
+
+  defp maybe_restore_rule_name(rule_params, _socket), do: rule_params
+
+  defp maybe_restore_condition_field(rule_params, %{
+         assigns: %{live_action: :edit, rule_editing: rule}
+       }) do
     case Map.get(rule_params, "condition_field") do
       value ->
         if present?(value) do
@@ -727,6 +800,15 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp schema_id_options(refs) do
     refs
     |> Enum.map(& &1.schema_id)
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.map(&{&1, &1})
+  end
+
+  defp schema_version_options(refs, schema_id) do
+    refs
+    |> Enum.filter(&(&1.schema_id == schema_id))
+    |> Enum.map(& &1.schema_version)
     |> Enum.uniq()
     |> Enum.sort()
     |> Enum.map(&{&1, &1})
@@ -755,7 +837,8 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp ensure_field_option(options, condition_field) do
-    if present?(condition_field) and Enum.any?(options, fn {_label, key} -> key == condition_field end) do
+    if present?(condition_field) and
+         Enum.any?(options, fn {_label, key} -> key == condition_field end) do
       options
     else
       if present?(condition_field) do
@@ -797,7 +880,10 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp schema_issue("", _, issues), do: first_issue_message(issues)
-  defp schema_issue(_condition_field, false, _issues), do: "Selected field is no longer valid for the active schema."
+
+  defp schema_issue(_condition_field, false, _issues),
+    do: "Selected field is no longer valid for the active schema."
+
   defp schema_issue(_condition_field, true, issues), do: first_issue_message(issues)
 
   defp first_issue_message([%{message: message} | _]) when is_binary(message), do: message
@@ -880,10 +966,12 @@ defmodule NixstasisWeb.AlertLive.Index do
           %{builder: "alert"}
         )
 
-        Process.send_after(self(), {:clear_flash, :info}, @success_flash_timeout_ms)
+        generation = socket.assigns.success_flash_generation + 1
+        Process.send_after(self(), {:clear_flash, :info, generation}, @success_flash_timeout_ms)
 
         {:noreply,
          socket
+         |> assign(:success_flash_generation, generation)
          |> put_flash(:info, success_message(socket.assigns.live_action))
          |> push_patch(to: ~p"/alerts?tab=rules")}
 
@@ -950,6 +1038,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     %{
       "schema_id" => schema_id || "",
       "schema_version" => schema_version || "",
+      "name" => Map.get(rule_params, "name", ""),
       "product_name" => Map.get(rule_params, "product_name", ""),
       "condition_field" => Map.get(rule_params, "condition_field", ""),
       "operator" => Map.get(rule_params, "operator", "="),
@@ -993,6 +1082,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
         %{
           id: rule.id,
+          name: rule.name,
           product_name: rule.product_name,
           condition_field: rule.condition_field,
           operator: to_string(rule.operator),
@@ -1025,6 +1115,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         Enum.map_join(
           [
             rule.product_name,
+            rule.name,
             rule.condition_field,
             rule.operator,
             rule.threshold_value
@@ -1043,6 +1134,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         "condition_field" -> & &1.condition_field
         "operator" -> & &1.operator
         "updated_at" -> & &1.updated_at
+        "name" -> & &1.name
         _ -> & &1.product_name
       end
 
@@ -1091,9 +1183,15 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   defp rule_edit_disabled_reason(rule, schema_refs) do
     selected_schema_id = rule.product_name
-    selected_schema_version = schema_version_for_existing_field(schema_refs, selected_schema_id, rule.condition_field)
-    {schema_options, _schema_option_types} = fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
-    field_valid_for_schema? = Enum.any?(schema_options, fn {_label, key} -> key == rule.condition_field end)
+
+    selected_schema_version =
+      schema_version_for_existing_field(schema_refs, selected_schema_id, rule.condition_field)
+
+    {schema_options, _schema_option_types} =
+      fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
+
+    field_valid_for_schema? =
+      Enum.any?(schema_options, fn {_label, key} -> key == rule.condition_field end)
 
     invalid_rule_edit_reason(field_valid_for_schema?, selected_schema_id, selected_schema_version)
   end
@@ -1101,8 +1199,16 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp rule_save_enabled?(assigns) do
     if base_rule_save_valid?(assigns) do
       case assigns.live_action do
-        :edit -> edit_rule_values_changed?(assigns.rule_editing, assigns.operator, assigns.threshold_value)
-        _ -> true
+        :edit ->
+          edit_rule_values_changed?(
+            assigns.rule_editing,
+            assigns.condition_field,
+            assigns.operator,
+            assigns.threshold_value
+          )
+
+        _ ->
+          true
       end
     else
       false
@@ -1120,15 +1226,22 @@ defmodule NixstasisWeb.AlertLive.Index do
       present?(assigns.threshold_value)
   end
 
-  defp edit_rule_values_changed?(nil, _operator, _threshold_value), do: false
+  defp edit_rule_values_changed?(nil, _condition_field, _operator, _threshold_value), do: false
 
-  defp edit_rule_values_changed?(rule, operator, threshold_value) do
-    operator_changed? = normalize_compare_value(operator) != normalize_compare_value(rule.operator)
+  defp edit_rule_values_changed?(rule, condition_field, operator, threshold_value) do
+    condition_changed? =
+      normalize_compare_value(condition_field) != normalize_compare_value(rule.condition_field)
+
+    operator_changed? =
+      normalize_compare_value(operator) != normalize_compare_value(rule.operator)
 
     threshold_changed? =
-      not values_equivalent?(normalize_compare_value(threshold_value), normalize_compare_value(rule.threshold_value))
+      not values_equivalent?(
+        normalize_compare_value(threshold_value),
+        normalize_compare_value(rule.threshold_value)
+      )
 
-    operator_changed? or threshold_changed?
+    condition_changed? or operator_changed? or threshold_changed?
   end
 
   defp normalize_compare_value(value), do: value |> to_string() |> String.trim()

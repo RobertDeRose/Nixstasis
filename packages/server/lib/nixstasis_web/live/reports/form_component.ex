@@ -9,19 +9,32 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   @impl true
   def update(%{report: report} = assigns, socket) do
     schema_refs = SchemaOptions.list_schema_references()
-    selected_schema_id = normalize_scope_value(config_value(report.config, "schema_id"), @all_scope)
-    schema_options = fetch_schema_options(schema_refs, selected_schema_id)
+
+    selected_schema_id =
+      normalize_scope_value(config_value(report.config, "schema_id"), @all_scope)
+
+    selected_schema_version =
+      normalize_scope_value(
+        config_value(report.config, "schema_version"),
+        first_schema_version(schema_refs, selected_schema_id)
+      )
+
+    schema_options =
+      fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version)
+
     {fields, filters} = hydrate_builder_rows(report)
     report_name = normalize_report_name(report.name || "")
 
     socket =
       socket
       |> assign(assigns)
+      |> assign(:all_scope, @all_scope)
       |> assign(:report_name, report_name)
       |> assign(:fields, fields)
       |> assign(:filters, filters)
       |> assign(:schema_refs, schema_refs)
       |> assign(:selected_schema_id, selected_schema_id)
+      |> assign(:selected_schema_version, selected_schema_version)
       |> assign_schema_option_assigns(schema_options)
       |> assign(:schema_issue, nil)
       |> assign(:report_name_error, nil)
@@ -43,11 +56,40 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   def handle_event("set_schema_id", %{"schema_id" => schema_id}, socket) do
     selected_schema_id = normalize_scope_value(schema_id, @all_scope)
-    schema_options = fetch_schema_options(socket.assigns.schema_refs, selected_schema_id)
+    selected_schema_version = first_schema_version(socket.assigns.schema_refs, selected_schema_id)
+
+    schema_options =
+      fetch_schema_options(
+        socket.assigns.schema_refs,
+        selected_schema_id,
+        selected_schema_version
+      )
 
     {:noreply,
      socket
      |> assign(:selected_schema_id, selected_schema_id)
+     |> assign(:selected_schema_version, selected_schema_version)
+     |> assign(:recent_enter_added_field_id, nil)
+     |> clear_invalid_selections(schema_options)}
+  end
+
+  def handle_event("set_schema_version", %{"schema_version" => schema_version}, socket) do
+    selected_schema_version =
+      normalize_scope_value(
+        schema_version,
+        first_schema_version(socket.assigns.schema_refs, socket.assigns.selected_schema_id)
+      )
+
+    schema_options =
+      fetch_schema_options(
+        socket.assigns.schema_refs,
+        socket.assigns.selected_schema_id,
+        selected_schema_version
+      )
+
+    {:noreply,
+     socket
+     |> assign(:selected_schema_version, selected_schema_version)
      |> assign(:recent_enter_added_field_id, nil)
      |> clear_invalid_selections(schema_options)}
   end
@@ -165,7 +207,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
          |> assign(:report_name_error, "Report title is already used.")
          |> put_flash(:error, "Choose a unique report title.")}
 
-      filters_have_invalid_value_types?(save_ctx.submitted_filters, socket.assigns.schema_option_types) ->
+      filters_have_invalid_value_types?(
+        save_ctx.submitted_filters,
+        socket.assigns.schema_option_types
+      ) ->
         {:noreply,
          socket
          |> assign_save_state(save_ctx)
@@ -184,8 +229,11 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     end
   end
 
-  defp persist_report(%{id: nil}, report_params), do: Reporting.create_custom_report(report_params)
-  defp persist_report(report, report_params), do: Reporting.update_custom_report(report, report_params)
+  defp persist_report(%{id: nil}, report_params),
+    do: Reporting.create_custom_report(report_params)
+
+  defp persist_report(report, report_params),
+    do: Reporting.update_custom_report(report, report_params)
 
   defp success_message(%{id: nil}), do: "Report created successfully"
   defp success_message(_), do: "Report updated successfully"
@@ -198,7 +246,15 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
         ""
 
     normalized_name = normalize_report_name(submitted_name)
-    submitted_schema_id = normalize_scope_value(Map.get(params, "schema_id"), socket.assigns.selected_schema_id)
+
+    submitted_schema_id =
+      normalize_scope_value(Map.get(params, "schema_id"), socket.assigns.selected_schema_id)
+
+    submitted_schema_version =
+      normalize_scope_value(
+        Map.get(params, "schema_version"),
+        socket.assigns.selected_schema_version
+      )
 
     submitted_fields =
       submitted_fields_from_params(
@@ -221,6 +277,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       "config" => %{
         source: "telemetry",
         schema_id: persisted_schema_id(submitted_schema_id),
+        schema_version: persisted_schema_version(submitted_schema_id, submitted_schema_version),
         fields: Enum.map(submitted_fields, &Map.take(&1, [:path, :alias])),
         filters: Enum.map(submitted_filters, &Map.take(&1, [:field, :operator, :value]))
       }
@@ -229,6 +286,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     %{
       normalized_name: normalized_name,
       submitted_schema_id: submitted_schema_id,
+      submitted_schema_version: submitted_schema_version,
       submitted_fields: submitted_fields,
       submitted_filters: submitted_filters,
       validation: validation,
@@ -241,6 +299,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     socket
     |> assign(:report_name, save_ctx.normalized_name)
     |> assign(:selected_schema_id, save_ctx.submitted_schema_id)
+    |> assign(:selected_schema_version, save_ctx.submitted_schema_version)
     |> assign(:fields, save_ctx.submitted_fields)
     |> assign(:filters, save_ctx.submitted_filters)
   end
@@ -401,6 +460,29 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                   <option value={value} selected={@selected_schema_id == value}>{label}</option>
                 <% end %>
               </select>
+            </div>
+            <div class="fieldset mb-2">
+              <label for="report-schema-version" class="label mb-1">Schema Version</label>
+              <select
+                id="report-schema-version"
+                name="schema_version"
+                class="w-full select"
+                value={@selected_schema_version || ""}
+                phx-target={@myself}
+                phx-change="set_schema_version"
+                disabled={@selected_schema_id == @all_scope}
+              >
+                <option value="">All versions</option>
+                <%= for {label, value} <- schema_version_options(@schema_refs, @selected_schema_id) do %>
+                  <option value={value} selected={@selected_schema_version == value}>{label}</option>
+                <% end %>
+              </select>
+              <input
+                :if={@selected_schema_id == @all_scope}
+                type="hidden"
+                name="schema_version"
+                value=""
+              />
             </div>
             <p class="text-xs text-base-content/70">{schema_scope_hint(@selected_schema_id)}</p>
           </div>
@@ -645,9 +727,9 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     |> assign(:schema_issue, nil)
   end
 
-  defp fetch_schema_options(schema_refs, selected_schema_id) do
+  defp fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version) do
     schema_refs
-    |> refs_for_scope(selected_schema_id)
+    |> refs_for_scope(selected_schema_id, selected_schema_version)
     |> Enum.flat_map(&fetch_ref_options/1)
     |> Enum.reduce(%{}, fn option, acc ->
       merge_normalized_schema_option(acc, normalize_schema_option(option))
@@ -702,10 +784,13 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     end)
   end
 
-  defp refs_for_scope(schema_refs, @all_scope), do: schema_refs
+  defp refs_for_scope(schema_refs, @all_scope, _schema_version), do: schema_refs
 
-  defp refs_for_scope(schema_refs, schema_id) do
-    Enum.filter(schema_refs, &(&1.schema_id == schema_id))
+  defp refs_for_scope(schema_refs, schema_id, schema_version) do
+    Enum.filter(schema_refs, fn ref ->
+      ref.schema_id == schema_id and
+        (schema_version in [nil, ""] or ref.schema_version == schema_version)
+    end)
   end
 
   defp fetch_ref_options(ref) do
@@ -723,6 +808,23 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       |> Enum.sort()
 
     [{"All Script Schemas", @all_scope} | Enum.map(ids, &{&1, &1})]
+  end
+
+  defp schema_version_options(refs, schema_id) do
+    refs
+    |> Enum.filter(&(&1.schema_id == schema_id))
+    |> Enum.map(& &1.schema_version)
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.map(&{&1, &1})
+  end
+
+  defp first_schema_version(_refs, @all_scope), do: nil
+
+  defp first_schema_version(refs, schema_id) do
+    refs
+    |> Enum.find(&(&1.schema_id == schema_id))
+    |> then(&if(&1, do: &1.schema_version, else: nil))
   end
 
   defp filter_value_label(_option_types, field) when field in [nil, ""], do: "Value"
@@ -764,7 +866,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp filter_field_hidden?(_fields, filter_field) when filter_field in [nil, ""], do: false
 
-  defp filter_field_hidden?(fields, filter_field) when is_list(fields) and is_binary(filter_field) do
+  defp filter_field_hidden?(fields, filter_field)
+       when is_list(fields) and is_binary(filter_field) do
     not Enum.any?(fields, &(&1.path == filter_field))
   end
 
@@ -805,7 +908,9 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     invalid_slot_ids =
       Enum.flat_map(fields, fn field ->
-        if present?(field.path) and not MapSet.member?(valid_keys, field.path), do: [field.id], else: []
+        if present?(field.path) and not MapSet.member?(valid_keys, field.path),
+          do: [field.id],
+          else: []
       end) ++
         Enum.flat_map(filters, fn filter ->
           if present?(filter.field) and not MapSet.member?(valid_keys, filter.field),
@@ -822,6 +927,9 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp persisted_schema_id(@all_scope), do: nil
   defp persisted_schema_id(schema_id), do: schema_id
+
+  defp persisted_schema_version(@all_scope, _schema_version), do: nil
+  defp persisted_schema_version(_schema_id, schema_version), do: schema_version
 
   defp normalize_scope_value(value, default) when value in [nil, ""], do: default
   defp normalize_scope_value(value, _default), do: value
@@ -851,7 +959,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   end
 
   defp extract_event_value(%{"value" => value}) when is_atom(value), do: Atom.to_string(value)
-  defp extract_event_value(%{"value" => value}) when is_integer(value), do: Integer.to_string(value)
+
+  defp extract_event_value(%{"value" => value}) when is_integer(value),
+    do: Integer.to_string(value)
+
   defp extract_event_value(%{"value" => value}) when is_float(value), do: Float.to_string(value)
   defp extract_event_value(%{"value" => value}) when is_boolean(value), do: to_string(value)
   defp extract_event_value(_), do: ""
@@ -978,7 +1089,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   end
 
   defp maybe_record_first_attempt(fields, filters) do
-    if Enum.all?(fields, &(&1.path != "")) and Enum.all?(filters, &(&1.field != "" or &1.value == "")) do
+    if Enum.all?(fields, &(&1.path != "")) and
+         Enum.all?(filters, &(&1.field != "" or &1.value == "")) do
       :telemetry.execute(
         [:nixstasis, :builder, :first_attempt_success],
         %{count: 1},
@@ -1185,7 +1297,9 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     if is_map(submitted_fields) do
       ordered_ids = Enum.map(existing_fields, & &1.id)
-      extra_ids = submitted_fields |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
+
+      extra_ids =
+        submitted_fields |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
 
       (ordered_ids ++ extra_ids)
       |> Enum.map(fn id ->
@@ -1213,7 +1327,9 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     if is_map(submitted_filters) do
       ordered_ids = Enum.map(existing_filters, & &1.id)
-      extra_ids = submitted_filters |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
+
+      extra_ids =
+        submitted_filters |> Map.keys() |> Enum.reject(&(&1 in ordered_ids)) |> Enum.sort()
 
       (ordered_ids ++ extra_ids)
       |> Enum.map(fn id ->
@@ -1369,7 +1485,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
             add_column_for_filter_field(socket, filter_field)
 
           existing_field_id ->
-            {:noreply, push_event(socket, "focus_column_title", %{id: column_title_input_id(existing_field_id)})}
+            {:noreply,
+             push_event(socket, "focus_column_title", %{
+               id: column_title_input_id(existing_field_id)
+             })}
         end
 
       _ ->

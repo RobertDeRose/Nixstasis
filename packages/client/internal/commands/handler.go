@@ -14,9 +14,17 @@ import (
 
 const commandTimeout = 5 * time.Second
 
+// MaxCommandsPerPoll caps the command list accepted from a single poll response.
+const MaxCommandsPerPoll = 50
+
+const maxConcurrentNonSerialCommands = 8
+
+var afterCommandCommitHook = func() {}
+
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir string
+	scriptsDir         string
+	authorizedKeysPath string
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -24,8 +32,17 @@ func NewHandler(scriptsDir string) *Handler {
 	return &Handler{scriptsDir: scriptsDir}
 }
 
+// NewHandlerWithAuthorizedKeys constructs a Handler with an explicit authorized_keys target.
+func NewHandlerWithAuthorizedKeys(scriptsDir, authorizedKeysPath string) *Handler {
+	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath}
+}
+
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
 func (h *Handler) ExecuteBatch(ctx context.Context, commands []transport.CommandRequest) []transport.CommandResult {
+	if len(commands) > MaxCommandsPerPoll {
+		commands = commands[:MaxCommandsPerPoll]
+	}
+
 	results := make([]transport.CommandResult, len(commands))
 	seen := make(map[string]bool)
 
@@ -36,11 +53,19 @@ func (h *Handler) ExecuteBatch(ctx context.Context, commands []transport.Command
 		if len(batch) == 0 {
 			return
 		}
+		sem := make(chan struct{}, maxConcurrentNonSerialCommands)
 		for _, idx := range batch {
 			cmd := commands[idx]
 			wg.Add(1)
 			go func(i int, command transport.CommandRequest) {
 				defer wg.Done()
+				select {
+				case sem <- struct{}{}:
+					defer func() { <-sem }()
+				case <-ctx.Done():
+					results[i] = failureResult(command.CommandID, "timeout")
+					return
+				}
 				cmdCtx, cancel := context.WithTimeout(ctx, commandTimeout)
 				defer cancel()
 				results[i] = h.executeOne(cmdCtx, command)
@@ -87,6 +112,8 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.installScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "remove_script":
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
+	case "ssh_authorize":
+		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Args, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
 	}
@@ -94,11 +121,62 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script":
+	case "install_script", "remove_script", "ssh_authorize":
 		return true
 	default:
 		return false
 	}
+}
+
+func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, args []string, payload *transport.CommandPayload) transport.CommandResult {
+	key, requestedPath, err := resolveSSHAuthorize(publicKey, args, payload)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	path, err := h.resolveAuthorizedKeysPath(requestedPath)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+	if err := appendAuthorizedKey(path, key); err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	afterCommandCommitHook()
+	if ctx.Err() != nil {
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output:    map[string]any{"path": path, "timed_out_after_commit": true},
+		}
+	}
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output:    map[string]any{"path": path},
+	}
+}
+
+func (h *Handler) resolveAuthorizedKeysPath(requestedPath string) (string, error) {
+	if h.authorizedKeysPath == "" {
+		return "", fmt.Errorf("authorized_keys path is not configured")
+	}
+	canonical, err := canonicalAuthorizedKeysPath(h.authorizedKeysPath)
+	if err != nil {
+		return "", err
+	}
+	if requestedPath == "" {
+		return canonical, nil
+	}
+	requested, err := canonicalAuthorizedKeysPath(requestedPath)
+	if err != nil {
+		return "", err
+	}
+	if requested != canonical {
+		return "", fmt.Errorf("authorized_keys path is not allowed")
+	}
+	return canonical, nil
 }
 
 func (h *Handler) listScripts(ctx context.Context, commandID string) transport.CommandResult {
@@ -129,8 +207,8 @@ func (h *Handler) listScripts(ctx context.Context, commandID string) transport.C
 	}
 }
 
-func (h *Handler) installScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload) transport.CommandResult {
-	path, content, err := resolveInstallSource(args, payload)
+func (h *Handler) installScript(ctx context.Context, commandID string, _ []string, payload *transport.CommandPayload) transport.CommandResult {
+	content, err := resolveInstallContent(payload)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
@@ -139,11 +217,14 @@ func (h *Handler) installScript(ctx context.Context, commandID string, args []st
 		return failureResult(commandID, "timeout")
 	}
 
-	fm, rawText, err := loadInstallScript(path, content)
+	fm, _, err := script.ParseStaryContent(content)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
 	if _, err := script.CompileSchema(fm.Schema); err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if err := validateScriptTarget(fm.Name, fm.Version); err != nil {
 		return failureResult(commandID, err.Error())
 	}
 
@@ -159,17 +240,27 @@ func (h *Handler) installScript(ctx context.Context, commandID string, args []st
 		return failureResult(commandID, err.Error())
 	}
 
-	installDir := script.DefaultInstallDir()
+	installDir := h.scriptsDir
 	if err := ensureDir(installDir); err != nil {
 		return failureResult(commandID, err.Error())
 	}
 
 	destPath := filepath.Join(installDir, script.InstallFilename(fm.Name, fm.Version))
-	if err := installScriptFile(path, rawText, destPath); err != nil {
+	if err := writeFile(destPath, content); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	afterCommandCommitHook()
 	if ctx.Err() != nil {
-		return failureResult(commandID, "timeout")
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output: map[string]any{
+				"name":                   fm.Name,
+				"version":                fm.Version,
+				"path":                   destPath,
+				"timed_out_after_commit": true,
+			},
+		}
 	}
 
 	return transport.CommandResult{
@@ -192,7 +283,7 @@ func (h *Handler) removeScript(ctx context.Context, commandID string, args []str
 		return failureResult(commandID, "timeout")
 	}
 
-	scripts, err := script.DiscoverScripts(script.DefaultInstallDir())
+	scripts, err := script.DiscoverScripts(h.scriptsDir)
 	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
@@ -204,8 +295,17 @@ func (h *Handler) removeScript(ctx context.Context, commandID string, args []str
 	if err := removeFile(target.Path); err != nil {
 		return failureResult(commandID, err.Error())
 	}
+	afterCommandCommitHook()
 	if ctx.Err() != nil {
-		return failureResult(commandID, "timeout")
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusOK,
+			Output: map[string]any{
+				"name":                   name,
+				"version":                target.Version,
+				"timed_out_after_commit": true,
+			},
+		}
 	}
 
 	return transport.CommandResult{
@@ -226,24 +326,11 @@ func failureResult(commandID, reason string) transport.CommandResult {
 	}
 }
 
-func resolveInstallSource(args []string, payload *transport.CommandPayload) (path, content string, err error) {
-	content = stringField(payload, "content")
-	if path == "" && len(args) > 0 {
-		path = args[0]
+func resolveInstallContent(payload *transport.CommandPayload) (string, error) {
+	if payload == nil || payload.Data == "" {
+		return "", fmt.Errorf("missing script content")
 	}
-	if path == "" && content == "" {
-		return "", "", fmt.Errorf("missing path or content")
-	}
-	return path, content, nil
-}
-
-func loadInstallScript(path, content string) (script.FrontMatter, string, error) {
-	if path != "" {
-		fm, _, err := script.ParseStaryFile(path)
-		return fm, "", err
-	}
-	fm, _, err := script.ParseStaryContent(content)
-	return fm, content, err
+	return payload.Data, nil
 }
 
 func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) error {
@@ -257,26 +344,33 @@ func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) err
 	return nil
 }
 
-func installScriptFile(path, rawText, destPath string) error {
-	if path != "" {
-		return copyFile(path, destPath)
-	}
-	return writeFile(destPath, rawText)
-}
-
 func resolveRemoveTarget(args []string, payload *transport.CommandPayload) (name, version string, err error) {
-	name = stringField(payload, "name")
-	version = stringField(payload, "version")
+	if payload != nil {
+		name = payload.Name
+	}
 	if name == "" && len(args) > 0 {
 		name = args[0]
 	}
-	if version == "" && len(args) > 1 {
+	if len(args) > 1 {
 		version = args[1]
 	}
 	if name == "" {
 		return "", "", fmt.Errorf("missing name")
 	}
+	if err := validateScriptTarget(name, version); err != nil {
+		return "", "", err
+	}
 	return name, version, nil
+}
+
+func validateScriptTarget(name, version string) error {
+	if err := script.ValidateInstallIdentifier("script name", name); err != nil {
+		return err
+	}
+	if version == "" {
+		return nil
+	}
+	return script.ValidateInstallIdentifier("script version", version)
 }
 
 func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (script.ScriptInfo, error) {
@@ -294,18 +388,22 @@ func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (scr
 	return script.ScriptInfo{}, fmt.Errorf("script not found")
 }
 
-func stringField(payload *transport.CommandPayload, key string) string {
-	if payload == nil {
-		return ""
+func resolveSSHAuthorize(publicKey string, args []string, payload *transport.CommandPayload) (key, path string, err error) {
+	key = publicKey
+	if key == "" && payload != nil {
+		key = payload.Data
 	}
-	switch key {
-	case "content":
-		return payload.Data
-	case "name":
-		return payload.Name
-	case "version":
-		return ""
-	default:
-		return ""
+	if payload != nil {
+		path = payload.Name
 	}
+	if key == "" && len(args) > 0 {
+		key = args[0]
+	}
+	if path == "" && len(args) > 1 {
+		path = args[1]
+	}
+	if key == "" {
+		return "", "", fmt.Errorf("missing public key")
+	}
+	return key, path, nil
 }

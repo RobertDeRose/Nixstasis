@@ -5,6 +5,7 @@ defmodule Nixstasis.Monitoring.OfflineChecker do
 
   use GenServer
   alias Nixstasis.Monitoring
+  alias Nixstasis.Settings
 
   # Check every minute
   @interval 60_000
@@ -20,8 +21,7 @@ defmodule Nixstasis.Monitoring.OfflineChecker do
   end
 
   def handle_info(:check, state) do
-    # Default window 10 mins. Ideally fetched from config/DB.
-    Monitoring.check_offline_devices(window_minutes: 10)
+    Monitoring.check_offline_devices(window_minutes: Settings.get_offline_window())
     schedule_check()
     {:noreply, state}
   end

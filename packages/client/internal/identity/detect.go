@@ -22,7 +22,7 @@ func GetPrimaryMAC() (string, error) {
 
 	// 1. Try to find "eth0" specifically (per spec)
 	for _, iface := range interfaces {
-		if iface.Name == "eth0" {
+		if iface.Name == "eth0" && iface.Flags&net.FlagUp != 0 {
 			if mac := iface.HardwareAddr.String(); mac != "" {
 				return mac, nil
 			}

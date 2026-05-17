@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 )
 
 const (
@@ -52,7 +54,9 @@ func runTestScript(cmd *cobra.Command, path string) error {
 
 	results, err := executor.ExecuteScripts(context.Background(), []script.ScriptInfo{info})
 	if err != nil {
-		return err
+		// ExecuteScripts surfaces per-script errors alongside results. Log
+		// the aggregate but continue to inspect the individual result below.
+		slog.Debug("Script execution reported errors", "error", err)
 	}
 
 	result, ok := results[info.Name]

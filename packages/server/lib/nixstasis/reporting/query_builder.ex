@@ -15,6 +15,7 @@ defmodule Nixstasis.Reporting.QueryBuilder do
 
   @telemetry_field_lookup Map.new(@telemetry_fields, &{Atom.to_string(&1), &1})
   @e2e_field_lookup Map.new(@e2e_fields, &{Atom.to_string(&1), &1})
+  @max_in_memory_rows 250
 
   @e2e_default_fields [
     %{"path" => "id", "alias" => "run_id"},
@@ -25,15 +26,20 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     %{"path" => "finished_at", "alias" => "finished_at"}
   ]
 
-  def build(config) do
+  def build(config, opts \\ %{}) do
     source = normalize_source(config["source"] || config[:source])
     fields = fields_for_report(config)
-    filters = config["filters"] || config[:filters] || []
+    filters = (config["filters"] || config[:filters] || []) ++ query_filters_for_result_view(opts, fields)
+    sort_by = opts[:sort_by] || opts["sort_by"]
+    sort_dir = opts[:sort_dir] || opts["sort_dir"] || "asc"
+    numeric_sort? = telemetry_numeric_sort?(source, sort_by, filters, opts)
 
     source
     |> base_query()
-    |> select_fields(fields, source)
     |> apply_filters(filters, source)
+    |> apply_result_sort(sort_by, sort_dir, fields, source, numeric_sort?)
+    |> apply_result_pagination(opts)
+    |> select_fields(fields, source)
   end
 
   def fields_for_report(config) do
@@ -52,9 +58,12 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     filters = opts[:filters] || opts["filters"] || []
 
     rows
+    |> Enum.take(@max_in_memory_rows)
     |> TableFilters.filter_rows(filters)
     |> TableFilters.sort_rows(sort_by, sort_dir)
   end
+
+  def max_in_memory_rows, do: @max_in_memory_rows
 
   defp normalize_source(nil), do: "telemetry"
   defp normalize_source(source) when is_atom(source), do: Atom.to_string(source)
@@ -128,6 +137,66 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     end)
   end
 
+  defp query_filters_for_result_view(opts, fields) do
+    opts
+    |> then(fn opts -> opts[:filters] || opts["filters"] || [] end)
+    |> Enum.filter(&pushdown_filter?/1)
+    |> Enum.map(&result_view_filter(&1, fields))
+  end
+
+  defp result_view_filter(filter, fields) do
+    configured_path = field_path_for_column(filter_target_name(filter), fields)
+
+    %{
+      "path" => configured_path || filter_path(filter),
+      "field" => if(configured_path, do: nil, else: filter_value(filter, "field")),
+      "operator" => filter_value(filter, "operator"),
+      "value" => filter_value(filter, "value")
+    }
+  end
+
+  defp field_path_for_column(column, fields) when is_binary(column) do
+    fields
+    |> Enum.find(fn field ->
+      normalize_alias(field["alias"] || field[:alias], field["path"] || field[:path]) == column
+    end)
+    |> case do
+      nil -> nil
+      field -> field["path"] || field[:path]
+    end
+  end
+
+  defp field_path_for_column(_column, _fields), do: nil
+
+  @pushdown_operators [
+    "=",
+    "==",
+    "is",
+    "is not",
+    "!=",
+    ">",
+    ">=",
+    "<",
+    "<=",
+    "contains",
+    "doesn't contain",
+    "doesnt contain"
+  ]
+
+  defp pushdown_filter?(filter) do
+    present?(filter_target_name(filter)) and
+      present?(filter_value(filter, "value")) and
+      filter_value(filter, "operator") in @pushdown_operators
+  end
+
+  defp filter_target_name(filter) do
+    filter_value(filter, "path") || filter_value(filter, "column") || filter_value(filter, "field")
+  end
+
+  defp filter_path(filter), do: filter_value(filter, "path") || filter_value(filter, "column")
+  defp filter_value(filter, key), do: filter[key] || filter[String.to_existing_atom(key)]
+  defp present?(value), do: value not in [nil, ""]
+
   defp apply_filter(query, filter, source) do
     field = filter["field"] || filter[:field]
     path = filter["path"] || filter[:path]
@@ -182,8 +251,23 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp apply_schema_operator(query, field_atom, "==", val),
     do: from(q in query, where: field(q, ^field_atom) == ^val)
 
+  defp apply_schema_operator(query, field_atom, "is", val),
+    do: from(q in query, where: field(q, ^field_atom) == ^val)
+
   defp apply_schema_operator(query, field_atom, "!=", val),
     do: from(q in query, where: field(q, ^field_atom) != ^val)
+
+  defp apply_schema_operator(query, field_atom, "is not", val),
+    do: from(q in query, where: field(q, ^field_atom) != ^val)
+
+  defp apply_schema_operator(query, field_atom, "contains", val),
+    do: from(q in query, where: ilike(type(field(q, ^field_atom), :string), ^"%#{val}%"))
+
+  defp apply_schema_operator(query, field_atom, "doesn't contain", val),
+    do: from(q in query, where: not ilike(type(field(q, ^field_atom), :string), ^"%#{val}%"))
+
+  defp apply_schema_operator(query, field_atom, "doesnt contain", val),
+    do: from(q in query, where: not ilike(type(field(q, ^field_atom), :string), ^"%#{val}%"))
 
   defp apply_schema_operator(query, field_atom, ">", val),
     do: from(q in query, where: field(q, ^field_atom) > ^val)
@@ -218,13 +302,27 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp apply_json_path_filter(query, path, op, val) do
-    numeric? = is_integer(val) or is_float(val)
-    normalized_op = if op == "==", do: "=", else: op
+    normalized_op = normalize_query_operator(op)
+    {filter_value, numeric?} = normalize_json_filter_value(normalized_op, val)
 
-    if normalized_op in ["=", ">", ">=", "<", "<="] do
-      dynamic_filter(query, path, normalized_op, val, numeric?)
+    if normalized_op in ["=", "!=", ">", ">=", "<", "<=", "contains", "not_contains"] do
+      dynamic_filter(query, path, normalized_op, filter_value, numeric?)
     else
       query
+    end
+  end
+
+  defp normalize_json_filter_value(op, val) when op in [">", ">=", "<", "<="] do
+    case parse_number(val) do
+      {:ok, number} -> {number, true}
+      :error -> {val, false}
+    end
+  end
+
+  defp normalize_json_filter_value(_op, val) do
+    case val do
+      value when is_integer(value) or is_float(value) -> {value, true}
+      value -> {value, false}
     end
   end
 
@@ -240,6 +338,9 @@ defmodule Nixstasis.Reporting.QueryBuilder do
 
   defp dynamic_filter_numeric(query, path_segments, "=", val),
     do: from(q in query, where: fragment("( ? #>> ? )::numeric = ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_numeric(query, path_segments, "!=", val),
+    do: from(q in query, where: fragment("( ? #>> ? )::numeric != ?", q.payload, ^path_segments, ^val))
 
   defp dynamic_filter_numeric(query, path_segments, ">", val),
     do: from(q in query, where: fragment("( ? #>> ? )::numeric > ?", q.payload, ^path_segments, ^val))
@@ -258,6 +359,15 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp dynamic_filter_text(query, path_segments, "=", val),
     do: from(q in query, where: fragment("? #>> ? = ?", q.payload, ^path_segments, ^val))
 
+  defp dynamic_filter_text(query, path_segments, "!=", val),
+    do: from(q in query, where: fragment("? #>> ? != ?", q.payload, ^path_segments, ^val))
+
+  defp dynamic_filter_text(query, path_segments, "contains", val),
+    do: from(q in query, where: fragment("? #>> ? ilike ?", q.payload, ^path_segments, ^"%#{val}%"))
+
+  defp dynamic_filter_text(query, path_segments, "not_contains", val),
+    do: from(q in query, where: fragment("not (? #>> ? ilike ?)", q.payload, ^path_segments, ^"%#{val}%"))
+
   defp dynamic_filter_text(query, path_segments, ">", val),
     do: from(q in query, where: fragment("? #>> ? > ?", q.payload, ^path_segments, ^val))
 
@@ -271,4 +381,118 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     do: from(q in query, where: fragment("? #>> ? <= ?", q.payload, ^path_segments, ^val))
 
   defp dynamic_filter_text(query, _path_segments, _op, _val), do: query
+
+  defp apply_result_sort(query, sort_by, _sort_dir, _fields, _source, _numeric_sort?) when sort_by in [nil, ""],
+    do: query
+
+  defp apply_result_sort(query, sort_by, sort_dir, fields, source, numeric_sort?) do
+    direction = if sort_dir in ["desc", :desc], do: :desc, else: :asc
+
+    fields
+    |> Enum.find(fn field ->
+      normalize_alias(field["alias"] || field[:alias], field["path"] || field[:path]) == sort_by
+    end)
+    |> case do
+      nil ->
+        query
+
+      field ->
+        path = field["path"] || field[:path]
+        apply_source_sort(query, source, path, direction, numeric_sort?)
+    end
+  end
+
+  defp apply_source_sort(query, "telemetry", path, :desc, true) when is_binary(path) do
+    path_segments = String.split(path, ".", trim: true)
+    from(q in query, order_by: [desc: fragment("nullif(? #>> ?, '')::numeric", q.payload, ^path_segments)])
+  end
+
+  defp apply_source_sort(query, "telemetry", path, :asc, true) when is_binary(path) do
+    path_segments = String.split(path, ".", trim: true)
+    from(q in query, order_by: [asc: fragment("nullif(? #>> ?, '')::numeric", q.payload, ^path_segments)])
+  end
+
+  defp apply_source_sort(query, "telemetry", path, :desc, _numeric_sort?) when is_binary(path) do
+    path_segments = String.split(path, ".", trim: true)
+    from(q in query, order_by: [desc: fragment("? #>> ?", q.payload, ^path_segments)])
+  end
+
+  defp apply_source_sort(query, "telemetry", path, :asc, _numeric_sort?) when is_binary(path) do
+    path_segments = String.split(path, ".", trim: true)
+    from(q in query, order_by: [asc: fragment("? #>> ?", q.payload, ^path_segments)])
+  end
+
+  defp apply_source_sort(query, "e2e", path, :desc, _numeric_sort?) do
+    case field_atom_for("e2e", path) do
+      nil -> query
+      field_atom -> from(q in query, order_by: [desc: field(q, ^field_atom)])
+    end
+  end
+
+  defp apply_source_sort(query, "e2e", path, :asc, _numeric_sort?) do
+    case field_atom_for("e2e", path) do
+      nil -> query
+      field_atom -> from(q in query, order_by: [asc: field(q, ^field_atom)])
+    end
+  end
+
+  defp apply_source_sort(query, _source, _path, _direction, _numeric_sort?), do: query
+
+  defp telemetry_numeric_sort?("telemetry", sort_by, filters, opts) when is_binary(sort_by) and sort_by != "" do
+    numeric_columns = opts[:numeric_columns] || opts["numeric_columns"] || []
+
+    sort_by in numeric_columns or
+      Enum.any?(filters, fn filter ->
+        (filter["path"] || filter[:path] || filter["column"] || filter[:column]) == sort_by and
+          numeric_filter?(filter)
+      end)
+  end
+
+  defp telemetry_numeric_sort?(_source, _sort_by, _filters, _opts), do: false
+
+  defp numeric_filter?(filter) do
+    value = filter["value"] || filter[:value]
+    operator = normalize_query_operator(filter["operator"] || filter[:operator])
+
+    operator in [">", ">=", "<", "<="] or is_integer(value) or is_float(value)
+  end
+
+  defp apply_result_pagination(query, opts) do
+    limit = opts[:limit] || opts["limit"] || @max_in_memory_rows
+    offset = opts[:offset] || opts["offset"] || 0
+
+    from(q in query,
+      limit: ^normalize_non_negative_integer(limit, @max_in_memory_rows),
+      offset: ^normalize_non_negative_integer(offset, 0)
+    )
+  end
+
+  defp normalize_non_negative_integer(value, _default) when is_integer(value) and value >= 0, do: value
+
+  defp normalize_non_negative_integer(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {parsed, ""} when parsed >= 0 -> parsed
+      _ -> default
+    end
+  end
+
+  defp normalize_non_negative_integer(_value, default), do: default
+
+  defp normalize_query_operator("=="), do: "="
+  defp normalize_query_operator("is"), do: "="
+  defp normalize_query_operator("is not"), do: "!="
+  defp normalize_query_operator("doesn't contain"), do: "not_contains"
+  defp normalize_query_operator("doesnt contain"), do: "not_contains"
+  defp normalize_query_operator(op), do: op
+
+  defp parse_number(value) when is_integer(value) or is_float(value), do: {:ok, value}
+
+  defp parse_number(value) when is_binary(value) do
+    case Float.parse(String.trim(value)) do
+      {number, ""} -> {:ok, number}
+      _ -> :error
+    end
+  end
+
+  defp parse_number(_value), do: :error
 end

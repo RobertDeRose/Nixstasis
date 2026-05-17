@@ -7,8 +7,8 @@ import {Socket} from "phoenix"
 
 // And connect to the path in "lib/nixstasis_web/endpoint.ex". We pass the
 // token for authentication. Read below how it should be used.
-let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let socket = new Socket("/socket", {params: {_csrf_token: csrfToken}})
+let socket = null
+let activeToken = null
 
 // When you connect, you'll often need to authenticate the client.
 // For example, imagine you have an authentication plug, `MyAuth`,
@@ -52,7 +52,20 @@ let socket = new Socket("/socket", {params: {_csrf_token: csrfToken}})
 //     end
 //
 // Finally, connect to the socket:
-socket.connect()
+window.connectTerminalSocket = (token) => {
+  if (!socket || activeToken !== token) {
+    if (socket) {
+      socket.disconnect()
+    }
+
+    socket = new Socket("/socket", {params: {token: token}})
+    socket.connect()
+    activeToken = token
+    window.userSocket = socket
+  }
+
+  return socket
+}
 
 // Export the socket to be used by hooks
 window.userSocket = socket

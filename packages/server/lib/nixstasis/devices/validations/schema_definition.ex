@@ -16,8 +16,16 @@ defmodule Nixstasis.Devices.Validations.SchemaDefinition do
 
   @impl true
   def validate(changeset, _opts, _context) do
-    schema = Ash.Changeset.get_attribute(changeset, :schema) || %{}
+    schema = Ash.Changeset.get_attribute(changeset, :schema)
 
+    if empty_schema?(schema) do
+      :ok
+    else
+      validate_schema(schema)
+    end
+  end
+
+  defp validate_schema(schema) do
     case SchemaValidator.validate(schema) do
       :ok ->
         :ok
@@ -26,4 +34,6 @@ defmodule Nixstasis.Devices.Validations.SchemaDefinition do
         {:error, InvalidAttribute.exception(field: :schema, message: message, value: schema)}
     end
   end
+
+  defp empty_schema?(schema), do: is_nil(schema) or schema == %{}
 end

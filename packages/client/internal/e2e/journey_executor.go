@@ -324,12 +324,17 @@ func (e *journeyExecutor) registerDevice(ctx context.Context, state *journeyStat
 
 	mac := generateMac()
 	account := generateAccountNumber()
+	productName := "E2E Device"
 
 	payload := map[string]any{
-		"mac_address":       mac,
-		"product_name":      "E2E Device",
-		"account_number":    account,
-		"schema_definition": map[string]any{},
+		"mac_address":    mac,
+		"product_name":   productName,
+		"account_number": account,
+		"schema_definition": map[string]any{
+			"product":    productName,
+			"type":       "object",
+			"properties": map[string]any{},
+		},
 	}
 
 	body, err := json.Marshal(payload)
@@ -399,7 +404,7 @@ func (e *journeyExecutor) createRecord(ctx context.Context, state *journeyState,
 		return stepOutcome{}, expectationInvalidFailure("record_created", expect)
 	}
 
-	name := fmt.Sprintf("E2E Report %s", time.Now().Format("20060102-150405"))
+	name := fmt.Sprintf("E2E Report %d", time.Now().UnixNano())
 
 	payload := map[string]any{
 		"data": map[string]any{
@@ -482,7 +487,7 @@ func (e *journeyExecutor) updateRecord(ctx context.Context, state *journeyState,
 			"type": "custom_report",
 			"id":   state.ReportID,
 			"attributes": map[string]any{
-				"name":   fmt.Sprintf("E2E Report %s (updated)", time.Now().Format("20060102-150405")),
+				"name":   fmt.Sprintf("E2E Report %d (updated)", time.Now().UnixNano()),
 				"config": map[string]any{"source": "e2e", "journey": "update_record"},
 			},
 		},

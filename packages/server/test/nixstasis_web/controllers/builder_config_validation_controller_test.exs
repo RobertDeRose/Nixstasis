@@ -9,6 +9,7 @@ defmodule NixstasisWeb.BuilderConfigValidationControllerTest do
         "mac_address" => "AA:BB:CC:DD:EE:22",
         "product_name" => "sensor-v2",
         "schema" => %{
+          "product" => "sensor-v2",
           "version" => "v2",
           "properties" => %{
             "pressure" => %{"type" => "number"}

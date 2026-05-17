@@ -1,6 +1,14 @@
+# NOTE: This reusable workflow is not currently called by any other workflow.
+# It was written for the original Debian packaging pipeline (caddy/frp).
+# Remove it if no caller is added by the time Docker-only CI is complete.
 name: Check Config
 on:
   workflow_call:
+    inputs:
+      mode:
+        required: false
+        type: string
+        default: images
     outputs:
       package:
         value: ${{ jobs.check-configs.outputs.package }}
@@ -30,54 +38,36 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Get Parameters
         id: parameters
         run: |
-          package="packages/${GITHUB_REF_NAME%/*}"
+          mode="${{ inputs.mode }}"
 
-          if grep -qP "packages/v(\d+\.){2,3}(\d+)?" <<< "${package}"; then
-            package="packages/server"
+          if [ "$mode" = "images" ]; then
+            {
+              echo 'distros=["ubuntu-24.04"]'
+              echo 'arches=["amd64"]'
+              echo 'package=images'
+              echo "version=${GITHUB_REF_NAME#*/[vV]}"
+              echo 'os-independent=true'
+              echo 'arch-independent=false'
+            } | tee -a "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
-          if [[ ! -e "${package}" || ! -e "${package}/package_options.yml" ]]; then
-            echo "Invalid Build Request, there is no ${package} folder or 'package_options.yml' is missing"
-            exit 1
+          if [ "$mode" = "client-release" ]; then
+            {
+              echo 'distros=["ubuntu-24.04"]'
+              echo 'arches=["amd64","arm64"]'
+              echo 'package=packages/client'
+              echo "version=${GITHUB_REF_NAME#*/[vV]}"
+              echo 'os-independent=false'
+              echo 'arch-independent=false'
+            } | tee -a "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
-          cd "${package}"
-
-          PKG_TYPE=$(yq '.package-type' package_options.yml)
-          DEFAULT_VALUE=$([[ "${PKG_TYPE}" == "generic" || "${PKG_TYPE}" == "cockpit" ]] && echo "true" || echo "false")
-
-          # null evaluates to empty string in yq
-          OS_IND=$(yq '.os-independent' package_options.yml)
-          ARCH_IND=$(yq '.arch-independent' package_options.yml)
-
-          [ "${OS_IND}" == "null" ] && OS_IND="${DEFAULT_VALUE}"
-          [ "${ARCH_IND}" == "null" ] && ARCH_IND="${DEFAULT_VALUE}"
-
-          if "${OS_IND}"; then
-            distros=(focal)
-          else
-            distros=(focal jammy noble)
-          fi
-
-          arches=(amd64)
-          if ! "${ARCH_IND}"; then
-            arches+=(arm64)
-          fi
-
-          # Convert array to JSON array format
-          json_distros="[$(printf '"%s"\n' "${distros[@]}" | paste -sd ',' -)]"
-          json_arches="[$(printf '"%s"\n' "${arches[@]}" | paste -sd ',' -)]"
-
-          {
-            echo "distros=${json_distros}"
-            echo "arches=${json_arches}"
-            echo "package=${package}"
-            echo "version=${GITHUB_REF_NAME#*/[vV]}"
-            echo "os-independent=${OS_IND}"
-            echo "arch-independent=${ARCH_IND}"
-          } | tee -a "${GITHUB_OUTPUT}"
+          echo "Unsupported mode: $mode" >&2
+          exit 1

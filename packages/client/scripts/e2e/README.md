@@ -28,7 +28,8 @@ The `runtime` suite validates runtime client APIs and Linux-oriented Starlark te
 - JSON:API resources used by runtime reporting/alerts (`devices`, `pending_commands`, `alert_rules`, `alerts`,
   `custom_reports`, `telemetry_events`)
 
-The runtime journey generates and executes 10+ `.stary` scripts using `exec_cmd` and validates:
+The runtime journey generates and executes 10+ `.stary` scripts using `exec_cmd`
+with a narrow test-only command allowlist and validates:
 
 - telemetry persistence to `telemetry_events`
 - report rendering from stored script payloads
@@ -43,8 +44,13 @@ Performance gate:
 
 ## Non-Linux Hosts
 
-If the host is not Linux, `scripts/e2e/run` automatically executes runtime E2E in an ephemeral Ubuntu Docker container
-and rewrites `--api-url` to `host.docker.internal` so the containerized client reaches the host server.
+If the host is not Linux, `scripts/e2e/run` automatically executes runtime E2E in an ephemeral Ubuntu container.
+It prefers Apple Container (`container`), then Docker, then Podman, and rewrites `--api-url` to the appropriate host
+alias so the containerized client reaches the host server.
+
+Local runtime `check_domain` validation expects a base domain that matches the server's dev/test config. The default
+local value is `devices.example.com`, so the runtime suite validates `auth.devices.example.com` unless you override
+`e2e.base_domain` in the config file.
 
 ## Scaffold a New Journey
 
@@ -79,6 +85,13 @@ scripts/e2e/run_all_suites \
   --protocol-version 1 \
   --reports-dir tmp/e2e/reports \
   --logs-dir tmp/e2e/logs
+```
+
+The default config example also includes:
+
+```yaml
+e2e:
+  base_domain: devices.example.com
 ```
 
 This uses server suite configuration as source of truth via `GET /e2e/suites`. If any suite fails, the command exits

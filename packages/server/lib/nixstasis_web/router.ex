@@ -8,18 +8,28 @@ defmodule NixstasisWeb.Router do
     plug(:put_root_layout, html: {NixstasisWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(NixstasisWeb.Plugs.DevicePermissions)
   end
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug(NixstasisWeb.Plugs.RateLimiter)
+  end
+
+  pipeline :e2e_api do
+    plug(:accepts, ["json"])
+    plug(NixstasisWeb.Plugs.E2EEnabled)
   end
 
   scope "/api/json" do
-    pipe_through [:api]
+    pipe_through([:api])
 
-    forward "/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/api/json/open_api", default_model_expand_depth: 4
+    forward("/swaggerui", OpenApiSpex.Plug.SwaggerUI,
+      path: "/api/json/open_api",
+      default_model_expand_depth: 4
+    )
 
-    forward "/", NixstasisWeb.AshJsonApiRouter
+    forward("/", NixstasisWeb.AshJsonApiRouter)
   end
 
   scope "/", NixstasisWeb do
@@ -47,21 +57,33 @@ defmodule NixstasisWeb.Router do
     pipe_through(:api)
 
     get("/builder-schemas", BuilderSchemaController, :index)
-    get("/builder-schemas/:schema_id/versions/:schema_version/options", BuilderSchemaController, :options)
+
+    get(
+      "/builder-schemas/:schema_id/versions/:schema_version/options",
+      BuilderSchemaController,
+      :options
+    )
+
     post("/builder-configurations/validate", BuilderConfigValidationController, :create)
 
     get("/devices", DeviceController, :index)
     post("/devices/register", DeviceController, :register)
-    post("/devices/:device_id/modal", DeviceController, :open_modal)
-    delete("/devices/:device_id/modal", DeviceController, :close_modal)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)
     post("/devices/:device_id/command_results", DeviceCommandController, :command_results)
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
+    get("/reports/:id/results", ReportResultController, :show)
     get("/check_domain", TLSController, :check_domain)
   end
 
-  scope "/e2e", NixstasisWeb do
+  scope "/_nixstasis/laptop", NixstasisWeb do
     pipe_through(:api)
+
+    get("/tls_observations", TLSController, :observations)
+    delete("/tls_observations", TLSController, :clear_observations)
+  end
+
+  scope "/e2e", NixstasisWeb do
+    pipe_through(:e2e_api)
 
     get("/suites", E2ERunController, :suites)
     get("/runs", E2ERunController, :index)
@@ -104,9 +126,9 @@ defmodule NixstasisWeb.Router do
     import AshAdmin.Router
 
     scope "/admin" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      ash_admin "/"
+      ash_admin("/")
     end
   end
 end

@@ -91,6 +91,8 @@ config :nixstasis, :e2e,
     check_interval_ms: 60_000
   ]
 
+config :nixstasis, :base_domain, "devices.example.com"
+
 # Enable dev routes for dashboard and mailbox
 config :nixstasis, dev_routes: true
 

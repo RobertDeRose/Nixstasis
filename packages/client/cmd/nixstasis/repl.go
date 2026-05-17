@@ -5,10 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 	"github.com/spf13/cobra"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
+
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 )
 
 var startREPL = func(globals starlark.StringDict) error {

@@ -1,7 +1,7 @@
 # Welcome to Nixstasis
 
-Nixstasis is an IoT monitoring and remote access platform. This repository is a monorepo with multiple codebases and
-packaging workflows.
+Nixstasis is an IoT monitoring and remote access platform. The current supported
+server deployment path for this feature is Docker Compose via `deploy/compose`.
 
 The client and server have been rewritten from their original Bash and Python/Reflex implementations into Go and
 Elixir/Phoenix, respectively.
@@ -10,7 +10,9 @@ Elixir/Phoenix, respectively.
 
 - **Client (Go)**: Lightweight agent that registers devices, polls telemetry plugins, and manages FRP tunnels.
 - **Server (Elixir/Phoenix + LiveView)**: API and web UI for device monitoring, approvals, alerts, and reporting.
-- **Packaging (Debian)**: Custom GitHub Actions/workflows for building Caddy and FRP Debian packages.
+- **Packaging and Release**: OCI image builds for server/Caddy and a GoReleaser
+  client packaging flow are being introduced as the supported path for this
+  migration.
 - **Infrastructure**: [`FRP`](https://gofrp.org/en/), [`Caddy`](https://caddyserver.com/), and
   [`AuthCrunch`](https://authcrunch.com) integrate to provide secure, on-demand remote access.
 
@@ -18,14 +20,36 @@ Elixir/Phoenix, respectively.
 
 - `packages/client`: Go-based client agent.
 - `packages/server`: Phoenix server application.
-- `packages/caddy`: Debian packaging for Caddy (with AuthCrunch).
-- `packages/frp`: Debian packaging for FRP.
-- `specs`: Feature specs and task checklists for the rewrites and ongoing work.
+- `deploy/compose`: Supported server deployment assets for this migration.
+- `packages/caddy`: Caddy image and legacy packaging assets.
+- `packages/frp`: FRPS image build assets and shared FRP binary acquisition
+  scripts used by server/client packaging flows.
+- `docs/src/features`: Docs-driven feature designs and task history.
 
 ## Package READMEs
 
 - Client: [`packages/client/README.md`](packages/client/README.md)
 - Server: [`packages/server/README.md`](packages/server/README.md)
+
+## Deployment status
+
+- Supported server deployment path: `deploy/compose`
+- Supported client release path: GoReleaser from `packages/client`
+- Abandoned server package deployment assets are not part of the supported
+  release path for this migration.
+
+## Client release status
+
+Build client snapshot artifacts from `packages/client` with the tracked
+production version pins:
+
+```bash
+grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' prod.env
+goreleaser release --snapshot --clean
+./scripts/release/verify_artifacts.sh
+```
+
+The supported client artifacts install `nixstasis` to `/usr/bin/nixstasis` and the bundled `frpc` runtime to `/usr/libexec/nixstasis/frpc`.
 
 ## E2E Tests (Client ↔ Server)
 
@@ -199,7 +223,7 @@ Files that make up this example journey:
 | Dashboard page | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex` | Server | Runs/results/log visualization. |
 | Migrations | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server | Schema for runs/results and reliability hardening fields. |
 | Seed script | `packages/server/priv/e2e/seed.exs` | Server | Baseline data reset before run acceptance. |
-| OpenAPI contract | `specs/008-server-client-e2e-tests/contracts/e2e-runs.openapi.yaml` | Both | Contract reference for endpoints/payloads/errors. |
+| E2E API docs | `docs/src/modules/server-e2e.md`, `docs/src/client-server-interface.md` | Both | Contract reference for endpoints/payloads/errors. |
 
 ## Architecture Overview
 
@@ -220,10 +244,10 @@ flowchart TB
         UI["Nixstasis UI"]
         API["Nixstasis API"]
         DB[("Database")]
-        Alembic["Alembic Migrations"]
+        Migrations["Ecto Migrations"]
         FRPS["FRPS Server"]
   end
- subgraph Device["<b>Device</b>"]
+  subgraph Device["<b>Managed Device</b>"]
         Client["Nixstasis Client"]
         WebUI["Cockpit"]
         SSH["SSH"]
@@ -237,7 +261,7 @@ flowchart TB
     Shell == |SSH Access| ==> FRPS
     UI <== State/Data ==> API
     API <== Queries ==> DB
-    Alembic == Migrations ==> DB
+    Migrations == Migrations ==> DB
     Client == |Events/Data| ==> API
     FRPC <== Secure Tunnel ==> FRPS
     Client ==> FRPC
@@ -254,7 +278,7 @@ flowchart TB
     style UI fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style API fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style DB fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
-    style Alembic fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
+    style Migrations fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style FRPS fill:#C8E6C9,stroke:#1B5E20,stroke-width:3px,color:#000
     style Client fill:#E1BEE7,stroke:#4A148C,stroke-width:3px,color:#000
     style WebUI fill:#E1BEE7,stroke:#4A148C,stroke-width:3px,color:#000
@@ -265,12 +289,12 @@ flowchart TB
     style Device fill:#F3E5F5,stroke:#4A148C,stroke-width:4px,color:#000
 ``` -->
 
-## Status Snapshot (from specs task checklists)
+## Status Snapshot
 
-- **Client rewrite (Go)**: Core functionality is implemented (registration, polling, FRP management, packaging). Two
-  items remain in progress: `internal/plugin` foundational structs (T006) and FRP lifecycle hooks (T027).
-- **Server rewrite (Elixir/Phoenix)**: Core monitoring, dashboard, and UI polish tasks are complete. The device list
-  enhancement spec (005) is pending.
+- **Client rewrite (Go)**: Core functionality is implemented, including registration, heartbeat polling, command polling,
+  FRP config rendering, script execution guardrails, and native packaging.
+- **Server rewrite (Elixir/Phoenix)**: Core monitoring, dashboard, device management, reporting, E2E control APIs, and
+  Compose-based deployment are implemented. The server uses Phoenix, Ash, and Ecto migrations.
 
 ## FRP (Fast Reverse Proxy)
 
@@ -306,10 +330,10 @@ upgrade requests (required for WebSockets) and lacks built-in ACME support. Cadd
 which is why it's used in front of FRPS.
 
 For on-demand certificates, Caddy requests approval the first time a subdomain is accessed. Nixstasis exposes the
-`/permit_tls` endpoint to authorize these requests. The endpoint expects a `domain` query parameter and only allows a
-certificate when the domain should be exposed for remote access. If no device matches the requested domain, or if remote
-access hasn't been requested, the request is denied. Requests for the `nixstasis`, `auth`, and `frp-admin` domains are
-always approved because Nixstasis depends on them.
+`/api/v1/check_domain` endpoint to authorize these requests. The endpoint expects a `domain` query parameter and only
+allows a certificate when the domain should be exposed for remote access. If no device matches the requested domain, or
+if remote access hasn't been requested, the request is denied. Requests for the `nixstasis`, `auth`, and `frp-admin`
+domains are always approved because Nixstasis depends on them.
 
 Caddy may be configured using its Caddyfile or JSON formats; the repo includes a deployable Caddyfile covering the
 current features.

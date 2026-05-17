@@ -1,0 +1,65 @@
+name: Build Caddy Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      push:
+        description: Push the built image to GHCR
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+    paths:
+      - packages/caddy/**
+      - deploy/compose/**
+      - .github/workflows/build_caddy_image.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Load production version pins
+        run: cat prod.env >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      - name: Validate runtime contract
+        run: deploy/compose/scripts/check_runtime_contract.sh
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/nixstasis-caddy
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: Build and optionally push caddy image
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: packages/caddy
+          file: packages/caddy/Dockerfile
+          build-args: |
+            CADDY_VERSION=${{ env.CADDY_VERSION }}
+            CADDY_SECURITY_VERSION=${{ env.CADDY_SECURITY_VERSION }}
+            CADDY_BUILDER_IMAGE_DIGEST=${{ env.CADDY_BUILDER_IMAGE_DIGEST }}
+            CADDY_RUNNER_IMAGE_DIGEST=${{ env.CADDY_RUNNER_IMAGE_DIGEST }}
+          push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

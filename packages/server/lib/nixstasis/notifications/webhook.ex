@@ -3,6 +3,8 @@ defmodule Nixstasis.Notifications.Webhook do
   Sends alert notifications to configured webhooks.
   """
 
+  def send_alert_webhook(url, _alert) when url in [nil, ""], do: :ok
+
   def send_alert_webhook(url, alert) do
     Req.post(url,
       json: %{

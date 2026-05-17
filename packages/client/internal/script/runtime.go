@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -17,12 +19,28 @@ import (
 // ErrTimeout is returned when a script execution exceeds its allowed runtime.
 var ErrTimeout = errors.New("script timeout")
 
+// maxMQTTConnectAttempts is the maximum number of consecutive MQTT connection
+// failures before the Runtime stops attempting for the rest of this poll cycle.
+// A new Runtime is created each poll cycle, so the breaker resets automatically.
+const maxMQTTConnectAttempts = 3
+
+const runtimeContextThreadKey = "nixstasis.runtime.context"
+
 // Runtime executes Starlark scripts with a configured set of builtins.
 type Runtime struct {
-	config     RuntimeConfig
-	builtins   starlark.StringDict
-	mqttMu     sync.Mutex
-	mqttClient mqtt.Client
+	config RuntimeConfig
+	// builtins is populated once in NewRuntime and must not be mutated after
+	// construction. Multiple goroutines read it concurrently via ExecFileOptions.
+	builtins     starlark.StringDict
+	mqttMu       sync.Mutex
+	mqttClient   mqtt.Client
+	mqttFailures int
+	// pubAndGetSem serializes pub_and_get calls. Capacity MUST be 1 because
+	// the shared MQTT client's Subscribe/Unsubscribe are not scoped per-call;
+	// allowing concurrent pub_and_get on the same reply topic would race the
+	// subscription handler.
+	pubAndGetSem chan struct{}
+	mqttSeq      atomic.Uint64
 }
 
 // NewRuntime constructs a Runtime with configured timeouts, builtins, and safety defaults.
@@ -36,11 +54,11 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 	if config.MQTTBroker == "" {
 		config.MQTTBroker = "tcp://localhost:1883"
 	}
-	if len(config.ExecBlacklist) == 0 {
-		config.ExecBlacklist = []string{"rm", "mkfs", "mkfs."}
+	if config.ExecWorkDir == "" {
+		config.ExecWorkDir = os.TempDir()
 	}
 
-	r := &Runtime{config: config}
+	r := &Runtime{config: config, pubAndGetSem: make(chan struct{}, 1)}
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),
 		"exec_cmd":    starlark.NewBuiltin("exec_cmd", r.execCmdBuiltin),
@@ -80,10 +98,15 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 	defer cancel()
 
 	resCh := make(chan result, 1)
+	thread := &starlark.Thread{Name: "stary"}
+	thread.SetLocal(runtimeContextThreadKey, ctx)
+
+	// Defensive copy: ExecFileOptions may mutate the predeclared dict during
+	// execution. Each goroutine gets its own shallow copy to avoid races.
+	predeclared := r.Builtins()
 
 	go func() {
-		thread := &starlark.Thread{Name: "stary"}
-		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, r.builtins)
+		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, predeclared)
 		if err != nil {
 			resCh <- result{err: err}
 			return
@@ -113,6 +136,8 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 
 	select {
 	case <-ctx.Done():
+		thread.Cancel(ErrTimeout.Error())
+		<-resCh
 		return nil, ErrTimeout
 	case res := <-resCh:
 		if res.err != nil {
@@ -139,7 +164,10 @@ func starlarkValueToGo(value starlark.Value) (any, error) {
 	case starlark.String:
 		return string(v), nil
 	case starlark.Int:
-		i, _ := v.Int64()
+		i, ok := v.Int64()
+		if !ok {
+			return nil, fmt.Errorf("integer value %s exceeds int64 range", v.String())
+		}
 		return i, nil
 	case starlark.Float:
 		return float64(v), nil

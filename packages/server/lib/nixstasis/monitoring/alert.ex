@@ -45,23 +45,29 @@ defmodule Nixstasis.Monitoring.Alert do
 
     attribute :type, Nixstasis.Types.AlertType do
       allow_nil? false
+      public? true
     end
 
     attribute :status, Nixstasis.Types.AlertStatus do
       allow_nil? false
+      public? true
       default :active
     end
 
     attribute :message, :string do
       allow_nil? false
+      public? true
     end
 
     attribute :triggered_at, :utc_datetime do
       allow_nil? false
+      public? true
       default &DateTime.utc_now/0
     end
 
-    attribute :rule_id, :integer
+    attribute :rule_id, :integer do
+      public? true
+    end
 
     timestamps()
   end
@@ -69,6 +75,7 @@ defmodule Nixstasis.Monitoring.Alert do
   relationships do
     belongs_to :device, Nixstasis.Devices.Device do
       allow_nil? false
+      public? true
     end
   end
 end

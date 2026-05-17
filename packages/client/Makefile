@@ -5,6 +5,7 @@ INSTALL_DIR=$(BUILD_ROOT)/usr/bin
 CMD_DIR=./cmd/nixstasis
 GOLANGCI_VERSION=v2.8.0
 GOBIN := $(shell go env GOPATH)/bin
+GENERATED_BIN := $(BIN_DIR)/$(NAME)
 
 export GOEXPERIMENT=jsonv2
 
@@ -21,16 +22,17 @@ all: clean check install ## Run all checks and install the binary
 build: ## Build the binary locally (for dev)
 	@mkdir -p $(BIN_DIR)
 	@echo "Building $(NAME)..."
-	go build -o $(BIN_DIR)/$(NAME) $(CMD_DIR)
+	go build -o $(GENERATED_BIN) $(CMD_DIR)
 
 install: build ## Build and install the binary to BUILD_ROOT
 	@echo "Installing $(NAME)..."
-	install -D $(BIN_DIR)/$(NAME) $(INSTALL_DIR)/$(NAME)
+	@mkdir -p $(INSTALL_DIR)
+	install $(GENERATED_BIN) $(INSTALL_DIR)/$(NAME)
 
 fmt: $(GOFUMPT) $(GOIMPORTS) ## Format code with gofumpt and goimports
 	@echo "Formatting code..."
 	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOFUMPT) -l -w
-	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/RobertDeRose/nixstasis
+	@find . -type f -name '*.go' -not -path './tmp/e2e/go-cache/*' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/RobertDeRose/nixstasis/packages/client
 
 lint: $(GOLANGCI_LINT) ## Run golangci-lint
 	@echo "Running golangci-lint..."
@@ -53,9 +55,12 @@ check: fmt mod lint test ## Run all formatting, linting, and tests
 # 1. This target always runs because it is .PHONY
 check-golangci-version:
 	@if [ -x $(GOLANGCI_LINT) ]; then \
-		INSTALLED_VER=$$($(GOLANGCI_LINT) --version | awk '{print $$4}'); \
-		if [ "v$$INSTALLED_VER" != "$(GOLANGCI_VERSION)" ]; then \
-			echo "Version mismatch: expected $(GOLANGCI_VERSION), got $$INSTALLED_VER. Reinstalling..."; \
+		VERSION_OUTPUT=$$($(GOLANGCI_LINT) version); \
+		INSTALLED_VER=$$(printf '%s\n' "$$VERSION_OUTPUT" | awk '{print $$4}'); \
+		INSTALLED_GO=$$(printf '%s\n' "$$VERSION_OUTPUT" | awk '{print $$8}'); \
+		CURRENT_GO=$$(go env GOVERSION); \
+		if [ "v$$INSTALLED_VER" != "$(GOLANGCI_VERSION)" ] || [ "$$INSTALLED_GO" != "$$CURRENT_GO" ]; then \
+			echo "golangci-lint mismatch: expected $(GOLANGCI_VERSION) built with $$CURRENT_GO, got $$INSTALLED_VER built with $$INSTALLED_GO. Reinstalling..."; \
 			rm -f $(GOLANGCI_LINT); \
 		fi; \
 	fi
@@ -63,8 +68,8 @@ check-golangci-version:
 # 2. The binary target now depends on the version check
 $(GOLANGCI_LINT): check-golangci-version
 	@if [ ! -f $(GOLANGCI_LINT) ]; then \
-		echo "Installing golangci-lint v$(GOLANGCI_VERSION)..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) $(GOLANGCI_VERSION); \
+		echo "Installing golangci-lint $(GOLANGCI_VERSION) with local Go toolchain..."; \
+		GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION); \
 	fi
 
 $(GOFUMPT):
@@ -79,7 +84,7 @@ install-tools: $(GOLANGCI_LINT) $(GOFUMPT) $(GOIMPORTS) ## Install all required 
 
 clean: ## Remove build artifacts
 	@echo "Cleaning..."
-	@rm -rf $(BIN_DIR)
+	@rm -f $(GENERATED_BIN)
 	@rm -f coverage.out
 
 run_mock_server: ## Run a mock api server for testing

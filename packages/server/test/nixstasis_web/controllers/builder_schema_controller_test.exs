@@ -9,6 +9,7 @@ defmodule NixstasisWeb.BuilderSchemaControllerTest do
         "mac_address" => "AA:BB:CC:DD:EE:11",
         "product_name" => "thermostat-v1",
         "schema" => %{
+          "product" => "thermostat-v1",
           "version" => "v1",
           "properties" => %{
             "temp" => %{"type" => "number"},

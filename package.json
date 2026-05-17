@@ -1,0 +1,81 @@
+{
+  "name": "nixstasis-tooling",
+  "private": true,
+  "devDependencies": {
+    "@commitlint/cli": "20.5.3"
+  },
+  "commitlint": {
+    "rules": {
+      "body-leading-blank": [
+        2,
+        "always"
+      ],
+      "body-max-line-length": [
+        2,
+        "always",
+        100
+      ],
+      "header-max-length": [
+        2,
+        "always",
+        72
+      ],
+      "header-trim": [
+        2,
+        "always"
+      ],
+      "subject-empty": [
+        2,
+        "never"
+      ],
+      "subject-full-stop": [
+        2,
+        "never",
+        "."
+      ],
+      "scope-enum": [
+        2,
+        "always",
+        [
+          "client",
+          "server",
+          "shared",
+          "caddy",
+          "frp",
+          "deploy",
+          "ci",
+          "docs",
+          "specs",
+          "tooling",
+          "repo"
+        ]
+      ],
+      "type-case": [
+        2,
+        "always",
+        "lower-case"
+      ],
+      "type-empty": [
+        2,
+        "never"
+      ],
+      "type-enum": [
+        2,
+        "always",
+        [
+          "build",
+          "chore",
+          "ci",
+          "docs",
+          "feat",
+          "fix",
+          "perf",
+          "refactor",
+          "revert",
+          "style",
+          "test"
+        ]
+      ]
+    }
+  }
+}

@@ -3,6 +3,7 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
 
   alias Nixstasis.Devices
   alias Nixstasis.Devices.PendingCommand
+  alias Nixstasis.Repo
 
   describe "command queue" do
     test "queue_command/2 adds command to queue" do
@@ -34,6 +35,19 @@ defmodule Nixstasis.Monitoring.CommandQueueTest do
       # But since test uses DataCase, we can use Repo
       alias Nixstasis.Repo
       assert Repo.get!(PendingCommand, c1.id).status == :delivered
+    end
+
+    test "pop_pending_commands/1 does not return already delivered commands" do
+      {:ok, device} =
+        Devices.register_device(%{mac_address: "33:33:33:33:33:33", product_name: "P1"})
+
+      {:ok, command} = Devices.queue_command(device, %{"id" => "once"})
+
+      commands = Devices.pop_pending_commands(device)
+
+      assert Enum.map(commands, & &1.id) == [command.id]
+      assert Repo.get!(PendingCommand, command.id).status == :delivered
+      assert Devices.pop_pending_commands(device) == []
     end
   end
 end

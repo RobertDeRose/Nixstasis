@@ -13,6 +13,7 @@ defmodule Nixstasis.Monitoring.AlertRule do
     repo Nixstasis.Repo
 
     custom_indexes do
+      index [:name]
       index [:product_name]
     end
   end
@@ -25,7 +26,7 @@ defmodule Nixstasis.Monitoring.AlertRule do
     defaults [:read, :destroy]
 
     create :create do
-      accept [:product_name, :condition_field, :operator, :threshold_value]
+      accept [:name, :product_name, :condition_field, :operator, :threshold_value]
     end
 
     update :update do
@@ -35,6 +36,12 @@ defmodule Nixstasis.Monitoring.AlertRule do
 
   attributes do
     integer_primary_key :id
+
+    attribute :name, :string do
+      allow_nil? false
+      default "Untitled rule"
+      constraints min_length: 1
+    end
 
     attribute :product_name, :string do
       allow_nil? false

@@ -24,8 +24,10 @@ def main():
 
 	executor := NewExecutor(RuntimeConfig{Timeout: 5 * time.Second})
 	results, err := executor.ExecuteScripts(context.Background(), []ScriptInfo{{Path: path}})
-	if err != nil {
-		t.Fatalf("execute scripts: %v", err)
+	// err is non-nil because the script has invalid front-matter, which
+	// ExecuteScripts now surfaces alongside the per-script result.
+	if err == nil {
+		t.Fatal("expected error from invalid front-matter")
 	}
 
 	res := results[filepath.Base(path)]
@@ -56,8 +58,10 @@ def main():
 
 	executor := NewExecutor(RuntimeConfig{Timeout: 5 * time.Second})
 	results, err := executor.ExecuteScripts(context.Background(), []ScriptInfo{{Path: path}})
-	if err != nil {
-		t.Fatalf("execute scripts: %v", err)
+	// err is non-nil because schema validation failed, which ExecuteScripts
+	// now surfaces alongside the per-script result.
+	if err == nil {
+		t.Fatal("expected error from schema mismatch")
 	}
 
 	res := results["mismatch"]

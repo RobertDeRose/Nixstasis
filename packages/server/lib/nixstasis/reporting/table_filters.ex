@@ -152,13 +152,26 @@ defmodule Nixstasis.Reporting.TableFilters do
 
   defp value_for(row, key) do
     if is_map(row) do
-      Map.get(row, key) || Map.get(row, String.to_atom(key))
+      case Map.fetch(row, key) do
+        {:ok, value} -> value
+        :error -> value_for_atom_key(row, key)
+      end
     else
       nil
     end
-  rescue
-    ArgumentError -> Map.get(row, key)
   end
+
+  defp value_for_atom_key(row, key) when is_binary(key) do
+    row
+    |> Map.keys()
+    |> Enum.find(&(is_atom(&1) and Atom.to_string(&1) == key))
+    |> case do
+      nil -> nil
+      atom_key -> Map.get(row, atom_key)
+    end
+  end
+
+  defp value_for_atom_key(_row, _key), do: nil
 
   defp to_string_safe(nil), do: ""
   defp to_string_safe(value) when is_binary(value), do: value

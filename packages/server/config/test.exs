@@ -62,3 +62,5 @@ config :nixstasis, :e2e,
     max_log_bytes: 1_000_000_000,
     check_interval_ms: 60_000
   ]
+
+config :nixstasis, :base_domain, "devices.example.com"

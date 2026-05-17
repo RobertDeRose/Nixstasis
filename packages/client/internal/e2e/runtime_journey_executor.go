@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
@@ -103,10 +104,13 @@ func (e *journeyExecutor) runtimeCheckDomain(ctx context.Context, _ *journeyStat
 		return stepOutcome{}, expectationInvalidFailure("tls_domain_allowed", expect)
 	}
 
+	checkDomain := fmt.Sprintf("auth.%s", strings.TrimPrefix(e.cfg.BaseDomain, "."))
+	path := fmt.Sprintf("/api/v1/check_domain?domain=%s", url.QueryEscape(checkDomain))
+
 	_, _, err := e.doRequest(
 		ctx,
 		"GET",
-		"/api/v1/check_domain?domain=auth.ab.test-device.com",
+		path,
 		nil,
 		nil,
 		204,
@@ -154,7 +158,38 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 		return stepOutcome{}, err
 	}
 
-	return stepOutcome{}, nil
+	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
+		MACAddress: state.DeviceMac,
+		Name:       state.ProductName,
+	})
+	if err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeHTTPRequestFailed,
+			AssertionFailed: "approved runtime device can obtain API token",
+			Message:         fmt.Sprintf("runtime credential refresh failed: %v", err),
+		}
+	}
+	if credentials.Token == "" {
+		return stepOutcome{}, assertionFailure(
+			"approved runtime device receives an API token",
+			map[string]any{"api_token_non_empty": true},
+			map[string]any{"api_token_non_empty": false},
+			"runtime credential refresh returned no API token",
+		)
+	}
+	if credentials.UUID == "" {
+		return stepOutcome{}, assertionFailure(
+			"approved runtime device credential refresh returns a device id",
+			map[string]any{"device_id_non_empty": true},
+			map[string]any{"device_id_non_empty": false},
+			"runtime credential refresh returned no device id",
+		)
+	}
+	state.DeviceID = credentials.UUID
+	state.DeviceToken = credentials.Token
+
+	return stepOutcome{ActionData: map[string]any{"device_id": state.DeviceID, "api_token_present": true}}, nil
 }
 
 func (e *journeyExecutor) runtimeCreateAlertRule(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {
@@ -260,7 +295,7 @@ def main():
 	}
 
 	refPath := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, state.CommandRef)
-	if _, _, err := e.doRequest(ctx, "GET", refPath, nil, nil, 200); err != nil {
+	if _, _, err := e.doRequest(ctx, "GET", withAPIKey(refPath, state.DeviceToken), nil, nil, 200); err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeAssertionFailed,
 			AssertionFailed: "queued command payload is retrievable by payload_ref",
@@ -286,7 +321,7 @@ func (e *journeyExecutor) runtimeExpectMissingPayloadRef(ctx context.Context, st
 
 	missingRef := fmt.Sprintf("missing-%d", time.Now().UnixNano())
 	path := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, missingRef)
-	_, _, err := e.doRequest(ctx, "GET", path, nil, nil, 404)
+	_, _, err := e.doRequest(ctx, "GET", withAPIKey(path, state.DeviceToken), nil, nil, 404)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -327,7 +362,7 @@ func (e *journeyExecutor) runtimeRejectInvalidCommandResults(ctx context.Context
 		}
 	}
 
-	path := fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID)
+	path := withAPIKey(fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID), state.DeviceToken)
 	_, _, err = e.doRequest(ctx, "POST", path, body, map[string]string{"Content-Type": "application/json"}, 400)
 	if err != nil {
 		return stepOutcome{}, err
@@ -374,6 +409,7 @@ func (e *journeyExecutor) runtimePollWithScripts(ctx context.Context, state *jou
 	pollStart := time.Now()
 
 	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient.SetAPIKey(state.DeviceToken)
 	scripts, err := script.DiscoverScripts(scriptDir)
 	if err != nil {
 		return stepOutcome{}, &stepError{
@@ -478,12 +514,25 @@ func (e *journeyExecutor) runtimeVerifyTelemetry(ctx context.Context, state *jou
 		}
 	}()
 
-	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/reports/%s", probeReportID), nil, nil, 200)
+	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/reports/%s/results", probeReportID), nil, nil, 200)
 	if err != nil {
 		return stepOutcome{}, err
 	}
-	rendered := string(body)
-	if strings.Contains(rendered, "No data found matching report criteria.") {
+
+	var response struct {
+		Data struct {
+			Fields []map[string]any `json:"fields"`
+			Rows   []map[string]any `json:"rows"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeResponseParseFailed,
+			AssertionFailed: "runtime report probe response could be decoded",
+			Message:         fmt.Sprintf("decode runtime report probe response: %v", err),
+		}
+	}
+	if len(response.Data.Rows) == 0 {
 		if state.TelemetryCountBefore >= 0 && state.TelemetryCountAfter >= 0 {
 			return stepOutcome{}, assertionFailure(
 				"telemetry event count increases after runtime poll",
@@ -501,7 +550,7 @@ func (e *journeyExecutor) runtimeVerifyTelemetry(ctx context.Context, state *jou
 		)
 	}
 
-	if !strings.Contains(rendered, "mem_used_pct") {
+	if !reportFieldsContain(response.Data.Fields, "mem_used_pct") {
 		return stepOutcome{}, assertionFailure(
 			"telemetry report includes mem_used_pct column",
 			map[string]any{"has_mem_used_pct": true},
@@ -640,13 +689,26 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 		)
 	}
 
-	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/reports/%s", state.ReportID), nil, nil, 200)
+	body, _, err := e.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/reports/%s/results", state.ReportID), nil, nil, 200)
 	if err != nil {
 		return stepOutcome{}, err
 	}
 
-	rendered := string(body)
-	if strings.Contains(rendered, "No data found matching report criteria.") {
+	var response struct {
+		Data struct {
+			Fields []map[string]any `json:"fields"`
+			Rows   []map[string]any `json:"rows"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return stepOutcome{}, &stepError{
+			Code:            errCodeResponseParseFailed,
+			AssertionFailed: "runtime report response could be decoded",
+			Message:         fmt.Sprintf("decode runtime report response: %v", err),
+		}
+	}
+
+	if len(response.Data.Rows) == 0 {
 		return stepOutcome{}, assertionFailure(
 			"runtime report renders data",
 			map[string]any{"report_has_data": true},
@@ -654,7 +716,7 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 			"report rendered without data",
 		)
 	}
-	if !strings.Contains(rendered, "mem_used_pct") {
+	if !reportFieldsContain(response.Data.Fields, "mem_used_pct") {
 		return stepOutcome{}, assertionFailure(
 			"runtime report includes mem_used_pct column",
 			map[string]any{"has_mem_used_pct": true},
@@ -663,6 +725,19 @@ func (e *journeyExecutor) runtimeVerifyReport(ctx context.Context, state *journe
 		)
 	}
 	return stepOutcome{ActionData: map[string]any{"report_id": state.ReportID}}, nil
+}
+
+func reportFieldsContain(fields []map[string]any, key string) bool {
+	for _, field := range fields {
+		if alias, ok := field["alias"].(string); ok && alias == key {
+			return true
+		}
+		if path, ok := field["path"].(string); ok && path == key {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *journeyExecutor) runtimeVerifyAlert(ctx context.Context, state *journeyState, expect string) (stepOutcome, error) {
@@ -780,6 +855,13 @@ func executeScriptsForRuntime(
 	executor := script.NewExecutor(script.RuntimeConfig{
 		Timeout:   5 * time.Second,
 		WarnAfter: 3 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"cat":   "/bin/cat",
+			"df":    "/bin/df",
+			"nproc": "/usr/bin/nproc",
+			"stat":  "/usr/bin/stat",
+			"uname": "/usr/bin/uname",
+		},
 	})
 
 	scriptResults, err := executor.ExecuteScripts(ctx, scripts)
@@ -865,4 +947,17 @@ func shouldEnforceRuntimeBudget() bool {
 	return runtime.GOOS == "linux" &&
 		strings.EqualFold(os.Getenv("CI"), "true") &&
 		strings.EqualFold(os.Getenv("E2E_RUNTIME_PERF_GATE"), "true")
+}
+
+func withAPIKey(path, token string) string {
+	if token == "" {
+		return path
+	}
+
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+
+	return path + separator + "api_key=" + url.QueryEscape(token)
 }

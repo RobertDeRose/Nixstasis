@@ -6,6 +6,9 @@ export default {
     this.initTerminal()
   },
   destroyed() {
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler)
+    }
     if (this.term) {
       this.term.dispose()
     }
@@ -32,7 +35,8 @@ export default {
     this.fitAddon.fit()
 
     // Handle resizing
-    window.addEventListener('resize', () => this.fitAddon.fit())
+    this._resizeHandler = () => this.fitAddon.fit()
+    window.addEventListener('resize', this._resizeHandler)
 
     // Connect to Phoenix Channel
     // We assume `window.liveSocket` has the socket available, but we usually need a separate socket for Channels
@@ -56,8 +60,10 @@ export default {
     // For this hook, let's assume `window.userSocket` is available or we import it.
     // Since imports are static, I'll rely on `window.userSocket` which I will set up in app.js.
 
-    if (window.userSocket) {
-        this.joinChannel(window.userSocket)
+    const socketToken = this.el.dataset.socketToken
+
+    if (window.connectTerminalSocket && socketToken) {
+        this.joinChannel(window.connectTerminalSocket(socketToken))
     } else {
         console.error("UserSocket not available for Terminal")
         this.term.write("Error: Connection unavailable.\r\n")

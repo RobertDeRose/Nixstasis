@@ -6,16 +6,32 @@ defmodule NixstasisWeb.AlertsLiveTest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
 
+  @success_flash_timeout_ms 3_000
+
   setup do
     {:ok, _device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:31",
         "product_name" => "alert-schema-product",
         "schema" => %{
+          "product" => "alert-schema-product",
           "version" => "v1",
           "properties" => %{
             "temp" => %{"type" => "number"},
             "status" => %{"type" => "string"}
+          }
+        }
+      })
+
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:33",
+        "product_name" => "alert-schema-product",
+        "schema" => %{
+          "product" => "alert-schema-product",
+          "version" => "v2",
+          "properties" => %{
+            "pressure" => %{"type" => "number"}
           }
         }
       })
@@ -28,6 +44,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert html =~ "Schema Field"
     assert html =~ "alert-schema-product"
+    assert html =~ "Schema Version"
     assert html =~ "Create Rule"
     assert html =~ "Edit Alert Rules"
     assert html =~ "Active Alerts"
@@ -40,6 +57,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       "schema_id" => "alert-schema-product",
       "schema_version" => "v1",
       "alert_rule" => %{
+        "name" => "High temperature",
         "condition_field" => "temp",
         "operator" => ">",
         "threshold_value" => "75"
@@ -52,12 +70,82 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert render(view) =~ "Rule created successfully"
 
     rules = Domain.list_rules!()
-    assert Enum.any?(rules, &(&1.product_name == "alert-schema-product" and &1.condition_field == "temp"))
+
+    assert Enum.any?(
+             rules,
+             &(&1.name == "High temperature" and &1.product_name == "alert-schema-product" and
+                 &1.condition_field == "temp")
+           )
+  end
+
+  test "rule success flash clears after the short timeout", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+    pid = view.pid
+    :erlang.trace(pid, true, [:receive])
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Short flash rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    assert render(view) =~ "Rule created successfully"
+
+    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+
+    :sys.get_state(pid)
+    refute render(view) =~ "Rule created successfully"
+  end
+
+  test "older success flash timer does not clear a newer success message", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+    pid = view.pid
+    :erlang.trace(pid, true, [:receive])
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "First rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+
+    view
+    |> element("a[href='/alerts/new?tab=rules']", "Add Rule")
+    |> render_click()
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Second rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "80"
+      }
+    })
+
+    assert render(view) =~ "Rule created successfully"
+    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+
+    :sys.get_state(pid)
+    assert render(view) =~ "Rule created successfully"
   end
 
   test "edits an existing rule", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{
+        name: "Existing rule",
         product_name: "alert-schema-product",
         condition_field: "temp",
         operator: ">",
@@ -72,6 +160,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       "schema_id" => "alert-schema-product",
       "schema_version" => "v1",
       "alert_rule" => %{
+        "name" => "Attempted rename",
         "condition_field" => "temp",
         "operator" => "<=",
         "threshold_value" => "42"
@@ -84,9 +173,12 @@ defmodule NixstasisWeb.AlertsLiveTest do
     updated_rule = Domain.get_rule!(rule.id)
     assert updated_rule.threshold_value == "42"
     assert to_string(updated_rule.operator) == "<="
+    assert updated_rule.name == "Existing rule"
   end
 
-  test "edit mode with unchanged numeric threshold does not show threshold type error", %{conn: conn} do
+  test "edit mode with unchanged numeric threshold does not show threshold type error", %{
+    conn: conn
+  } do
     {:ok, rule} =
       Domain.create_rule(%{
         product_name: "alert-schema-product",
@@ -129,6 +221,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "mac_address" => "AA:BB:CC:DD:EE:39",
         "product_name" => "weather-station",
         "schema" => %{
+          "product" => "weather-station",
           "version" => "v1",
           "properties" => %{
             "rainfall" => %{"type" => "number"},
@@ -165,9 +258,23 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert updated_rule.threshold_value == "51"
   end
 
-  test "edit flow keeps available fields editable and has no rule name input", %{conn: conn} do
+  test "edit flow keeps only rule name immutable and allows schema settings changes", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:41",
+        "product_name" => "weather-editable",
+        "schema" => %{
+          "product" => "weather-editable",
+          "version" => "v1",
+          "properties" => %{
+            "rainfall" => %{"type" => "number"}
+          }
+        }
+      })
+
     {:ok, rule} =
       Domain.create_rule(%{
+        name: "Original immutable name",
         product_name: "alert-schema-product",
         condition_field: "status",
         operator: "=",
@@ -176,22 +283,29 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
 
-    refute has_element?(view, "input[name='alert_rule[name]']")
+    assert has_element?(view, "#alert-rule-name[disabled]")
+    refute has_element?(view, "#alert-schema-id[disabled]")
+    refute has_element?(view, "#alert-schema-version[disabled]")
+    refute has_element?(view, "#alert-condition-field[disabled]")
 
     render_submit(element(view, "#alert-rule-form"), %{
-      "schema_id" => "alert-schema-product",
+      "schema_id" => "weather-editable",
       "schema_version" => "v1",
       "alert_rule" => %{
-        "condition_field" => "status",
-        "operator" => "!=",
-        "threshold_value" => "error"
+        "name" => "Renamed by submit",
+        "condition_field" => "rainfall",
+        "operator" => ">=",
+        "threshold_value" => "12"
       }
     })
 
     assert_patch(view, ~p"/alerts?tab=rules")
     updated_rule = Domain.get_rule!(rule.id)
-    assert to_string(updated_rule.operator) == "is not"
-    assert updated_rule.threshold_value == "error"
+    assert updated_rule.name == "Original immutable name"
+    assert updated_rule.product_name == "weather-editable"
+    assert updated_rule.condition_field == "rainfall"
+    assert to_string(updated_rule.operator) == ">="
+    assert updated_rule.threshold_value == "12"
   end
 
   test "invalid schema field is blocked with actionable error", %{conn: conn} do
@@ -254,6 +368,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
 
     render_click(element(view, "button[phx-click='confirm_delete_rule'][phx-value-id='#{rule.id}']"))
+
     assert has_element?(view, "#delete-rule-modal")
 
     render_click(element(view, "#delete-rule-modal button", "Delete"))
@@ -275,7 +390,26 @@ defmodule NixstasisWeb.AlertsLiveTest do
     })
 
     assert has_element?(view, "#alert-schema-id option[value='alert-schema-product'][selected]")
+    assert has_element?(view, "#alert-schema-version option[value='v1'][selected]")
     assert has_element?(view, "#alert-condition-field option[value='temp']")
+  end
+
+  test "explicit schema version selection drives alert schema options", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v2",
+      "alert_rule" => %{
+        "condition_field" => "pressure",
+        "operator" => ">",
+        "threshold_value" => "10"
+      }
+    })
+
+    assert has_element?(view, "#alert-schema-version option[value='v2'][selected]")
+    assert has_element?(view, "#alert-condition-field option[value='pressure']")
+    refute has_element?(view, "#alert-condition-field option[value='temp']")
   end
 
   test "schema with no fields blocks save and shows guidance", %{conn: conn} do
@@ -283,7 +417,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:32",
         "product_name" => "empty-schema-product",
-        "schema" => %{"version" => "v1", "properties" => %{}}
+        "schema" => %{"product" => "empty-schema-product", "version" => "v1", "properties" => %{}}
       })
 
     {:ok, view, _html} = live(conn, alert_new_path())
@@ -320,6 +454,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       "schema_id" => "alert-schema-product",
       "schema_version" => "v1",
       "alert_rule" => %{
+        "name" => "Invalid status operator",
         "condition_field" => "status",
         "operator" => ">",
         "threshold_value" => "ok"
@@ -332,6 +467,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       "schema_id" => "alert-schema-product",
       "schema_version" => "v1",
       "alert_rule" => %{
+        "name" => "Status is ok",
         "condition_field" => "status",
         "operator" => "=",
         "threshold_value" => "ok"
@@ -366,12 +502,14 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert html =~ "Filter rules"
     assert html =~ "Clear"
-    assert html =~ "Schema Product"
+    assert html =~ "Rule"
     assert html =~ "Condition"
     assert html =~ "Operator"
   end
 
-  test "deprecated rules hide edit action and show warning label with reason tooltip", %{conn: conn} do
+  test "deprecated rules hide edit action and show warning label with reason tooltip", %{
+    conn: conn
+  } do
     {:ok, rule} =
       Domain.create_rule(%{
         product_name: "alert-schema-product",
@@ -384,7 +522,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert render(view) =~ "Deprecated"
 
-    assert has_element?(view, "span.badge.badge-xs.border-amber-500.text-amber-800", "Deprecated")
+    assert has_element?(view, "span.badge.badge-warning.badge-xs", "Deprecated")
     refute has_element?(view, "button[aria-label='Edit rule #{rule.id}']")
   end
 
@@ -431,6 +569,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       "schema_id" => "alert-schema-product",
       "schema_version" => "v1",
       "alert_rule" => %{
+        "name" => "Status alphanumeric",
         "condition_field" => "status",
         "operator" => "is",
         "threshold_value" => "ok42"
@@ -452,6 +591,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "mac_address" => "AA:BB:CC:DD:EE:40",
         "product_name" => "weather-station",
         "schema" => %{
+          "product" => "weather-station",
           "version" => "v1",
           "properties" => %{
             "rainfall" => %{"type" => "number"}

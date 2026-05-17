@@ -17,8 +17,10 @@ defmodule Nixstasis.Devices.Device do
 
     custom_indexes do
       index [:account_number]
+      index [:ipv4_address]
       index [:product_name]
       index [:approval_status]
+      index [:schema], using: "gin"
       index [:metadata], using: "gin"
     end
   end
@@ -35,6 +37,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :approval_status,
         :last_seen_at,
         :schema,
@@ -51,6 +54,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :last_seen_at,
         :schema,
         :metadata,
@@ -62,7 +66,7 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:approval_status]}
+      upsert_fields {:replace_all_except, [:approval_status, :api_token_hash]}
     end
 
     update :update do
@@ -72,6 +76,7 @@ defmodule Nixstasis.Devices.Device do
         :mac_address,
         :product_name,
         :account_number,
+        :ipv4_address,
         :approval_status,
         :last_seen_at,
         :schema,
@@ -81,6 +86,7 @@ defmodule Nixstasis.Devices.Device do
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
+      validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
     end
   end
 
@@ -98,10 +104,16 @@ defmodule Nixstasis.Devices.Device do
       constraints min_length: 5, match: ~r/^\d+$/
     end
 
+    attribute :ipv4_address, :string do
+      constraints match: ~r/^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
+    end
+
     attribute :approval_status, Nixstasis.Types.ApprovalStatus do
       allow_nil? false
       default :pending
     end
+
+    attribute :api_token_hash, :string
 
     attribute :last_seen_at, :utc_datetime
 

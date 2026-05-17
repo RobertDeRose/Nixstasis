@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 	"github.com/spf13/cobra"
+
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
 )
 
 var listScriptsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available stary scripts",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		cfg, err := commandConfig(cmd)
+		if err != nil {
+			return err
+		}
 		scripts, err := script.DiscoverScripts(cfg.Scripts.Dir)
 		if err != nil {
 			return err

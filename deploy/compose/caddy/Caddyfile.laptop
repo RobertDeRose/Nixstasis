@@ -1,0 +1,78 @@
+{
+  log {
+    format console
+  }
+
+  on_demand_tls {
+    ask http://nixstasis:{$PORT}/api/v1/check_domain
+  }
+
+  order authenticate before respond
+  order authorize before reverse_proxy
+
+  security {
+    oauth identity provider azure {
+      realm azure
+      driver azure
+      client_id {$CLIENT_ID}
+      client_secret {$CLIENT_SECRET}
+      tenant_id {$TENANT_ID}
+      scopes openid email profile
+    }
+
+    authentication portal nixstasis_portal {
+      crypto default token lifetime 3600
+      crypto key sign-verify {$JWT_KEY}
+      enable identity provider azure
+      cookie domain {$BASE_DOMAIN}
+    }
+
+    authorization policy entra_policy {
+      set auth url https://auth.{$BASE_DOMAIN}
+      allow roles {$AUTHORIZED_ROLES}
+      allow groups {$AUTHORIZED_GROUPS}
+      crypto key verify {$JWT_KEY}
+      validate bearer header
+      inject headers with claims
+    }
+  }
+}
+
+auth.{$BASE_DOMAIN} {
+  tls {
+    issuer internal
+    on_demand
+  }
+
+  authenticate with nixstasis_portal
+}
+
+nixstasis.{$BASE_DOMAIN} {
+  tls {
+    issuer internal
+    on_demand
+  }
+
+  authorize with entra_policy
+  reverse_proxy nixstasis:{$PORT}
+}
+
+frp-admin.{$BASE_DOMAIN} {
+  tls {
+    issuer internal
+    on_demand
+  }
+
+  authorize with entra_policy
+  reverse_proxy frps:{$FRPS_DASHBOARD_PORT}
+}
+
+*.{$BASE_DOMAIN} {
+  tls {
+    issuer internal
+    on_demand
+  }
+
+  authorize with entra_policy
+  reverse_proxy frps:{$FRPS_HTTP_PORT}
+}

@@ -38,6 +38,9 @@ erl_crash.dump
 # Environment variables
 .env
 .env.*
+*.env
+!*.env.example
+/deploy/compose/.laptop-client/
 
 # Node assets
 /assets/node_modules/
@@ -55,8 +58,10 @@ Thumbs.db
 *.out
 vendor/
 
-# Opencode
-.opencode
-
 # chunkhound
 .chunkhound*
+.specify
+
+# mdBook
+book/
+issues.md

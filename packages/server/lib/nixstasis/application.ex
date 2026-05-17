@@ -18,7 +18,11 @@ defmodule Nixstasis.Application do
           {Phoenix.PubSub, name: Nixstasis.PubSub},
           # Start a worker by calling: Nixstasis.Worker.start_link(arg)
           # {Nixstasis.Worker, arg},
+          {Nixstasis.Devices, :remote_access_leases},
+          {Nixstasis.Devices.SshKeyManager, :terminal_sessions},
+          NixstasisWeb.RateLimiterStore,
           Nixstasis.Monitoring.OfflineChecker,
+          Nixstasis.TLSObservations,
           # Start to serve requests, typically the last entry
           NixstasisWeb.Endpoint
         ]

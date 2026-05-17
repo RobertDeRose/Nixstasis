@@ -1,5 +1,7 @@
 import Config
 
+alias Nixstasis.Deployment
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -22,11 +24,7 @@ end
 
 if config_env() == :prod do
   database_url =
-    System.get_env("DATABASE_URL") ||
-      raise """
-      environment variable DATABASE_URL is missing.
-      For example: ecto://USER:PASS@HOST/DATABASE
-      """
+    Deployment.required_env!("DATABASE_URL")
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
@@ -44,20 +42,39 @@ if config_env() == :prod do
   # to check this value into version control, so we use an environment
   # variable instead.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    Deployment.required_env!("SECRET_KEY_BASE")
 
-  host = System.get_env("PHX_HOST") || "example.com"
-  port = String.to_integer(System.get_env("PORT") || "4000")
+  host = Deployment.required_env!("PHX_HOST")
+
+  port =
+    case Deployment.port() do
+      4000 ->
+        4000
+
+      configured_port ->
+        raise ArgumentError, "PORT must be 4000 for supported Compose deployment, got: #{configured_port}"
+    end
+
+  base_domain = Deployment.required_env!("BASE_DOMAIN")
 
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :nixstasis, :base_domain, base_domain
+  config :nixstasis, :e2e_enabled?, Deployment.enabled?("NIXSTASIS_E2E_ENABLED", false)
+  config :nixstasis, :tls_observations_enabled, Deployment.enabled?("NIXSTASIS_TLS_OBSERVATIONS_ENABLED", false)
 
-  config :nixstasis, NixstasisWeb.Endpoint,
+  config :nixstasis, :deployment,
+    base_domain: base_domain,
+    phoenix_host: host,
+    phoenix_port: port
+
+  endpoint_config = [
     url: [host: host, port: 443, scheme: "https"],
-    check_origin: ["//#{host}"],
+    check_origin:
+      ["//#{host}"] ++
+        case System.get_env("CHECK_ORIGIN_EXTRA") do
+          nil -> []
+          extra -> Enum.map(String.split(extra, ",", trim: true), &"//#{String.trim(&1)}")
+        end,
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -67,6 +84,16 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base
+  ]
+
+  endpoint_config =
+    if Deployment.strict_boolean_env!("NIXSTASIS_FORCE_SSL", true) do
+      Keyword.put(endpoint_config, :force_ssl, hsts: true, rewrite_on: [:x_forwarded_proto])
+    else
+      endpoint_config
+    end
+
+  config :nixstasis, NixstasisWeb.Endpoint, endpoint_config
 
   # ## SSL Support
   #

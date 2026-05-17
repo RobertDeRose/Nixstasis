@@ -1,8 +1,8 @@
 defmodule Nixstasis.Monitoring.AlertWorkerTest do
   use Nixstasis.DataCase
 
-  alias Nixstasis.Monitoring
   alias Nixstasis.Devices
+  alias Nixstasis.Monitoring
   alias Nixstasis.Monitoring.Alert
 
   describe "offline detection" do

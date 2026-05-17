@@ -40,7 +40,7 @@ defmodule Nixstasis.DevicesBDDTest do
         })
 
       # WHEN the user filters for "awaiting approval" (pending)
-      results = Devices.list_devices(filter: %{status: :pending})
+      results = Devices.list_devices(filter: %{approval_status: :pending})
 
       # THEN only those devices are shown
       ids = Enum.map(results, & &1.id)

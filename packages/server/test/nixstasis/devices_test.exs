@@ -36,11 +36,97 @@ defmodule Nixstasis.DevicesTest do
           approval_status: :approved
         })
 
-      assert [res] = Devices.list_devices(filter: %{status: :pending})
+      rejected =
+        device_fixture(%{
+          mac_address: "88:88:88:88:88:88",
+          product_name: "k3",
+          approval_status: :rejected
+        })
+
+      assert [res] = Devices.list_devices(filter: %{approval_status: :pending})
       assert res.id == pending.id
 
-      assert [res] = Devices.list_devices(filter: %{status: :approved})
+      assert [res] = Devices.list_devices(filter: %{approval_status: :approved})
       assert res.id == approved.id
+
+      assert [res] = Devices.list_devices(filter: %{approval_status: "rejected"})
+      assert res.id == rejected.id
+    end
+
+    test "list_devices/1 does not treat status as an approval filter" do
+      pending =
+        device_fixture(%{
+          mac_address: "99:99:99:99:99:99",
+          product_name: "k1",
+          approval_status: :pending
+        })
+
+      approved =
+        device_fixture(%{
+          mac_address: "AA:AA:AA:AA:AA:AA",
+          product_name: "k2",
+          approval_status: :approved
+        })
+
+      ids =
+        Devices.list_devices(filter: %{status: :pending})
+        |> Enum.map(& &1.id)
+
+      assert pending.id in ids
+      assert approved.id in ids
+    end
+
+    test "create_device/1 broadcasts a sanitized device_created event" do
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+
+      {:ok, device} =
+        Devices.create_device(%{
+          mac_address: "AB:AB:AB:AB:AB:AB",
+          product_name: "k1",
+          metadata: %{"future_token" => "secret"}
+        })
+
+      assert_receive {:device_created, payload}
+      assert payload.id == device.id
+      assert payload.approval_status == device.approval_status
+      refute Map.has_key?(payload, :metadata)
+      refute Map.has_key?(payload, :schema)
+    end
+
+    test "list_devices/1 filters by connectivity_status" do
+      now = DateTime.utc_now()
+
+      online =
+        device_fixture(%{
+          mac_address: "55:55:55:55:55:55",
+          product_name: "k1",
+          last_seen_at: DateTime.add(now, -60, :second)
+        })
+
+      offline =
+        device_fixture(%{
+          mac_address: "66:66:66:66:66:66",
+          product_name: "k2",
+          last_seen_at: DateTime.add(now, -10, :minute)
+        })
+
+      never_seen =
+        device_fixture(%{
+          mac_address: "77:77:77:77:77:77",
+          product_name: "k3",
+          last_seen_at: nil
+        })
+
+      assert [res] = Devices.list_devices(filter: %{connectivity_status: :online})
+      assert res.id == online.id
+
+      offline_ids =
+        Devices.list_devices(filter: %{connectivity_status: "offline"})
+        |> Enum.map(& &1.id)
+
+      assert offline.id in offline_ids
+      assert never_seen.id in offline_ids
+      refute online.id in offline_ids
     end
 
     test "list_devices/1 filters by product and account number" do
@@ -61,7 +147,7 @@ defmodule Nixstasis.DevicesTest do
         })
 
       assert [res] =
-               Devices.list_devices(filter: %{product: "alpha", account_number: "77777", status: "approved"})
+               Devices.list_devices(filter: %{product: "alpha", account_number: "77777", approval_status: "approved"})
 
       assert res.id == wanted.id
     end
@@ -93,6 +179,8 @@ defmodule Nixstasis.DevicesTest do
 
       assert Devices.get_device!(d1.id).approval_status == :approved
       assert Devices.get_device!(d2.id).approval_status == :approved
+      assert is_nil(Devices.get_device!(d1.id).api_token_hash)
+      assert is_nil(Devices.get_device!(d2.id).api_token_hash)
     end
 
     test "reject_devices/1 rejects multiple devices" do
@@ -123,6 +211,118 @@ defmodule Nixstasis.DevicesTest do
 
       assert {:ok, updated} = Devices.set_remote_access(updated, false)
       assert updated.remote_access_requested == false
+    end
+
+    test "issue_device_token/1 stores only a non-plaintext token hash" do
+      device = device_fixture(%{approval_status: :approved})
+
+      assert {:ok, updated, token} = Devices.issue_device_token(device)
+      assert is_binary(token)
+      assert updated.api_token_hash != token
+      assert byte_size(updated.api_token_hash) == 64
+      assert Devices.authenticate_device(updated, token) == :ok
+      assert Devices.authenticate_device(updated, "wrong") == {:error, :invalid_token}
+    end
+
+    test "create_device/1 does not accept api_token_hash" do
+      assert {:error, _reason} =
+               Devices.create_device(%{
+                 mac_address: "77:77:77:77:77:77",
+                 api_token_hash: String.duplicate("a", 64)
+               })
+    end
+
+    test "update_device/2 does not accept api_token_hash" do
+      device = device_fixture(%{mac_address: "88:88:88:88:88:88", approval_status: :approved})
+
+      assert {:error, _reason} = Devices.update_device(device, %{api_token_hash: String.duplicate("b", 64)})
+      assert is_nil(Devices.get_device!(device.id).api_token_hash)
+    end
+
+    test "update_device/2 rejects approval status regressions" do
+      rejected = device_fixture(%{mac_address: "88:88:88:88:88:89", approval_status: :rejected})
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Devices.update_device(rejected, %{approval_status: :pending})
+
+      assert Devices.get_device!(rejected.id).approval_status == :rejected
+    end
+
+    test "approve_device/1 forces secure registration before runtime auth" do
+      pending = device_fixture(%{approval_status: :pending})
+
+      assert {:ok, approved} = Devices.approve_device(pending)
+      assert approved.approval_status == :approved
+      assert is_nil(approved.api_token_hash)
+      assert Devices.authenticate_device(approved, "token") == {:error, :missing_token}
+    end
+
+    test "register_public_device/1 rejects missing schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A1",
+                 "product_name" => "public-thermostat"
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_public_device/1 rejects nil schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A2",
+                 "product_name" => "public-thermostat",
+                 "schema" => nil
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_public_device/1 rejects empty schema" do
+      assert {:error, %Ash.Error.Invalid{} = error} =
+               Devices.register_public_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A3",
+                 "product_name" => "public-thermostat",
+                 "schema" => %{}
+               })
+
+      assert Exception.message(error) =~ "product"
+    end
+
+    test "register_device/1 still allows internal registration without schema" do
+      assert {:ok, device} =
+               Devices.register_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A4",
+                 "product_name" => "internal-thermostat"
+               })
+
+      assert device.product_name == "internal-thermostat"
+      assert device.schema == %{}
+    end
+  end
+
+  describe "command queue boundaries" do
+    test "pop_pending_commands/1 claims at most the per-poll limit" do
+      device = device_fixture(%{mac_address: "55:55:55:55:55:55", approval_status: :approved})
+
+      for index <- 1..55 do
+        {:ok, _command} = Devices.queue_command(device, %{"id" => index})
+      end
+
+      commands = Devices.pop_pending_commands(device)
+
+      assert length(commands) == 50
+    end
+
+    test "acknowledge_command_results/2 skips failed updates and continues" do
+      device = device_fixture(%{mac_address: "66:66:66:66:66:66", approval_status: :approved})
+      {:ok, command} = Devices.queue_command(device, %{"id" => 1})
+
+      assert {:ok, 1} =
+               Devices.acknowledge_command_results(device, [
+                 %{"command_id" => "not-a-command", "status" => "OK"},
+                 %{"command_id" => command.id, "status" => "OK"}
+               ])
     end
   end
 end

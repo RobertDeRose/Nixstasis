@@ -1,16 +1,20 @@
 defmodule Nixstasis.Reporting.QueryBuilderTest do
   use Nixstasis.DataCase, async: true
-  alias Nixstasis.Reporting.QueryBuilder
-  alias Nixstasis.E2E.Run
   alias Nixstasis.Devices
+  alias Nixstasis.E2E.Run
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Reporting.QueryBuilder
 
   setup do
     {:ok, device} =
       Devices.register_device(%{
         "mac_address" => "AA:BB:CC:DD:EE:01",
         "product_name" => "sensor-v1",
-        "schema" => %{"type" => "object"}
+        "schema" => %{
+          "product" => "sensor-v1",
+          "type" => "object",
+          "properties" => %{}
+        }
       })
 
     # Manually insert telemetry to bypass context helpers if needed, or use Repo

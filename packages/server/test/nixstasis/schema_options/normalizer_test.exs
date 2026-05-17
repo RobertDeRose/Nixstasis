@@ -5,6 +5,9 @@ defmodule Nixstasis.SchemaOptions.NormalizerTest do
 
   test "normalizes properties-based schema with nested keys" do
     schema = %{
+      "product" => "weather",
+      "version" => "v1",
+      "type" => "object",
       "properties" => %{
         "temp" => %{"type" => "number"},
         "sensors" => %{
@@ -17,6 +20,9 @@ defmodule Nixstasis.SchemaOptions.NormalizerTest do
 
     options = Normalizer.normalize(schema)
 
+    refute Enum.any?(options, &(&1.key == "product"))
+    refute Enum.any?(options, &(&1.key == "version"))
+    refute Enum.any?(options, &(&1.key == "type"))
     assert Enum.any?(options, &(&1.key == "temp"))
     assert Enum.any?(options, &(&1.key == "sensors.humidity"))
     assert Enum.all?(options, & &1.selectable)
