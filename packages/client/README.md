@@ -166,22 +166,19 @@ The generated archive and native packages install these client assets:
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
 
-The self-extracting installer contains the same assets plus an `install.sh`
-script and an `artifacts.json` manifest. It requires a running systemd host.
-Run it as root:
+The self-extracting installer contains the same filesystem payload as the native
+packages and runs the package post-install script after extraction. It requires a
+systemd host. GitHub Release downloads do not retain the executable bit, so run
+it through `sh` as root:
 
 ```bash
-sudo ./nixstasis-<version>-linux-<arch>.run
+sudo sh nixstasis-<version>-linux-<arch>.run
 ```
 
 The installer overwrites binaries, systemd units, and the client-owned FRP
 template at `/usr/share/nixstasis/frpc.toml`. It preserves existing
 `/etc/nixstasis/config.yaml` and seeds it from the example template on fresh
-installs. Use `--force-config` to replace the existing config file:
-
-```bash
-sudo ./nixstasis-<version>-linux-<arch>.run -- --force-config
-```
+installs.
 
 To inspect the installer without running it:
 
