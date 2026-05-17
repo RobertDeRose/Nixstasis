@@ -168,10 +168,11 @@ from the example template if the host does not already have one.
 
 The self-extracting installer contains the same assets plus an `install.sh`
 script and an `artifacts.json` manifest. It requires a running systemd host.
-Run it as root:
+GitHub Release downloads do not retain the executable bit, so run it through
+`sh` as root:
 
 ```bash
-sudo ./nixstasis-<version>-linux-<arch>.run
+sudo sh nixstasis-<version>-linux-<arch>.run
 ```
 
 The installer overwrites binaries, systemd units, and the client-owned FRP
@@ -180,7 +181,7 @@ template at `/usr/share/nixstasis/frpc.toml`. It preserves existing
 installs. Use `--force-config` to replace the existing config file:
 
 ```bash
-sudo ./nixstasis-<version>-linux-<arch>.run -- --force-config
+sudo sh nixstasis-<version>-linux-<arch>.run -- --force-config
 ```
 
 To inspect the installer without running it:
