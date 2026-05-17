@@ -10,7 +10,9 @@ Produce a single `.run` self-extracting archive per supported architecture as
 part of the client release pipeline. The archive bundles the client binary,
 arch-matched `frpc`, configuration templates, systemd units, and an artifact
 manifest so that operators on systemd Linux distros without `dpkg` or `rpm` can
-install Nixstasis with one command and no manual file placement.
+install Nixstasis with one command and no manual file placement. Operators
+should invoke downloaded installers with `sh nixstasis-<version>-linux-<arch>.run`
+because GitHub Release downloads do not preserve the executable bit.
 
 ## Source Of Intent
 
