@@ -1,0 +1,73 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+      - e2e-results/**
+      - mise.toml
+      - .github/workflows/docs.yml
+  workflow_run:
+    workflows:
+      - E2E Suites Report
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Checkout E2E results
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        continue-on-error: true
+        with:
+          ref: e2e-results
+          path: e2e-results
+
+      - name: Install mise tools
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+        with:
+          experimental: true
+
+      - name: Prepare E2E results page
+        run: bash docs/scripts/prepare_e2e_results.sh e2e-results docs/src/reference/e2e-results.md
+
+      - name: Build docs
+        run: mise exec -- mdbook build docs
+
+      - name: Include E2E reports
+        run: |
+          if [ -f e2e-results/runs.json ]; then
+            mkdir -p book/e2e-results
+            cp -R e2e-results/. book/e2e-results/
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ./book
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
