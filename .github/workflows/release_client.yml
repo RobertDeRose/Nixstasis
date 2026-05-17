@@ -78,7 +78,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mapfile -t assets < <(find dist -maxdepth 1 -type f -print | sort)
+          shopt -s nullglob
+          assets=(
+            dist/nixstasis_*.deb
+            dist/nixstasis-*.rpm
+            dist/nixstasis_*_linux_*.tar.gz
+            dist/nixstasis-*-linux-*.run
+            dist/nixstasis_*_checksums.txt
+          )
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release artifacts found in dist/." >&2
+            exit 1
+          fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
           else
