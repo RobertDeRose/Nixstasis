@@ -1,4 +1,4 @@
-name: E2E Suites + Pages Report
+name: E2E Suites Report
 
 on:
   workflow_dispatch:
@@ -6,23 +6,18 @@ on:
     branches:
       - main
     tags:
-      - "*"
+      - "v*"
 
 concurrency:
-  group: e2e-pages-publish
+  group: e2e-results-publish
   cancel-in-progress: false
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     services:
       postgres:
         image: postgres:18-alpine
@@ -41,6 +36,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Checkout existing E2E results
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        continue-on-error: true
+        with:
+          ref: e2e-results
+          path: e2e-pages
 
       - name: Set up BEAM
         uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1.24.0
@@ -108,14 +110,18 @@ jobs:
             --full-sha "${GITHUB_SHA}" \
             --max-runs "${MAX_E2E_RUNS}"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: ./e2e-pages
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+      - name: Publish E2E results branch
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd e2e-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add -A
+          git commit -m "ci(e2e): publish reports for ${GITHUB_REF_NAME}" || exit 0
+          git push origin HEAD:e2e-results --force
 
       - name: Upload run artifacts
         if: always()

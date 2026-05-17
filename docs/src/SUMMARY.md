@@ -63,4 +63,5 @@
   - [OpenAPI Contracts](reference/openapi/index.md)
 - [Task Reference](reference/tasks.md)
 - [Agent Workflows](reference/agent-workflows.md)
+- [E2E Results](reference/e2e-results.md)
 - [Client-Server Interface](client-server-interface.md)
