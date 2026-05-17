@@ -1,5 +1,5 @@
 # Build stage: compile the Go client
-ARG GO_VERSION=1.25.4
+ARG GO_VERSION=1.26
 FROM golang:${GO_VERSION}-bookworm AS builder
 
 WORKDIR /src

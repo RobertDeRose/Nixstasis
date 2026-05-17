@@ -53,7 +53,7 @@ func main() {
 }
 
 func runMain() int {
-	// Go 1.25 Flight Recorder
+	// Go 1.26 Flight Recorder
 	// Capture execution traces in a ring buffer
 	rec := trace.NewFlightRecorder(trace.FlightRecorderConfig{})
 

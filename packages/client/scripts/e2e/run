@@ -123,7 +123,7 @@ container_api_url="${container_api_url/host.container.internal/${container_host_
 container_api_url="${container_api_url/host.docker.internal/${container_host_alias}}"
 forwarded_args+=(--api-url "${container_api_url}")
 
-image_tag="docker.io/library/golang:1.25-trixie"
+image_tag="docker.io/library/golang:1.26-trixie"
 container_go_bin="/usr/local/go/bin/go"
 runtime_args=(run --rm)
 default_cache_root="${TMPDIR:-/tmp}/nixstasis-e2e-go-cache"
