@@ -1,15 +1,15 @@
-# Go 1.25 Best Practices Guide
+# Go 1.26 Best Practices Guide
 
 **Last Updated:** February 2026
-**Go Version:** 1.25.6 (latest stable)
+**Go Version:** 1.26 (latest stable)
 
-This guide outlines best practices for developing robust, maintainable, and performant Go applications using Go 1.25. It incorporates the latest features and improvements introduced in this release.
+This guide outlines best practices for developing robust, maintainable, and performant Go applications using Go 1.26. It incorporates the latest features and improvements introduced in this release.
 
 ---
 
 ## Table of Contents
 
-1. [What's New in Go 1.25](#whats-new-in-go-125)
+1. [What's New in Go 1.26](#whats-new-in-go-125)
 2. [Project Structure](#project-structure)
 3. [Language Features & Patterns](#language-features--patterns)
 4. [Concurrency Best Practices](#concurrency-best-practices)
@@ -22,20 +22,20 @@ This guide outlines best practices for developing robust, maintainable, and perf
 
 ---
 
-## What's New in Go 1.25
+## What's New in Go 1.26
 
 ### Major Features
 
 #### 1. Container-Aware GOMAXPROCS
 
-Go 1.25 automatically adjusts `GOMAXPROCS` based on container CPU limits, improving performance in containerized environments.
+Go 1.26 automatically adjusts `GOMAXPROCS` based on container CPU limits, improving performance in containerized environments.
 
 **Key Changes:**
 
 - On Linux, the runtime considers cgroup CPU bandwidth limits
 - `GOMAXPROCS` defaults to the lower of: logical CPUs or cgroup CPU limit
 - The runtime periodically updates `GOMAXPROCS` if CPU availability changes
-- Automatic behavior only applies if `go.mod` specifies Go 1.25+
+- Automatic behavior only applies if `go.mod` specifies Go 1.26+
 
 **Best Practice:**
 
@@ -551,7 +551,7 @@ func ProcessItems(items []Item) error {
 }
 ```
 
-**New in Go 1.25: WaitGroup.Go Method:**
+**New in Go 1.26: WaitGroup.Go Method:**
 
 ```go
 import "sync"
@@ -623,7 +623,7 @@ func WorkerPool(ctx context.Context, jobs <-chan Job, workers int) {
 }
 ```
 
-### Testing Concurrent Code (Go 1.25)
+### Testing Concurrent Code (Go 1.26)
 
 **Use `testing/synctest` for deterministic tests:**
 
@@ -838,7 +838,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 ### Profile-Guided Optimization (PGO)
 
-**Stable in Go 1.25:**
+**Stable in Go 1.26:**
 
 ```bash
 # 1. Build and run with profiling
@@ -859,7 +859,7 @@ go build -pgo=cpu.pprof -o myapp-optimized
 // Check escape analysis
 go build -gcflags="-m" main.go
 
-// Good: Stack allocation (Go 1.25 improved)
+// Good: Stack allocation (Go 1.26 improved)
 func processSmallData() []byte {
     data := make([]byte, 100) // May be stack-allocated
     // Use data
@@ -913,7 +913,7 @@ func ProcessData(data []byte) ([]byte, error) {
 
 ### Garbage Collector Tuning
 
-**Go 1.25 GC Improvements:**
+**Go 1.26 GC Improvements:**
 
 ```bash
 # Monitor GC behavior
@@ -1046,7 +1046,7 @@ func BenchmarkProcessing(b *testing.B) {
 // go test -bench=. -benchmem
 ```
 
-### Concurrent Testing with synctest (Go 1.25)
+### Concurrent Testing with synctest (Go 1.26)
 
 ```go
 import "testing/synctest"
@@ -1075,13 +1075,13 @@ func TestRateLimiter(t *testing.T) {
 
 ## Containerization & Deployment
 
-### Container Best Practices (Go 1.25)
+### Container Best Practices (Go 1.26)
 
 **Multi-stage Dockerfile:**
 
 ```dockerfile
 # Build stage
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -1106,7 +1106,7 @@ EXPOSE 8080
 ENTRYPOINT ["/myapp"]
 ```
 
-**Leverage Go 1.25 Container-Aware GOMAXPROCS:**
+**Leverage Go 1.26 Container-Aware GOMAXPROCS:**
 
 ```yaml
 # kubernetes.yaml
@@ -1120,7 +1120,7 @@ spec:
     image: myapp:latest
     resources:
       limits:
-        cpu: "2"        # Go 1.25 automatically adjusts GOMAXPROCS
+        cpu: "2"        # Go 1.26 automatically adjusts GOMAXPROCS
         memory: "2Gi"
       requests:
         cpu: "1"
@@ -1280,7 +1280,7 @@ type Service struct {
 
 ## Standard Library Updates
 
-### Notable Go 1.25 Additions
+### Notable Go 1.26 Additions
 
 #### os.Root for Filesystem Sandboxing
 
@@ -1372,7 +1372,7 @@ rows, err := db.Query(query)
 rows, err := db.Query("SELECT * FROM users WHERE name = ?", userName)
 ```
 
-### CSRF Protection (Go 1.25)
+### CSRF Protection (Go 1.26)
 
 ```go
 import "net/http"
@@ -1410,7 +1410,7 @@ if apiKey == "" {
 
 ## Conclusion
 
-Go 1.25 brings significant improvements for cloud-native development, particularly in container environments. Key takeaways:
+Go 1.26 brings significant improvements for cloud-native development, particularly in container environments. Key takeaways:
 
 1. **Container-Aware Runtime**: Automatic GOMAXPROCS adjustment improves performance in Kubernetes/Docker
 2. **Better Testing**: `testing/synctest` makes concurrent code testing deterministic
@@ -1420,7 +1420,7 @@ Go 1.25 brings significant improvements for cloud-native development, particular
 
 **Migration Checklist:**
 
-- [ ] Update `go.mod` to Go 1.25
+- [ ] Update `go.mod` to Go 1.26
 - [ ] Fix nil pointer dereference errors (check errors before using values)
 - [ ] Test in containers to verify GOMAXPROCS behavior
 - [ ] Evaluate experimental JSON v2 for performance-critical paths
@@ -1431,7 +1431,7 @@ Go 1.25 brings significant improvements for cloud-native development, particular
 
 **Resources:**
 
-- [Official Go 1.25 Release Notes](https://go.dev/doc/go1.25)
+- [Official Go 1.26 Release Notes](https://go.dev/doc/go1.26)
 - [Effective Go](https://go.dev/doc/effective_go)
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [Go Style Guide (Google)](https://google.github.io/styleguide/go/)
@@ -1440,4 +1440,4 @@ Go 1.25 brings significant improvements for cloud-native development, particular
 
 **Version:** 1.0.0
 **Last Updated:** February 2026
-**Go Version:** 1.25.6
+**Go Version:** 1.26
