@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E2E Run</title>
+  <link rel="stylesheet" href="../../../assets/e2e_log_viewer/viewer.css" />
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 1.5rem; background: #f5f7fb; color: #1f2937; }
+    .card { background: #fff; border: 1px solid #d6deeb; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; vertical-align: top; }
+    .journey-log { margin-top: 0.6rem; }
+  </style>
+</head>
+<body>
+  <p><a href="../../../index.html">Back to all runs</a></p>
+  <h1 id="run-title">E2E Run</h1>
+  <div class="card" id="run-meta"></div>
+  <div class="card">
+    <h2>Suite Results</h2>
+    <div id="run-results"></div>
+  </div>
+  <script src="../../../assets/e2e_log_viewer/viewer.js"></script>
+  <script>
+    async function loadRun() {
+      const payload = await fetch("./run.json", { cache: "no-store" }).then((r) => r.json())
+      document.getElementById("run-title").textContent = `E2E Run: ${payload.ref_name} @ ${payload.full_sha.slice(0, 7)}`
+      document.getElementById("run-meta").innerHTML = `
+        <p><strong>Ref:</strong> ${payload.ref_type}:${payload.ref_name}</p>
+        <p><strong>Commit:</strong> ${payload.full_sha}</p>
+        <p><strong>Generated:</strong> ${payload.timestamp}</p>
+      `
+
+      const root = document.getElementById("run-results")
+      root.innerHTML = ""
+
+      for (const report of payload.reports) {
+        const reportCard = document.createElement("div")
+        reportCard.className = "card"
+        reportCard.innerHTML = `<h3>Run ${report.RunID || "unknown"} (${report.Status || "unknown"})</h3>`
+
+        const table = document.createElement("table")
+        table.innerHTML = "<thead><tr><th>Journey</th><th>Status</th><th>Duration (ms)</th><th>Error</th></tr></thead><tbody></tbody>"
+        const tbody = table.querySelector("tbody")
+
+        for (const journey of report.Journeys || []) {
+          const row = document.createElement("tr")
+          row.innerHTML = `<td>${journey.JourneyID || ""}</td><td>${journey.Status || ""}</td><td>${journey.DurationMs ?? ""}</td><td>${journey.Error || ""}</td>`
+          tbody.appendChild(row)
+
+          const logRow = document.createElement("tr")
+          const cell = document.createElement("td")
+          cell.colSpan = 4
+          const details = document.createElement("details")
+          details.className = "journey-log"
+          details.innerHTML = `<summary>Journey Log</summary><div class="journey-log-viewer"></div>`
+          cell.appendChild(details)
+          logRow.appendChild(cell)
+          tbody.appendChild(logRow)
+
+          try {
+            const logPayload = await fetch(journey.log_payload, { cache: "no-store" }).then((r) => r.json())
+            const container = details.querySelector(".journey-log-viewer")
+            window.NixstasisE2ELogViewer.render(container, logPayload)
+          } catch (_err) {
+            details.querySelector(".journey-log-viewer").innerHTML = "<div class='text-danger'>Log unavailable</div>"
+          }
+        }
+
+        reportCard.appendChild(table)
+        root.appendChild(reportCard)
+      }
+    }
+    loadRun()
+  </script>
+</body>
+</html>

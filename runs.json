@@ -1,6 +1,16 @@
 {
-  "generated_at": "2026-05-17T13:03:20Z",
+  "generated_at": "2026-05-17T13:07:13Z",
   "runs": [
+    {
+      "full_commit_sha": "b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
+      "id": "v0.0.3:b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
+      "is_release": true,
+      "ref_name": "v0.0.3",
+      "ref_type": "tag",
+      "run_path": "runs/v0.0.3/b0ca7bb/",
+      "short_commit_sha": "b0ca7bb",
+      "timestamp": "2026-05-17T13:07:13Z"
+    },
     {
       "full_commit_sha": "b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
       "id": "main:b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
