@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-05-17T13:03:20Z",
+  "runs": [
+    {
+      "full_commit_sha": "b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
+      "id": "main:b0ca7bba274734fbc9a565863c3c7bfcd56d60f8",
+      "is_release": false,
+      "ref_name": "main",
+      "ref_type": "branch",
+      "run_path": "runs/main/b0ca7bb/",
+      "short_commit_sha": "b0ca7bb",
+      "timestamp": "2026-05-17T13:03:20Z"
+    }
+  ],
+  "schema_version": 1
+}

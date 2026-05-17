@@ -1,0 +1,149 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:19.921834082Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"account\": \"595589\",\n  \"device_id\": \"a9d6a191-6f48-40e4-816f-c1898b3e3541\",\n  \"post_updated\": true,\n  \"product_name\": \"runtime-linux-e2e-1779022999874818640\",\n  \"transport\": \"register_device\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 47,
+      "icon_label": "STEP 01",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "register_phase",
+        "expected": "runtime_device_registered"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:19.939657038Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [],
+      "duration_ms": 17,
+      "icon_label": "STEP 02",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "domain_guard",
+        "expected": "tls_domain_allowed"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:19.989439355Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"api_token_present\": \"[REDACTED]\",\n  \"device_id\": \"d88618c7-6155-4dc2-8818-739ba47567df\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 49,
+      "icon_label": "STEP 03",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "approval_gate",
+        "expected": "device_approved"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:20.031367995Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"payload_ref\": \"runtime-install-script\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 41,
+      "icon_label": "STEP 04",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "payload_queue",
+        "expected": "command_payload_available"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:20.055597208Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [],
+      "duration_ms": 24,
+      "icon_label": "STEP 05",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "cleanup",
+        "expected": "runtime_resources_cleaned"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:20.055622325Z",
+      "metadata": {},
+      "kind": "summary",
+      "data_panels": [],
+      "duration_ms": null,
+      "icon_label": "SUMMARY",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": null,
+      "summary": {
+        "end_at": "2026-05-17T13:03:20.055622325Z",
+        "failed_count": 0,
+        "journey_status": "passed",
+        "passed_count": 5,
+        "start_at": "2026-05-17T13:03:19.874530911Z",
+        "total_count": 5,
+        "total_duration_ms": 181
+      }
+    }
+  ]
+}

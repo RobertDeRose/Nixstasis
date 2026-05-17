@@ -1,0 +1,40 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-17T13:03:18.49993997Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "JSON Response",
+          "bytes": 259,
+          "pretty": "{\n  \"data\": {\n    \"attributes\": {},\n    \"id\": \"7e0567ce-af30-44e6-8969-592f61043225\",\n    \"links\": {},\n    \"meta\": {},\n    \"relationships\": {},\n    \"type\": \"device\"\n  },\n  \"jsonapi\": {\n    \"version\": \"1.0\"\n  },\n  \"links\": {\n    \"self\": \"http://localhost:4000/api/json/devices/7e0567ce-af30-44e6-8969-592f61043225\"\n  },\n  \"meta\": {}\n}",
+          "http_status": 200,
+          "panel_type": "response",
+          "truncated": false
+        },
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"device_id\": \"7e0567ce-af30-44e6-8969-592f61043225\",\n  \"precondition_auto_register\": true\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 54,
+      "icon_label": "STEP",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "logout",
+        "expected": "session_ended"
+      },
+      "summary": null
+    }
+  ]
+}
