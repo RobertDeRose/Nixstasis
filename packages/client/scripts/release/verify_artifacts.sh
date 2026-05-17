@@ -165,6 +165,9 @@ verify_installer_members() {
   require_file "$extract_dir/nixstasis-poll.service"
   require_file "$extract_dir/nixstasis-poll.path"
   require_file "$extract_dir/nixstasis-registration.service"
+  [ -x "$extract_dir/install.sh" ] || fail "installer member is not executable: $extract_dir/install.sh"
+  [ -x "$extract_dir/nixstasis" ] || fail "installer member is not executable: $extract_dir/nixstasis"
+  [ -x "$extract_dir/frpc" ] || fail "installer member is not executable: $extract_dir/frpc"
   verify_installer_manifest "$extract_dir"
 }
 
