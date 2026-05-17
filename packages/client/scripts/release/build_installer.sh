@@ -159,6 +159,6 @@ MANIFEST="$STAGING_DIR/artifacts.json"
 } > "$MANIFEST"
 
 OUTPUT="$DIST_DIR/nixstasis-$VERSION-linux-$ARCH.run"
-makeself --nox11 "$STAGING_DIR" "$OUTPUT" "Nixstasis client $VERSION ($ARCH)" ./install.sh
+makeself --nox11 "$STAGING_DIR" "$OUTPUT" "Nixstasis client $VERSION ($ARCH)" sh ./install.sh
 
 echo "built $OUTPUT"
