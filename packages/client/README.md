@@ -153,7 +153,7 @@ goreleaser release --snapshot --clean
 1. Verify deliverables and release naming:
 
 ```bash
-./scripts/release/verify_artifacts.sh
+./build/bin/verify_artifacts.sh
 ```
 
 The generated archive and native packages install these client assets:

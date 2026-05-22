@@ -1,8 +1,0 @@
-.python-version
-.vscode
-assets
-build
-pyproject.toml
-README*
-script.py.mako
-uv.lock
