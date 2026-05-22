@@ -26,7 +26,7 @@ builds:
       - arm64
     hooks:
       post:
-        - cmd: bash -x ./scripts/fetch_frpc.sh {{ .Arch }}
+        - cmd: bash -x ./build/bin/fetch_frpc.sh {{ .Arch }}
 
 archives:
   - id: nixstasis-archive
@@ -36,6 +36,8 @@ archives:
     files:
       - src: build/root-dir/**/*
         dst: .
+      - src: dist/frp/frpc_{{ .Arch }}
+        dst: usr/libexec/nixstasis/frpc
 
 nfpms:
   - id: nixstasis
@@ -48,15 +50,19 @@ nfpms:
     description: Nixstasis client with bundled frpc
     maintainer: Robert DeRose <RobertDeRose@users.noreply.github.com>
     license: Proprietary
+    bindir: /
     formats:
       - deb
       - rpm
     scripts:
-      postinstall: ./scripts/release/postinstall.sh
-      preremove: ./scripts/release/preremove.sh
+      postinstall: ./build/debian/postinstall.sh
+      preremove: ./build/debian/preremove.sh
     contents:
-      - src: build/root-dir/
+      - src: build/root-dir/**/*
         dst: .
+      - src: dist/frp/frpc_{{ .Arch }}
+        dst: usr/libexec/nixstasis/frpc
+
 
 makeselfs:
   - id: nixstasis-installer
@@ -70,7 +76,7 @@ makeselfs:
     name: nixstasis
     description: Nixstasis client with bundled frpc
     filename: "nixstasis-{{ .Version }}-{{ .Os }}-{{ .Arch }}.run"
-    script: scripts/release/makeself-entrypoint.sh
+    script: build/makeself/entrypoint.sh
     extra_args:
       - "--nox11"
       - "--needroot"
@@ -79,7 +85,9 @@ makeselfs:
     files:
       - src: build/root-dir/**/*
         dst: .
-      - src: scripts/release/postinstall.sh
+      - src: dist/frp/frpc_{{ .Arch }}
+        dst: usr/libexec/nixstasis/frpc
+      - src: build/debian/postinstall.sh
         dst: usr/libexec/nixstasis/postinstall.sh
-      - src: scripts/release/makeself-cleanup.sh
-        dst: usr/libexec/nixstasis/makeself-cleanup.sh
+      - src: build/makeself/cleanup.sh
+        dst: usr/libexec/nixstasis/cleanup.sh

@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+#MISE description "Open a Linux build shell for the client package"
+#MISE interactive true
+#USAGE flag "-d --distro <codename>" help="Ubuntu distro codename for fallback image" default="jammy"
+#USAGE flag "-e --env <var>" help="Add an environment variable" var=#true
+#USAGE flag "--engine <runtime>" help="Container runtime to use (container or docker)"
+#USAGE flag "-p --privileged" help="Run the fallback container as privileged"
+#USAGE flag "-o --oci" help="Use mise oci run instead of the fallback image"
+#USAGE arg "[command]" help="Command to run in the build shell" var=#true
+set -euo pipefail
+
+DISTRO="${usage_distro?}"
+ENGINE="${usage_engine:-}"
+PRIVILEGED="${usage_privileged:-false}"
+USE_OCI="${usage_oci:-false}"
+ENV_ARGS=()
+
+if [[ -n "${usage_env:-}" ]]; then
+  eval "ENV_ARGS=(${usage_env})"
+fi
+
+COMMAND=()
+if [[ -n "${usage_command:-}" ]]; then
+  eval "COMMAND=(${usage_command})"
+fi
+
+client_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+workdir="/$(basename "$client_dir")"
+history_file="${HOME}/.nixstasis_client_build_history"
+local_history="${client_dir}/.bash_history"
+
+if [[ -n "$ENGINE" ]] && ! command -v "$ENGINE" >/dev/null 2>&1; then
+  echo "missing container runtime: $ENGINE" >&2
+  exit 1
+fi
+
+if [[ -n "$ENGINE" ]]; then
+  :
+elif command -v container >/dev/null 2>&1; then
+  ENGINE="container"
+elif command -v docker >/dev/null 2>&1; then
+  ENGINE="docker"
+else
+  echo "missing container runtime: install Apple container or docker" >&2
+  exit 1
+fi
+
+if [[ -e "$history_file" ]]; then
+  cp "$history_file" "$local_history"
+fi
+
+shell_rc="${client_dir}/.build-local-shell"
+cleanup() {
+  rm -f "$shell_rc"
+  if [[ -e "$local_history" ]]; then
+    mv "$local_history" "$history_file"
+  fi
+}
+trap cleanup EXIT
+
+cat >"$shell_rc" <<EOF
+source /etc/os-release
+export HISTFILE="$workdir/.bash_history"
+export PATH="$workdir/bin:\$PATH"
+echo '"\\e[A": history-search-backward' >> /etc/inputrc
+echo '"\\e[B": history-search-forward' >> /etc/inputrc
+RED='\\[\\e[38;5;196;1m\\]'
+ORANGE='\\[\\e[38;5;208;1m\\]'
+BLUE='\\[\\e[38;5;45m\\]'
+RESET='\\[\\e[0m\\]'
+export PS1="╭─[\${RED}\\u\${RESET}@\${ORANGE}\${VERSION_CODENAME}\${RESET}] \${BLUE}\\w\\a\\n\${RESET}╰─\\$ "
+clear
+printf 'Welcome to %s!\\n\\n' "\${VERSION}"
+EOF
+
+if [[ "$USE_OCI" == "true" ]]; then
+  oci_args=(mise oci run --volume "$client_dir:$workdir" --volume "dist:$workdir/dist" -w "$workdir")
+  if [[ ${#COMMAND[@]} -eq 0 ]]; then
+    oci_args+=(-it)
+  fi
+  for env_arg in "${ENV_ARGS[@]}"; do
+    oci_args+=(-e "$env_arg")
+  done
+  if [[ ${#COMMAND[@]} -eq 0 ]]; then
+    oci_args+=(-- bash --rcfile "$workdir/.build-local-shell" -i)
+  else
+    oci_args+=(-- "${COMMAND[@]}")
+  fi
+  "${oci_args[@]}"
+  exit $?
+fi
+
+run_args=($ENGINE run --rm --volume "$client_dir:$workdir" --volume "dist:$workdir/dist" -w "$workdir")
+if [[ ${#COMMAND[@]} -eq 0 ]]; then
+  run_args+=(-it)
+fi
+if [[ "$PRIVILEGED" == "true" ]]; then
+  run_args+=(--privileged)
+fi
+for env_arg in "${ENV_ARGS[@]}"; do
+  run_args+=(-e "$env_arg")
+done
+if [[ ${#COMMAND[@]} -eq 0 ]]; then
+  run_args+=("buildpack-deps:${DISTRO}-curl" bash --rcfile "$workdir/.build-local-shell" -i)
+else
+  run_args+=("buildpack-deps:${DISTRO}-curl" "${COMMAND[@]}")
+fi
+
+"${run_args[@]}"
