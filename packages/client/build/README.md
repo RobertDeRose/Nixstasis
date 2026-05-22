@@ -11,4 +11,4 @@ GoReleaser is the supported client release entrypoint for this feature.
 ## Verification
 
 - Run `goreleaser release --snapshot --clean` from `packages/client`.
-- Run `./scripts/release/verify_artifacts.sh` after each snapshot build.
+- Run `./build/bin/verify_artifacts.sh` after each snapshot build.

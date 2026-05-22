@@ -62,16 +62,33 @@ list_rpm_members() {
   fail "rpm or bsdtar is required to inspect RPM artifacts"
 }
 
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+    return
+  fi
+
+  command -v sudo >/dev/null 2>&1 || fail "sudo is required to inspect self-extracting installers"
+  sudo "$@"
+}
+
+remove_tree() {
+  path="$1"
+
+  if [ -e "$path" ]; then
+    as_root rm -rf "$path"
+  fi
+}
+
 verify_installer_members() {
   extract_dir="$1"
 
-  [ ! -e "$extract_dir/nixstasis" ] || fail "installer must not contain root file: nixstasis"
   [ ! -e "$extract_dir/postinstall.sh" ] || fail "installer must not contain root file: postinstall.sh"
-  require_file "$extract_dir/makeself-entrypoint.sh"
+  require_file "$extract_dir/entrypoint.sh"
   require_file "$extract_dir/usr/bin/nixstasis"
   require_file "$extract_dir/usr/libexec/nixstasis/frpc"
   require_file "$extract_dir/usr/libexec/nixstasis/postinstall.sh"
-  require_file "$extract_dir/usr/libexec/nixstasis/makeself-cleanup.sh"
+  require_file "$extract_dir/usr/libexec/nixstasis/cleanup.sh"
   require_file "$extract_dir/usr/share/nixstasis/frpc.toml"
   require_file "$extract_dir/usr/share/nixstasis/config.example.yaml"
   require_file "$extract_dir/lib/systemd/system/nixstasis-poll.service"
@@ -101,7 +118,7 @@ for archive in "$DIST_DIR"/*.tar.gz; do
     *nixstasis*) ;;
     *) fail "artifact name must use nixstasis naming: $archive" ;;
   esac
-  verify_common_members "$(tar -tzf "$archive")" "nixstasis"
+  verify_common_members "$(tar -tzf "$archive")" "usr/bin/nixstasis"
 done
 [ "$ARCHIVE_COUNT" -gt 0 ] || fail "no tar.gz artifacts found in $DIST_DIR"
 
@@ -140,8 +157,8 @@ for installer in "$DIST_DIR"/makeself/*/*/*.run; do
 
   (
     extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixstasis-installer-verify.XXXXXX")
-    trap 'rm -rf "$extract_dir"' EXIT HUP INT TERM
-    sh "$installer" --noexec --target "$extract_dir" >/dev/null
+    trap 'remove_tree "$extract_dir"' EXIT HUP INT TERM
+    as_root sh "$installer" --noexec --target "$extract_dir" >/dev/null
     verify_installer_members "$extract_dir"
   )
 done

@@ -1,0 +1,86 @@
+[settings]
+disable_tools = ["*"]
+
+[tools]
+go = "1.26.2"
+"go:mvdan.cc/gofumpt" = "v0.9.2"
+"go:golang.org/x/tools/cmd/goimports" = "v0.40.0"
+"go:github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt" = "v2.5.0"
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "v2.8.0"
+"go:github.com/goreleaser/goreleaser/v2" = "v2.15.4"
+
+[env]
+GOEXPERIMENT = "jsonv2"
+CGO_ENABLED = "0"
+NAME = "nixstasis"
+BIN_DIR = "bin"
+BUILD_ROOT = "build/root-dir"
+INSTALL_DIR = "{{env.BUILD_ROOT}}/usr/bin"
+CMD_DIR = "./cmd/nixstasis"
+COVERAGE_FILE = "coverage.out"
+GOFLAGS = "-v"
+LDFLAGS = "-s -w"
+
+[tasks.clean]
+description = "Remove client build artifacts"
+run = "rm -f {{env.BIN_DIR}}/{{env.NAME}} {{env.COVERAGE_FILE}}"
+
+[tasks.test]
+description = "Run Go tests with race detector and coverage"
+run = "go test -race --json -coverprofile={{env.COVERAGE_FILE}} ./... | gotestfmt"
+
+[tasks."test:coverage"]
+description = "Print Go coverage summary"
+run = "go tool cover -func={{env.COVERAGE_FILE}}"
+
+[tasks.build]
+description = "Build the client binary locally"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "{{env.BIN_DIR}}"
+go build {{env.GOFLAGS}} -ldflags "{{env.LDFLAGS}}" -o "{{env.BIN_DIR}}/{{env.NAME}}" "{{env.CMD_DIR}}"
+'''
+
+[tasks."build:local"]
+description = "Run the client CLI locally"
+run = "go run {{env.CMD_DIR}}"
+
+[tasks."release:check"]
+description = "Validate the GoReleaser configuration"
+dir = "{{config_root}}"
+run = "goreleaser check"
+
+[tasks."release:snapshot"]
+description = "Build snapshot release artifacts"
+dir = "{{config_root}}"
+run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean || true; PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --parallelism 1"
+
+[tasks."release:snapshot:archives"]
+description = "Build snapshot archive artifacts"
+dir = "{{config_root}}"
+run = "goreleaser release --snapshot --clean --skip=nfpm --skip=makeself || true; goreleaser release --snapshot --parallelism 1 --skip=nfpm --skip=makeself"
+
+[tasks."release:snapshot:native"]
+description = "Build snapshot deb and rpm artifacts"
+dir = "{{config_root}}"
+run = "goreleaser release --snapshot --clean --skip=archive --skip=makeself || true; goreleaser release --snapshot --parallelism 1 --skip=archive --skip=makeself"
+
+[tasks."release:snapshot:run"]
+description = "Build snapshot self-extracting installer artifacts"
+dir = "{{config_root}}"
+run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean --skip=archive --skip=nfpm || true; PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --parallelism 1 --skip=archive --skip=nfpm"
+
+[tasks."release:verify"]
+description = "Verify release artifacts"
+dir = "{{config_root}}"
+run = "./build/bin/verify_artifacts.sh"
+
+[tasks."mock-api"]
+description = "Run the mock API server"
+run = "go run ./scripts/mock_api -log=stderr"
+
+[tasks."e2e:scaffold"]
+description = "Generate E2E journey scaffold; pass script args after --"
+run = "scripts/e2e/scaffold {{arg(name='args', var=true, default='')}}"
