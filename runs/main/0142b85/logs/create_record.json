@@ -1,0 +1,40 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:01:31.309967878Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "JSON Response",
+          "bytes": 292,
+          "pretty": "{\n  \"data\": {\n    \"attributes\": {\n      \"config\": {\n        \"journey\": \"create_record\",\n        \"source\": \"e2e\"\n      },\n      \"name\": \"E2E Report 1779548491246842004\"\n    },\n    \"id\": \"1\",\n    \"links\": {},\n    \"meta\": {},\n    \"relationships\": {},\n    \"type\": \"custom_report\"\n  },\n  \"jsonapi\": {\n    \"version\": \"1.0\"\n  },\n  \"links\": {\n    \"self\": \"http://localhost:4000/api/json/custom_reports\"\n  },\n  \"meta\": {}\n}",
+          "http_status": 201,
+          "panel_type": "response",
+          "truncated": false
+        },
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"record_id\": \"1\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 63,
+      "icon_label": "STEP",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "create_record",
+        "expected": "record_created"
+      },
+      "summary": null
+    }
+  ]
+}
