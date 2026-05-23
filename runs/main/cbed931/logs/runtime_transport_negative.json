@@ -1,0 +1,158 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:14.988386823Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"account\": \"735613\",\n  \"device_id\": \"f9384bf8-20ea-455a-9b26-36f4f1146104\",\n  \"post_updated\": true,\n  \"product_name\": \"runtime-linux-e2e-1779550814938659046\",\n  \"transport\": \"register_device\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 49,
+      "icon_label": "STEP 01",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "runtime_register_device",
+        "expected": "runtime_device_registered"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:15.038874096Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"api_token_present\": \"[REDACTED]\",\n  \"device_id\": \"ae449d96-80c6-4e7b-9aef-89d0f84a98e5\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 50,
+      "icon_label": "STEP 02",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "runtime_approve_device",
+        "expected": "device_approved"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:15.059824588Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"expected_status\": 404,\n  \"missing_payload_ref\": \"missing-1779550815038902509\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 20,
+      "icon_label": "STEP 03",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "runtime_expect_missing_payload_ref",
+        "expected": "command_payload_missing"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:15.079991796Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"expected_status\": 400,\n  \"reason\": \"results must be a list\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 20,
+      "icon_label": "STEP 04",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "runtime_reject_invalid_command_results",
+        "expected": "command_results_rejected"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:15.105475163Z",
+      "metadata": {},
+      "kind": "step",
+      "data_panels": [],
+      "duration_ms": 25,
+      "icon_label": "STEP 05",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "runtime_cleanup",
+        "expected": "runtime_resources_cleaned"
+      },
+      "summary": null
+    },
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-05-23T15:40:15.105493337Z",
+      "metadata": {},
+      "kind": "summary",
+      "data_panels": [],
+      "duration_ms": null,
+      "icon_label": "SUMMARY",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": null,
+      "summary": {
+        "end_at": "2026-05-23T15:40:15.105493337Z",
+        "failed_count": 0,
+        "journey_status": "passed",
+        "passed_count": 5,
+        "start_at": "2026-05-23T15:40:14.93856454Z",
+        "total_count": 5,
+        "total_duration_ms": 167
+      }
+    }
+  ]
+}
