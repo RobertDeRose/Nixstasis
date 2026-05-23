@@ -1,4 +1,11 @@
-# Introduction
+<section class="brand-hero">
+  <img class="brand-hero__logo" src="assets/brand/nixstasis-logo.png" alt="Nixstasis logo">
+  <div class="brand-hero__copy">
+    <p class="brand-hero__eyebrow">Atomix native remote management</p>
+    <h1><strong>Nix</strong><span>stasis</span></h1>
+    <p class="brand-hero__tagline">State synchronization</p>
+  </div>
+</section>
 
 ## Project
 

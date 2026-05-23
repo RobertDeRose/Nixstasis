@@ -12,9 +12,10 @@ build-dir = "../book"
 command = "mdbook-mermaid"
 
 [output.html]
-default-theme = "navy"
-preferred-dark-theme = "navy"
+theme = "theme"
+default-theme = "light"
+preferred-dark-theme = "dark"
 git-repository-url = "https://github.com/RobertDeRose/Nixstasis"
 edit-url-template = "https://github.com/RobertDeRose/Nixstasis/edit/main/docs/{path}"
-additional-css = ["theme/cobalt.css", "mermaid-modal.css"]
+additional-css = ["theme/nixstasis.css", "mermaid-modal.css"]
 additional-js = ["mermaid.min.js", "mermaid-init.js"]

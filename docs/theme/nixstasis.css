@@ -1,0 +1,436 @@
+/* Nixstasis brand themes for mdBook */
+
+.dark {
+    --bg: #061322;
+    --fg: #d8edf6;
+
+    --sidebar-bg: #081a2a;
+    --sidebar-fg: #bcd6e3;
+    --sidebar-non-existent: #5f7885;
+    --sidebar-active: #48f2bf;
+    --sidebar-spacer: #183846;
+
+    --scrollbar: #48f2bf;
+
+    --icons: #38a9f4;
+    --icons-hover: #48f2bf;
+
+    --links: #4bded1;
+
+    --inline-code-color: #b7f7e7;
+
+    --theme-popup-bg: #0d2433;
+    --theme-popup-border: #2e9cc2;
+    --theme-hover: #123447;
+
+    --quote-bg: #0b1f2c;
+    --quote-border: #2ad1ba;
+
+    --warning-border: #48f2bf;
+
+    --table-border-color: #1d4c5a;
+    --table-header-bg: #123648;
+    --table-alternate-bg: #091c2b;
+
+    --searchbar-border-color: #2e9cc2;
+    --searchbar-bg: #102b3a;
+    --searchbar-fg: #effcff;
+    --searchbar-shadow-color: #48f2bf;
+    --searchresults-header-fg: #9be8dc;
+    --searchresults-border-color: #2e9cc2;
+    --searchresults-li-bg: #0c2331;
+    --search-mark-bg: #177f93;
+
+    --copy-button-filter: invert(70%) sepia(91%) saturate(441%) hue-rotate(121deg) brightness(101%) contrast(93%);
+    --copy-button-filter-hover: invert(83%) sepia(45%) saturate(552%) hue-rotate(107deg) brightness(104%) contrast(100%);
+
+    --footnote-highlight: #39d9c3;
+
+    --overlay-bg: rgba(6, 19, 34, 0.62);
+    --brand-hero-border: rgba(72, 242, 191, 0.22);
+    --brand-hero-bg:
+        radial-gradient(circle at 18% 20%, rgba(46, 169, 244, 0.24), transparent 38%),
+        radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.2), transparent 34%),
+        rgba(6, 19, 34, 0.72);
+    --brand-hero-shadow: rgba(0, 0, 0, 0.28);
+    --brand-eyebrow: #48f2bf;
+    --brand-wordmark: #dbe8ee;
+    --brand-wordmark-strong: #ecf7fb;
+    --brand-tagline: #91aabd;
+    --mermaid-block-bg: rgba(8, 26, 42, 0.76);
+    --mermaid-block-border: rgba(72, 242, 191, 0.2);
+    --mermaid-modal-bg: #081631;
+    --mermaid-modal-border: rgba(86, 141, 226, 0.4);
+    --mermaid-modal-header-border: rgba(86, 141, 226, 0.24);
+    --mermaid-modal-title: #e7f3ff;
+    --mermaid-control-bg: rgba(14, 31, 69, 0.92);
+    --mermaid-control-bg-hover: rgba(25, 51, 95, 0.96);
+    --mermaid-control-border: rgba(124, 183, 255, 0.45);
+    --mermaid-control-border-hover: rgba(124, 183, 255, 0.7);
+    --mermaid-control-fg: #e7f3ff;
+}
+
+.light {
+    --bg: #f4fbfd;
+    --fg: #183242;
+
+    --sidebar-bg: #e8f6f8;
+    --sidebar-fg: #254553;
+    --sidebar-non-existent: #8aa3ad;
+    --sidebar-active: #057f86;
+    --sidebar-spacer: #c6e3e7;
+
+    --scrollbar: #18b9aa;
+
+    --icons: #168fac;
+    --icons-hover: #057f86;
+
+    --links: #087f92;
+
+    --inline-code-color: #065f67;
+
+    --theme-popup-bg: #ecf8fa;
+    --theme-popup-border: #9dd9dd;
+    --theme-hover: #d7f0f2;
+
+    --quote-bg: #e9f7f6;
+    --quote-border: #18b9aa;
+
+    --warning-border: #0aa99b;
+
+    --table-border-color: #b6dce1;
+    --table-header-bg: #d9eff2;
+    --table-alternate-bg: #edf8fa;
+
+    --searchbar-border-color: #8ccfd8;
+    --searchbar-bg: #ffffff;
+    --searchbar-fg: #14313e;
+    --searchbar-shadow-color: #18b9aa;
+    --searchresults-header-fg: #176f78;
+    --searchresults-border-color: #a7dce1;
+    --searchresults-li-bg: #f2fbfc;
+    --search-mark-bg: #a7eee4;
+
+    --copy-button-filter: invert(38%) sepia(66%) saturate(707%) hue-rotate(143deg) brightness(93%) contrast(95%);
+    --copy-button-filter-hover: invert(30%) sepia(87%) saturate(952%) hue-rotate(145deg) brightness(92%) contrast(96%);
+
+    --footnote-highlight: #13a99d;
+
+    --overlay-bg: rgba(232, 246, 248, 0.7);
+    --brand-hero-border: rgba(5, 127, 134, 0.18);
+    --brand-hero-bg:
+        radial-gradient(circle at 18% 20%, rgba(56, 169, 244, 0.18), transparent 38%),
+        radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.28), transparent 34%),
+        rgba(255, 255, 255, 0.72);
+    --brand-hero-shadow: rgba(11, 75, 89, 0.14);
+    --brand-eyebrow: #079987;
+    --brand-wordmark: #284150;
+    --brand-wordmark-strong: #102c3c;
+    --brand-tagline: #5e7a87;
+    --mermaid-block-bg: rgba(245, 253, 254, 0.82);
+    --mermaid-block-border: rgba(24, 185, 170, 0.22);
+    --mermaid-modal-bg: #f8fdff;
+    --mermaid-modal-border: rgba(24, 143, 172, 0.3);
+    --mermaid-modal-header-border: rgba(24, 143, 172, 0.18);
+    --mermaid-modal-title: #173544;
+    --mermaid-control-bg: rgba(236, 248, 250, 0.96);
+    --mermaid-control-bg-hover: rgba(215, 240, 242, 0.98);
+    --mermaid-control-border: rgba(24, 143, 172, 0.36);
+    --mermaid-control-border-hover: rgba(5, 127, 134, 0.58);
+    --mermaid-control-fg: #173544;
+}
+
+html.light,
+html.light body,
+html.light .page-wrapper {
+    background:
+        radial-gradient(circle at 14% 8%, rgba(56, 169, 244, 0.16), transparent 34%),
+        radial-gradient(circle at 86% 0%, rgba(72, 242, 191, 0.22), transparent 30%),
+        linear-gradient(135deg, #f6fdff 0%, #edf8fb 48%, #eaf8f3 100%);
+}
+
+.light #menu-bar {
+    border-bottom-color: #b9dfe4;
+    box-shadow: 0 1px 0 rgba(5, 127, 134, 0.14);
+}
+
+.light .menu-title {
+    color: #173544;
+    letter-spacing: 0.02em;
+}
+
+.light .chapter li a.active,
+.light .chapter li a:hover {
+    color: #057f86;
+    text-shadow: 0 0 10px rgba(24, 185, 170, 0.2);
+}
+
+.light .content a {
+    text-underline-offset: 0.14em;
+}
+
+.light #searchbar:focus,
+.light #searchbar.active {
+    box-shadow: 0 0 0 2px rgba(24, 185, 170, 0.2);
+}
+
+.light :not(pre) > .hljs {
+    background-color: rgba(224, 247, 248, 0.75);
+    border: 1px solid rgba(24, 185, 170, 0.22);
+}
+
+html.dark,
+html.dark body,
+html.dark .page-wrapper {
+    background:
+        radial-gradient(circle at 14% 8%, rgba(40, 165, 242, 0.2), transparent 34%),
+        radial-gradient(circle at 86% 0%, rgba(72, 242, 191, 0.18), transparent 30%),
+        linear-gradient(135deg, #061322 0%, #071b2d 46%, #081827 100%);
+}
+
+.dark #menu-bar {
+    border-bottom-color: #1d5562;
+    box-shadow: 0 1px 0 rgba(72, 242, 191, 0.16);
+}
+
+.dark .menu-title {
+    color: #e8fbff;
+    letter-spacing: 0.02em;
+}
+
+.dark .chapter li a.active,
+.dark .chapter li a:hover {
+    color: #48f2bf;
+    text-shadow: 0 0 10px rgba(72, 242, 191, 0.28);
+}
+
+.dark .content a {
+    text-underline-offset: 0.14em;
+}
+
+.dark #searchbar:focus,
+.dark #searchbar.active {
+    box-shadow: 0 0 0 2px rgba(72, 242, 191, 0.22);
+}
+
+.dark :not(pre) > .hljs {
+    background-color: rgba(15, 58, 75, 0.5);
+    border: 1px solid rgba(72, 242, 191, 0.22);
+}
+
+.brand-hero {
+    --brand-wordmark-size: clamp(2.8rem, 8vw, 6.6rem);
+
+    display: flex;
+    align-items: center;
+    gap: clamp(18px, 5vw, 52px);
+    margin: 10px 0 42px;
+    padding: clamp(18px, 5vw, 44px);
+    border: 1px solid var(--brand-hero-border);
+    border-radius: 28px;
+    background: var(--brand-hero-bg);
+    box-shadow: 0 24px 70px var(--brand-hero-shadow);
+}
+
+.brand-hero__logo {
+    width: clamp(120px, 24vw, 210px);
+    height: auto;
+    flex: 0 0 auto;
+    filter: drop-shadow(0 0 22px rgba(72, 242, 191, 0.16));
+}
+
+.brand-hero__copy {
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.brand-hero__eyebrow {
+    margin: 0 0 8px;
+    color: var(--brand-eyebrow);
+    font-size: calc(var(--brand-wordmark-size) * 0.236);
+    font-weight: 700;
+    letter-spacing: calc(var(--brand-wordmark-size) * 0.022);
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+
+.brand-hero h1 {
+    display: inline-block;
+    margin: 0;
+    color: var(--brand-wordmark);
+    font-size: var(--brand-wordmark-size);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.brand-hero h1 strong {
+    color: var(--brand-wordmark-strong);
+    display: inline;
+    font-weight: 800;
+}
+
+.brand-hero h1 span {
+    display: inline;
+    font-weight: 300;
+}
+
+.brand-hero__tagline {
+    width: 100%;
+    margin: 16px 0 0;
+    color: var(--brand-tagline);
+    font-size: calc(var(--brand-wordmark-size) * 0.269);
+    font-weight: 300;
+    letter-spacing: calc(var(--brand-wordmark-size) * 0.103);
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+    .brand-hero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+.logo-compare {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    margin: 8px 0 20px;
+}
+
+.logo-compare figure {
+    margin: 0;
+    text-align: center;
+}
+
+.logo-compare img {
+    width: min(280px, 100%);
+    height: auto;
+    display: block;
+}
+
+.logo-compare figcaption {
+    margin-top: 8px;
+    color: var(--sidebar-fg);
+    font-size: 1.4rem;
+    letter-spacing: 0.01em;
+}
+
+.content pre.mermaid {
+    position: relative;
+    overflow-x: auto;
+    padding: 12px 48px 12px 12px;
+    border: 1px solid var(--mermaid-block-border);
+    border-radius: 10px;
+    background-color: var(--mermaid-block-bg);
+}
+
+.content pre.mermaid svg {
+    display: block;
+    margin: 0 auto;
+}
+
+.mermaid-modal-open {
+    overflow: hidden;
+}
+
+.mermaid-modal[hidden] {
+    display: none;
+}
+
+.mermaid-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+}
+
+.mermaid-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 16, 42, 0.86);
+}
+
+.mermaid-modal__panel {
+    position: relative;
+    margin: min(4vh, 24px) auto;
+    width: min(96vw, 1600px);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--mermaid-modal-border);
+    border-radius: 14px;
+    background: var(--mermaid-modal-bg);
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.45);
+}
+
+.mermaid-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mermaid-modal-header-border);
+}
+
+.mermaid-modal__title {
+    color: var(--mermaid-modal-title);
+}
+
+.mermaid-modal__close {
+    border: 1px solid var(--mermaid-control-border);
+    border-radius: 999px;
+    background: var(--mermaid-control-bg);
+    color: var(--mermaid-control-fg);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    padding: 8px 12px;
+}
+
+.mermaid-expand-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--mermaid-control-border);
+    border-radius: 8px;
+    background: var(--mermaid-control-bg);
+    color: var(--mermaid-control-fg);
+    cursor: pointer;
+    padding: 0;
+}
+
+.mermaid-expand-button:hover,
+.mermaid-expand-button:focus-visible,
+.mermaid-modal__close:hover,
+.mermaid-modal__close:focus-visible {
+    background: var(--mermaid-control-bg-hover);
+    border-color: var(--mermaid-control-border-hover);
+}
+
+.mermaid-expand-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+.mermaid-modal__content {
+    overflow: auto;
+    padding: 20px;
+}
+
+.mermaid-modal__content svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: none;
+}
