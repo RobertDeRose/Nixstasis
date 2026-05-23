@@ -2,25 +2,6 @@
 
 ## High-Level Architecture
 
-```text
-Browser/User
-    |
-    | HTTPS / WSS
-    v
-Caddy + AuthCrunch
-    |                         Managed device
-    | reverse_proxy            |
-    v                          | HTTP polling
-Phoenix Server <---------------+ nixstasis Go client
-    |                          |
-    | PostgreSQL               | starts/stops
-    v                          v
-Database                    frpc
-    ^                          |
-    |                          | FRP tunnel
-    +----------------------- frps
-```
-
 ```mermaid
 flowchart TB
     Browser[Browser/User] -->|HTTPS/WSS| Caddy[Caddy + AuthCrunch]

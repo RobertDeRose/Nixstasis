@@ -2,6 +2,27 @@
 
 ## Device Registration
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Operator
+    participant Client as nixstasis client
+    participant Identity as identity store
+    participant Phoenix
+    participant Devices as Devices context
+    participant Domain as Ash domain
+
+    Operator->>Client: nixstasis register
+    Client->>Client: Detect MAC/IP and product metadata
+    Client->>Phoenix: POST /api/v1/devices/register
+    Phoenix->>Devices: register_device(params)
+    Devices->>Domain: register_device(params)
+    Domain-->>Devices: device record and approval state
+    Devices-->>Phoenix: registration result
+    Phoenix-->>Client: 201 data.id and optional api_token
+    Client->>Identity: Save UUID
+```
+
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
 3. Client generates a device name from the MAC address.
@@ -19,6 +40,32 @@ Traceable references:
 - `packages/server/lib/nixstasis/devices.ex:51-83`
 
 ## Polling and Telemetry
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as nixstasis poll
+    participant Scripts as Starlark scripts
+    participant FRP as FRP manager
+    participant Phoenix
+    participant Monitoring
+    participant Commands as Command handler
+
+    Client->>Client: Load UUID and runtime config
+    loop Every poll interval
+        Client->>Scripts: Discover and execute latest scripts
+        Scripts-->>Client: telemetry reports/errors
+        Client->>FRP: Read current connection status
+        FRP-->>Client: connection_status
+        Client->>Phoenix: POST heartbeat with telemetry/status
+        Phoenix->>Monitoring: heartbeat(device, payload)
+        Monitoring-->>Phoenix: remote_access_token and commands
+        Phoenix-->>Client: Poll response
+        Client->>Commands: Hydrate payloads and execute commands
+        Commands-->>Phoenix: POST command_results
+        Client->>FRP: Start/stop/restart from remote_access_token
+    end
+```
 
 1. Client invokes `nixstasis poll`.
 2. Client loads stored UUID from `/etc/nixstasis/id`.
@@ -75,6 +122,32 @@ Traceable references:
 
 ## Remote Access Through FRP
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Browser
+    participant LiveView as DeviceLive.Show
+    participant Phoenix
+    participant Client as nixstasis client
+    participant FRPC as frpc
+    participant FRPS as frps
+    participant Caddy
+
+    Browser->>LiveView: Open /devices/:id
+    LiveView->>Phoenix: Mark remote_access_requested
+    Client->>Phoenix: Heartbeat
+    Phoenix-->>Client: remote_access_token
+    Client->>FRPC: Start transient systemd unit
+    FRPC->>FRPS: Connect with token
+    Browser->>Caddy: Request wildcard device host
+    Caddy->>FRPS: Proxy HTTP vhost traffic
+    Browser-->>Caddy: Close device view
+    LiveView->>Phoenix: Clear remote_access_requested
+    Client->>Phoenix: Next heartbeat
+    Phoenix-->>Client: No remote_access_token
+    Client->>FRPC: Stop transient unit
+```
+
 1. Browser opens `/devices/:id`.
 2. `DeviceLive.Show.handle_params/3` loads device.
 3. If device is online, `setup_device_view/3` sets `remote_access_requested` to true when not already requested.
@@ -94,6 +167,32 @@ Traceable references:
 - `deploy/compose/caddy/Caddyfile:68-75`
 
 ## Browser Terminal Session
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Browser
+    participant LiveView as DeviceLive.Show
+    participant Devices
+    participant Client as nixstasis client
+    participant Socket as TerminalChannel
+    participant SSH as SshClient
+    participant FRP as FRP TCP mux
+
+    Browser->>LiveView: start_ssh_session
+    LiveView->>Devices: Generate SSH key pair
+    LiveView->>Devices: Queue ssh_authorize command
+    Client->>Devices: Heartbeat claims command
+    Client->>Client: Install authorized key
+    Browser->>Socket: Join terminal:<device_id>
+    Socket->>Devices: Resolve terminal session ref
+    Socket->>SSH: Start SSH Port with ncat proxy
+    SSH->>FRP: Connect through FRP TCP mux
+    Browser->>Socket: Terminal input
+    Socket->>SSH: send_data(input)
+    SSH-->>Socket: output events
+    Socket-->>Browser: terminal output
+```
 
 1. Browser triggers `start_ssh_session` in `DeviceLive.Show`.
 2. Server generates an SSH key pair with `SshKeyManager.generate_key_pair/0`.
@@ -141,6 +240,29 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/live/settings_live.ex`
 
 ## E2E Run Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Requested: POST /e2e/runs
+    Requested --> Reused: idempotency hit
+    Requested --> Rejected: policy/protocol/registration error
+    Requested --> Locked: environment lock acquired
+    Locked --> Seeded: seed script succeeds
+    Locked --> SeedFailed: seed script fails
+    Seeded --> Running: run and journey rows persisted
+    Running --> ResultsSubmitted: POST results
+    ResultsSubmitted --> Completed: final aggregate status
+    ResultsSubmitted --> Failed: failed aggregate status
+    Running --> Cancelled: POST cancel
+    Completed --> Retained: logs available
+    Failed --> Retained: logs available
+    Cancelled --> Retained: logs available
+    Retained --> Pruned: retention worker
+    Reused --> [*]
+    Rejected --> [*]
+    SeedFailed --> [*]
+    Pruned --> [*]
+```
 
 1. Client E2E runner loads config and journey specs.
 2. Client sends `POST /e2e/runs` with `X-E2E-Protocol-Version`.

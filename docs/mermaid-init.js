@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (() => {
-    const darkThemes = ['ayu', 'navy', 'coal'];
-    const lightThemes = ['light', 'rust'];
+    const darkThemes = ['dark'];
+    const lightThemes = ['light'];
     const mermaidModalId = 'mermaid-diagram-modal';
     const maximizeIcon = `
         <svg viewBox="0 0 448 512" aria-hidden="true" focusable="false">
