@@ -6,7 +6,7 @@ info:
 paths:
   /api/v1/builder-schemas:
     get:
-      summary: List schema references visible to the current user
+      summary: List schema references available to builder clients
       responses:
         "200":
           description: Available schemas
@@ -19,8 +19,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/SchemaReference"
-        "403":
-          description: User has no schema visibility
   /api/v1/builder-schemas/{schema_id}/versions/{schema_version}/options:
     get:
       summary: Get normalized dropdown options for a builder and schema version
@@ -52,8 +50,6 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/SchemaOptionsResponse"
-        "403":
-          description: Access lost or denied for this schema
         "404":
           description: Schema reference not found
   /api/v1/builder-configurations/validate:
@@ -72,8 +68,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidationResponse"
-        "403":
-          description: Access denied for schema reference
         "422":
           description: Invalid validation payload
 components:
