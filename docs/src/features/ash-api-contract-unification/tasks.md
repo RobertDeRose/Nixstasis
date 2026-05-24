@@ -46,27 +46,27 @@
 
 ## Server Implementation
 
-- [ ] T014 Convert the first approved group of resource/action-oriented non-UI
+- [x] T014 Convert the first approved group of resource/action-oriented non-UI
   endpoints to Ash-backed resources/actions or Ash JSON routes.
-- [ ] T015 Preserve existing authentication and authorization semantics for
+- [x] T015 Preserve existing authentication and authorization semantics for
   converted endpoints.
-- [ ] T016 Preserve existing response shapes, status codes, validation errors, and
+- [x] T016 Preserve existing response shapes, status codes, validation errors, and
   error payload classes unless a versioned migration is explicitly documented.
-- [ ] T017 Update or remove now-redundant Phoenix controller code only after the
+- [x] T017 Update or remove now-redundant Phoenix controller code only after the
   Ash-backed contract is tested.
-- [ ] T018 Refresh generated OpenAPI after Ash resource/action changes.
-- [ ] T019 Run named Ash codegen for committed resource changes and avoid committing
+- [x] T018 Refresh generated OpenAPI after Ash resource/action changes.
+- [x] T019 Run named Ash codegen for committed resource changes and avoid committing
   `*_dev` migration or snapshot files.
 
 ## Tests
 
-- [ ] T020 Add or update server tests for each converted endpoint's success path.
-- [ ] T021 Add or update server tests for validation errors, authorization failures,
+- [x] T020 Add or update server tests for each converted endpoint's success path.
+- [x] T021 Add or update server tests for validation errors, authorization failures,
   and important edge cases for each converted endpoint.
 - [ ] T022 Run Go client transport tests against registration, heartbeat, command
   polling, command result, and deferred payload contracts if those endpoints move.
 - [ ] T023 Run E2E harness tests if `/e2e` endpoints move or receive Ash wrappers.
-- [ ] T024 Add OpenAPI generation or schema checks proving converted endpoints are
+- [x] T024 Add OpenAPI generation or schema checks proving converted endpoints are
   present in generated OpenAPI.
 
 ## Documentation
@@ -84,12 +84,12 @@
 
 ## Verification
 
-- [ ] T030 Run `mix ash.codegen --check` from `packages/server` if Ash resources
+- [x] T030 Run `mix ash.codegen --check` from `packages/server` if Ash resources
   changed.
-- [ ] T031 Run `mix precommit` from `packages/server` after server changes.
+- [x] T031 Run `mix precommit` from `packages/server` after server changes.
 - [ ] T032 Run affected Go client tests if any Go-client API contract moved.
 - [ ] T033 Run `mdbook build docs` after docs/reference updates.
-- [ ] T034 Diff generated OpenAPI before and after conversion and confirm every
+- [x] T034 Diff generated OpenAPI before and after conversion and confirm every
   converted endpoint appears with the intended schema.
 - [ ] T035 Search docs and code for stale references to converted hand-maintained
   OpenAPI sections or controller-only contract descriptions.

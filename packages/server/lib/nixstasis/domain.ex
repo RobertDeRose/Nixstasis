@@ -13,6 +13,17 @@ defmodule Nixstasis.Domain do
     prefix "/api/json"
 
     routes do
+      base_route "/builder_contract", Nixstasis.SchemaOptions.BuilderContract do
+        route :get, "/schema_references", :list_schema_references, name: "list_builder_schema_references"
+
+        route :get, "/schemas/:schema_id/versions/:schema_version/options", :options_for,
+          name: "get_builder_schema_options",
+          query_params: [:builder]
+
+        route :post, "/builder_configurations/validate", :validate_builder_configuration,
+          name: "validate_builder_configuration"
+      end
+
       base_route "/devices", Nixstasis.Devices.Device do
         get :read
         index :read
@@ -119,6 +130,18 @@ defmodule Nixstasis.Domain do
       define :get_setting_by_key, action: :read, get_by: [:key]
       define :create_setting, action: :create
       define :update_setting, action: :update
+    end
+
+    resource Nixstasis.SchemaOptions.BuilderContract do
+      define :list_builder_schema_references, action: :list_schema_references
+
+      define :get_builder_schema_options,
+        action: :options_for,
+        args: [:schema_id, :schema_version, :builder]
+
+      define :validate_builder_configuration,
+        action: :validate_builder_configuration,
+        args: [:builder, :schema_id, :schema_version, :selections]
     end
   end
 end

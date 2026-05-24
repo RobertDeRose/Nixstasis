@@ -66,6 +66,12 @@ Proposed model:
 - Keep authorization/access-denied behavior explicit; do not let generated Ash
   defaults erase existing `403`, `404`, or `422` semantics.
 
+Implementation note: the first builder slice uses
+`Nixstasis.SchemaOptions.BuilderContract` as a non-persisted generic-action
+resource. Existing `/api/v1` routes remain the compatibility transport, while
+generated Ash JSON:API routes under `/api/json/builder_contract/*` publish the
+Ash-backed action contracts in `packages/server/priv/static/openapi.yaml`.
+
 First implementation candidate: builder APIs, because they are compact,
 non-client-critical, and have explicit OpenAPI request/response models.
 
