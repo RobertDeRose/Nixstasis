@@ -8,6 +8,25 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
     extensions: [AshJsonApi.Resource]
 
   alias Nixstasis.SchemaOptions
+  alias Nixstasis.Types.BuilderKind
+
+  defmodule OptionsNotFound do
+    @moduledoc false
+
+    use Splode.Error, class: :invalid, fields: [:schema_id, :schema_version, :builder]
+
+    def message(error) do
+      "schema options not found for #{error.schema_id} #{error.schema_version}"
+    end
+  end
+
+  defmodule OptionsInvalid do
+    @moduledoc false
+
+    use Splode.Error, class: :invalid, fields: [:builder]
+
+    def message(error), do: "invalid schema options request for #{error.builder} builder"
+  end
 
   @schema_reference_fields [
     schema_id: [type: :string, allow_nil?: false],
@@ -27,14 +46,9 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
   @options_payload_fields [
     schema_id: [type: :string, allow_nil?: false],
     schema_version: [type: :string, allow_nil?: false],
-    builder: [type: :string, allow_nil?: false],
+    builder: [type: BuilderKind, allow_nil?: false],
+    load_time_ms: [type: :integer],
     options: [type: {:array, :map}, allow_nil?: false, constraints: [items: [fields: @option_fields]]]
-  ]
-
-  @options_result_fields [
-    status: [type: :atom, allow_nil?: false, constraints: [one_of: [:ok, :error]]],
-    reason: [type: :atom, constraints: [one_of: [:not_found, :invalid]]],
-    payload: [type: :map, constraints: [fields: @options_payload_fields]]
   ]
 
   @issue_fields [
@@ -51,8 +65,8 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
   ]
 
   @selection_fields [
-    slot_id: [type: :string],
-    selected_key: [type: :string]
+    slot_id: [type: :string, allow_nil?: false],
+    selected_key: [type: :string, allow_nil?: false]
   ]
 
   json_api do
@@ -69,20 +83,22 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
     end
 
     action :options_for, :map do
-      constraints fields: @options_result_fields
+      constraints fields: @options_payload_fields
 
       argument :schema_id, :string, allow_nil?: false
       argument :schema_version, :string, allow_nil?: false
-      argument :builder, :string, default: "alert", allow_nil?: false
+
+      argument :builder, BuilderKind, default: :alert
 
       run fn input, _context ->
         case SchemaOptions.options_for(
                input.arguments.schema_id,
                input.arguments.schema_version,
-               input.arguments.builder
+               to_string(input.arguments.builder)
              ) do
-          {:ok, payload} -> {:ok, %{status: :ok, payload: payload}}
-          {:error, reason} -> {:ok, %{status: :error, reason: reason}}
+          {:ok, payload} -> {:ok, payload}
+          {:error, :not_found} -> {:error, OptionsNotFound.exception(Map.to_list(input.arguments))}
+          {:error, :invalid} -> {:error, OptionsInvalid.exception(builder: to_string(input.arguments.builder))}
         end
       end
     end
@@ -90,19 +106,18 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
     action :validate_builder_configuration, :map do
       constraints fields: @validation_result_fields
 
-      argument :builder, :string
-      argument :schema_id, :string
-      argument :schema_version, :string
+      argument :builder, BuilderKind, allow_nil?: false
+      argument :schema_id, :string, allow_nil?: false
+      argument :schema_version, :string, allow_nil?: false
 
       argument :selections, {:array, :map},
         constraints: [items: [fields: @selection_fields]],
-        default: [],
         allow_nil?: false
 
       run fn input, _context ->
         {:ok,
          SchemaOptions.validate_selections(
-           input.arguments.builder,
+           to_string(input.arguments.builder),
            input.arguments.schema_id,
            input.arguments.schema_version,
            input.arguments.selections

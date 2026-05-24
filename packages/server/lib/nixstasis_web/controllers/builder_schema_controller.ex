@@ -11,20 +11,20 @@ defmodule NixstasisWeb.BuilderSchemaController do
   def options(conn, %{"schema_id" => schema_id, "schema_version" => schema_version} = params) do
     builder = Map.get(params, "builder", "alert")
 
-    case Domain.get_builder_schema_options!(schema_id, schema_version, builder) do
-      %{status: :ok, payload: payload} ->
+    case Domain.get_builder_schema_options(schema_id, schema_version, builder) do
+      {:ok, payload} ->
         load_time_ms =
           System.monotonic_time(:millisecond)
           |> rem(10)
 
-        render(conn, :options, payload: Map.put(payload, :load_time_ms, load_time_ms))
+        render(conn, :options, payload: %{payload | load_time_ms: load_time_ms})
 
-      %{status: :error, reason: :not_found} ->
+      {:error, %Ash.Error.Invalid{errors: [%Nixstasis.SchemaOptions.BuilderContract.OptionsNotFound{} | _]}} ->
         conn
         |> put_status(:not_found)
         |> json(error_payload("schema_not_found", "Schema reference not found"))
 
-      %{status: :error} ->
+      {:error, _error} ->
         conn
         |> put_status(:unprocessable_entity)
         |> json(error_payload("invalid_request", "Invalid schema options request"))
