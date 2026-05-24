@@ -61,6 +61,7 @@ Traceable references:
   - `GET /api/v1/devices/:device_id/command_payloads/:ref`
   - `GET /api/v1/check_domain`
 - Ash JSON:API routes are forwarded under `/api/json` through `NixstasisWeb.AshJsonApiRouter`.
+  Builder action contracts are generated under `/api/json/builder_contract/*`.
 - E2E routes are under `/e2e` and use `NixstasisWeb.Plugs.E2EEnabled`.
 
 ### LiveView Entry Points

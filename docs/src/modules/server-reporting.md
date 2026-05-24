@@ -54,6 +54,9 @@
 
 - Reporting is primarily used by browser LiveView routes under `/reports`.
 - Custom reports are also exposed through Ash JSON:API under `/api/json/custom_reports`.
+- `GET /api/v1/reports/:id/results` remains a bespoke controller endpoint for
+  now because it executes report query construction and returns shaped preview
+  rows, not simple `CustomReport` CRUD.
 - Report list/detail interaction requirements, including filtering, sorting,
   delete confirmation, and saved view preferences, are captured in
   [Report View Improvements](../features/report-view-improvements/design.md).

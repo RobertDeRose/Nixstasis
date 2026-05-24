@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Nixstasis Builder Schema API
   version: 1.0.0
-  description: Bespoke Phoenix controller API for schema-derived alert and report builder options.
+  description: Legacy /api/v1 compatibility wrapper for Ash-backed schema-derived alert and report builder actions. Generated /api/json builder action contracts are emitted in packages/server/priv/static/openapi.yaml.
 paths:
   /api/v1/builder-schemas:
     get:
@@ -37,10 +37,11 @@ paths:
             type: string
         - in: query
           name: builder
-          required: true
+          required: false
           schema:
             type: string
             enum: [alert, report]
+            default: alert
       responses:
         "200":
           description: Dropdown options

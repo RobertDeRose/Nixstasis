@@ -45,11 +45,15 @@ Proposed model:
   items preserve the current `SchemaReference` fields: `schema_id`,
   `schema_version`, `product_name`, and `readable`.
 - Add a read action `:builder_schema_options` with required arguments
-  `schema_id`, `schema_version`, and `builder`. The `builder` argument is the
-  existing enum string `alert` or `report`. Output preserves
-  `SchemaOptionsResponse`: `schema_id`, `schema_version`, `builder`, `options`,
-  and `load_time_ms`; each option preserves `key`, `label`, `value_type`,
-  `order_index`, and `selectable`.
+  `schema_id` and `schema_version`, plus an optional `builder` argument that
+  defaults to `alert`. The `builder` argument is the existing enum string
+  `alert` or `report`. Successful output includes the
+  `SchemaOptionsResponse` fields `schema_id`, `schema_version`, `builder`,
+  `options`, and `load_time_ms`; each option preserves `key`, `label`,
+  `value_type`, `order_index`, and `selectable`. The legacy `/api/v1` wrapper
+  continues to expose that exact response body, while the generated Ash JSON:API
+  route exposes the same successful payload fields and uses JSON:API error
+  documents for missing or invalid requests.
 - Add an action `:validate_builder_configuration` with required request fields
   `builder`, `schema_id`, `schema_version`, and `selections`. Each selection
   preserves `slot_id` and `selected_key`. Output preserves `ValidationResponse`:
@@ -60,9 +64,11 @@ Proposed model:
   If Ash JSON:API cannot preserve the wire shape, use Ash-backed actions behind a
   thin controller and keep generated schemas as canonical while documenting the
   controller transport wrapper.
-- Preserve the existing response models from `builder-api.yaml`:
+- Preserve the existing `/api/v1` response models from `builder-api.yaml`:
   `SchemaReference`, `SchemaOptionsResponse`, `ValidationRequest`,
-  `ValidationResponse`, and `ValidationIssue`.
+  `ValidationResponse`, and `ValidationIssue`. Generated `/api/json` routes may
+  use JSON:API transport envelopes and error documents, but must keep the domain
+  fields and status-code semantics explicit.
 - Keep authorization/access-denied behavior explicit; do not let generated Ash
   defaults erase existing `403`, `404`, or `422` semantics.
 
@@ -70,7 +76,12 @@ Implementation note: the first builder slice uses
 `Nixstasis.SchemaOptions.BuilderContract` as a non-persisted generic-action
 resource. Existing `/api/v1` routes remain the compatibility transport, while
 generated Ash JSON:API routes under `/api/json/builder_contract/*` publish the
-Ash-backed action contracts in `packages/server/priv/static/openapi.yaml`.
+Ash-backed action contracts in `packages/server/priv/static/openapi.yaml`. The
+generated routes are Ash generic-action RPC endpoints hosted by the Ash JSON:API
+router: successful generic-action responses use raw action payloads, and POST
+generic actions use Ash JSON:API's generated `201` success status even when the
+action validates rather than creates data. `/api/v1` remains the compatibility
+surface for clients that require the original wrapper status/body shape.
 
 First implementation candidate: builder APIs, because they are compact,
 non-client-critical, and have explicit OpenAPI request/response models.

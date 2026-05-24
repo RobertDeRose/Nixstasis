@@ -1,16 +1,20 @@
 # OpenAPI Contracts
 
 The Ash-generated OpenAPI file at `packages/server/priv/static/openapi.yaml`
-documents the Ash JSON:API surface under `/api/json`. The Phoenix controller
-APIs used by the Go client, builder UI, TLS approval, and E2E harness are
-bespoke routes, so their contracts live here.
+documents the Ash JSON:API surface under `/api/json`. This includes the
+generated builder action routes under `/api/json/builder_contract/*`.
+
+Phoenix controller APIs used by the Go client, legacy builder UI compatibility,
+TLS approval, report previews, and E2E harness are bespoke routes, so their
+wire-compatible controller contracts live here.
 
 ## Contracts
 
 - [Device API](device-api.yaml): registration, heartbeat, command results,
   deferred command payloads, device list filtering, and TLS domain approval.
-- [Builder API](builder-api.yaml): schema option lookup and builder selection
-  validation.
+- [Builder API](builder-api.yaml): legacy `/api/v1` compatibility wrappers for
+  schema option lookup and builder selection validation. Generated Ash action
+  contracts for the same behavior are in `packages/server/priv/static/openapi.yaml`.
 - [Report API](report-api.yaml): custom report result preview data.
 - [E2E API](e2e-api.yaml): E2E run lifecycle, results, logs, cancellation, and
   protocol-version requirements.
@@ -21,5 +25,7 @@ bespoke routes, so their contracts live here.
   the Phoenix router/controller modules.
 - Do not duplicate Ash JSON:API resources here unless a bespoke `/api/v1` or
   `/e2e` controller owns the route.
+- Keep the builder `/api/v1` contract here until all consumers can use the
+  generated `/api/json/builder_contract/*` routes directly.
 - If an API is reference-only or planned, keep it out of these files until it is
   part of the final implementation contract.

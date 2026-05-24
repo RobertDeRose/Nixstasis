@@ -69,6 +69,11 @@
 
 ## Client-Server Interaction Details
 
+- `/e2e` routes are retained-controller workflow endpoints. They stay outside Ash
+  JSON:API unless a future action model can preserve the E2E gate,
+  protocol-version checks, environment locking, seed execution, typed errors,
+  result ingestion, and log-retention semantics without weakening the harness
+  contract.
 - `POST /e2e/runs` reads `X-E2E-Protocol-Version`, validates protocol/environment/suite/journeys/action-expect pairs, runs configured seed script, creates run rows, and returns `201` on success.
 - Run creation can return typed errors including `environment_locked`, `protocol_mismatch`, `invalid_action_expectation`, `seed_failed`, `invalid_request`, and `database_error`.
 - `POST /e2e/runs/:id/results` stores journey outcomes and updates run status.

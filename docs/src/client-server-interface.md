@@ -4,6 +4,9 @@
 
 - Go client to Phoenix server:
   - HTTP JSON requests under `/api/v1`.
+- Builder automation to Phoenix server:
+  - Generated Ash JSON:API requests under `/api/json/builder_contract/*`.
+  - Legacy compatibility requests under `/api/v1/builder-*`.
 - Browser to Phoenix LiveView:
   - HTTP for initial requests.
   - LiveView WebSocket transport for stateful UI updates.
@@ -194,6 +197,28 @@ Traceable references:
 - `packages/client/internal/transport/client.go:202-212`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:28-38`
 - `docs/src/features/go-client-rewrite/design.md`
+
+## Builder API Mapping
+
+| Endpoint | Handler | Purpose |
+| --- | --- | --- |
+| `GET /api/json/builder_contract/schema_references` | `BuilderContract.list_schema_references` | Generated Ash action contract for schema references |
+| `GET /api/json/builder_contract/schemas/:schema_id/versions/:schema_version/options` | `BuilderContract.options_for` | Generated Ash action contract for normalized options |
+| `POST /api/json/builder_contract/builder_configurations/validate` | `BuilderContract.validate_builder_configuration` | Generated Ash action contract for selection validation |
+| `GET /api/v1/builder-schemas` | `BuilderSchemaController.index/2` | Legacy JSON compatibility wrapper for schema references |
+| `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options` | `BuilderSchemaController.options/2` | Legacy JSON compatibility wrapper for normalized options |
+| `POST /api/v1/builder-configurations/validate` | `BuilderConfigValidationController.create/2` | Legacy JSON compatibility wrapper for selection validation |
+
+Generated builder action contracts are documented in
+`packages/server/priv/static/openapi.yaml`. The `/api/v1` builder routes remain
+documented by `docs/src/reference/openapi/builder-api.yaml` until existing
+consumers migrate to the generated JSON:API surface.
+
+Traceable references:
+
+- `packages/server/lib/nixstasis/schema_options/builder_contract.ex`
+- `packages/server/lib/nixstasis_web/controllers/builder_schema_controller.ex`
+- `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
 
 ## E2E API Mapping
 

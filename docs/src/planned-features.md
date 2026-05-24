@@ -318,7 +318,7 @@ production-like environment.
 
 ### `ash-api-contract-unification`
 
-- Status: planned
+- Status: partially implemented
 - Overview:
 - Rework the custom Phoenix controller APIs that represent durable product
     contracts so they are exposed through Ash actions/resources where practical,
@@ -362,6 +362,17 @@ production-like environment.
     them into Ash may obscure behavior or complicate error handling.
 - Moving stable client APIs can create compatibility risk unless responses,
     status codes, and auth failures remain byte-for-byte compatible or versioned.
+- Implementation status:
+- Builder schema reference, option, and validation behavior now has an Ash-backed
+    action resource with generated JSON:API routes under
+    `/api/json/builder_contract/*` and generated OpenAPI in
+    `packages/server/priv/static/openapi.yaml`.
+- Legacy `/api/v1/builder-*` controller routes remain compatibility wrappers
+    around the Ash actions and keep the hand-maintained wrapper contract in
+    `docs/src/reference/openapi/builder-api.yaml`.
+- Device runtime, report preview, Caddy TLS ask, E2E workflow, and laptop
+    diagnostics remain bespoke controller routes with retained/deferred rationale
+    in the reference docs.
 - Dependencies:
 - `packages/server/lib/nixstasis_web/router.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
