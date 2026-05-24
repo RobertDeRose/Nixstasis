@@ -101,7 +101,7 @@ components:
           type: boolean
     SchemaOptionsResponse:
       type: object
-      required: [schema_id, schema_version, builder, options]
+      required: [schema_id, schema_version, builder, options, load_time_ms]
       properties:
         schema_id:
           type: string

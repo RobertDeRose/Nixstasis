@@ -34,6 +34,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert openapi =~ "issue_code:"
     assert openapi =~ "blocking:"
     assert openapi =~ ~r/builder:\n\s+enum:\n\s+- alert\n\s+- report/
+    assert openapi =~ ~r/load_time_ms:\n\s+minimum: 0\n\s+type: integer/
   end
 
   test "generated OpenAPI preserves existing resource fields" do

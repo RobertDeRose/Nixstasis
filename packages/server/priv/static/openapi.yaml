@@ -4672,6 +4672,7 @@ paths:
                     x-struct:
                     x-validate:
                   load_time_ms:
+                    minimum: 0
                     type: integer
                     x-struct:
                     x-validate:

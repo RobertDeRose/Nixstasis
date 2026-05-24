@@ -16,6 +16,31 @@ defmodule NixstasisWeb.AshJsonApiRouter do
     phoenix_endpoint: NixstasisWeb.Endpoint
 
   def modify_open_api(spec, _conn, _opts) do
-    %{spec | security: []}
+    spec
+    |> Map.update!(:security, fn _security -> [] end)
+    |> put_builder_load_time_minimum()
+  end
+
+  defp put_builder_load_time_minimum(%{paths: paths} = spec) do
+    path = "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options"
+
+    updated_paths =
+      update_in(
+        paths,
+        [
+          path,
+          Access.key!(:get),
+          Access.key!(:responses),
+          200,
+          Access.key!(:content),
+          "application/vnd.api+json",
+          Access.key!(:schema),
+          Access.key!(:properties),
+          :load_time_ms
+        ],
+        &%{&1 | minimum: 0}
+      )
+
+    %{spec | paths: updated_paths}
   end
 end
