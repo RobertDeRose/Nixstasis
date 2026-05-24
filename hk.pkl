@@ -25,28 +25,64 @@ local linters = new Mapping<String, Step> {
     check_diff = "mdbook-lint lint --config .mdbook-lint.toml {{ files }}"
     fix = "mdbook-lint fix --config .mdbook-lint.toml {{ files }}"
   }
+  ["server-compile"] = new Step {
+    glob = List(
+      "**/*.ex",
+      "**/*.exs",
+      "mix.exs",
+      "mix.lock"
+    )
+    prefix = "mise x --"
+    dir = "packages/server"
+    check = "mix compile --warning-as-errors"
+  }
+  ["server-deps"] = new Step {
+    glob = List("mix.exs", "mix.lock")
+    prefix = "mise x --"
+    dir = "packages/server"
+    check = "mix deps.unlock --unused"
+  }
+  ["server-format"] = new Step {
+    glob = List("**/*.ex", "**/*.exs", "**/*.heex")
+    prefix = "mise x --"
+    dir = "packages/server"
+    check_diff = "mix format --check-formatted"
+    fix = "mix format"
+  }
   ["newlines"] = Builtins.newlines
-  ["trailing-whitespace"] = Builtins.trailing_whitespace
+  ["trailing-whitespace"] = (Builtins.trailing_whitespace) {
+    exclude = List("packages/server/**/*.ex", "packages/server/**/*.exs", "packages/server/**/*.heex")
+  }
   ["go-fmt"] = new Step {
     glob = List("**/*.go")
     //check_first = false
+    prefix = "mise x --"
+    dir = "packages/client"
     check_diff = #"""
-      gofumpt -l {{ files }} | (! grep .)
-      goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client {{ files }} | (! grep .)
+      sh -o errexit -o nounset -o pipefail -c '
+        gofumpt -l . | (! grep .)
+        goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client . | (! grep .)
+      '
       """#
     fix = #"""
-      gofumpt -l -w {{ files }}
-      goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client {{ files }} | (! grep .)
+      sh -o errexit -o nounset -o pipefail -c '
+        gofumpt -l -w .
+        goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client .
+      '
       """#
   }
   ["go-mod"] = new Step {
     glob = List("**/go.mod", "**/go.sum")
-    check = "go mod tidy && go mod verify"
+    prefix = "mise x -- sh -c"
+    dir = "packages/client"
+    check = "'go mod tidy && go mod verify'"
   }
   ["go-lint"] = new Step {
     glob = List("**/*.go", "**/go.mod", "**/go.sum", "**/.golangci.yml")
-    check = "golangci-lint run ./..."
-    fix = "golangci-lint run --fix ./..."
+    prefix = "mise x -- sh -c"
+    dir = "packages/client"
+    check = "'golangci-lint run ./...'"
+    fix = "'golangci-lint run --fix ./...'"
   }
 }
 

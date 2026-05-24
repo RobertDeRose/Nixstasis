@@ -6,14 +6,17 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
   @task "e2e.export_static"
 
   setup do
-    tmp = Path.join(System.tmp_dir!(), "e2e-export-static-#{System.unique_integer([:positive])}")
+    tmp = Path.join(System.tmp_dir!(), "e2e-export-static-#{System.unique_integer([:positive, :monotonic])}")
     reports_dir = Path.join(tmp, "reports")
     logs_dir = Path.join(tmp, "logs")
     pages_dir = Path.join(tmp, "pages")
     File.mkdir_p!(reports_dir)
     File.mkdir_p!(logs_dir)
     File.mkdir_p!(pages_dir)
-    %{reports_dir: reports_dir, logs_dir: logs_dir, pages_dir: pages_dir}
+
+    on_exit(fn -> File.rm_rf!(tmp) end)
+
+    %{tmp: tmp, reports_dir: reports_dir, logs_dir: logs_dir, pages_dir: pages_dir}
   end
 
   test "creates run directory and manifest entry", %{reports_dir: reports_dir, logs_dir: logs_dir, pages_dir: pages_dir} do
