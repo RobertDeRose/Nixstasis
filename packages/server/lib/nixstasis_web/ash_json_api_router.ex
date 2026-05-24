@@ -11,5 +11,11 @@ defmodule NixstasisWeb.AshJsonApiRouter do
     open_api: "/open_api",
     open_api_title: "Nixstasis JSON API",
     open_api_version: "1.0.0",
+    open_api_servers: ["/"],
+    modify_open_api: {__MODULE__, :modify_open_api, []},
     phoenix_endpoint: NixstasisWeb.Endpoint
+
+  def modify_open_api(spec, _conn, _opts) do
+    %{spec | security: []}
+  end
 end
