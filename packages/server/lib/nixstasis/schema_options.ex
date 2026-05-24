@@ -22,7 +22,7 @@ defmodule Nixstasis.SchemaOptions do
          schema_id: schema_id,
          schema_version: schema_version,
          builder: normalized_builder,
-         load_time_ms: nil,
+         load_time_ms: 0,
          options: options
        }}
     else

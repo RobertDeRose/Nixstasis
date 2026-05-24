@@ -69,8 +69,9 @@ Proposed model:
   `ValidationResponse`, and `ValidationIssue`. Generated `/api/json` routes may
   use JSON:API transport envelopes and error documents, but must keep the domain
   fields and status-code semantics explicit.
-- Keep authorization/access-denied behavior explicit; do not let generated Ash
-  defaults erase existing `403`, `404`, or `422` semantics.
+- Keep authorization/access-denied behavior explicit; this builder slice has no
+  route-level `403` contract and remains unauthenticated behind the shared API
+  rate limiter, while `404` and `422` semantics stay documented and tested.
 
 Implementation note: the first builder slice uses
 `Nixstasis.SchemaOptions.BuilderContract` as a non-persisted generic-action

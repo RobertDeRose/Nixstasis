@@ -28,7 +28,8 @@ defmodule Nixstasis.SchemaOptions.BuilderContractTest do
   test "get_builder_schema_options returns an encodable options payload" do
     result = Domain.get_builder_schema_options!("shape-v1", "v1", "alert")
 
-    assert %{schema_id: "shape-v1", load_time_ms: nil, options: options} = result
+    assert %{schema_id: "shape-v1", load_time_ms: load_time_ms, options: options} = result
+    assert load_time_ms >= 0
     assert Enum.any?(options, &(&1.key == "temp"))
     assert {:ok, _json} = Jason.encode(result)
   end
