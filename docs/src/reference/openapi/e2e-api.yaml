@@ -2,11 +2,12 @@ openapi: 3.0.3
 info:
   title: Nixstasis E2E API
   version: 1.0.0
-  description: Bespoke Phoenix controller API for client-driven end-to-end test runs.
+  description: Bespoke Phoenix controller API for client-driven end-to-end test runs. Retained as controller-backed because these routes are gated harness workflow endpoints with protocol validation, environment locks, seed execution, typed errors, result ingestion, log retrieval, and retention semantics.
 paths:
   /e2e/suites:
     get:
       summary: List configured E2E suites
+      description: Retained as a controller route because suite listing is gated by the E2E enablement plug and belongs to the harness workflow surface.
       responses:
         "200":
           description: Suite list
@@ -29,6 +30,7 @@ paths:
   /e2e/runs:
     get:
       summary: List E2E runs
+      description: Retained as a controller route because run listing is part of the gated E2E harness API and shares protocol lifecycle semantics with run creation.
       responses:
         "200":
           description: Run list
@@ -43,6 +45,7 @@ paths:
                       $ref: "#/components/schemas/E2ERun"
     post:
       summary: Create or reuse an E2E run
+      description: Retained as a controller route because run creation validates protocol headers, idempotency, environment locks, seed execution, action/expect pairs, and typed workflow errors.
       parameters:
         - in: header
           name: X-E2E-Protocol-Version
@@ -88,6 +91,7 @@ paths:
   /e2e/runs/{run_id}:
     get:
       summary: Fetch E2E run details
+      description: Retained as a controller route because run details are part of the gated E2E harness API and need to match controller result envelopes.
       parameters:
         - in: path
           name: run_id
@@ -109,6 +113,7 @@ paths:
   /e2e/runs/{run_id}/cancel:
     post:
       summary: Cancel an in-progress E2E run
+      description: Retained as a controller route because cancellation is a workflow transition with typed persistence errors and harness gating.
       parameters:
         - in: path
           name: run_id
@@ -136,6 +141,7 @@ paths:
   /e2e/runs/{run_id}/results:
     get:
       summary: List journey results for a run
+      description: Retained as a controller route because result listing is tied to the E2E run lifecycle and gated harness semantics.
       parameters:
         - in: path
           name: run_id
@@ -158,6 +164,7 @@ paths:
           description: Run not found
     post:
       summary: Submit journey results for a run
+      description: Retained as a controller route because result submission performs workflow ingestion, run status side effects, and typed error rendering.
       parameters:
         - in: path
           name: run_id
@@ -205,6 +212,7 @@ paths:
   /e2e/runs/{run_id}/results/{journey_id}/log:
     get:
       summary: Fetch retained log content for one journey result
+      description: Retained as a controller route because log retrieval has retention, pruning, and log-unavailable semantics outside normal resource CRUD.
       parameters:
         - in: path
           name: run_id

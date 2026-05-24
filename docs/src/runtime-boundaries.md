@@ -67,6 +67,8 @@ Traceable references:
 - Ash JSON:API inputs enter through `/api/json` forwarded to `NixstasisWeb.AshJsonApiRouter`.
 - E2E API inputs enter through `/e2e` routes when E2E is enabled.
 - Caddy on-demand TLS sends domain approval input to `GET /api/v1/check_domain`.
+  This route remains controller-backed because it is a Caddy ingress ask
+  workflow with allow/deny semantics, not a durable product data resource.
 
 Traceable references:
 

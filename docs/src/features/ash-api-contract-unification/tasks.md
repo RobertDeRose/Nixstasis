@@ -71,15 +71,15 @@
 
 ## Documentation
 
-- [ ] T025 Update `docs/src/client-server-interface.md` so non-UI API contracts
+- [x] T025 Update `docs/src/client-server-interface.md` so non-UI API contracts
   point to generated OpenAPI where applicable.
-- [ ] T026 Update `docs/src/reference/openapi/` to remove duplicate hand-maintained
+- [x] T026 Update `docs/src/reference/openapi/` to remove duplicate hand-maintained
   sections only when generated OpenAPI fully covers the converted contract.
-- [ ] T027 Add retained-controller rationale to reference docs for endpoints that
+- [x] T027 Add retained-controller rationale to reference docs for endpoints that
   intentionally remain outside Ash.
-- [ ] T028 Update affected module pages, such as server web, server devices,
+- [x] T028 Update affected module pages, such as server web, server devices,
   server E2E, server reporting, deployment compose, or runtime boundaries.
-- [ ] T029 Update `docs/src/planned-features.md` to reflect the final status and any
+- [x] T029 Update `docs/src/planned-features.md` to reflect the final status and any
   intentionally deferred API groups.
 
 ## Verification
@@ -87,17 +87,17 @@
 - [x] T030 Run `mix ash.codegen --check` from `packages/server` if Ash resources
   changed.
 - [x] T031 Run `mix precommit` from `packages/server` after server changes.
-- [ ] T032 Run affected Go client tests if any Go-client API contract moved.
-- [ ] T033 Run `mdbook build docs` after docs/reference updates.
+- [x] T032 Run affected Go client tests if any Go-client API contract moved.
+- [x] T033 Run `mdbook build docs` after docs/reference updates.
 - [x] T034 Diff generated OpenAPI before and after conversion and confirm every
   converted endpoint appears with the intended schema.
-- [ ] T035 Search docs and code for stale references to converted hand-maintained
+- [x] T035 Search docs and code for stale references to converted hand-maintained
   OpenAPI sections or controller-only contract descriptions.
-- [ ] T036 Verify each retained bespoke OpenAPI section has route-specific
+- [x] T036 Verify each retained bespoke OpenAPI section has route-specific
   retained-controller rationale.
 
 ## Completion
 
-- [ ] T999 Confirm implementation, generated OpenAPI, retained-controller rationale,
+- [x] T999 Confirm implementation, generated OpenAPI, retained-controller rationale,
   docs, and tests agree; summarize any deferred non-UI endpoints and why they were
   not converted in this feature.
