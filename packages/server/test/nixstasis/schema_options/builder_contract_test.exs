@@ -25,19 +25,24 @@ defmodule Nixstasis.SchemaOptions.BuilderContractTest do
     assert Enum.any?(refs, &(&1.schema_id == "shape-v1"))
   end
 
-  test "get_builder_schema_options returns an encodable success map" do
+  test "get_builder_schema_options returns an encodable options payload" do
     result = Domain.get_builder_schema_options!("shape-v1", "v1", "alert")
 
-    assert %{status: :ok, payload: %{schema_id: "shape-v1", options: options}} = result
+    assert %{schema_id: "shape-v1", load_time_ms: nil, options: options} = result
     assert Enum.any?(options, &(&1.key == "temp"))
     assert {:ok, _json} = Jason.encode(result)
   end
 
-  test "get_builder_schema_options returns an encodable error map" do
-    result = Domain.get_builder_schema_options!("missing", "v1", "alert")
+  test "get_builder_schema_options raises when options are missing" do
+    assert_raise Ash.Error.Invalid, fn ->
+      Domain.get_builder_schema_options!("missing", "v1", "alert")
+    end
+  end
 
-    assert result == %{status: :error, reason: :not_found}
-    assert {:ok, _json} = Jason.encode(result)
+  test "get_builder_schema_options rejects invalid builders" do
+    assert_raise Ash.Error.Invalid, fn ->
+      Domain.get_builder_schema_options!("shape-v1", "v1", "unknown")
+    end
   end
 
   test "validate_builder_configuration returns validation details" do

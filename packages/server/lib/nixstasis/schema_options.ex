@@ -13,17 +13,20 @@ defmodule Nixstasis.SchemaOptions do
 
   def options_for(schema_id, schema_version, builder)
       when is_binary(schema_id) and is_binary(schema_version) and schema_id != "" do
-    with schema when is_map(schema) and map_size(schema) > 0 <-
+    with {:ok, normalized_builder} <- normalize_builder(builder),
+         schema when is_map(schema) and map_size(schema) > 0 <-
            Devices.get_schema_definition(schema_id, schema_version),
          options <- Normalizer.normalize(schema) do
       {:ok,
        %{
          schema_id: schema_id,
          schema_version: schema_version,
-         builder: normalize_builder(builder),
+         builder: normalized_builder,
+         load_time_ms: nil,
          options: options
        }}
     else
+      {:error, :invalid} -> {:error, :invalid}
       true -> {:error, :not_found}
       _ -> {:error, :not_found}
     end
@@ -71,7 +74,7 @@ defmodule Nixstasis.SchemaOptions do
     %{valid: false, issues: [], cleared_slot_ids: []}
   end
 
-  defp normalize_builder(builder) when builder in ["alert", :alert], do: "alert"
-  defp normalize_builder(builder) when builder in ["report", :report], do: "report"
-  defp normalize_builder(_), do: "alert"
+  defp normalize_builder(builder) when builder in ["alert", :alert], do: {:ok, "alert"}
+  defp normalize_builder(builder) when builder in ["report", :report], do: {:ok, "report"}
+  defp normalize_builder(_), do: {:error, :invalid}
 end

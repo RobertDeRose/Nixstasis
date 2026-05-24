@@ -96,49 +96,68 @@ defmodule Nixstasis.Devices.Device do
     attribute :mac_address, :string do
       allow_nil? false
       constraints match: ~r/^([0-9A-F]{2}[:-]?){5}[0-9A-F]{2}$/i
+      public? true
     end
 
-    attribute :product_name, :string
+    attribute :product_name, :string do
+      public? true
+    end
 
     attribute :account_number, :string do
       constraints min_length: 5, match: ~r/^\d+$/
+      public? true
     end
 
     attribute :ipv4_address, :string do
       constraints match: ~r/^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
+      public? true
     end
 
     attribute :approval_status, Nixstasis.Types.ApprovalStatus do
       allow_nil? false
       default :pending
+      public? true
     end
 
     attribute :api_token_hash, :string
 
-    attribute :last_seen_at, :utc_datetime
+    attribute :last_seen_at, :utc_datetime do
+      public? true
+    end
 
     attribute :schema, :map do
       allow_nil? false
       default %{}
+      public? true
     end
 
     attribute :metadata, :map do
       allow_nil? false
       default %{}
+      public? true
     end
 
     attribute :remote_access_requested, :boolean do
       allow_nil? false
       default false
+      public? true
     end
 
     timestamps()
   end
 
   relationships do
-    has_many :pending_commands, Nixstasis.Devices.PendingCommand
-    has_many :telemetry_events, Nixstasis.Monitoring.Telemetry
-    has_many :alerts, Nixstasis.Monitoring.Alert
+    has_many :pending_commands, Nixstasis.Devices.PendingCommand do
+      public? true
+    end
+
+    has_many :telemetry_events, Nixstasis.Monitoring.Telemetry do
+      public? true
+    end
+
+    has_many :alerts, Nixstasis.Monitoring.Alert do
+      public? true
+    end
   end
 
   identities do

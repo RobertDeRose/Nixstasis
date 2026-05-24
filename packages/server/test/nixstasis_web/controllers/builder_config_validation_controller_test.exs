@@ -38,7 +38,7 @@ defmodule NixstasisWeb.BuilderConfigValidationControllerTest do
     assert body["cleared_slot_ids"] == ["b"]
   end
 
-  test "POST /api/v1/builder-configurations/validate handles malformed selections", %{conn: conn} do
+  test "POST /api/v1/builder-configurations/validate rejects malformed selections", %{conn: conn} do
     conn =
       post(conn, ~p"/api/v1/builder-configurations/validate", %{
         "builder" => "report",
@@ -47,23 +47,47 @@ defmodule NixstasisWeb.BuilderConfigValidationControllerTest do
         "selections" => %{"slot_id" => "a", "selected_key" => "pressure"}
       })
 
-    assert %{"valid" => false, "issues" => [], "cleared_slot_ids" => []} = json_response(conn, 200)
+    assert %{"error" => %{"code" => "invalid_validation_payload"}} = json_response(conn, 422)
+  end
+
+  test "POST /api/v1/builder-configurations/validate rejects missing selections", %{conn: conn} do
+    conn =
+      post(conn, ~p"/api/v1/builder-configurations/validate", %{
+        "builder" => "report",
+        "schema_id" => "sensor-v2",
+        "schema_version" => "v2"
+      })
+
+    assert %{"error" => %{"code" => "invalid_validation_payload"}} = json_response(conn, 422)
+  end
+
+  test "POST /api/v1/builder-configurations/validate rejects invalid builders", %{conn: conn} do
+    conn =
+      post(conn, ~p"/api/v1/builder-configurations/validate", %{
+        "builder" => "unknown",
+        "schema_id" => "sensor-v2",
+        "schema_version" => "v2",
+        "selections" => [%{"slot_id" => "a", "selected_key" => "pressure"}]
+      })
+
+    assert %{"error" => %{"code" => "invalid_validation_payload"}} = json_response(conn, 422)
+  end
+
+  test "POST /api/v1/builder-configurations/validate rejects incomplete selection items", %{conn: conn} do
+    conn =
+      post(conn, ~p"/api/v1/builder-configurations/validate", %{
+        "builder" => "report",
+        "schema_id" => "sensor-v2",
+        "schema_version" => "v2",
+        "selections" => [%{"slot_id" => "a"}]
+      })
+
+    assert %{"error" => %{"code" => "invalid_validation_payload"}} = json_response(conn, 422)
   end
 
   test "POST /api/v1/builder-configurations/validate handles missing request fields", %{conn: conn} do
     conn = post(conn, ~p"/api/v1/builder-configurations/validate", %{"selections" => []})
 
-    assert %{
-             "valid" => false,
-             "issues" => [
-               %{
-                 "issue_code" => "schema_access_lost",
-                 "message" => "Schema access is unavailable",
-                 "slot_id" => nil,
-                 "blocking" => true
-               }
-             ],
-             "cleared_slot_ids" => []
-           } = json_response(conn, 200)
+    assert %{"error" => %{"code" => "invalid_validation_payload"}} = json_response(conn, 422)
   end
 end
