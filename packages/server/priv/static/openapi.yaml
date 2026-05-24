@@ -4672,11 +4672,9 @@ paths:
                     x-struct:
                     x-validate:
                   load_time_ms:
-                    anyOf:
-                      - type: integer
-                        x-struct:
-                        x-validate:
-                      - type: 'null'
+                    type: integer
+                    x-struct:
+                    x-validate:
                   options:
                     items:
                       additionalProperties: false
@@ -4725,6 +4723,7 @@ paths:
                   - schema_id
                   - schema_version
                   - builder
+                  - load_time_ms
                   - options
                 type: object
                 x-struct:

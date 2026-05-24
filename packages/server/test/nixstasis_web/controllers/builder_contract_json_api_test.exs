@@ -33,7 +33,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
 
     assert body["schema_id"] == "jsonapi-v1"
     assert body["builder"] == "alert"
-    assert Map.has_key?(body, "load_time_ms")
+    assert body["load_time_ms"] >= 0
   end
 
   test "GET /api/json/builder_contract/schemas/:id/versions/:version/options defaults builder", %{
