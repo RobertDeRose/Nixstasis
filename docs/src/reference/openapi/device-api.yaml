@@ -27,6 +27,12 @@ paths:
           schema:
             type: string
             enum: [online, offline]
+        - in: query
+          name: ipv4_address
+          schema:
+            type: string
+            format: ipv4
+          description: Filters devices by exact IPv4 address and is echoed in `meta.active_filters` when present.
       responses:
         "200":
           description: Device list response
