@@ -1,6 +1,8 @@
 defmodule NixstasisWeb.E2ERunControllerTest do
   use NixstasisWeb.ConnCase
 
+  import ExUnit.CaptureLog
+
   alias Nixstasis.E2E
 
   setup do
@@ -213,7 +215,12 @@ defmodule NixstasisWeb.E2ERunControllerTest do
       "trigger_source" => "manual"
     }
 
-    conn = conn |> create_headers() |> post(~p"/e2e/runs", params)
+    {conn, log} =
+      with_log(fn ->
+        conn |> create_headers() |> post(~p"/e2e/runs", params)
+      end)
+
+    assert log =~ "Failed to create E2E run"
 
     assert %{"error" => %{"code" => "database_error", "message" => "Failed to create run."} = error} =
              response = json_response(conn, 422)
@@ -225,7 +232,9 @@ defmodule NixstasisWeb.E2ERunControllerTest do
   test "Given a cancellation database error, when POST cancel, then internal details are not exposed", %{conn: conn} do
     Application.put_env(:nixstasis, :e2e_context, __MODULE__.CancelErrorContext)
 
-    conn = post(conn, ~p"/e2e/runs/run-123/cancel")
+    {conn, log} = with_log(fn -> post(conn, ~p"/e2e/runs/run-123/cancel") end)
+
+    assert log =~ "Failed to cancel E2E run run-123"
 
     assert %{"error" => %{"code" => "database_error", "message" => "Failed to cancel run."} = error} =
              response = json_response(conn, 422)

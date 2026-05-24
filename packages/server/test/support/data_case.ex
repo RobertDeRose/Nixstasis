@@ -37,7 +37,18 @@ defmodule Nixstasis.DataCase do
   """
   def setup_sandbox(tags) do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Nixstasis.Repo, shared: not tags[:async])
-    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+
+    if manager = Process.whereis(Nixstasis.Devices.RemoteAccessLeases) do
+      Ecto.Adapters.SQL.Sandbox.allow(Nixstasis.Repo, pid, manager)
+    end
+
+    on_exit(fn ->
+      if Process.whereis(Nixstasis.Devices.RemoteAccessLeases) do
+        Nixstasis.Devices.sync_remote_access_leases()
+      end
+
+      Ecto.Adapters.SQL.Sandbox.stop_owner(pid)
+    end)
   end
 
   @doc """

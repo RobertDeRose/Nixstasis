@@ -849,6 +849,9 @@ defmodule Nixstasis.Devices do
         Logger.warning("Failed to clear remote access flag for #{device_id}: #{Exception.message(error)}")
         :ok
     catch
+      :exit, {{:shutdown, "owner " <> _}, {DBConnection.Holder, :checkout, _}} ->
+        :ok
+
       :exit, reason ->
         Logger.warning("Failed to clear remote access flag for #{device_id}: #{inspect(reason)}")
         :ok
@@ -909,6 +912,13 @@ defmodule Nixstasis.Devices do
   defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "", do: nil
 
   defp fetch_pending_command(device_id, command_id) do
+    case Ecto.UUID.cast(command_id) do
+      {:ok, command_id} -> read_pending_command(device_id, command_id)
+      :error -> nil
+    end
+  end
+
+  defp read_pending_command(device_id, command_id) do
     PendingCommand
     |> Ash.Query.filter(device_id == ^device_id and id == ^command_id)
     |> Ash.read_one!(domain: Domain)

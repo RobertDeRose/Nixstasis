@@ -1,5 +1,8 @@
 defmodule NixstasisWeb.TerminalChannelTest do
   use NixstasisWeb.ChannelCase
+
+  import ExUnit.CaptureLog
+
   alias Nixstasis.Devices
   alias Nixstasis.Devices.SshKeyManager
 
@@ -84,12 +87,15 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, wrong_ref} = SshKeyManager.create_terminal_session(session_ref, "secret")
 
-    assert {:error, %{reason: "unauthorized"}} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{terminal_device_id: other_device.id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{other_device.id}", %{
-               "token" => wrong_ref
-             })
+    {_result, _log} =
+      with_log(fn ->
+        assert {:error, %{reason: "unauthorized"}} =
+                 NixstasisWeb.UserSocket
+                 |> socket("user_id", %{terminal_device_id: other_device.id})
+                 |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{other_device.id}", %{
+                   "token" => wrong_ref
+                 })
+      end)
 
     assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(wrong_ref, session_ref)
   end
@@ -102,17 +108,20 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
 
-    assert {:error,
-            %{
-              reason: "terminal_unavailable",
-              code: "missing_executable",
-              executable: "missing-nixstasis-ssh"
-            }} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{terminal_device_id: device.id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-               "token" => session_ref
-             })
+    {_result, _log} =
+      with_log(fn ->
+        assert {:error,
+                %{
+                  reason: "terminal_unavailable",
+                  code: "missing_executable",
+                  executable: "missing-nixstasis-ssh"
+                }} =
+                 NixstasisWeb.UserSocket
+                 |> socket("user_id", %{terminal_device_id: device.id})
+                 |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+                   "token" => session_ref
+                 })
+      end)
   end
 
   test "returns structured error for expired terminal session" do
@@ -121,12 +130,16 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret", ttl_ms: 0)
 
-    assert {:error, %{reason: reason, code: code}} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{terminal_device_id: device.id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-               "token" => session_ref
-             })
+    {result, _log} =
+      with_log(fn ->
+        NixstasisWeb.UserSocket
+        |> socket("user_id", %{terminal_device_id: device.id})
+        |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+          "token" => session_ref
+        })
+      end)
+
+    assert {:error, %{reason: reason, code: code}} = result
 
     assert {reason, code} in [
              {"session_expired", "session_expired"},
@@ -138,12 +151,15 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:13", product_name: "key"})
 
-    assert {:error, %{reason: "session_not_found", code: "session_not_found"}} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{terminal_device_id: device.id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-               "token" => Ecto.UUID.generate()
-             })
+    {_result, _log} =
+      with_log(fn ->
+        assert {:error, %{reason: "session_not_found", code: "session_not_found"}} =
+                 NixstasisWeb.UserSocket
+                 |> socket("user_id", %{terminal_device_id: device.id})
+                 |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+                   "token" => Ecto.UUID.generate()
+                 })
+      end)
   end
 
   test "returns structured startup failure for expected ssh client errors" do
@@ -154,12 +170,17 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
 
-    assert {:error, %{reason: "terminal_unavailable", code: "econnrefused"}} =
-             NixstasisWeb.UserSocket
-             |> socket("user_id", %{terminal_device_id: device.id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-               "token" => session_ref
-             })
+    {result, log} =
+      with_log(fn ->
+        NixstasisWeb.UserSocket
+        |> socket("user_id", %{terminal_device_id: device.id})
+        |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+          "token" => session_ref
+        })
+      end)
+
+    assert log =~ "Terminal join failed for device #{device.id}"
+    assert {:error, %{reason: "terminal_unavailable", code: "econnrefused"}} = result
   end
 
   test "sends warning on idle", %{socket: socket} do

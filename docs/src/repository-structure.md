@@ -5,7 +5,8 @@
 - `README.md`: project overview, architecture notes, E2E harness documentation, and FRP/Caddy/AuthCrunch context.
 - `AGENTS.md`: repository instructions for automated agents.
 - `package.json`, `hk.pkl`, `.pre-commit-config.yaml`: repository-level commit and hook tooling.
-- `mise.toml`: local tool version/configuration entry point.
+- `mise.toml`: repository-wide tool version/configuration entry point that
+  discovers package-local mise configs.
 - `prod.env`: shared production version pins referenced by release/deployment workflows.
 - `book.toml`: mdBook configuration.
 - `docs/src`: mdBook documentation source tree.
@@ -29,6 +30,7 @@
   - `priv/repo/migrations`: database migrations.
   - `priv/static/openapi.yaml`: generated Ash JSON:API OpenAPI output.
   - `config/*.exs`: compile-time and runtime configuration.
+  - `mise.toml`: server-local Elixir and Erlang tool versions.
   - `Dockerfile`: server OCI image build.
 
 ## Client: `packages/client`
@@ -48,6 +50,7 @@
   - `scripts/e2e`: E2E shell entrypoints, config, journey specs, and scaffolding.
   - `scripts/mock_api`: mock API used by client workflows/tests.
   - `build/root-dir`: package filesystem assets, including systemd units and config templates.
+  - `mise.toml`: client-local Go toolchain, Go tooling, and client tasks.
 
 ## Infrastructure and Edge
 
