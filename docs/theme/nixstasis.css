@@ -360,7 +360,8 @@ html.dark .page-wrapper {
     position: relative;
     margin: min(4vh, 24px) auto;
     width: min(96vw, 1600px);
-    max-height: 92vh;
+    height: 92vh;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--mermaid-modal-border);
@@ -380,6 +381,7 @@ html.dark .page-wrapper {
 
 .mermaid-modal__title {
     color: var(--mermaid-modal-title);
+    font-size: 16px;
 }
 
 .mermaid-modal__close {
@@ -391,6 +393,77 @@ html.dark .page-wrapper {
     font: inherit;
     line-height: 1;
     padding: 8px 12px;
+}
+
+.mermaid-modal__help {
+    position: absolute;
+    top: min(4vh, 24px);
+    right: calc((100vw + min(96vw, 1600px)) / 2 + 10px);
+    z-index: 1;
+    width: max-content;
+    max-width: 310px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 14px;
+    border: 1px solid var(--mermaid-control-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mermaid-modal-bg) 88%, transparent);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+    color: var(--mermaid-control-fg);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mermaid-modal__help strong {
+    color: var(--mermaid-modal-title);
+    font-size: 14px;
+}
+
+.mermaid-modal__help span {
+    white-space: nowrap;
+}
+
+.mermaid-modal__help kbd {
+    border: 1px solid var(--mermaid-control-border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--mermaid-control-bg);
+    color: var(--mermaid-control-fg);
+    font: inherit;
+}
+
+.mermaid-modal__help span kbd:last-of-type {
+    margin-right: 0.35em;
+}
+
+@media (max-width: 2260px) {
+    .mermaid-modal__panel {
+        margin-bottom: 0;
+        height: calc(92vh - 86px);
+    }
+
+    .mermaid-modal__help {
+        position: relative;
+        inset: auto;
+        width: min(96vw, 1600px);
+        max-width: 96vw;
+        margin: 10px auto 0;
+        box-sizing: border-box;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .mermaid-modal__help strong {
+        margin-right: 8px;
+    }
+
+    .mermaid-modal__help span {
+        border-left: 1px solid var(--mermaid-control-border);
+        padding-left: 14px;
+    }
 }
 
 .mermaid-expand-button {
@@ -426,6 +499,8 @@ html.dark .page-wrapper {
 .mermaid-modal__content {
     overflow: auto;
     padding: 20px;
+    flex: 1;
+    min-height: 0;
 }
 
 .mermaid-modal__content svg {

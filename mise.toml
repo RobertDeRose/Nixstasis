@@ -8,7 +8,7 @@ env_shell_expand = true
 config_roots = ["packages/client"]
 
 [tools]
-"github:RobertDeRose/mdbook-mermaid" = "1.0"
+"github:RobertDeRose/mdbook-mermaid" = "1.1.1"
 "github:joshrotenberg/mdbook-lint" = "0.14.3"
 "github:rust-lang/mdbook" = "0.5.2"
 "npm:@commitlint/cli" = "20.5.3"
