@@ -1,5 +1,7 @@
 defmodule NixstasisWeb.DeviceLiveTest do
   use NixstasisWeb.ConnCase
+
+  import ExUnit.CaptureLog
   import Phoenix.ChannelTest
   import Phoenix.LiveViewTest
 
@@ -409,7 +411,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       ref = Process.monitor(view.pid)
       GenServer.stop(view.pid)
       assert_receive {:DOWN, ^ref, :process, _pid, _reason}
-      Devices.sync_remote_access_leases()
+      with_log(fn -> Devices.sync_remote_access_leases() end)
 
       assert Devices.get_device!(device.id).remote_access_requested == false
     end

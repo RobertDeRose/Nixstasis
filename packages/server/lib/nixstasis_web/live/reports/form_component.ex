@@ -490,7 +490,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
           <%= if @schema_issue do %>
             <p class="text-sm text-error mb-4">{@schema_issue}</p>
           <% end %>
-
+          
     <!-- Fields Section -->
           <div class="mb-8" data-report-section="columns">
             <div class="flex items-center justify-between mb-4">
