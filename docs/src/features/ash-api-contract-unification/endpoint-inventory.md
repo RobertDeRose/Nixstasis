@@ -1,0 +1,81 @@
+# Ash API Contract Endpoint Inventory
+
+This inventory is the implementation starting point for Ash API contract
+unification. It maps current non-UI routes to their handlers, consumers, baseline
+tests, existing contract docs, and initial migration decisions.
+
+Classifications:
+
+- `ash-backed`: should move to Ash resources/actions and generated OpenAPI when
+  implementation reaches that endpoint group.
+- `retained-controller`: should stay controller-owned with explicit rationale.
+- `deferred`: may move later, but should not move in the first implementation
+  slice without a separate compatibility decision.
+- `ui-only`: excluded from this feature.
+
+## Generated OpenAPI And Ash JSON:API Surface
+
+| Route | Current handler | Consumer | Baseline tests | Contract docs | Classification | Migration decision | Rationale |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET /openapi.yaml` | `Plug.Static` via `NixstasisWeb.Endpoint` and `NixstasisWeb.static_paths/0` | API readers, docs tooling | Add schema/static contract check if changed | `packages/server/priv/static/openapi.yaml`, `docs/src/reference/contracts.md` | `ash-backed` | Keep generated static artifact | Static generated OpenAPI artifact is the durable file referenced by docs. |
+| `GET /api/json/swaggerui` | `OpenApiSpex.Plug.SwaggerUI` | API readers, developers | Add route smoke test if changed | `docs/src/reference/contracts.md` | `ash-backed` | Keep generated UI | Developer UI for the Ash generated API docs; not a product data endpoint. |
+| `GET /api/json/open_api` | `NixstasisWeb.AshJsonApiRouter` | API readers, developers | Add route smoke test if changed | `packages/server/priv/static/openapi.yaml`, `docs/src/reference/contracts.md` | `ash-backed` | Keep generated router endpoint | Machine-readable OpenAPI endpoint served through the Ash JSON:API router. |
+| `/api/json/devices` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Devices.Device` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for device CRUD. |
+| `/api/json/pending_commands` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Devices.PendingCommand` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for pending command CRUD. |
+| `/api/json/alerts` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Monitoring.Alert` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for alert CRUD. |
+| `/api/json/alert_rules` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Monitoring.AlertRule` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for alert-rule CRUD called out by the feature plan. |
+| `/api/json/telemetry_events` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Monitoring.Telemetry` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for telemetry event create/read. |
+| `/api/json/custom_reports` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.Reporting.CustomReport` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml`, `docs/src/modules/server-reporting.md` | `ash-backed` | Keep generated | Existing Ash resource route group for custom report CRUD. |
+| `/api/json/system_settings` | `NixstasisWeb.AshJsonApiRouter` / `Nixstasis.SystemSetting` | API automation, internal docs | Add Ash JSON:API route tests when expanded | `packages/server/priv/static/openapi.yaml` | `ash-backed` | Keep generated | Existing Ash resource route group for system settings. |
+
+## Bespoke `/api/v1` Routes
+
+| Route | Current handler | Consumer | Baseline tests | Contract docs | Classification | Migration decision | Rationale |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/v1/builder-schemas` | `NixstasisWeb.BuilderSchemaController.index/2` | Builder UI, external automation | `packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs` | `docs/src/reference/openapi/builder-api.yaml`, `docs/src/modules/server-web.md` | `ash-backed` | Evaluate in first eligible builder slice | Durable schema option contract with request/response models; should generate from Ash once schema-option behavior is modeled safely. |
+| `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options` | `NixstasisWeb.BuilderSchemaController.options/2` | Builder UI, external automation | `packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs` | `docs/src/reference/openapi/builder-api.yaml`, `docs/src/modules/server-web.md` | `ash-backed` | Evaluate in first eligible builder slice | Durable non-UI lookup contract; preserve access-denied and not-found behavior. |
+| `POST /api/v1/builder-configurations/validate` | `NixstasisWeb.BuilderConfigValidationController.create/2` | Builder UI, external automation | `packages/server/test/nixstasis_web/controllers/builder_config_validation_controller_test.exs` | `docs/src/reference/openapi/builder-api.yaml`, `docs/src/modules/server-web.md` | `ash-backed` | Evaluate in first eligible builder slice | Durable validation contract with typed validation response; should become an Ash action if current response shape is preserved. |
+| `GET /api/v1/devices` | `NixstasisWeb.DeviceController.index/2` | Device list API consumers, possible UI helpers | `packages/server/test/nixstasis_web/controllers/device_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/modules/server-web.md` | `ash-backed` | Evaluate with device read API slice | Resource-oriented device list overlaps Ash `Device` read routes; preserve filters and status semantics. Current controller accepts `ipv4_address`, which is missing from `device-api.yaml` and must be reconciled before conversion. |
+| `POST /api/v1/devices/register` | `NixstasisWeb.DeviceController.register/2` | Go client | `packages/server/test/nixstasis_web/controllers/device_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-devices.md` | `ash-backed` | Evaluate after inventory-driven compatibility tests | Durable credential issuance contract backed by `Nixstasis.Devices.Device.register`; preserve pending/approved token behavior exactly. |
+| `POST /api/v1/devices/:device_id/heartbeat` | `NixstasisWeb.HeartbeatController.create/2` | Go client | `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-devices.md` | `ash-backed` | Evaluate after registration or as its own slice | Durable device protocol endpoint with telemetry, command polling, rate limiting, and remote-access token behavior; needs strict compatibility tests. |
+| `POST /api/v1/devices/:device_id/command_results` | `NixstasisWeb.DeviceCommandController.command_results/2` | Go client | `packages/server/test/nixstasis_web/controllers/device_command_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-devices.md` | `ash-backed` | Evaluate with command API slice | Durable command acknowledgement contract; preserve duplicate and processing error semantics. |
+| `GET /api/v1/devices/:device_id/command_payloads/:ref` | `NixstasisWeb.DeviceCommandController.command_payload/2` | Go client | `packages/server/test/nixstasis_web/controllers/device_command_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-devices.md` | `ash-backed` | Evaluate with command API slice | Durable deferred payload fetch contract; preserve payload shape and 404 behavior. |
+| `GET /api/v1/reports/:id/results` | `NixstasisWeb.ReportResultController.show/2` | Report preview consumers, possible UI helpers | Add baseline controller test before conversion if absent | `docs/src/reference/openapi/report-api.yaml`, `docs/src/modules/server-reporting.md` | `ash-backed` | Evaluate with reporting API slice | Durable report result preview contract; currently separate from Ash `CustomReport` CRUD and needs generated response schema if retained as product API. |
+| `GET /api/v1/check_domain` | `NixstasisWeb.TLSController.check_domain/2` | Caddy on-demand TLS ask endpoint | `packages/server/test/nixstasis_web/controllers/tls_controller_test.exs` | `docs/src/reference/openapi/device-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/runtime-boundaries.md`, `docs/src/modules/deployment-compose.md` | `retained-controller` | Retain by default | Ingress workflow called by Caddy with simple allow/deny behavior; controller boundary keeps deployment contract clearer unless a future Ash action proves safer. |
+
+## Development Diagnostics
+
+| Route | Current handler | Consumer | Baseline tests | Contract docs | Classification | Migration decision | Rationale |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET /_nixstasis/laptop/tls_observations` | `NixstasisWeb.TLSController.observations/2` | Compose development harness diagnostics | `packages/server/test/nixstasis_web/controllers/tls_controller_test.exs` | `docs/src/runtime-boundaries.md`, `docs/src/features/compose-dev-harness/design.md` | `retained-controller` | Retain | Development-only diagnostic route, not a production product API contract. |
+| `DELETE /_nixstasis/laptop/tls_observations` | `NixstasisWeb.TLSController.clear_observations/2` | Compose development harness diagnostics | `packages/server/test/nixstasis_web/controllers/tls_controller_test.exs` | `docs/src/runtime-boundaries.md`, `docs/src/features/compose-dev-harness/design.md` | `retained-controller` | Retain | Development-only diagnostic route, not a production product API contract. |
+
+## `/e2e` Routes
+
+| Route | Current handler | Consumer | Baseline tests | Contract docs | Classification | Migration decision | Rationale |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GET /e2e/suites` | `NixstasisWeb.E2ERunController.suites/2` | E2E harness | `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Harness workflow route gated by `NixstasisWeb.Plugs.E2EEnabled`; may become Ash-backed only if suite listing maps cleanly without weakening gate behavior. |
+| `GET /e2e/runs` | `NixstasisWeb.E2ERunController.index/2` | E2E harness, diagnostics | `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Run listing is resource-like but belongs to a gated harness API with protocol lifecycle semantics. |
+| `POST /e2e/runs` | `NixstasisWeb.E2ERunController.create/2` | E2E harness | `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs`, `packages/server/test/nixstasis/e2e/e2e_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Workflow endpoint with protocol-version header, idempotent reuse, environment locks, seed execution, and typed errors. |
+| `GET /e2e/runs/:id` | `NixstasisWeb.E2ERunController.show/2` | E2E harness, diagnostics | `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Resource-like read under gated E2E protocol surface; can be revisited after workflow endpoints are stable. |
+| `POST /e2e/runs/:id/cancel` | `NixstasisWeb.E2ERunController.cancel/2` | E2E harness | `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Workflow transition endpoint with typed persistence errors and harness gating. |
+| `GET /e2e/runs/:id/results` | `NixstasisWeb.E2ERunResultController.index/2` | E2E harness, diagnostics | `packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Gated harness result listing; resource-like but tied to E2E lifecycle semantics. |
+| `POST /e2e/runs/:id/results` | `NixstasisWeb.E2ERunResultController.create/2` | E2E harness | `packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs`, `packages/server/test/nixstasis/e2e/e2e_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Workflow ingestion endpoint with result submission and run status side effects. |
+| `GET /e2e/runs/:id/results/:journey_id/log` | `NixstasisWeb.E2ERunResultController.log/2` | E2E harness, diagnostics | `packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs` | `docs/src/reference/openapi/e2e-api.yaml`, `docs/src/client-server-interface.md`, `docs/src/modules/server-e2e.md` | `retained-controller` | Retain by default | Log retrieval has retention/pruned-log semantics that should stay explicit unless a future Ash action cleanly models them. |
+
+## Reconciliation Notes
+
+- `docs/src/reference/openapi/device-api.yaml` currently mixes device runtime
+  APIs with Caddy TLS approval. Device runtime routes are Ash-backed candidates;
+  `check_domain` remains retained-controller by default.
+- `GET /api/v1/devices` accepts `ipv4_address` in the controller but the current
+  bespoke OpenAPI file does not document that filter. Reconcile this before or
+  during the device read API slice.
+- `docs/src/reference/openapi/builder-api.yaml` is the strongest first candidate
+  for conversion because it is a compact non-UI request/response contract.
+- `docs/src/reference/openapi/report-api.yaml` should be reconciled with the
+  existing Ash `CustomReport` resource before implementation decides whether the
+  result preview is an Ash action or retained controller. Add a baseline
+  controller test first if none exists.
+- `docs/src/reference/openapi/e2e-api.yaml` remains retained-controller by
+  default because the E2E API is a gated protocol workflow, not plain CRUD.
