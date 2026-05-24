@@ -47,7 +47,7 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
     schema_id: [type: :string, allow_nil?: false],
     schema_version: [type: :string, allow_nil?: false],
     builder: [type: BuilderKind, allow_nil?: false],
-    load_time_ms: [type: :integer, allow_nil?: false],
+    load_time_ms: [type: :integer, allow_nil?: false, constraints: [min: 0]],
     options: [type: {:array, :map}, allow_nil?: false, constraints: [items: [fields: @option_fields]]]
   ]
 
