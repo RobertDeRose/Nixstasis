@@ -44,6 +44,27 @@
 
 ### JSON API Routes
 
+Generated Ash JSON:API routes:
+
+- `GET /api/json/builder_contract/schema_references`
+- `GET /api/json/builder_contract/schemas/:schema_id/versions/:schema_version/options`
+- `POST /api/json/builder_contract/builder_configurations/validate`
+
+These builder routes are Ash generic-action RPC endpoints exposed through the
+Ash JSON:API router. Successful responses are raw action payloads rather than
+resource `data` documents; the generated POST action uses Ash JSON:API's `201`
+success status. Use the `/api/v1` wrappers when the legacy `200` validation
+status/body shape is required.
+- `/api/json/devices`
+- `/api/json/pending_commands`
+- `/api/json/alerts`
+- `/api/json/alert_rules`
+- `/api/json/telemetry_events`
+- `/api/json/custom_reports`
+- `/api/json/system_settings`
+
+Legacy `/api/v1` compatibility routes and bespoke controller routes:
+
 - `GET /api/v1/builder-schemas`
 - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
 - `POST /api/v1/builder-configurations/validate`
@@ -54,6 +75,17 @@
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
 - `GET /api/v1/reports/:id/results`
 - `GET /api/v1/check_domain`
+
+The `/api/v1/builder-*` routes are compatibility wrappers around Ash-backed
+builder actions. The generated contracts for those actions are published under
+`/api/json/builder_contract/*`; the `/api/v1` wrappers keep their existing
+`application/json` envelope and status behavior for current consumers.
+
+The device runtime, report result preview, and Caddy TLS ask endpoints remain
+bespoke controller routes in the current implementation. Device runtime routes
+require Go client compatibility before any Ash conversion, report result preview
+is still a bespoke result-shaping endpoint, and `GET /api/v1/check_domain`
+remains an ingress workflow boundary called by Caddy.
 
 ### E2E Routes
 
@@ -95,6 +127,9 @@
 ## Client-Server Interaction Details
 
 - Go client device traffic uses JSON routes under `/api/v1/devices`.
+- Builder automation should prefer the generated `/api/json/builder_contract/*`
+  routes when JSON:API media types are acceptable; browser/UI compatibility can
+  continue using `/api/v1/builder-*` wrappers.
 - Browser UI uses Phoenix LiveView over HTTP and LiveView WebSocket transport.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the

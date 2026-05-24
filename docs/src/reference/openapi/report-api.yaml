@@ -2,12 +2,12 @@ openapi: 3.0.3
 info:
   title: Nixstasis Report API
   version: 1.0.0
-  description: Bespoke Phoenix controller API for custom report result previews.
+  description: Bespoke Phoenix controller API for custom report result previews. Deferred from Ash conversion until report result shaping has baseline controller tests and a generated response schema that preserves fields and rows exactly.
 paths:
   /api/v1/reports/{id}/results:
     get:
       summary: Fetch custom report result rows
-      description: Runs a custom report and returns its selected fields plus result rows.
+      description: Runs a custom report and returns its selected fields plus result rows. This remains a bespoke result-shaping endpoint for now because it executes report query construction rather than simple CustomReport CRUD.
       parameters:
         - in: path
           name: id

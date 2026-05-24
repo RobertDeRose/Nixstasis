@@ -2,11 +2,12 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Bespoke Phoenix controller API used by managed devices and Caddy TLS approval.
+  description: Bespoke Phoenix controller API used by managed devices and Caddy TLS approval. Device runtime routes are deferred from Ash conversion until strict Go client compatibility tests cover token, status-code, and response-shape behavior. The Caddy ask endpoint remains retained-controller because it is an ingress workflow boundary called by Caddy, not a product data resource.
 paths:
   /api/v1/devices:
     get:
       summary: List devices with optional filters
+      description: Deferred from Ash conversion until device list filters and compatibility semantics, including ipv4_address, are reconciled with generated documentation.
       parameters:
         - in: query
           name: product
@@ -42,7 +43,7 @@ paths:
   /api/v1/devices/register:
     post:
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Approved devices receive an API token; pending devices do not.
+      description: Registration is the credential issuance boundary. Approved devices receive an API token; pending devices do not. Deferred from Ash conversion until Go client registration compatibility tests cover pending and approved token behavior.
       requestBody:
         required: true
         content:
@@ -83,6 +84,7 @@ paths:
   /api/v1/devices/{id}/heartbeat:
     post:
       summary: Submit device heartbeat and telemetry
+      description: Deferred from Ash conversion until Go client heartbeat compatibility tests cover api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling.
       parameters:
         - in: path
           name: id
@@ -146,6 +148,7 @@ paths:
   /api/v1/devices/{id}/command_results:
     post:
       summary: Submit command execution results
+      description: Deferred from Ash conversion until command-result compatibility tests cover api_key authentication, duplicate command handling, acknowledged_count shape, and processing-error status codes.
       parameters:
         - in: path
           name: id
@@ -196,6 +199,7 @@ paths:
   /api/v1/devices/{id}/command_payloads/{ref}:
     get:
       summary: Fetch deferred command payload
+      description: Deferred from Ash conversion until command-payload compatibility tests cover api_key authentication, payload lookup, payload shape, and 404 behavior.
       parameters:
         - in: path
           name: id
@@ -225,6 +229,7 @@ paths:
   /api/v1/check_domain:
     get:
       summary: Authorize Caddy on-demand TLS host
+      description: Retained as a controller route because it is Caddy's on-demand TLS ask endpoint with simple ingress allow/deny semantics, not a durable product data resource.
       parameters:
         - in: query
           name: domain
