@@ -94,43 +94,7 @@ components:
         attributes:
           additionalProperties: false
           description: An attributes object for a alert_rule
-          properties:
-            condition_field:
-              description: Field included by default.
-              type: string
-              x-struct:
-              x-validate:
-            operator:
-              description: Field included by default.
-              enum:
-                - '>'
-                - <
-                - =
-                - '!='
-                - '>='
-                - <=
-                - contains
-                - doesn't contain
-                - is
-                - is not
-              type: string
-              x-struct:
-              x-validate:
-            product_name:
-              description: Field included by default.
-              type: string
-              x-struct:
-              x-validate:
-            threshold_value:
-              description: Field included by default.
-              type: string
-              x-struct:
-              x-validate:
-          required:
-            - product_name
-            - condition_field
-            - operator
-            - threshold_value
+          properties: {}
           type: object
           x-struct:
           x-validate:
@@ -150,56 +114,6 @@ components:
       required:
         - type
         - id
-      type: object
-      x-struct:
-      x-validate:
-    device-filter-metadata:
-      additionalProperties: false
-      properties:
-        eq:
-          type: object
-          x-struct:
-          x-validate:
-        greater_than:
-          type: object
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: object
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: object
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: object
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: object
-          x-struct:
-          x-validate:
-        not_eq:
-          type: object
-          x-struct:
-          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -251,10 +165,6 @@ components:
       description: Filters the query to results matching the given filter object
       example: ''
       properties:
-        account_number:
-          $ref: '#/components/schemas/device-filter-account_number'
-        alerts:
-          $ref: '#/components/schemas/alert-filter'
         and:
           items:
             $ref: '#/components/schemas/device-filter'
@@ -262,16 +172,8 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
-        approval_status:
-          $ref: '#/components/schemas/device-filter-approval_status'
         id:
           $ref: '#/components/schemas/device-filter-id'
-        last_seen_at:
-          $ref: '#/components/schemas/device-filter-last_seen_at'
-        mac_address:
-          $ref: '#/components/schemas/device-filter-mac_address'
-        metadata:
-          $ref: '#/components/schemas/device-filter-metadata'
         not:
           $ref: '#/components/schemas/device-filter'
         or:
@@ -281,16 +183,6 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
-        pending_commands:
-          $ref: '#/components/schemas/pending_command-filter'
-        product_name:
-          $ref: '#/components/schemas/device-filter-product_name'
-        remote_access_requested:
-          $ref: '#/components/schemas/device-filter-remote_access_requested'
-        schema:
-          $ref: '#/components/schemas/device-filter-schema'
-        telemetry_events:
-          $ref: '#/components/schemas/telemetry_event-filter'
       type: deepObject
       x-struct:
       x-validate:
@@ -595,67 +487,7 @@ components:
         attributes:
           additionalProperties: false
           description: An attributes object for a device
-          properties:
-            account_number:
-              anyOf:
-                - nullable: true
-                  type: string
-                  x-struct:
-                  x-validate:
-                - type: 'null'
-              description: Field included by default.
-            approval_status:
-              description: Field included by default.
-              enum:
-                - pending
-                - approved
-                - rejected
-              type: string
-              x-struct:
-              x-validate:
-            last_seen_at:
-              anyOf:
-                - format: date-time
-                  nullable: true
-                  type: string
-                  x-struct:
-                  x-validate:
-                - type: 'null'
-              description: Field included by default.
-            mac_address:
-              description: Field included by default.
-              type: string
-              x-struct:
-              x-validate:
-            metadata:
-              description: Field included by default.
-              type: object
-              x-struct:
-              x-validate:
-            product_name:
-              anyOf:
-                - nullable: true
-                  type: string
-                  x-struct:
-                  x-validate:
-                - type: 'null'
-              description: Field included by default.
-            remote_access_requested:
-              description: Field included by default.
-              type: boolean
-              x-struct:
-              x-validate:
-            schema:
-              description: Field included by default.
-              type: object
-              x-struct:
-              x-validate:
-          required:
-            - mac_address
-            - approval_status
-            - schema
-            - metadata
-            - remote_access_requested
+          properties: {}
           type: object
           x-struct:
           x-validate:
@@ -664,100 +496,7 @@ components:
         relationships:
           additionalProperties: false
           description: A relationships object for a device
-          properties:
-            alerts:
-              properties:
-                data:
-                  description: Relationship data for alerts
-                  items:
-                    additionalProperties: false
-                    description: Resource identifiers for alerts
-                    properties:
-                      id:
-                        type: string
-                        x-struct:
-                        x-validate:
-                      meta:
-                        additionalProperties: true
-                        type: object
-                        x-struct:
-                        x-validate:
-                      type:
-                        type: string
-                        x-struct:
-                        x-validate:
-                    required:
-                      - type
-                      - id
-                    type: object
-                  type: array
-                  uniqueItems: true
-                  x-struct:
-                  x-validate:
-              x-struct:
-              x-validate:
-            pending_commands:
-              properties:
-                data:
-                  description: Relationship data for pending_commands
-                  items:
-                    additionalProperties: false
-                    description: Resource identifiers for pending_commands
-                    properties:
-                      id:
-                        type: string
-                        x-struct:
-                        x-validate:
-                      meta:
-                        additionalProperties: true
-                        type: object
-                        x-struct:
-                        x-validate:
-                      type:
-                        type: string
-                        x-struct:
-                        x-validate:
-                    required:
-                      - type
-                      - id
-                    type: object
-                  type: array
-                  uniqueItems: true
-                  x-struct:
-                  x-validate:
-              x-struct:
-              x-validate:
-            telemetry_events:
-              properties:
-                data:
-                  description: Relationship data for telemetry_events
-                  items:
-                    additionalProperties: false
-                    description: Resource identifiers for telemetry_events
-                    properties:
-                      id:
-                        type: string
-                        x-struct:
-                        x-validate:
-                      meta:
-                        additionalProperties: true
-                        type: object
-                        x-struct:
-                        x-validate:
-                      type:
-                        type: string
-                        x-struct:
-                        x-validate:
-                    required:
-                      - type
-                      - id
-                    type: object
-                  type: array
-                  uniqueItems: true
-                  x-struct:
-                  x-validate:
-              x-struct:
-              x-validate:
+          properties: {}
           type: object
           x-struct:
           x-validate:
@@ -866,68 +605,6 @@ components:
       required:
         - type
         - id
-      type: object
-      x-struct:
-      x-validate:
-    device-filter-mac_address:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -1135,6 +812,36 @@ components:
       type: object
       x-struct:
       x-validate:
+    builder_contract:
+      additionalProperties: false
+      description: A "Resource object" representing a builder_contract
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a builder_contract
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a builder_contract
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
     errors:
       items:
         $ref: '#/components/schemas/error'
@@ -1323,61 +1030,28 @@ components:
       type: object
       x-struct:
       x-validate:
-    device-filter-last_seen_at:
+    builder_contract-filter:
       additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
       properties:
-        eq:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-        in:
+        and:
           items:
-            format: date-time
-            type: string
-            x-struct:
-            x-validate:
+            $ref: '#/components/schemas/builder_contract-filter'
           type: array
+          uniqueItems: true
           x-struct:
           x-validate:
-        is_distinct_from:
-          type: string
+        not:
+          $ref: '#/components/schemas/builder_contract-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/builder_contract-filter'
+          type: array
+          uniqueItems: true
           x-struct:
           x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          format: date-time
-          type: string
-          x-struct:
-          x-validate:
-      type: object
+      type: deepObject
       x-struct:
       x-validate:
     system_setting-filter-value:
@@ -1499,14 +1173,10 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
-        condition_field:
-          $ref: '#/components/schemas/alert_rule-filter-condition_field'
         id:
           $ref: '#/components/schemas/alert_rule-filter-id'
         not:
           $ref: '#/components/schemas/alert_rule-filter'
-        operator:
-          $ref: '#/components/schemas/alert_rule-filter-operator'
         or:
           items:
             $ref: '#/components/schemas/alert_rule-filter'
@@ -1514,10 +1184,6 @@ components:
           uniqueItems: true
           x-struct:
           x-validate:
-        product_name:
-          $ref: '#/components/schemas/alert_rule-filter-product_name'
-        threshold_value:
-          $ref: '#/components/schemas/alert_rule-filter-threshold_value'
       type: deepObject
       x-struct:
       x-validate:
@@ -1583,118 +1249,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    alert_rule-filter-threshold_value:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    device-filter-schema:
-      additionalProperties: false
-      properties:
-        eq:
-          type: object
-          x-struct:
-          x-validate:
-        greater_than:
-          type: object
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: object
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: object
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: object
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: object
-          x-struct:
-          x-validate:
-        not_eq:
-          type: object
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
     pending_command-filter-id:
       additionalProperties: false
       properties:
@@ -1747,56 +1301,6 @@ components:
         not_eq:
           format: uuid
           type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    device-filter-remote_access_requested:
-      additionalProperties: false
-      properties:
-        eq:
-          type: boolean
-          x-struct:
-          x-validate:
-        greater_than:
-          type: boolean
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: boolean
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: boolean
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: boolean
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: boolean
-          x-struct:
-          x-validate:
-        not_eq:
-          type: boolean
           x-struct:
           x-validate:
       type: object
@@ -1912,68 +1416,6 @@ components:
     link:
       description: "A link MUST be represented as either: a string containing the link's URL or a link object."
       type: string
-      x-struct:
-      x-validate:
-    alert_rule-filter-product_name:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
-      type: object
       x-struct:
       x-validate:
     custom_report-filter-id:
@@ -2251,68 +1693,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    device-filter-account_number:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
     pending_command-filter-delivered_at:
       additionalProperties: false
       properties:
@@ -2499,84 +1879,6 @@ components:
           x-validate:
         not_eq:
           format: date-time
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
-    device-filter-approval_status:
-      additionalProperties: false
-      properties:
-        eq:
-          enum:
-            - pending
-            - approved
-            - rejected
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          enum:
-            - pending
-            - approved
-            - rejected
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          enum:
-            - pending
-            - approved
-            - rejected
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            enum:
-              - pending
-              - approved
-              - rejected
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          enum:
-            - pending
-            - approved
-            - rejected
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          enum:
-            - pending
-            - approved
-            - rejected
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          enum:
-            - pending
-            - approved
-            - rejected
           type: string
           x-struct:
           x-validate:
@@ -2819,68 +2121,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    device-filter-product_name:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
     alert-filter-triggered_at:
       additionalProperties: false
       properties:
@@ -2938,68 +2178,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    alert_rule-filter-condition_field:
-      additionalProperties: false
-      properties:
-        contains:
-          type: string
-          x-struct:
-          x-validate:
-        eq:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        ilike:
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          type: string
-          x-struct:
-          x-validate:
-        like:
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
     pending_command-filter-command_payload:
       additionalProperties: false
       properties:
@@ -3050,133 +2228,6 @@ components:
       type: object
       x-struct:
       x-validate:
-    alert_rule-filter-operator:
-      additionalProperties: false
-      properties:
-        eq:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-        greater_than:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-        greater_than_or_equal:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-        in:
-          items:
-            enum:
-              - '>'
-              - <
-              - =
-              - '!='
-              - '>='
-              - <=
-              - contains
-              - doesn't contain
-              - is
-              - is not
-            type: string
-            x-struct:
-            x-validate:
-          type: array
-          x-struct:
-          x-validate:
-        is_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        is_nil:
-          type: boolean
-          x-struct:
-          x-validate:
-        is_not_distinct_from:
-          type: string
-          x-struct:
-          x-validate:
-        less_than:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-        less_than_or_equal:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-        not_eq:
-          enum:
-            - '>'
-            - <
-            - =
-            - '!='
-            - '>='
-            - <=
-            - contains
-            - doesn't contain
-            - is
-            - is not
-          type: string
-          x-struct:
-          x-validate:
-      type: object
-      x-struct:
-      x-validate:
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -3207,7 +2258,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value)(,(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value))*$
+            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
             type: string
             x-struct:
             x-validate:
@@ -3265,11 +2316,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -3337,11 +2388,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -3365,6 +2416,12 @@ paths:
                           type: string
                           x-struct:
                           x-validate:
+                        name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                         operator:
                           enum:
                             - '>'
@@ -3479,11 +2536,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -3529,11 +2586,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -3602,11 +2659,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -4244,6 +3301,309 @@ paths:
           $ref: '#/components/responses/errors'
       tags:
         - alert
+  /api/json/builder_contract/builder_configurations/validate:
+    post:
+      callbacks: {}
+      deprecated: false
+      description: validate_builder_configuration operation on builder_contract resource
+      operationId: validate_builder_configuration
+      parameters: []
+      requestBody:
+        content:
+          application/vnd.api+json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  additionalProperties: false
+                  properties:
+                    builder:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    schema_id:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    schema_version:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    selections:
+                      items:
+                        additionalProperties: false
+                        properties:
+                          selected_key:
+                            anyOf:
+                              - type: string
+                                x-struct:
+                                x-validate:
+                              - type: 'null'
+                          slot_id:
+                            anyOf:
+                              - type: string
+                                x-struct:
+                                x-validate:
+                              - type: 'null'
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type: array
+                      x-struct:
+                      x-validate:
+                  required:
+                    - selections
+                  type: object
+                  x-struct:
+                  x-validate:
+              required:
+                - data
+              type: object
+              x-struct:
+              x-validate:
+        description: Request body for the validate_builder_configuration operation on builder_contract resource
+        required: true
+      responses:
+        '201':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  cleared_slot_ids:
+                    items:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  issues:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        blocking:
+                          type: boolean
+                          x-struct:
+                          x-validate:
+                        issue_code:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        message:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        slot_id:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                      required:
+                        - issue_code
+                        - message
+                        - blocking
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  valid:
+                    type: boolean
+                    x-struct:
+                    x-validate:
+                required:
+                  - valid
+                  - issues
+                  - cleared_slot_ids
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
+  /api/json/builder_contract/schema_references:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: list_builder_schema_references operation on builder_contract resource
+      operationId: list_builder_schema_references
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                items:
+                  additionalProperties: false
+                  properties:
+                    product_name:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    readable:
+                      type: boolean
+                      x-struct:
+                      x-validate:
+                    schema_id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    schema_version:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - schema_id
+                    - schema_version
+                    - product_name
+                    - readable
+                  type: object
+                  x-struct:
+                  x-validate:
+                type: array
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
+  /api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: get_builder_schema_options operation on builder_contract resource
+      operationId: get_builder_schema_options
+      parameters:
+        - in: path
+          name: schema_version
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: path
+          name: schema_id
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: builder
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  payload:
+                    anyOf:
+                      - additionalProperties: false
+                        properties:
+                          builder:
+                            type: string
+                            x-struct:
+                            x-validate:
+                          options:
+                            items:
+                              additionalProperties: false
+                              properties:
+                                key:
+                                  type: string
+                                  x-struct:
+                                  x-validate:
+                                label:
+                                  type: string
+                                  x-struct:
+                                  x-validate:
+                                order_index:
+                                  type: integer
+                                  x-struct:
+                                  x-validate:
+                                selectable:
+                                  type: boolean
+                                  x-struct:
+                                  x-validate:
+                                value_type:
+                                  type: string
+                                  x-struct:
+                                  x-validate:
+                              required:
+                                - key
+                                - label
+                                - value_type
+                                - order_index
+                                - selectable
+                              type: object
+                              x-struct:
+                              x-validate:
+                            type: array
+                            x-struct:
+                            x-validate:
+                          schema_id:
+                            type: string
+                            x-struct:
+                            x-validate:
+                          schema_version:
+                            type: string
+                            x-struct:
+                            x-validate:
+                        required:
+                          - schema_id
+                          - schema_version
+                          - builder
+                          - options
+                        type: object
+                        x-struct:
+                        x-validate:
+                      - type: 'null'
+                  reason:
+                    anyOf:
+                      - enum:
+                          - not_found
+                          - invalid
+                        type: string
+                        x-struct:
+                        x-validate:
+                      - type: 'null'
+                  status:
+                    enum:
+                      - ok
+                      - error
+                    type: string
+                    x-struct:
+                    x-validate:
+                required:
+                  - status
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
   /api/json/custom_reports:
     get:
       callbacks: {}
@@ -4752,7 +4112,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested))*$
+            pattern: ^(id|-id|\+\+id|--id)(,(id|-id|\+\+id|--id))*$
             type: string
             x-struct:
             x-validate:
@@ -4810,11 +4170,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -4882,11 +4242,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -4919,6 +4279,12 @@ paths:
                                 - approved
                                 - rejected
                               type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        ipv4_address:
+                          anyOf:
+                            - type: string
                               x-struct:
                               x-validate:
                             - type: 'null'
@@ -5043,11 +4409,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -5093,11 +4459,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -5166,11 +4532,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id
                 type: string
                 x-struct:
                 x-validate:
@@ -5203,6 +4569,12 @@ paths:
                                 - approved
                                 - rejected
                               type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        ipv4_address:
+                          anyOf:
+                            - type: string
                               x-struct:
                               x-validate:
                             - type: 'null'
