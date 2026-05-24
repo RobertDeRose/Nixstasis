@@ -33,7 +33,8 @@ defmodule NixstasisWeb.BuilderSchemaControllerTest do
     conn = get(conn, ~p"/api/v1/builder-schemas/thermostat-v1/versions/v1/options?builder=alert")
     body = json_response(conn, 200)
 
-    assert %{"data" => %{"options" => options}} = body
+    assert %{"data" => %{"load_time_ms" => load_time_ms, "options" => options}} = body
+    assert load_time_ms >= 0
     assert Enum.any?(options, &(&1["key"] == "temp"))
   end
 

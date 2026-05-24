@@ -10,12 +10,11 @@ defmodule NixstasisWeb.BuilderSchemaController do
 
   def options(conn, %{"schema_id" => schema_id, "schema_version" => schema_version} = params) do
     builder = Map.get(params, "builder", "alert")
+    started_at = System.monotonic_time(:millisecond)
 
     case Domain.get_builder_schema_options(schema_id, schema_version, builder) do
       {:ok, payload} ->
-        load_time_ms =
-          System.monotonic_time(:millisecond)
-          |> rem(10)
+        load_time_ms = max(System.monotonic_time(:millisecond) - started_at, 0)
 
         render(conn, :options, payload: %{payload | load_time_ms: load_time_ms})
 
