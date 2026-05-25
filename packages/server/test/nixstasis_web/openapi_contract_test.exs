@@ -37,6 +37,44 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert openapi =~ ~r/load_time_ms:\n\s+minimum: 0\n\s+type: integer/
   end
 
+  test "generated OpenAPI includes builder contract error responses" do
+    openapi = YamlElixir.read_from_file!(@openapi_path)
+
+    validate_responses =
+      get_in(openapi, [
+        "paths",
+        "/api/json/builder_contract/builder_configurations/validate",
+        "post",
+        "responses"
+      ])
+
+    options_responses =
+      get_in(openapi, [
+        "paths",
+        "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options",
+        "get",
+        "responses"
+      ])
+
+    assert_error_response(validate_responses, "400")
+    assert_error_response(options_responses, "400")
+    assert_error_response(options_responses, "404")
+  end
+
+  defp assert_error_response(responses, status) do
+    assert get_in(responses, [
+             status,
+             "content",
+             "application/vnd.api+json",
+             "schema",
+             "properties",
+             "errors",
+             "$ref"
+           ]) == "#/components/schemas/errors"
+
+    assert get_in(responses, [status, "description"]) == "JSON:API error response"
+  end
+
   test "generated OpenAPI preserves existing resource fields" do
     openapi = File.read!(@openapi_path)
 
