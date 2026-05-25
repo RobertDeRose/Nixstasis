@@ -63,9 +63,13 @@
 - [x] T020 Add or update server tests for each converted endpoint's success path.
 - [x] T021 Add or update server tests for validation errors, authorization failures,
   and important edge cases for each converted endpoint.
-- [ ] T022 Run Go client transport tests against registration, heartbeat, command
-  polling, command result, and deferred payload contracts if those endpoints move.
-- [ ] T023 Run E2E harness tests if `/e2e` endpoints move or receive Ash wrappers.
+- [x] T022 Run Go client transport tests against registration, heartbeat, command
+  polling, command result, and deferred payload contracts if those endpoints move;
+  not required for the builder-only implementation slice because Go-client device
+  endpoints remain deferred.
+- [x] T023 Run E2E harness tests if `/e2e` endpoints move or receive Ash wrappers;
+  not required for the builder-only implementation slice because `/e2e` endpoints
+  remain retained-controller.
 - [x] T024 Add OpenAPI generation or schema checks proving converted endpoints are
   present in generated OpenAPI.
 
