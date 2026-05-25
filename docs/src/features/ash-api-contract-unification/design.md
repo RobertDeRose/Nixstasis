@@ -206,7 +206,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 
 ## Reconciliation Bookends
 
-- Before implementation, confirm this feature worktree is current with `main` and
+- Before implementation, confirm this feature worktree is current with `dev` and
   re-read `docs/src/reference/openapi/index.md`, `docs/src/reference/contracts.md`,
   and `docs/src/client-server-interface.md` so the endpoint inventory starts from
   current contract docs.
