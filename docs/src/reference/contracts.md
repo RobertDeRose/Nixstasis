@@ -41,8 +41,25 @@ the retired spec-kit contract files.
 - [Deployment Compose](../modules/deployment-compose.md): Compose services,
   required operator inputs, hostname contract, Caddy ask endpoint, and artifact
   rules.
+- [Edge Caddy](../modules/edge-caddy.md): AuthCrunch edge authorization and
+  forwarded `X-Token-*` claim headers used by Phoenix browser permission mapping.
 - [Runtime Boundaries](../runtime-boundaries.md): process, network, data, secret,
   and test-only boundaries.
+
+## Browser Authorization Contract
+
+- Caddy/AuthCrunch is the production browser authentication and authorization
+  edge. Protected production hosts keep `authorize with entra_policy`.
+- Phoenix consumes trusted forwarded headers only after Caddy admits the browser
+  request: `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
+  `X-Token-User-Roles`.
+- `viewer` grants read-only device and report access. `operator` grants remote
+  device access and report management. `admin` currently grants the same
+  implemented permissions as `operator` and is reserved for privileged settings
+  surfaces.
+- Missing, malformed, or unknown production role claims fail closed. Direct local
+  Phoenix requests without `X-Token-*` claim headers keep development-only
+  permissive defaults.
 
 ## Generated OpenAPI
 

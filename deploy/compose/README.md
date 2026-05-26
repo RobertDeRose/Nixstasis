@@ -90,6 +90,10 @@ targeting the compose `postgres` host.
   `frp-admin.<base-domain>`.
 - Wildcard device hosts require `authorize with entra_policy` before proxying.
 - AuthCrunch policy must allow roles `${AUTHORIZED_ROLES}` and groups `${AUTHORIZED_GROUPS}`.
+- Caddy injects AuthCrunch claims for Phoenix browser UI permission mapping with
+  `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
+  `X-Token-User-Roles`. Phoenix supports `viewer`, `operator`, and `admin` role
+  values; missing or unknown production role claims fail closed.
 - Migrations are explicit, not part of container startup.
 
 Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.

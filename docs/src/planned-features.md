@@ -398,7 +398,7 @@ production-like environment.
 
 ### `authcrunch-role-contract`
 
-- Status: planned
+- Status: completed
 - Overview:
 - Define the production authorization contract between Caddy/AuthCrunch and the
     Phoenix application. Document which claims or headers Caddy forwards, how
@@ -440,6 +440,14 @@ production-like environment.
     visible to Phoenix UI logic.
 - Over-modeling roles too early can add complexity before production operator
     needs are proven.
+- Completion notes:
+- Caddy/AuthCrunch remains the production browser authorization edge with
+    `authorize with entra_policy` on protected hosts.
+- Phoenix maps default AuthCrunch `X-Token-*` claim headers into device and report
+    permission maps with `viewer`, `operator`, and `admin` roles.
+- Group-to-role capability mapping is intentionally deferred; groups remain
+    enforced at the Caddy edge unless operators add explicit custom header
+    injection and a future Phoenix mapping.
 - Dependencies:
 - `deploy/compose/caddy/Caddyfile`
 - `packages/server/lib/nixstasis_web/router.ex`

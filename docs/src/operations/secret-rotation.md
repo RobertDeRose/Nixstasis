@@ -31,6 +31,9 @@ signed Phoenix state such as sessions.
 3. Restart `caddy`.
 4. Validate allowed operators can log in and unauthorized roles or groups are
    denied.
+5. Validate Phoenix receives the expected AuthCrunch `X-Token-*` claim headers by
+   checking browser UI permissions: `viewer` is read-only, while `operator` and
+   `admin` can use implemented operational controls.
 
 Avoid wildcard role or group values. `validate_stack.sh` rejects wildcard
 authorization inputs.
