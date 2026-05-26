@@ -338,14 +338,14 @@ defmodule NixstasisWeb.DeviceLive.Index do
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
-    {:noreply, refresh_devices(socket)}
+    {:noreply, refresh_devices_if_authorized(socket)}
   end
 
   def handle_info(:debounced_refresh, socket) do
     {:noreply,
      socket
      |> assign(:refresh_timer, nil)
-     |> refresh_devices()}
+     |> refresh_devices_if_authorized()}
   end
 
   def handle_info({:clear_flash, key}, socket) do
@@ -417,7 +417,23 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> stream(:devices, devices, reset: true)
   end
 
+  defp refresh_devices_if_authorized(socket) do
+    if socket.assigns.can_view_device_details? do
+      refresh_devices(socket)
+    else
+      assign_unauthorized_devices_state(socket)
+    end
+  end
+
   defp schedule_debounced_refresh(socket) do
+    if socket.assigns.can_view_device_details? do
+      schedule_authorized_debounced_refresh(socket)
+    else
+      socket
+    end
+  end
+
+  defp schedule_authorized_debounced_refresh(socket) do
     existing = Map.get(socket.assigns, :refresh_timer)
 
     if existing do
