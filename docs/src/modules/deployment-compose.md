@@ -44,6 +44,7 @@
   - `SECRET_KEY_BASE`
   - `PHX_HOST`
   - `PORT`
+  - `PHOENIX_BIND_HOST`
   - `BASE_DOMAIN`
   - `CLIENT_ID`
   - `CLIENT_SECRET`
@@ -69,6 +70,9 @@
 - `SECRET_KEY_BASE`: Phoenix release secret consumed by `nixstasis`.
 - `PHX_HOST`: Public Phoenix host behind Caddy.
 - `PORT`: Phoenix container port. The supported Compose deployment uses `4000`.
+- `PHOENIX_BIND_HOST`: host bind address for Phoenix's optional direct diagnostic
+  port. Production keeps this at `127.0.0.1`; public browser access is supported
+  only through Caddy/AuthCrunch.
 - `BASE_DOMAIN`: Root domain used for `nixstasis`, `auth`, `frp-admin`, and
   wildcard device hostnames.
 - `CLIENT_ID`: Entra application client identifier consumed by Caddy auth.
@@ -135,7 +139,8 @@
 
 ## Client-Server Interaction Details
 
-- Compose deployment exposes the Phoenix app only through Caddy for HTTP ingress.
+- Compose deployment exposes the Phoenix app only through Caddy for public HTTP
+  ingress; the direct Phoenix host port remains loopback-bound for diagnostics.
 - Client configuration points at the public Caddy host.
 - Bundled PostgreSQL starts automatically; production can override `DATABASE_URL`
   to point at an external managed database.

@@ -138,7 +138,7 @@ remains an ingress workflow boundary called by Caddy.
   role values are normalized by Caddy to `nixstasis/viewer`,
   `nixstasis/operator`, and `nixstasis/admin`; missing or unknown production
   roles fail closed for device and report permissions. Requests without
-  `X-Token-*` claim headers keep permissive local-development defaults and are
+  `X-Token-*` claim headers keep device-only local-development defaults and are
   not production authorization.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the

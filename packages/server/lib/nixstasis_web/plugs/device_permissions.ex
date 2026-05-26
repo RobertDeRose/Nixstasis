@@ -3,8 +3,8 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
   Populates browser session permissions for LiveView authorization.
 
   Production Caddy/AuthCrunch requests are mapped from trusted forwarded claims.
-  Requests without AuthCrunch claim headers keep permissive local-development
-  defaults.
+  Requests without AuthCrunch claim headers keep device-only permissive
+  local-development defaults.
   """
 
   import Plug.Conn

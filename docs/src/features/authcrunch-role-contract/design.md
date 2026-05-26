@@ -65,7 +65,8 @@ This feature is seeded from `docs/src/planned-features.md` entry
 Phoenix must trust operator identity and role claims only when requests come
 through the supported Caddy/AuthCrunch deployment path. Direct Phoenix access in
 development may continue to use local defaults, but production docs must not
-describe those defaults as authorization.
+describe those defaults as authorization or expose direct Phoenix access as a
+supported production browser path.
 
 Caddy remains the production browser authentication and authorization edge.
 Phoenix role handling is an application-level capability mapper for LiveView and
