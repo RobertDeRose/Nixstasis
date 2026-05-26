@@ -41,6 +41,18 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
   @impl true
   def handle_params(params, _url, socket) do
+    if not socket.assigns.can_view_device_details? do
+      {:noreply,
+       socket
+       |> put_flash(:error, "You are not authorized to view devices.")
+       |> assign_unauthorized_devices_state()
+       |> apply_action(socket.assigns.live_action, params)}
+    else
+      handle_authorized_params(params, socket)
+    end
+  end
+
+  defp handle_authorized_params(params, socket) do
     sort_by = Map.get(@sort_fields, params["sort_by"] || "inserted_at", :inserted_at)
     sort_order = Map.get(@sort_orders, params["sort_order"] || "desc", :desc)
 
@@ -104,9 +116,17 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Device")
-    |> assign(:device, %Device{})
+    if Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      socket
+      |> assign(:page_title, "New Device")
+      |> assign(:device, %Device{})
+    else
+      socket
+      |> put_flash(:error, "You are not authorized to manage devices.")
+      |> push_patch(to: ~p"/devices")
+      |> assign(:page_title, "Listing Devices")
+      |> assign(:device, nil)
+    end
   end
 
   defp apply_action(socket, :index, _params) do
@@ -228,6 +248,52 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("toggle_selection", %{"id" => id}, socket) do
+    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    else
+      toggle_device_selection(socket, id)
+    end
+  end
+
+  def handle_event("toggle_all", _params, socket) do
+    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    else
+      toggle_all_visible_devices(socket)
+    end
+  end
+
+  def handle_event("bulk_approve", _params, socket) do
+    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    else
+      Devices.approve_devices(socket.assigns.selected_ids)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Devices approved")
+       |> assign(:selected_ids, [])
+       # Refresh
+       |> push_navigate(to: ~p"/devices")}
+    end
+  end
+
+  def handle_event("bulk_reject", _params, socket) do
+    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    else
+      Devices.reject_devices(socket.assigns.selected_ids)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Devices rejected")
+       |> assign(:selected_ids, [])
+       # Refresh
+       |> push_navigate(to: ~p"/devices")}
+    end
+  end
+
+  defp toggle_device_selection(socket, id) do
     selected = socket.assigns.selected_ids
     new_selected = if id in selected, do: List.delete(selected, id), else: [id | selected]
 
@@ -237,7 +303,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
      |> refresh_devices()}
   end
 
-  def handle_event("toggle_all", _params, socket) do
+  defp toggle_all_visible_devices(socket) do
     devices = list_visible_devices(socket.assigns)
     visible_ids = Enum.map(devices, & &1.id)
     all_visible_selected? = Enum.all?(visible_ids, &(&1 in socket.assigns.selected_ids))
@@ -253,28 +319,6 @@ defmodule NixstasisWeb.DeviceLive.Index do
      socket
      |> assign(:selected_ids, new_selected)
      |> refresh_devices()}
-  end
-
-  def handle_event("bulk_approve", _params, socket) do
-    Devices.approve_devices(socket.assigns.selected_ids)
-
-    {:noreply,
-     socket
-     |> put_flash(:info, "Devices approved")
-     |> assign(:selected_ids, [])
-     # Refresh
-     |> push_navigate(to: ~p"/devices")}
-  end
-
-  def handle_event("bulk_reject", _params, socket) do
-    Devices.reject_devices(socket.assigns.selected_ids)
-
-    {:noreply,
-     socket
-     |> put_flash(:info, "Devices rejected")
-     |> assign(:selected_ids, [])
-     # Refresh
-     |> push_navigate(to: ~p"/devices")}
   end
 
   @refresh_debounce_ms 5_000
@@ -329,6 +373,23 @@ defmodule NixstasisWeb.DeviceLive.Index do
     }
     |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
     |> Map.new()
+  end
+
+  defp assign_unauthorized_devices_state(socket) do
+    socket
+    |> assign(:sort_by, :inserted_at)
+    |> assign(:sort_order, :desc)
+    |> assign(:filter_approval_status, nil)
+    |> assign(:filter_connectivity_status, nil)
+    |> assign(:filter_product, nil)
+    |> assign(:filter_account_number, nil)
+    |> assign(:filter_ipv4_address, nil)
+    |> assign(:active_filters, %{})
+    |> assign(:search, nil)
+    |> assign(:current_params, %{})
+    |> assign(:total_count, 0)
+    |> assign(:selected_ids, [])
+    |> stream(:devices, [], reset: true)
   end
 
   defp normalize_blank(nil), do: nil

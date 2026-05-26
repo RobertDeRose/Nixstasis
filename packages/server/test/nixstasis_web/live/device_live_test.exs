@@ -48,7 +48,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
     conn =
       conn
       |> init_test_session(%{})
-      |> put_session("device_permissions", %{"can_view" => true, "can_remote_access" => true})
+      |> put_session("device_permissions", %{"can_view" => true, "can_manage" => true, "can_remote_access" => true})
 
     {:ok, conn: conn}
   end
@@ -86,6 +86,21 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "Device created successfully"
       assert eventually_cleared?(view)
       refute render(view) =~ "Device created successfully"
+    end
+
+    test "view-only sessions cannot add devices", %{conn: conn} do
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_manage" => false})
+
+      {:ok, view, html} = live(conn, ~p"/devices")
+
+      refute html =~ "Add Device"
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} = live(conn, ~p"/devices/new")
+      assert message =~ "not authorized to manage devices"
+      assert render(view) =~ "Devices"
     end
 
     test "renders MAC Address and Product columns", %{conn: conn} do
@@ -210,18 +225,36 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      view
-      |> element(
-        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
-        "DE:AD:BE:EF:00:01"
-      )
-      |> render_click()
+      refute has_element?(view, "#devices-stream tr")
+      assert render(view) =~ "not authorized to view devices"
 
-      assert render(view) =~ "not authorized to view device details"
+      refute has_element?(
+               view,
+               "button[phx-click='open_device_details'][phx-value-id='#{device.id}']"
+             )
+    end
+
+    test "device selection and bulk actions are blocked for view-only sessions", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:06", approval_status: :pending})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_manage" => false})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      refute has_element?(view, "input[phx-click='toggle_selection']")
+
+      render_hook(view, "toggle_selection", %{"id" => device.id})
+      assert render(view) =~ "not authorized to manage devices"
+
+      render_hook(view, "bulk_approve", %{})
+      assert Devices.get_device!(device.id).approval_status == :pending
     end
 
     test "device details navigation is blocked when permissions explicitly deny access", %{conn: conn} do
-      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:02"})
+      _device = create_device!(%{mac_address: "DE:AD:BE:EF:00:02"})
 
       conn =
         conn
@@ -230,14 +263,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      view
-      |> element(
-        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
-        "DE:AD:BE:EF:00:02"
-      )
-      |> render_click()
-
-      assert render(view) =~ "not authorized to view device details"
+      refute has_element?(view, "#devices-stream tr")
+      assert render(view) =~ "not authorized to view devices"
     end
 
     test "device details navigation is blocked when session is scoped to another device", %{conn: conn} do

@@ -6,7 +6,12 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
   test "uses local development defaults when AuthCrunch headers are absent", %{conn: conn} do
     conn = conn |> init_test_session(%{}) |> DevicePermissions.call([])
 
-    assert get_session(conn, "device_permissions") == %{"can_view" => true, "can_remote_access" => true}
+    assert get_session(conn, "device_permissions") == %{
+             "can_view" => true,
+             "can_manage" => true,
+             "can_remote_access" => true
+           }
+
     assert is_nil(get_session(conn, "report_permissions"))
   end
 
@@ -18,7 +23,12 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
       |> init_test_session(%{})
       |> DevicePermissions.call([])
 
-    assert get_session(conn, "device_permissions") == %{"can_view" => true, "can_remote_access" => false}
+    assert get_session(conn, "device_permissions") == %{
+             "can_view" => true,
+             "can_manage" => false,
+             "can_remote_access" => false
+           }
+
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => false}
     assert get_session(conn, "operator_context")["email"] == "viewer@example.com"
   end
@@ -30,7 +40,12 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
       |> init_test_session(%{})
       |> DevicePermissions.call([])
 
-    assert get_session(conn, "device_permissions") == %{"can_view" => false, "can_remote_access" => false}
+    assert get_session(conn, "device_permissions") == %{
+             "can_view" => false,
+             "can_manage" => false,
+             "can_remote_access" => false
+           }
+
     assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
