@@ -62,6 +62,7 @@
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
   - [Device Detail Page](features/device-detail-page/design.md)
   - [Server-Provided FRPS Token](features/server-provided-frps-token/design.md)
+  - [AuthCrunch Role Contract](features/authcrunch-role-contract/design.md)
 - [Planned Features](planned-features.md)
 
 # Reference
