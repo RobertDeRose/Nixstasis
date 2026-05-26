@@ -4,9 +4,9 @@
 
 Define the production authorization contract between Caddy/AuthCrunch and the
 Phoenix application. The feature documents which AuthCrunch claims or forwarded
-headers Phoenix may trust, maps operator roles or groups to Nixstasis
-capabilities, and implements the smallest server-side role handling needed to
-keep LiveView authorization aligned with the edge policy.
+headers Phoenix may trust, maps provider-specific OIDC groups to normalized
+Nixstasis roles in Caddy/AuthCrunch, and implements the smallest server-side role
+handling needed to keep LiveView authorization aligned with the edge policy.
 
 ## Source Of Intent
 
@@ -19,7 +19,7 @@ This feature is seeded from `docs/src/planned-features.md` entry
   LiveView session data, and current role/group assumptions.
 - Define canonical AuthCrunch-forwarded claims or headers that Phoenix may trust
   after Caddy has authenticated and authorized browser traffic.
-- Define operator roles and the capabilities each role grants for dashboard,
+- Define normalized operator roles and the capabilities each role grants for dashboard,
   devices, remote access, alerts, reports, settings, and E2E surfaces.
 - Document behavior for missing, malformed, or insufficient role claims.
 - Decide and implement where role-aware UI behavior belongs in Phoenix, reusing
@@ -41,13 +41,16 @@ This feature is seeded from `docs/src/planned-features.md` entry
 
 ## Current Behavior
 
-- `deploy/compose/caddy/Caddyfile` configures an AuthCrunch portal and an
+- `deploy/compose/caddy/Caddyfile` configures an AuthCrunch portal, transforms
+  provider-specific OIDC groups into `nixstasis/*` roles, and applies an
   `entra_policy` that allows `AUTHORIZED_ROLES` and `AUTHORIZED_GROUPS`, verifies
   `JWT_KEY`, validates bearer headers, and injects headers with claims.
 - Public browser hosts `nixstasis.<base-domain>`, `frp-admin.<base-domain>`, and
   wildcard device hosts are protected by Caddy `authorize with entra_policy`.
-- Phoenix browser routes currently use `NixstasisWeb.Plugs.DevicePermissions`,
-  which seeds full device permissions when no session permissions exist.
+- Phoenix browser routes use `NixstasisWeb.Plugs.DevicePermissions`, which maps
+  trusted AuthCrunch roles into browser permission session state and keeps
+  device-only permissive defaults for direct local development without
+  AuthCrunch claim headers.
 - `NixstasisWeb.Permissions` already evaluates device and report permission maps,
   including scoped device IDs and report view/manage flags.
 - Device runtime APIs continue to authenticate with registration-issued device API
@@ -59,7 +62,7 @@ This feature is seeded from `docs/src/planned-features.md` entry
 
 ### Trust Boundary
 
-Phoenix must trust operator identity and role/group claims only when requests come
+Phoenix must trust operator identity and role claims only when requests come
 through the supported Caddy/AuthCrunch deployment path. Direct Phoenix access in
 development may continue to use local defaults, but production docs must not
 describe those defaults as authorization.
@@ -77,22 +80,22 @@ canonical header keys for:
 
 - operator subject or user identifier
 - display name or email, if available
-- role claims
-- group claims
+- normalized role claims from `X-Token-User-Roles`
 
-If AuthCrunch forwards multiple equivalent claim forms, the feature should choose
-one canonical Phoenix input and document any accepted aliases explicitly.
+Provider-specific OIDC group claims are consumed by Caddy/AuthCrunch transforms,
+not by Phoenix. Phoenix should consume `X-Token-User-Roles` only after Caddy has
+mapped groups to normalized `nixstasis/*` roles.
 
 ### Roles And Capabilities
 
 Define the smallest role set needed by the current product surfaces:
 
-- `viewer`: may view dashboard, devices, alerts, reports, and settings summary
+- `nixstasis/viewer`: may view dashboard, devices, alerts, reports, and settings summary
   pages, but may not start remote access or mutate configuration.
-- `operator`: may view dashboards, manage devices, start remote access, manage
+- `nixstasis/operator`: may view dashboards, manage devices, start remote access, manage
   alerts, view reports, and use operational workflows that are safe for day-to-day
   operations.
-- `admin`: may perform all operator actions plus manage settings and future
+- `nixstasis/admin`: may perform all operator actions plus manage settings and future
   privileged configuration surfaces.
 
 Map provider-specific OIDC groups to one or more of these capabilities in
@@ -131,7 +134,10 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/.env.example`
 - `deploy/compose/README.md`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/validate_stack.sh`
 - `docs/src/architecture.md`
+- `docs/src/modules/deployment-compose.md`
 - `docs/src/modules/edge-caddy.md`
 - `docs/src/modules/server-web.md`
 - `docs/src/client-server-interface.md`
@@ -143,9 +149,8 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
 
 ## Code Areas Likely Affected
 
-- `packages/server/lib/nixstasis_web/router.ex`
 - `packages/server/lib/nixstasis_web/plugs/device_permissions.ex`
-- New or updated Phoenix module for AuthCrunch operator context parsing.
+- `packages/server/lib/nixstasis_web/operator_context.ex`
 - `packages/server/lib/nixstasis_web/permissions.ex`
 - `packages/server/lib/nixstasis_web/live/**/*`
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`
