@@ -53,10 +53,14 @@ the retired spec-kit contract files.
 - Phoenix consumes trusted forwarded headers only after Caddy admits the browser
   request: `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
   `X-Token-User-Roles`.
-- `viewer` grants read-only device and report access. `operator` grants remote
-  device access and report management. `admin` currently grants the same
-  implemented permissions as `operator` and is reserved for privileged settings
-  surfaces.
+- Caddy/AuthCrunch maps provider-specific OIDC groups from
+  `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and
+  `NIXSTASIS_ADMIN_GROUPS` into provider-generic roles before Phoenix sees the
+  request.
+- `nixstasis/viewer` grants read-only device and report access.
+  `nixstasis/operator` grants remote device access and report management.
+  `nixstasis/admin` currently grants the same implemented permissions as
+  `operator` and is reserved for privileged settings surfaces.
 - Missing, malformed, or unknown production role claims fail closed. Direct local
   Phoenix requests without `X-Token-*` claim headers keep development-only
   permissive defaults.

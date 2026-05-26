@@ -7,15 +7,15 @@ defmodule NixstasisWeb.OperatorContext do
   """
 
   @role_capabilities %{
-    "viewer" => %{
+    "nixstasis/viewer" => %{
       "device_permissions" => %{"can_view" => true, "can_remote_access" => false},
       "report_permissions" => %{"can_view" => true, "can_manage" => false}
     },
-    "operator" => %{
+    "nixstasis/operator" => %{
       "device_permissions" => %{"can_view" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true}
     },
-    "admin" => %{
+    "nixstasis/admin" => %{
       "device_permissions" => %{"can_view" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true}
     }
@@ -25,8 +25,7 @@ defmodule NixstasisWeb.OperatorContext do
     "x-token-subject",
     "x-token-user-email",
     "x-token-user-name",
-    "x-token-user-roles",
-    "x-token-user-groups"
+    "x-token-user-roles"
   ]
 
   def from_conn(conn) do
@@ -41,7 +40,6 @@ defmodule NixstasisWeb.OperatorContext do
 
   def from_headers(headers) when is_map(headers) do
     roles = headers |> Map.get("x-token-user-roles") |> normalize_claim_values()
-    groups = headers |> Map.get("x-token-user-groups") |> normalize_claim_values()
 
     case permissions_for_roles(roles) do
       {:ok, permissions} ->
@@ -51,7 +49,6 @@ defmodule NixstasisWeb.OperatorContext do
            "email" => Map.get(headers, "x-token-user-email"),
            "name" => Map.get(headers, "x-token-user-name"),
            "roles" => roles,
-           "groups" => groups,
            "device_permissions" => permissions["device_permissions"],
            "report_permissions" => permissions["report_permissions"]
          }}

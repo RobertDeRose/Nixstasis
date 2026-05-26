@@ -27,6 +27,21 @@
       crypto key sign-verify {$JWT_KEY}
       enable identity provider azure
       cookie domain {$BASE_DOMAIN}
+
+      transform user {
+        match groups {$NIXSTASIS_VIEWER_GROUPS}
+        action add role nixstasis/viewer
+      }
+
+      transform user {
+        match groups {$NIXSTASIS_OPERATOR_GROUPS}
+        action add role nixstasis/operator
+      }
+
+      transform user {
+        match groups {$NIXSTASIS_ADMIN_GROUPS}
+        action add role nixstasis/admin
+      }
     }
 
     authorization policy entra_policy {

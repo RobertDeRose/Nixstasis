@@ -13,7 +13,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
   test "maps AuthCrunch viewer role to read-only permissions", %{conn: conn} do
     conn =
       conn
-      |> put_req_header("x-token-user-roles", "viewer")
+      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
       |> put_req_header("x-token-user-email", "viewer@example.com")
       |> init_test_session(%{})
       |> DevicePermissions.call([])

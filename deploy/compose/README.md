@@ -48,7 +48,7 @@ deploy/compose/scripts/dev-lab.sh exec nixstasis /bin/bash
 
 ## Production
 
-1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, and `AUTHORIZED_GROUPS`.
+1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, and the `NIXSTASIS_*_GROUPS` group-to-role mapping values.
 2. Set `BIND_HOST=0.0.0.0` and `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
@@ -90,10 +90,16 @@ targeting the compose `postgres` host.
   `frp-admin.<base-domain>`.
 - Wildcard device hosts require `authorize with entra_policy` before proxying.
 - AuthCrunch policy must allow roles `${AUTHORIZED_ROLES}` and groups `${AUTHORIZED_GROUPS}`.
+- Caddy transforms provider-specific OIDC groups into provider-generic
+  Nixstasis roles with `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`,
+  and `NIXSTASIS_ADMIN_GROUPS`. `AUTHORIZED_GROUPS` should include the union of
+  those group IDs so the edge authorization policy and role transform stay in
+  sync.
 - Caddy injects AuthCrunch claims for Phoenix browser UI permission mapping with
   `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
-  `X-Token-User-Roles`. Phoenix supports `viewer`, `operator`, and `admin` role
-  values; missing or unknown production role claims fail closed.
+  `X-Token-User-Roles`. Phoenix consumes only normalized `nixstasis/viewer`,
+  `nixstasis/operator`, and `nixstasis/admin` role values; missing or unknown
+  production role claims fail closed.
 - Migrations are explicit, not part of container startup.
 
 Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.
