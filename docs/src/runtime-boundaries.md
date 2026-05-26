@@ -153,6 +153,10 @@ Traceable references:
   an external managed database.
 - `frps` is reached by Caddy on internal service ports and by FRPC on published FRP ports.
 
+Production backup, restore, rotation, incident response, upgrade, and HA boundary
+procedures for these services are documented in
+[Production Operations](operations/index.md).
+
 Traceable references:
 
 - `deploy/compose/docker-compose.yml:1-129`
