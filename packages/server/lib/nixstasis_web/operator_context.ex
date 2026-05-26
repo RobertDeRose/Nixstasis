@@ -8,15 +8,15 @@ defmodule NixstasisWeb.OperatorContext do
 
   @role_capabilities %{
     "nixstasis/viewer" => %{
-      "device_permissions" => %{"can_view" => true, "can_remote_access" => false},
+      "device_permissions" => %{"can_view" => true, "can_manage" => false, "can_remote_access" => false},
       "report_permissions" => %{"can_view" => true, "can_manage" => false}
     },
     "nixstasis/operator" => %{
-      "device_permissions" => %{"can_view" => true, "can_remote_access" => true},
+      "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true}
     },
     "nixstasis/admin" => %{
-      "device_permissions" => %{"can_view" => true, "can_remote_access" => true},
+      "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true}
     }
   }
@@ -62,13 +62,13 @@ defmodule NixstasisWeb.OperatorContext do
 
   def local_development_permissions do
     %{
-      "device_permissions" => %{"can_view" => true, "can_remote_access" => true}
+      "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true}
     }
   end
 
   def fail_closed_permissions do
     %{
-      "device_permissions" => %{"can_view" => false, "can_remote_access" => false},
+      "device_permissions" => %{"can_view" => false, "can_manage" => false, "can_remote_access" => false},
       "report_permissions" => %{"can_view" => false, "can_manage" => false}
     }
   end

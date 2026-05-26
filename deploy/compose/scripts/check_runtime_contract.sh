@@ -141,6 +141,9 @@ require_text "$SERVER_RUNTIME" 'Deployment\.port\(\)'
 require_text "$SERVER_RUNTIME" 'PORT must be 4000 for supported Compose deployment'
 require_compose_service_env nixstasis FRPS_AUTH_TOKEN
 require_compose_service_env frps FRPS_AUTH_TOKEN
+require_compose_service_env caddy NIXSTASIS_VIEWER_GROUPS
+require_compose_service_env caddy NIXSTASIS_OPERATOR_GROUPS
+require_compose_service_env caddy NIXSTASIS_ADMIN_GROUPS
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'

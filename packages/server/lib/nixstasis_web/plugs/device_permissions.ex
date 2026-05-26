@@ -8,6 +8,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
   """
 
   import Plug.Conn
+  require Logger
 
   @behaviour Plug
 
@@ -23,6 +24,8 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
         |> put_permissions(operator_context)
 
       :error ->
+        Logger.warning("AuthCrunch browser claim headers were present but no valid Nixstasis role was found")
+
         conn
         |> put_session("operator_context", %{"authcrunch_claim_error" => true})
         |> put_permissions(NixstasisWeb.OperatorContext.fail_closed_permissions())

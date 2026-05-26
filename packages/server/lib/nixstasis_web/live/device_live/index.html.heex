@@ -12,7 +12,7 @@
           phx-debounce="300"
         />
       </.form>
-      <div class="join">
+      <div :if={@can_view_device_details?} class="join">
         <.link
           patch={~p"/devices?#{%{approval_status: "approved"}}"}
           class={"btn btn-sm join-item #{@filter_approval_status == "approved" && "btn-active"}"}
@@ -50,13 +50,17 @@
           All
         </.link>
       </div>
-      <.link patch={~p"/devices/new"} class="btn btn-sm btn-primary">
+      <.link
+        :if={NixstasisWeb.Permissions.can_manage_devices?(@device_permissions)}
+        patch={~p"/devices/new"}
+        class="btn btn-sm btn-primary"
+      >
         Add Device
       </.link>
     </div>
   </div>
 
-  <%= if length(@selected_ids) > 0 do %>
+  <%= if NixstasisWeb.Permissions.can_manage_devices?(@device_permissions) and length(@selected_ids) > 0 do %>
     <div class="bg-base-200 p-2 rounded-lg mb-4 flex gap-4 items-center">
       <span class="font-semibold">{length(@selected_ids)} selected</span>
       <button phx-click="bulk_approve" class="btn btn-sm btn-success">Approve</button>
@@ -82,10 +86,13 @@
   <% end %>
 
   <div class="overflow-x-auto">
-    <table class="table table-zebra">
+    <div :if={!@can_view_device_details?} class="alert alert-warning">
+      You are not authorized to view devices.
+    </div>
+    <table :if={@can_view_device_details?} class="table table-zebra">
       <thead>
         <tr>
-          <th>
+          <th :if={NixstasisWeb.Permissions.can_manage_devices?(@device_permissions)}>
             <input
               type="checkbox"
               id="select-all-checkbox"
@@ -145,7 +152,7 @@
           id={dom_id}
           class="hover"
         >
-          <td>
+          <td :if={NixstasisWeb.Permissions.can_manage_devices?(@device_permissions)}>
             <input
               type="checkbox"
               class="checkbox checkbox-sm"
