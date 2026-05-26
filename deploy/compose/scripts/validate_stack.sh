@@ -107,6 +107,9 @@ fi
 
 require_env_value AUTHORIZED_ROLES
 require_env_value AUTHORIZED_GROUPS
+require_env_value NIXSTASIS_VIEWER_GROUPS
+require_env_value NIXSTASIS_OPERATOR_GROUPS
+require_env_value NIXSTASIS_ADMIN_GROUPS
 require_exact_env_value PORT 4000
 require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
@@ -114,6 +117,12 @@ reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'
 require_caddy_text 'allow groups \{\$AUTHORIZED_GROUPS\}'
+require_caddy_text 'match groups \{\$NIXSTASIS_VIEWER_GROUPS\}'
+require_caddy_text 'action add role nixstasis/viewer'
+require_caddy_text 'match groups \{\$NIXSTASIS_OPERATOR_GROUPS\}'
+require_caddy_text 'action add role nixstasis/operator'
+require_caddy_text 'match groups \{\$NIXSTASIS_ADMIN_GROUPS\}'
+require_caddy_text 'action add role nixstasis/admin'
 reject_caddy_text 'allow roles \*'
 reject_caddy_text 'allow groups \*'
 require_wildcard_authorize_before_proxy

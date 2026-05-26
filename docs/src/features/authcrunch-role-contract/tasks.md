@@ -26,7 +26,7 @@
 
 - [x] T006 Implement a small claim parsing and normalization boundary for trusted
   Caddy/AuthCrunch browser requests.
-- [x] T007 Map normalized roles or groups to existing device and report permission
+- [x] T007 Map Caddy-normalized roles to existing device and report permission
   maps, reusing `NixstasisWeb.Permissions` where practical.
 - [x] T008 Apply role-aware behavior to the first supported set of LiveView
   surfaces without changing device API token, E2E enablement, or terminal session
@@ -42,8 +42,8 @@
   affected architecture/reference docs.
 - [x] T012 Update Caddy/deployment/operations docs for `AUTHORIZED_ROLES`,
   `AUTHORIZED_GROUPS`, JWT key expectations, and operator configuration guidance.
-- [x] T013 Update `docs/src/planned-features.md` with final feature status and any
-  intentionally deferred role or group mapping work.
+- [x] T013 Update `docs/src/planned-features.md` with final feature status and
+  final group-to-role mapping behavior.
 
 ## Tests And Verification
 
@@ -67,6 +67,4 @@
 
 ## Completion
 
-- [x] T999 Confirm implementation, docs, tests, and deployment guidance agree;
-  summarize any intentionally deferred authorization surfaces or group mapping
-  behavior.
+- [x] T999 Confirm implementation, docs, tests, and deployment guidance agree.

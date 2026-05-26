@@ -443,11 +443,11 @@ production-like environment.
 - Completion notes:
 - Caddy/AuthCrunch remains the production browser authorization edge with
     `authorize with entra_policy` on protected hosts.
-- Phoenix maps default AuthCrunch `X-Token-*` claim headers into device and report
-    permission maps with `viewer`, `operator`, and `admin` roles.
-- Group-to-role capability mapping is intentionally deferred; groups remain
-    enforced at the Caddy edge unless operators add explicit custom header
-    injection and a future Phoenix mapping.
+- Caddy/AuthCrunch maps provider-specific OIDC groups into normalized
+    `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin` roles before
+    proxying to Phoenix.
+- Phoenix maps default AuthCrunch `X-Token-*` role claim headers into device and
+    report permission maps and stays provider-agnostic.
 - Dependencies:
 - `deploy/compose/caddy/Caddyfile`
 - `packages/server/lib/nixstasis_web/router.ex`

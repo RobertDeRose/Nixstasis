@@ -24,16 +24,19 @@ signed Phoenix state such as sessions.
 ## AuthCrunch And OIDC Inputs
 
 `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`, `AUTHORIZED_ROLES`,
-`AUTHORIZED_GROUPS`, and `JWT_KEY` are consumed by `caddy`.
+`AUTHORIZED_GROUPS`, `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`,
+`NIXSTASIS_ADMIN_GROUPS`, and `JWT_KEY` are consumed by `caddy`.
 
 1. Update the identity provider or AuthCrunch configuration first.
 2. Update `.env` with the replacement values.
 3. Restart `caddy`.
 4. Validate allowed operators can log in and unauthorized roles or groups are
    denied.
-5. Validate Phoenix receives the expected AuthCrunch `X-Token-*` claim headers by
-   checking browser UI permissions: `viewer` is read-only, while `operator` and
-   `admin` can use implemented operational controls.
+5. Validate Caddy transforms the new OIDC groups into the expected
+   `nixstasis/*` roles and Phoenix receives those roles through AuthCrunch
+   `X-Token-*` claim headers. `nixstasis/viewer` is read-only, while
+   `nixstasis/operator` and `nixstasis/admin` can use implemented operational
+   controls.
 
 Avoid wildcard role or group values. `validate_stack.sh` rejects wildcard
 authorization inputs.

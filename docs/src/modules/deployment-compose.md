@@ -49,6 +49,11 @@
   - `CLIENT_SECRET`
   - `TENANT_ID`
   - `JWT_KEY`
+  - `AUTHORIZED_ROLES`
+  - `AUTHORIZED_GROUPS`
+  - `NIXSTASIS_VIEWER_GROUPS`
+  - `NIXSTASIS_OPERATOR_GROUPS`
+  - `NIXSTASIS_ADMIN_GROUPS`
   - `FRPS_BIND_PORT`
   - `FRPS_AUTH_TOKEN`
   - `FRPS_HTTP_PORT`
@@ -70,6 +75,15 @@
 - `CLIENT_SECRET`: Entra application secret consumed by Caddy auth.
 - `TENANT_ID`: Entra tenant identifier consumed by Caddy auth.
 - `JWT_KEY`: Caddy auth JWT signing key.
+- `AUTHORIZED_ROLES`: normalized Caddy/AuthCrunch roles allowed at the edge.
+  Production should include `nixstasis/viewer`, `nixstasis/operator`, and
+  `nixstasis/admin` as needed.
+- `AUTHORIZED_GROUPS`: provider-specific OIDC groups allowed at the edge. Keep
+  this as the union of the `NIXSTASIS_*_GROUPS` values.
+- `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and
+  `NIXSTASIS_ADMIN_GROUPS`: provider-specific OIDC group values that Caddy
+  transforms into provider-generic `nixstasis/*` roles before proxying to
+  Phoenix.
 - `FRPS_BIND_PORT`: FRPS bind port for client tunnel connections.
 - `FRPS_AUTH_TOKEN`: Shared FRPS auth token consumed by `frps`, `nixstasis`,
   and managed clients when remote access is requested.
