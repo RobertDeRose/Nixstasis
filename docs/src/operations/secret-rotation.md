@@ -46,12 +46,14 @@ to authenticated device heartbeats while remote access is requested.
    receive the next remote-access heartbeat response.
 4. Validate a browser-launched remote-access session from `/devices/:id`.
 
-`FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are consumed by `frps` and
-the authenticated Caddy dashboard route.
+`FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are FRPS dashboard
+credentials consumed by `frps`. Caddy protects the dashboard route with
+AuthCrunch and proxies it to FRPS.
 
 1. Update dashboard credentials in `.env`.
 2. Restart `frps`.
-3. Validate `frp-admin.<base-domain>` through Caddy authentication.
+3. Validate `frp-admin.<base-domain>` through Caddy authentication and FRPS
+   dashboard login.
 
 ## Database Credentials
 

@@ -21,21 +21,32 @@ references in `.env`; do not use mutable tags for production service images.
 ## Server Stack Upgrade
 
 1. Update digest-pinned image refs in `.env`.
-2. Pull and start the stack:
+2. Pull the replacement images without restarting the application yet:
 
    ```sh
    cd deploy/compose
    docker compose --env-file .env pull
-   docker compose --env-file .env up -d
    ```
 
-3. Run migrations explicitly:
+3. Decide whether the release contains only backward-compatible online
+   migrations. If not, enter a maintenance window and stop Caddy or otherwise
+   remove public traffic before changing the database schema.
+
+4. Confirm PostgreSQL is available, then run migrations explicitly with the new
+   `nixstasis` image:
 
    ```sh
+   docker compose --env-file .env up -d postgres
    docker compose --env-file .env run --rm nixstasis /app/bin/migrate
    ```
 
-4. Run [Health Checks](health-checks.md).
+5. Start or restart the full stack:
+
+   ```sh
+   docker compose --env-file .env up -d
+   ```
+
+6. Run [Health Checks](health-checks.md).
 
 ## Client Artifact Upgrade
 

@@ -11,6 +11,8 @@ different backup primitive.
 - Record the image digests and `.env` values used by the running stack.
 - Keep backup files outside the repository and protect them like production
   secrets.
+- Choose an operator-controlled backup directory outside the repository, such as
+  `/var/backups/nixstasis`.
 - Run migrations explicitly; application startup does not run migrations.
 
 ## Bundled PostgreSQL Backup
@@ -21,7 +23,7 @@ For the bundled Compose database, take a logical dump from the `postgres` servic
 cd deploy/compose
 docker compose --env-file .env exec -T postgres \
   sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
-  > nixstasis-$(date +%Y%m%d%H%M%S).dump
+  > /var/backups/nixstasis/nixstasis-$(date +%Y%m%d%H%M%S).dump
 ```
 
 The `sh -c` wrapper expands database variables inside the container environment
@@ -30,7 +32,10 @@ operator-controlled backup location.
 
 ## Bundled PostgreSQL Restore
 
-Restore into a disposable or recovered stack before declaring the backup valid:
+Restore into a disposable or recovered stack before declaring the backup valid.
+Use a fresh PostgreSQL volume or an empty target database; `pg_restore --clean`
+does not remove objects that were created after the backup and are absent from
+the dump.
 
 ```sh
 cd deploy/compose
