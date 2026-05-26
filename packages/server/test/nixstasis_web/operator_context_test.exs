@@ -7,14 +7,14 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/viewer"})
 
     assert context["roles"] == ["nixstasis/viewer"]
-    assert context["device_permissions"] == %{"can_view" => true, "can_remote_access" => false}
+    assert context["device_permissions"] == %{"can_view" => true, "can_manage" => false, "can_remote_access" => false}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => false}
   end
 
   test "maps operator role to remote access and report management" do
     assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/operator"})
 
-    assert context["device_permissions"] == %{"can_view" => true, "can_remote_access" => true}
+    assert context["device_permissions"] == %{"can_view" => true, "can_manage" => true, "can_remote_access" => true}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
   end
 

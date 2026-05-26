@@ -32,6 +32,9 @@ defmodule NixstasisWeb.Permissions do
 
   def can_remote_access_device?(_, _), do: false
 
+  def can_manage_devices?(permissions) when is_map(permissions), do: permissions["can_manage"] == true
+  def can_manage_devices?(_permissions), do: false
+
   def can_view_reports?(session) when is_map(session), do: report_permissions(session)["can_view"] == true
   def can_view_reports?(_session), do: false
 

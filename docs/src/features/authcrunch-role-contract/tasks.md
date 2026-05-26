@@ -64,6 +64,8 @@
 - [x] T022 Run `hk check -a` before close-out.
 - [x] T023 Search docs and server code for stale AuthCrunch, role, group,
   `device_permissions`, and `report_permissions` references.
+- [x] T024 Run second-agent implementation review and address actionable quality,
+  security, and maintainability findings.
 
 ## Completion
 
