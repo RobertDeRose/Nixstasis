@@ -30,6 +30,10 @@ restarts before proceeding with application-level checks.
 
 - Visit `https://nixstasis.<base-domain>` through Caddy.
 - Confirm operator authentication completes through AuthCrunch.
+- Confirm an allowed operator role (`viewer`, `operator`, or `admin`) receives the
+  expected browser permissions. `viewer` should not be able to start remote access
+  or manage reports; `operator` and `admin` may use the currently implemented
+  operational controls.
 - Confirm LiveView pages load without origin or session errors.
 - Confirm migrations have been run explicitly with `/app/bin/migrate`.
 
