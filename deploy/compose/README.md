@@ -127,3 +127,9 @@ Scale client containers with `--clients N` or `docker compose --scale client=N`.
 deploy/compose/scripts/check_runtime_contract.sh
 deploy/compose/scripts/validate_stack.sh
 ```
+
+## Production Operations
+
+Production backup and restore, secret rotation, health checks, incident response,
+upgrade and rollback, and HA boundary runbooks live in
+`docs/src/operations/`.

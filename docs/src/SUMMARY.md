@@ -38,6 +38,13 @@
 # Operations
 
 - [Deployment Compose](modules/deployment-compose.md)
+- [Production Operations](operations/index.md)
+  - [Backup And Restore](operations/backup-restore.md)
+  - [Secret Rotation](operations/secret-rotation.md)
+  - [Health Checks](operations/health-checks.md)
+  - [Incident Response](operations/incidents.md)
+  - [Upgrades And Rollbacks](operations/upgrades-rollbacks.md)
+  - [HA And Scaling](operations/ha-scaling.md)
 - [Server-Client E2E Tests](features/server-client-e2e-tests/design.md)
 - [Self-Extracting Installer](features/self-extracting-installer/design.md)
 - [Packaging And Deployment Migration](features/packaging-deployment-migration/design.md)

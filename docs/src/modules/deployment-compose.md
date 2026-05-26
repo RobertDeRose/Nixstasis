@@ -7,6 +7,9 @@
 ## Runtime Context
 
 - Supported production server deployment path.
+- Production operations runbooks live in `docs/src/operations/` and document
+  backup, restore, rotation, incident response, upgrade, and HA boundary
+  procedures for this deployment path.
 
 ## Purpose
 
@@ -148,3 +151,4 @@ Traceable references:
 - `deploy/compose/docker-compose.yml:1-129`
 - `deploy/compose/README.md:1-117`
 - `deploy/compose/scripts/check_runtime_contract.sh`
+- `docs/src/operations/index.md`
