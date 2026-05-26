@@ -32,6 +32,7 @@ preferences, live in these feature designs rather than the architecture pages.
 
 - [Packaging And Deployment Migration](packaging-deployment-migration/design.md)
 - [Compose Dev Harness](compose-dev-harness/design.md)
+- [AuthCrunch Role Contract](authcrunch-role-contract/design.md)
 - [Self-Extracting Installer](self-extracting-installer/design.md)
 
 Current top-level book placement groups these same specs by reader intent:
