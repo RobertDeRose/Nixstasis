@@ -23,6 +23,8 @@
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`
 - `packages/server/lib/nixstasis_web/components/*.ex`
 - `packages/server/lib/nixstasis_web/live_dashboard/*.ex`
+- `packages/server/lib/nixstasis_web/operator_context.ex`
+- `packages/server/lib/nixstasis_web/plugs/device_permissions.ex`
 
 ## Public Interfaces
 
@@ -131,6 +133,12 @@ remains an ingress workflow boundary called by Caddy.
   routes when JSON:API media types are acceptable; browser/UI compatibility can
   continue using `/api/v1/builder-*` wrappers.
 - Browser UI uses Phoenix LiveView over HTTP and LiveView WebSocket transport.
+- Browser UI permissions are derived by `NixstasisWeb.OperatorContext` from
+  trusted Caddy/AuthCrunch claim headers when present. Supported production role
+  values are `viewer`, `operator`, and `admin`; missing or unknown production
+  roles fail closed for device and report permissions. Requests without
+  `X-Token-*` claim headers keep permissive local-development defaults and are
+  not production authorization.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.

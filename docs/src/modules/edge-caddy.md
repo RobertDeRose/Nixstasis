@@ -27,6 +27,18 @@
   - `*.{$BASE_DOMAIN}`
 - Caddy on-demand TLS ask endpoint:
   - `http://nixstasis:4000/api/v1/check_domain`
+- AuthCrunch forwarded claim headers for Phoenix UI capability mapping:
+  - `X-Token-Subject`
+  - `X-Token-User-Email`
+  - `X-Token-User-Name`
+  - `X-Token-User-Roles`
+  - `X-Token-User-Groups` only when explicitly added with custom header
+    injection.
+
+`inject headers with claims` is the source for the default `X-Token-*` claim
+headers. Phoenix treats those headers as trusted only behind the supported Caddy
+deployment path; Caddy still enforces `authorize with entra_policy` before
+proxying protected browser hosts.
 
 ## Dependencies
 

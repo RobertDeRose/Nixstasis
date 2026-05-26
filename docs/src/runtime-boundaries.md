@@ -118,6 +118,10 @@ Traceable references:
 ### Caddy to Phoenix
 
 - Public host `nixstasis.{$BASE_DOMAIN}` terminates TLS at Caddy and reverse proxies to `nixstasis:4000`.
+- Production browser authorization is enforced at Caddy/AuthCrunch before the
+  request reaches Phoenix. Phoenix maps trusted `X-Token-*` claim headers into UI
+  permission maps, but those forwarded headers are not trusted outside the
+  supported Caddy deployment path.
 - Caddy on-demand TLS asks Phoenix at `http://nixstasis:4000/api/v1/check_domain`.
 - Compose publishes only Caddy ports `80` and `443` for the main HTTP ingress.
 - Default laptop mode maps the same host pattern to `.localhost` names:
