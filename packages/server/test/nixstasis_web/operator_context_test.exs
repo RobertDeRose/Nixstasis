@@ -4,24 +4,27 @@ defmodule NixstasisWeb.OperatorContextTest do
   alias NixstasisWeb.OperatorContext
 
   test "maps viewer role to read-only device and report permissions" do
-    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "viewer"})
+    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/viewer"})
 
-    assert context["roles"] == ["viewer"]
+    assert context["roles"] == ["nixstasis/viewer"]
     assert context["device_permissions"] == %{"can_view" => true, "can_remote_access" => false}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => false}
   end
 
   test "maps operator role to remote access and report management" do
-    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "operator"})
+    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/operator"})
 
     assert context["device_permissions"] == %{"can_view" => true, "can_remote_access" => true}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
   end
 
   test "normalizes space and comma separated role claims" do
-    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "Viewer, OPERATOR admin"})
+    assert {:ok, context} =
+             OperatorContext.from_headers(%{
+               "x-token-user-roles" => "nixstasis/viewer nixstasis/OPERATOR,nixstasis/admin"
+             })
 
-    assert context["roles"] == ["viewer", "operator", "admin"]
+    assert context["roles"] == ["nixstasis/viewer", "nixstasis/operator", "nixstasis/admin"]
     assert context["device_permissions"]["can_remote_access"] == true
   end
 

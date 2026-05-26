@@ -32,13 +32,19 @@
   - `X-Token-User-Email`
   - `X-Token-User-Name`
   - `X-Token-User-Roles`
-  - `X-Token-User-Groups` only when explicitly added with custom header
-    injection.
 
 `inject headers with claims` is the source for the default `X-Token-*` claim
 headers. Phoenix treats those headers as trusted only behind the supported Caddy
 deployment path; Caddy still enforces `authorize with entra_policy` before
 proxying protected browser hosts.
+
+Group-to-role mapping happens in Caddy/AuthCrunch, not Phoenix. The production
+environment provides provider-specific OIDC group values in
+`NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and
+`NIXSTASIS_ADMIN_GROUPS`; AuthCrunch `transform user` blocks add normalized
+`nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin` roles. This keeps
+Phoenix provider-agnostic and lets any AuthCrunch-supported OIDC provider use the
+same Nixstasis role contract.
 
 ## Dependencies
 

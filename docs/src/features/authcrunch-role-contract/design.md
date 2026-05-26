@@ -95,15 +95,11 @@ Define the smallest role set needed by the current product surfaces:
 - `admin`: may perform all operator actions plus manage settings and future
   privileged configuration surfaces.
 
-Map AuthCrunch `AUTHORIZED_ROLES` and `AUTHORIZED_GROUPS` to one or more of these
-capabilities. The first implementation may use role names only when group-to-role
-mapping is not yet available, but it must document that limitation and keep group
-authorization at the Caddy edge intact.
-
-If group IDs are accepted by Caddy but Phoenix cannot reliably map them to
-capabilities yet, retain group enforcement at the edge and document group-to-role
-mapping as intentionally deferred rather than guessing operator-specific group
-semantics.
+Map provider-specific OIDC groups to one or more of these capabilities in
+Caddy/AuthCrunch, not Phoenix. Caddy `transform user` blocks should convert
+operator-provided group values into provider-generic `nixstasis/viewer`,
+`nixstasis/operator`, and `nixstasis/admin` roles before the request is proxied.
+Phoenix should consume only those normalized roles from `X-Token-User-Roles`.
 
 ### Phoenix Authorization Shape
 
@@ -196,5 +192,5 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
   proven.
 - Trusting forwarded headers is only safe behind the supported Caddy deployment;
   direct Phoenix exposure must not become a production path.
-- Group-to-role mapping may require operator-specific identity-provider choices;
-  the first implementation should document any limits instead of guessing.
+- Group-to-role mapping requires operator-specific identity-provider group values,
+  but Caddy owns that mapping so Phoenix remains provider-agnostic.

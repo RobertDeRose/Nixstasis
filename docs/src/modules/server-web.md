@@ -134,8 +134,9 @@ remains an ingress workflow boundary called by Caddy.
   continue using `/api/v1/builder-*` wrappers.
 - Browser UI uses Phoenix LiveView over HTTP and LiveView WebSocket transport.
 - Browser UI permissions are derived by `NixstasisWeb.OperatorContext` from
-  trusted Caddy/AuthCrunch claim headers when present. Supported production role
-  values are `viewer`, `operator`, and `admin`; missing or unknown production
+  trusted Caddy/AuthCrunch role claim headers when present. Supported production
+  role values are normalized by Caddy to `nixstasis/viewer`,
+  `nixstasis/operator`, and `nixstasis/admin`; missing or unknown production
   roles fail closed for device and report permissions. Requests without
   `X-Token-*` claim headers keep permissive local-development defaults and are
   not production authorization.
