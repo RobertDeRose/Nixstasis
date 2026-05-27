@@ -133,7 +133,7 @@ stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
 with `--clients N`.
 
-## Packaging
+## Packaging And Installation
 
 GoReleaser is the supported client release path for archive, `.deb`, and `.rpm` outputs. Release CI also builds
 self-extracting `.run` installers for systemd Linux hosts that do not use deb or rpm packages.
@@ -165,6 +165,13 @@ The generated archive and native packages install these client assets:
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one.
+
+Install native packages with the host package manager:
+
+```bash
+sudo apt install ./nixstasis_<version>_linux_<arch>.deb
+sudo rpm -Uvh ./nixstasis-<version>-1.<arch>.rpm
+```
 
 The self-extracting installer contains the same filesystem payload as the native
 packages and runs the package post-install script after extraction. It requires a
@@ -204,6 +211,22 @@ it to the transient FRPC unit as the `FRPS_AUTH_TOKEN` systemd credential.
 `frp.auth_token` is not the normal remote-access token source. Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
 as an override.
+
+The repository also exposes a Nix flake package for Nix-managed hosts and build
+validation:
+
+```bash
+nix build .#client
+nix build .#packages.x86_64-linux.client
+nix build .#packages.aarch64-linux.client
+```
+
+The flake package installs `nixstasis` under `$out/bin`, links bundled `frpc` at
+`$out/libexec/nixstasis/frpc`, and installs templates under
+`$out/share/nixstasis/`. It wraps the CLI with default FRPC paths pointing into
+the Nix store. Unlike the native packages and `.run` installer, the flake
+package does not seed `/etc/nixstasis/config.yaml` or install systemd units;
+manage those with NixOS, Home Manager, or deployment tooling.
 
 For local-only packaging experiments, you can still override the bundled binary:
 
