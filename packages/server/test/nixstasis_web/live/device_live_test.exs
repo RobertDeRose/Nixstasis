@@ -238,6 +238,22 @@ defmodule NixstasisWeb.DeviceLiveTest do
              )
     end
 
+    test "device refresh events do not expose inventory to unauthorized sessions", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:08"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => false})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      send(view.pid, {:device_updated, device})
+
+      refute has_element?(view, "#devices-stream tr")
+      assert render(view) =~ "not authorized to view devices"
+    end
+
     test "device selection and bulk actions are blocked for view-only sessions", %{conn: conn} do
       device = create_device!(%{mac_address: "DE:AD:BE:EF:00:06", approval_status: :pending})
 

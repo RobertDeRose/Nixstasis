@@ -62,8 +62,8 @@ the retired spec-kit contract files.
   `nixstasis/admin` currently grants the same implemented permissions as
   `operator` and is reserved for privileged settings surfaces.
 - Missing, malformed, or unknown production role claims fail closed. Direct local
-  Phoenix requests without `X-Token-*` claim headers keep development-only
-  permissive defaults.
+  Phoenix requests without `X-Token-*` claim headers keep development-only,
+  device-only permissive defaults.
 
 ## Generated OpenAPI
 

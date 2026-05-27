@@ -49,7 +49,7 @@ deploy/compose/scripts/dev-lab.sh exec nixstasis /bin/bash
 ## Production
 
 1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, and the `NIXSTASIS_*_GROUPS` group-to-role mapping values.
-2. Set `BIND_HOST=0.0.0.0` and `CADDY_CONFIG=./caddy/Caddyfile`.
+2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
 5. Run migrations: `docker compose run --rm nixstasis /app/bin/migrate`
@@ -72,8 +72,9 @@ targeting the compose `postgres` host.
 | Variable             | Dev                          | Prod                        |
 |----------------------|------------------------------|-----------------------------|
 | `BIND_HOST`          | `127.0.0.1`                  | `0.0.0.0`                   |
+| `PHOENIX_BIND_HOST`  | `127.0.0.1`                  | `127.0.0.1`                 |
 | `CADDY_CONFIG`       | `./caddy/Caddyfile.laptop`   | `./caddy/Caddyfile`         |
-| `CHECK_ORIGIN_EXTRA` | `localhost,127.0.0.1`        | (unset)                     |
+| `CHECK_ORIGIN_EXTRA` | `nixstasis.localhost,127.0.0.1:4000` | (unset)             |
 | `NIXSTASIS_FORCE_SSL`| `false`                      | (unset, defaults to true)   |
 | `*_IMAGE_REF`        | Local tags (`*:dev`)         | Digest-pinned GHCR refs     |
 
@@ -81,6 +82,9 @@ targeting the compose `postgres` host.
 
 - Public ingress terminates at Caddy.
 - Phoenix runs on `PORT=4000` internally.
+- Phoenix's optional host-published diagnostic port binds to
+  `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
+  production; browser authorization is only supported through Caddy/AuthCrunch.
 - `FRPS_AUTH_TOKEN` is provided to both `frps` and `nixstasis`; FRPS uses it for
   token auth, and Phoenix only returns it to authenticated device heartbeats while
   remote access is requested for that device.
