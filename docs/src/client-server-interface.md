@@ -77,6 +77,15 @@ Request:
 {
   "mac_address": "00:11:22:33:44:55",
   "product_name": "atom-001122334455",
+  "schema": {
+    "product": "atom-001122334455",
+    "version": "v1",
+    "type": "object",
+    "properties": {
+      "temperature_c": {"type": "number"},
+      "disk_used_pct": {"type": "number"}
+    }
+  },
   "metadata": {
     "ip_address": "192.0.2.10",
     "client_uuid": "optional-existing-uuid"
@@ -84,13 +93,35 @@ Request:
 }
 ```
 
-Response shape:
+Pending approval response:
 
 ```json
 {
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "api_token": "issued-only-after-approval"
+    "approval_status": "pending"
+  }
+}
+```
+
+Approved credential response:
+
+```json
+{
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "approval_status": "approved",
+    "api_token": "opaque-device-runtime-token"
+  }
+}
+```
+
+Validation error response when the schema payload is missing or invalid:
+
+```json
+{
+  "errors": {
+    "schema_definition": ["schema must include product"]
   }
 }
 ```
@@ -111,30 +142,98 @@ Request:
 
 ```json
 {
-  "telemetry": {},
+  "scripts": {
+    "disk": {
+      "data": {
+        "usage_pct": 73.2
+      }
+    }
+  },
   "connection_status": {
     "active": true,
-    "connection_string": "...",
+    "connection_string": "tcp://frps.example.invalid:7000",
     "pid": 1234,
     "start_time": "2026-05-06T14:00:00Z"
   }
 }
 ```
 
-Response shape:
+No-command response:
+
+```json
+{
+  "data": {
+    "commands": []
+  }
+}
+```
+
+Remote-access response:
 
 ```json
 {
   "data": {
     "remote_access_token": "shared-frps-token",
+    "commands": []
+  }
+}
+```
+
+Command delivery response:
+
+```json
+{
+  "data": {
     "commands": [
       {
-        "command_id": "...",
-        "type": "list_scripts",
+        "command_id": "11111111-1111-4111-8111-111111111111",
+        "type": "install_script",
         "args": [],
-        "payload_ref": "..."
+        "payload": {
+          "name": "disk",
+          "data": "# stary script content"
+        }
       }
     ]
+  }
+}
+```
+
+Deferred payload response:
+
+```json
+{
+  "data": {
+    "commands": [
+      {
+        "command_id": "22222222-2222-4222-8222-222222222222",
+        "type": "install_script",
+        "args": [],
+        "payload_ref": "install-disk-v2"
+      }
+    ]
+  }
+}
+```
+
+Authentication failures use the shared runtime API error envelope:
+
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "API key is invalid"
+  }
+}
+```
+
+Devices that are not approved receive a distinct authorization failure:
+
+```json
+{
+  "error": {
+    "code": "device_not_approved",
+    "message": "Device is not approved"
   }
 }
 ```
@@ -156,20 +255,36 @@ Request:
 {
   "results": [
     {
-      "command_id": "...",
+      "command_id": "11111111-1111-4111-8111-111111111111",
       "status": "OK",
-      "output": {}
+      "output": {"installed": true}
+    },
+    {
+      "command_id": "33333333-3333-4333-8333-333333333333",
+      "status": "FAILED",
+      "error": "script validation failed"
     }
   ]
 }
 ```
 
-Response shape:
+Accepted response:
 
 ```json
 {
   "data": {
-    "acknowledged_count": 1
+    "acknowledged_count": 2
+  }
+}
+```
+
+Missing-token response:
+
+```json
+{
+  "error": {
+    "code": "missing_api_key",
+    "message": "API key is required"
   }
 }
 ```
@@ -182,13 +297,60 @@ Traceable references:
 
 ### Command Payload
 
-Response shape:
+Success response:
 
 ```json
 {
-  "content_type": "...",
-  "name": "...",
-  "data": "..."
+  "content_type": "text/plain",
+  "name": "disk",
+  "data": "# stary script content"
+}
+```
+
+Missing payload response:
+
+```json
+{
+  "error": {
+    "code": "payload_not_found",
+    "message": "Command payload not found"
+  }
+}
+```
+
+Wrong-device or invalid-token response:
+
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "API key is invalid"
+  }
+}
+```
+
+### Caddy Domain Approval
+
+The Caddy on-demand TLS ask endpoint uses the `domain` query parameter. It
+returns HTTP `204` with an empty body when the host is permitted.
+
+Allowed reserved host example:
+
+```http
+GET /api/v1/check_domain?domain=nixstasis.devices.example.com
+```
+
+Allowed remote-access-requesting device host example:
+
+```http
+GET /api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com
+```
+
+Denied host response:
+
+```json
+{
+  "error": "The host is not permitted"
 }
 ```
 
@@ -196,6 +358,7 @@ Traceable references:
 
 - `packages/client/internal/transport/client.go:202-212`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:28-38`
+- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:21-27`
 - `docs/src/features/go-client-rewrite/design.md`
 
 ## Builder API Mapping
@@ -220,6 +383,78 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/controllers/builder_schema_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
 
+## Builder API Examples
+
+Schema option lookup response:
+
+```json
+{
+  "data": {
+    "schema_id": "thermostat-v1",
+    "schema_version": "v1",
+    "builder": "alert",
+    "options": [
+      {
+        "key": "temp",
+        "label": "temp",
+        "value_type": "number",
+        "order_index": 0,
+        "selectable": true
+      }
+    ],
+    "load_time_ms": 4
+  }
+}
+```
+
+Missing schema response:
+
+```json
+{
+  "error": {
+    "code": "schema_not_found",
+    "message": "Schema reference not found"
+  }
+}
+```
+
+Validation request:
+
+```json
+{
+  "builder": "report",
+  "schema_id": "sensor-v2",
+  "schema_version": "v2",
+  "selections": [
+    {"slot_id": "a", "selected_key": "pressure"},
+    {"slot_id": "b", "selected_key": "missing"}
+  ]
+}
+```
+
+Validation response with stale selections cleared:
+
+```json
+{
+  "valid": false,
+  "issues": [
+    {
+      "issue_code": "invalid_schema_field",
+      "message": "Selected field is not available in the active schema.",
+      "slot_id": "b",
+      "blocking": true
+    }
+  ],
+  "cleared_slot_ids": ["b"]
+}
+```
+
+Traceable references:
+
+- `docs/src/reference/openapi/builder-api.yaml`
+- `packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs`
+- `packages/server/test/nixstasis_web/controllers/builder_config_validation_controller_test.exs`
+
 ## E2E API Mapping
 
 | Endpoint | Handler | Purpose |
@@ -242,6 +477,188 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/router.ex:68-79`
 - `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-93`
 - `README.md:96-116`
+
+## E2E API Examples
+
+Run creation request:
+
+```http
+POST /e2e/runs
+X-E2E-Protocol-Version: 1
+Content-Type: application/json
+```
+
+```json
+{
+  "suite_id": "full",
+  "environment_label": "local",
+  "trigger_source": "manual",
+  "metadata": {"requested_by": "operator@example.invalid"}
+}
+```
+
+Run creation response:
+
+```json
+{
+  "data": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "suite_id": "full",
+    "journey_ids": ["auth", "dashboard"],
+    "environment_label": "local",
+    "trigger_source": "manual",
+    "protocol_version": "1",
+    "status": "queued"
+  }
+}
+```
+
+Idempotent run reuse uses the same request with an `idempotency_key` that
+matches an existing run:
+
+```json
+{
+  "suite_id": "full",
+  "environment_label": "local",
+  "trigger_source": "ci",
+  "idempotency_key": "ci-2026-05-30T120000Z"
+}
+```
+
+Environment lock conflict response:
+
+```json
+{
+  "error": {
+    "code": "environment_locked",
+    "message": "Environment 'local' already has an active E2E run."
+  }
+}
+```
+
+Protocol mismatch response:
+
+```json
+{
+  "error": {
+    "code": "protocol_mismatch",
+    "message": "Unsupported protocol version '99'."
+  }
+}
+```
+
+Seed failure response:
+
+```json
+{
+  "error": {
+    "code": "seed_failed",
+    "message": "Baseline test data is missing. Seed script not found for environment 'local'."
+  }
+}
+```
+
+Cancellation response:
+
+```json
+{
+  "data": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "status": "cancelled"
+  }
+}
+```
+
+Result submission request:
+
+```json
+{
+  "results": [
+    {
+      "journey_id": "auth",
+      "status": "passed",
+      "duration_ms": 1200,
+      "log_ref": "runs/44444444-4444-4444-8444-444444444444/auth.jsonl"
+    }
+  ]
+}
+```
+
+Result submission response:
+
+```json
+{
+  "data": [
+    {
+      "journey_id": "auth",
+      "status": "passed",
+      "duration_ms": 1200,
+      "log_ref": "runs/44444444-4444-4444-8444-444444444444/auth.jsonl"
+    }
+  ]
+}
+```
+
+Journey log response:
+
+```json
+{
+  "data": {
+    "run_id": "44444444-4444-4444-8444-444444444444",
+    "journey_id": "auth",
+    "content": "{\"status\":\"ok\"}\n"
+  }
+}
+```
+
+Missing or pruned log response:
+
+```json
+{
+  "error": {
+    "code": "log_unavailable",
+    "message": "Log is unavailable (possibly pruned or deleted)."
+  }
+}
+```
+
+Traceable references:
+
+- `docs/src/reference/openapi/e2e-api.yaml`
+- `packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs`
+- `packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs`
+
+## Report And Alert API Examples
+
+Custom report result preview response:
+
+```json
+{
+  "data": {
+    "fields": ["device_id", "temperature_c", "created_at"],
+    "rows": [
+      {
+        "device_id": "550e8400-e29b-41d4-a716-446655440000",
+        "temperature_c": 21.5,
+        "created_at": "2026-05-06T14:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+Missing report response uses HTTP `404` with an empty body.
+
+Alert-rule HTTP contracts are generated with the Ash JSON:API OpenAPI document,
+not retained as bespoke `/api/v1` examples. Use
+`packages/server/priv/static/openapi.yaml` paths under `/api/json/alert_rules`
+for the canonical alert-rule request and response shapes.
+
+Traceable references:
+
+- `docs/src/reference/openapi/report-api.yaml`
+- `packages/server/lib/nixstasis_web/controllers/report_result_controller.ex`
+- `packages/server/priv/static/openapi.yaml`
 
 ## Authentication and Session Handling
 

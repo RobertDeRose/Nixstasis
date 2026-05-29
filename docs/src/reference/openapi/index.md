@@ -8,6 +8,10 @@ Phoenix controller APIs used by the Go client, legacy builder UI compatibility,
 TLS approval, report previews, and E2E harness are bespoke routes, so their
 wire-compatible controller contracts live here.
 
+Generated Ash JSON:API request and response shapes, including alert-rule
+contracts for `/api/json/alert_rules`, remain in
+`packages/server/priv/static/openapi.yaml`.
+
 ## Contracts
 
 - [Device API](device-api.yaml): registration, heartbeat, command results,
@@ -27,5 +31,7 @@ wire-compatible controller contracts live here.
   `/e2e` controller owns the route.
 - Keep the builder `/api/v1` contract here until all consumers can use the
   generated `/api/json/builder_contract/*` routes directly.
+- Link to generated Ash OpenAPI for resources such as alert rules instead of
+  adding retained bespoke examples for routes that are not controller-owned.
 - If an API is reference-only or planned, keep it out of these files until it is
   part of the final implementation contract.
