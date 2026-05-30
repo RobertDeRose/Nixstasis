@@ -28,4 +28,8 @@ book.
 - [Server-Client E2E Tests](../features/server-client-e2e-tests/tasks.md)
 - [Packaging And Deployment Migration](../features/packaging-deployment-migration/tasks.md)
 - [Compose Dev Harness](../features/compose-dev-harness/tasks.md)
+- [Production Operations Runbooks](../features/production-operations-runbooks/tasks.md)
+- [Ash API Contract Unification](../features/ash-api-contract-unification/tasks.md)
+- [Rich API Examples](../features/rich-api-examples/tasks.md)
 - [Self-Extracting Installer](../features/self-extracting-installer/tasks.md)
+- [AuthCrunch Role Contract](../features/authcrunch-role-contract/tasks.md)
