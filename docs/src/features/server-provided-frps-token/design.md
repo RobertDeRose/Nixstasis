@@ -27,7 +27,7 @@ a systemd credential, and stops FRPC when no token is provided.
 - Changing the terminal channel or browser authorization model.
 - Persisting the FRPS token on client hosts.
 
-## Current Behavior
+## Pre-Implementation Behavior
 
 - The Phoenix heartbeat response includes `remote_access_requested: boolean`.
 - The Go client starts FRPC when `remote_access_requested` is true.
