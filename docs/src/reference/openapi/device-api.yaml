@@ -62,7 +62,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [mac_address, schema_definition]
+              required: [mac_address]
               properties:
                 mac_address:
                   type: string
@@ -89,6 +89,9 @@ paths:
                 metadata:
                   type: object
                   additionalProperties: true
+              anyOf:
+                - required: [schema_definition]
+                - required: [schema]
       responses:
         "201":
           description: Registration accepted

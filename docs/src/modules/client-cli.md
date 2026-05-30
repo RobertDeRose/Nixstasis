@@ -123,7 +123,7 @@ Traceable references:
 - `packages/client/README.md:136-214`
 - `packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml`
 - `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
-- `packages/client/scripts/release/install.sh`
+- `packages/client/build/makeself/entrypoint.sh`
 - `flake.nix:50-78`
 
 ## Dependencies
