@@ -62,6 +62,9 @@
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
   - [Device Detail Page](features/device-detail-page/design.md)
   - [Server-Provided FRPS Token](features/server-provided-frps-token/design.md)
+  - [Ash API Contract Unification](features/ash-api-contract-unification/design.md)
+  - [Production Operations Runbooks](features/production-operations-runbooks/design.md)
+  - [Rich API Examples](features/rich-api-examples/design.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/design.md)
 - [Planned Features](planned-features.md)
 

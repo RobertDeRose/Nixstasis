@@ -13,7 +13,7 @@
 - Browser terminal to Phoenix:
   - Phoenix Channels over WebSocket on topic `terminal:*`.
 - Caddy to Phoenix:
-  - Reverse proxy to `nixstasis:4000`.
+  - Reverse proxy to `nixstasis:${PORT}`.
   - HTTP ask endpoint for on-demand TLS approval.
 - E2E client to Phoenix:
   - HTTP JSON requests under `/e2e`.

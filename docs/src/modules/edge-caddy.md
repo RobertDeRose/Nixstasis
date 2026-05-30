@@ -26,7 +26,7 @@
   - `frp-admin.{$BASE_DOMAIN}`
   - `*.{$BASE_DOMAIN}`
 - Caddy on-demand TLS ask endpoint:
-  - `http://nixstasis:4000/api/v1/check_domain`
+  - `http://nixstasis:${PORT}/api/v1/check_domain`
 - AuthCrunch forwarded claim headers for Phoenix UI capability mapping:
   - `X-Token-Subject`
   - `X-Token-User-Email`
@@ -50,7 +50,7 @@ same Nixstasis role contract.
 
 ### Internal
 
-- Phoenix service `nixstasis:4000`.
+- Phoenix service `nixstasis:${PORT}`.
 - FRPS service ports.
 - Compose environment variables.
 

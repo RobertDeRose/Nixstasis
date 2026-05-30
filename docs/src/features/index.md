@@ -32,6 +32,9 @@ preferences, live in these feature designs rather than the architecture pages.
 
 - [Packaging And Deployment Migration](packaging-deployment-migration/design.md)
 - [Compose Dev Harness](compose-dev-harness/design.md)
+- [Production Operations Runbooks](production-operations-runbooks/design.md)
+- [Ash API Contract Unification](ash-api-contract-unification/design.md)
+- [Rich API Examples](rich-api-examples/design.md)
 - [AuthCrunch Role Contract](authcrunch-role-contract/design.md)
 - [Self-Extracting Installer](self-extracting-installer/design.md)
 

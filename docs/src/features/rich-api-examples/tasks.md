@@ -15,5 +15,5 @@
 - [x] T010 Update Reference links so readers can find generated Ash OpenAPI examples and retained bespoke examples from the same entry point.
 - [x] T011 Validate examples against current tests, generated OpenAPI, and implementation references; update examples that do not match current behavior.
 - [x] T012 Run `mdbook build docs` and fix navigation, link, or rendering issues.
-- [x] T013 Run applicable OpenAPI validation for edited hand-maintained YAML contracts, or document why no project validation command applies. No hand-maintained OpenAPI YAML contracts were edited in the final implementation, and the generated Ash OpenAPI file was left unchanged after review.
+- [x] T013 Run applicable OpenAPI validation for edited hand-maintained YAML contracts, or document why no project validation command applies. No project OpenAPI validation command exists; examples were checked against controller tests, client transport code, retained bespoke OpenAPI YAML, and generated Ash OpenAPI references.
 - [x] T999 Review completed examples against goals, non-goals, constraints, and success criteria before close-out.

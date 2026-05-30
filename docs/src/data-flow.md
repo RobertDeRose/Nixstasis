@@ -26,9 +26,9 @@ sequenceDiagram
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
 3. Client generates a device name from the MAC address.
-4. Client sends `POST /api/v1/devices/register` with `mac_address`, optional `product_name`, and optional `metadata`.
-5. Phoenix `DeviceController.register/2` calls `Nixstasis.Devices.register_device/1`.
-6. `Devices.register_device/1` validates any supplied schema definition and calls `Nixstasis.Domain.register_device/1`.
+4. Client sends `POST /api/v1/devices/register` with `mac_address`, optional `product_name`, a required schema payload, and optional `metadata`.
+5. Phoenix `DeviceController.register/2` calls `Nixstasis.Devices.register_public_device/1`.
+6. `Devices.register_public_device/1` validates the supplied schema definition and calls `Nixstasis.Domain.register_device/1`.
 7. Server responds `201` with `data.id` and includes `data.api_token` when the device is approved.
 8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()` and uses the issued token for runtime API calls.
 
