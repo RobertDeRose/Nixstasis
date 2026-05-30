@@ -34,7 +34,15 @@ defmodule NixstasisWeb.OperatorContext do
     if token_claim_path?(headers) do
       from_headers(headers)
     else
+      fallback_context()
+    end
+  end
+
+  def fallback_context do
+    if local_development_fallback?() do
       :local_development
+    else
+      :error
     end
   end
 
@@ -62,7 +70,8 @@ defmodule NixstasisWeb.OperatorContext do
 
   def local_development_permissions do
     %{
-      "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true}
+      "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
+      "report_permissions" => %{"can_view" => true, "can_manage" => true}
     }
   end
 
@@ -75,6 +84,10 @@ defmodule NixstasisWeb.OperatorContext do
 
   defp token_claim_path?(headers) do
     Enum.any?(@token_headers, &Map.has_key?(headers, &1))
+  end
+
+  defp local_development_fallback? do
+    Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
   end
 
   defp permissions_for_roles([]), do: :error

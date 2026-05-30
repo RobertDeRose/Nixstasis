@@ -24,7 +24,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
         |> put_permissions(operator_context)
 
       :error ->
-        Logger.warning("AuthCrunch browser claim headers were present but no valid Nixstasis role was found")
+        Logger.warning("Browser request did not resolve to valid Nixstasis operator permissions")
 
         conn
         |> put_session("operator_context", %{"authcrunch_claim_error" => true})

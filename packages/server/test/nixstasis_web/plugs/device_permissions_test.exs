@@ -1,5 +1,5 @@
 defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
-  use NixstasisWeb.ConnCase, async: true
+  use NixstasisWeb.ConnCase, async: false
 
   alias NixstasisWeb.Plugs.DevicePermissions
 
@@ -12,7 +12,25 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
              "can_remote_access" => true
            }
 
-    assert is_nil(get_session(conn, "report_permissions"))
+    assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+  end
+
+  test "fails closed when fallback is disabled and AuthCrunch headers are absent", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    conn = conn |> init_test_session(%{}) |> DevicePermissions.call([])
+
+    assert get_session(conn, "device_permissions") == %{
+             "can_view" => false,
+             "can_manage" => false,
+             "can_remote_access" => false
+           }
+
+    assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
+    assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
 
   test "maps AuthCrunch viewer role to read-only permissions", %{conn: conn} do
