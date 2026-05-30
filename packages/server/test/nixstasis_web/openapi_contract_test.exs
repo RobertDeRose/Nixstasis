@@ -95,9 +95,10 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     refute openapi =~ "http://localhost:4000"
   end
 
-  test "generated OpenAPI does not require bearer auth for unauthenticated JSON API routes" do
+  test "generated OpenAPI documents bearer auth for JSON API routes" do
     openapi = File.read!(@openapi_path)
 
-    refute openapi =~ "security:\n  - bearerAuth: []"
+    assert openapi =~ "bearerAuth:"
+    assert openapi =~ ~r/security:\n\s+- bearerAuth: \[\]/
   end
 end

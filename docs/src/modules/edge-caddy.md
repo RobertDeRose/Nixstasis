@@ -63,7 +63,11 @@ same Nixstasis role contract.
 
 ## Client-Server Interaction Details
 
-- Browser and client HTTPS traffic to `nixstasis.<base-domain>` is routed to Phoenix.
+- Browser/operator HTTPS traffic to `nixstasis.<base-domain>` is authorized by
+  AuthCrunch before proxying to Phoenix.
+- Device protocol HTTPS traffic on `nixstasis.<base-domain>` bypasses AuthCrunch
+  only for registration, heartbeat, command result, and command payload routes;
+  Phoenix enforces the device credential contract for those runtime calls.
 - Wildcard device traffic is routed to FRPS HTTP vhost port.
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.

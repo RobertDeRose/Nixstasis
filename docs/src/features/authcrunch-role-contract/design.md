@@ -46,10 +46,13 @@ This feature is seeded from `docs/src/planned-features.md` entry
   `entra_policy` that allows `AUTHORIZED_ROLES` and `AUTHORIZED_GROUPS`, verifies
   `JWT_KEY`, validates bearer headers, and injects headers with claims.
 - Public browser hosts `nixstasis.<base-domain>`, `frp-admin.<base-domain>`, and
-  wildcard device hosts are protected by Caddy `authorize with entra_policy`.
+  wildcard device hosts are protected by Caddy `authorize with entra_policy`,
+  except for the Go client device protocol routes on `nixstasis.<base-domain>`.
+  Those device protocol routes bypass AuthCrunch at Caddy and authenticate in
+  Phoenix with registration-issued device credentials where applicable.
 - Phoenix browser routes use `NixstasisWeb.Plugs.DevicePermissions`, which maps
   trusted AuthCrunch roles into browser permission session state and keeps
-  device-only permissive defaults for direct local development without
+  local-development permissive defaults for direct dev/test requests without
   AuthCrunch claim headers.
 - `NixstasisWeb.Permissions` already evaluates device and report permission maps,
   including scoped device IDs and report view/manage flags.
@@ -117,6 +120,9 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
   possible.
 - Keep terminal session authorization tied to server-issued terminal session refs
   and device permission checks.
+- Treat `/api/json` as an operator/developer resource API rather than a device
+  runtime protocol. Caddy/AuthCrunch protects it on the public host, and Phoenix
+  applies route-level JSON:API role checks as a fail-closed backstop.
 
 ### Failure Behavior
 

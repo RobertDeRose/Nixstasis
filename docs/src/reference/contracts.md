@@ -62,8 +62,15 @@ the retired spec-kit contract files.
   `nixstasis/admin` currently grants the same implemented permissions as
   `operator` and is reserved for privileged settings surfaces.
 - Missing, malformed, or unknown production role claims fail closed. Direct local
-  Phoenix requests without `X-Token-*` claim headers keep development-only,
-  device-only permissive defaults.
+  Phoenix requests without `X-Token-*` claim headers keep development-only
+  permissive defaults only in dev and test.
+- The generated `/api/json` resource surface is protected as an
+  operator/developer API. It is separate from the Go client `/api/v1/devices`
+  runtime protocol and must not use device API tokens as operator credentials.
+- Optional scoped device claims (`X-Token-Device-Id`, `X-Token-Device-Ids`, or
+  `X-Token-Allowed-Device-Ids`) limit JSON:API device mutations to the listed
+  IDs. Unscoped device creation and collection-level command/telemetry writes
+  require unscoped device manage permission.
 
 ## Generated OpenAPI
 

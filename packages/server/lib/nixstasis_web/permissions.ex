@@ -35,11 +35,13 @@ defmodule NixstasisWeb.Permissions do
   def can_manage_devices?(permissions) when is_map(permissions), do: permissions["can_manage"] == true
   def can_manage_devices?(_permissions), do: false
 
-  def can_create_devices?(permissions) when is_map(permissions) do
+  def can_manage_all_devices?(permissions) when is_map(permissions) do
     permissions["can_manage"] == true and authorized_device_ids(permissions) == nil
   end
 
-  def can_create_devices?(_permissions), do: false
+  def can_manage_all_devices?(_permissions), do: false
+
+  def can_create_devices?(permissions), do: can_manage_all_devices?(permissions)
 
   def can_manage_device?(permissions, device_id) when is_map(permissions) do
     permissions["can_manage"] == true and device_authorized?(permissions, device_id)

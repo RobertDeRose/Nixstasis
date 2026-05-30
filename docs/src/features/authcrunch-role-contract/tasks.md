@@ -33,8 +33,9 @@
   token contracts.
 - [x] T009 Ensure unauthorized or malformed claim scenarios deny privileged UI
   behavior and avoid logging secrets or full sensitive claim blobs.
-- [x] T010 Preserve Caddy `authorize with entra_policy` as the production browser
-  authorization edge and do not replace it with Phoenix-only checks.
+- [x] T010 Preserve Caddy `authorize with entra_policy` as the production
+  browser/operator authorization edge while allowing only the Go client device
+  protocol routes to bypass AuthCrunch and authenticate in Phoenix.
 
 ## Documentation
 

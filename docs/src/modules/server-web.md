@@ -137,9 +137,14 @@ remains an ingress workflow boundary called by Caddy.
   trusted Caddy/AuthCrunch role claim headers when present. Supported production
   role values are normalized by Caddy to `nixstasis/viewer`,
   `nixstasis/operator`, and `nixstasis/admin`; missing or unknown production
-  roles fail closed for device and report permissions. Requests without
-  `X-Token-*` claim headers keep device-only local-development defaults and are
-  not production authorization.
+  roles fail closed for device, report, and JSON:API permissions. Requests
+  without `X-Token-*` claim headers keep local-development defaults only in dev
+  and test; they are not production authorization.
+- The generated `/api/json` resource surface is an operator/developer API, not
+  the device runtime protocol. Viewer roles may read resource data, operator
+  roles may manage device/report/alert resources according to capability maps,
+  and admin is required for system settings. Scoped device claims such as
+  `X-Token-Device-Ids` restrict JSON:API device mutations to those IDs.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.
