@@ -106,9 +106,15 @@ defmodule NixstasisWeb.OperatorContext do
     role_permissions = Map.fetch!(@role_capabilities, role)
 
     %{
-      "device_permissions" => Map.merge(permissions["device_permissions"], role_permissions["device_permissions"]),
-      "report_permissions" => Map.merge(permissions["report_permissions"], role_permissions["report_permissions"])
+      "device_permissions" =>
+        merge_capabilities(permissions["device_permissions"], role_permissions["device_permissions"]),
+      "report_permissions" =>
+        merge_capabilities(permissions["report_permissions"], role_permissions["report_permissions"])
     }
+  end
+
+  defp merge_capabilities(current, incoming) do
+    Map.merge(current, incoming, fn _key, left, right -> left == true or right == true end)
   end
 
   defp normalize_claim_values(value) when is_binary(value) do
