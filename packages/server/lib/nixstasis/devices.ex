@@ -472,6 +472,8 @@ defmodule Nixstasis.Devices do
   @doc """
   Approves multiple devices by ID.
   """
+  def approve_devices([]), do: {:error, :no_devices_selected}
+
   def approve_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
            pending_ids = pending_device_ids(ids)
@@ -498,6 +500,8 @@ defmodule Nixstasis.Devices do
   @doc """
   Rejects multiple devices by ID.
   """
+  def reject_devices([]), do: {:error, :no_devices_selected}
+
   def reject_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
            result =

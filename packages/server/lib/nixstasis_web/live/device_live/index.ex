@@ -266,33 +266,36 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("bulk_approve", _params, socket) do
-    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
-      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    if Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      handle_bulk_result(socket, Devices.approve_devices(socket.assigns.selected_ids), "approved", "approve")
     else
-      Devices.approve_devices(socket.assigns.selected_ids)
-
-      {:noreply,
-       socket
-       |> put_flash(:info, "Devices approved")
-       |> assign(:selected_ids, [])
-       # Refresh
-       |> push_navigate(to: ~p"/devices")}
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
     end
   end
 
   def handle_event("bulk_reject", _params, socket) do
-    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
-      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+    if Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+      handle_bulk_result(socket, Devices.reject_devices(socket.assigns.selected_ids), "rejected", "reject")
     else
-      Devices.reject_devices(socket.assigns.selected_ids)
-
-      {:noreply,
-       socket
-       |> put_flash(:info, "Devices rejected")
-       |> assign(:selected_ids, [])
-       # Refresh
-       |> push_navigate(to: ~p"/devices")}
+      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
     end
+  end
+
+  defp handle_bulk_result(socket, %{status: :success}, success_verb, _action_verb) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "Devices #{success_verb}")
+     |> assign(:selected_ids, [])
+     |> push_navigate(to: ~p"/devices")}
+  end
+
+  defp handle_bulk_result(socket, result, _success_verb, action_verb) do
+    Logger.warning("Failed to #{action_verb} selected devices: #{inspect(result)}")
+
+    {:noreply,
+     socket
+     |> put_flash(:error, "Unable to #{action_verb} selected devices.")
+     |> refresh_devices()}
   end
 
   defp toggle_device_selection(socket, id) do
