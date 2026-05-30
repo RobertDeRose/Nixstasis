@@ -52,6 +52,8 @@ paths:
                     $ref: "#/components/schemas/SchemaOptionsResponse"
         "404":
           description: Schema reference not found
+        "422":
+          description: Invalid schema options request
   /api/v1/builder-configurations/validate:
     post:
       summary: Validate builder selections against an active schema version
