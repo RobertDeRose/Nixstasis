@@ -2,6 +2,7 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
   use NixstasisWeb, :live_component
 
   alias Nixstasis.Devices
+  alias NixstasisWeb.Permissions
 
   @default_success_flash_timeout_ms 30_000
 
@@ -58,6 +59,17 @@ defmodule NixstasisWeb.DeviceLive.FormComponent do
   end
 
   defp save_device(socket, :new, device_params) do
+    if not Permissions.can_create_devices?(socket.assigns[:device_permissions]) do
+      {:noreply,
+       socket
+       |> put_flash(:error, "You are not authorized to manage devices.")
+       |> push_patch(to: socket.assigns.patch)}
+    else
+      create_device(socket, device_params)
+    end
+  end
+
+  defp create_device(socket, device_params) do
     # Inject defaults for manual entry
     device_params =
       device_params

@@ -103,6 +103,23 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "Devices"
     end
 
+    test "scoped manage sessions cannot add devices", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "AA:AA:AA:AA:AA:AA"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_manage" => true, "device_ids" => [allowed.id]})
+
+      {:ok, view, html} = live(conn, ~p"/devices")
+
+      refute html =~ "Add Device"
+
+      assert {:error, {:live_redirect, %{to: "/devices", flash: %{"error" => message}}}} = live(conn, ~p"/devices/new")
+      assert message =~ "not authorized to manage devices"
+      assert render(view) =~ "Devices"
+    end
+
     test "renders MAC Address and Product columns", %{conn: conn} do
       _ =
         create_device!(%{
