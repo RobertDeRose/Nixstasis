@@ -100,4 +100,64 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
 
     assert %{"errors" => [%{"code" => "invalid_body"}]} = json_response(conn, 400)
   end
+
+  test "alert-rule JSON:API read requires viewer role when local fallback is disabled", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> get("/api/json/alert_rules")
+             |> json_response(403)
+
+    conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> get("/api/json/alert_rules")
+
+    assert %{"data" => []} = json_response(conn, 200)
+  end
+
+  test "alert-rule JSON:API writes require manager role when local fallback is disabled", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    params = %{
+      "data" => %{
+        "type" => "alert_rule",
+        "attributes" => %{
+          "name" => "High temp",
+          "product_name" => "jsonapi-v1",
+          "condition_field" => "temp",
+          "operator" => ">",
+          "threshold_value" => "70"
+        }
+      }
+    }
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("content-type", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> post("/api/json/alert_rules", params)
+             |> json_response(403)
+
+    conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> post("/api/json/alert_rules", params)
+
+    assert %{"data" => %{"type" => "alert_rule"}} = json_response(conn, 201)
+  end
 end
