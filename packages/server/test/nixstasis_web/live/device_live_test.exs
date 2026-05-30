@@ -269,6 +269,13 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert Devices.get_device!(device.id).approval_status == :pending
     end
 
+    test "bulk actions surface failures", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      assert render_hook(view, "bulk_approve", %{}) =~ "Unable to approve selected devices."
+      assert render_hook(view, "bulk_reject", %{}) =~ "Unable to reject selected devices."
+    end
+
     test "device details navigation is blocked when permissions explicitly deny access", %{conn: conn} do
       _device = create_device!(%{mac_address: "DE:AD:BE:EF:00:02"})
 
