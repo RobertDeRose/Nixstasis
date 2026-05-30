@@ -104,33 +104,21 @@ because GitHub Release downloads do not preserve the executable bit.
 
 ### Archive Assembly
 
-A new script `packages/client/scripts/release/build_installer.sh` assembles
-the `.run` archive:
+GoReleaser `makeselfs` assembles the `.run` archive using
+`packages/client/build/makeself/` scripts:
 
-1. Accept `DIST_DIR` (GoReleaser dist directory, default `dist`) and `ARCH`
-   (`amd64` or `arm64`) as inputs.
-2. Create a temporary staging directory.
-3. Copy the compiled `nixstasis` binary from the GoReleaser build output in
-   `dist/nixstasis_linux_<arch>/nixstasis`.
-4. Copy `frpc` from `build/root-dir/usr/libexec/nixstasis/frpc_<arch>` and
-   rename to `frpc`.
-5. Copy config files from `build/root-dir/`:
-   - `usr/share/nixstasis/frpc.toml` -> `frpc.toml`
-   - `usr/share/nixstasis/config.example.yaml` -> `config.example.yaml`
-6. Copy systemd units from `build/root-dir/lib/systemd/system/`:
-   - `nixstasis-poll.service`
-   - `nixstasis-poll.path`
-   - `nixstasis-registration.service`
-7. Copy `install.sh` from `scripts/release/install.sh`.
-8. Read version from `dist/metadata.json` (GoReleaser output).
-9. Generate `artifacts.json` by computing sha256 and recording mode for each
-   file in staging.
-10. Run `makeself --nox11 <staging> <output> <label>` to produce
-    `nixstasis-<version>-linux-<arch>.run` into `dist/`.
+1. Copy files from `build/root-dir/` into the generated installer payload.
+2. Copy the compiled `nixstasis` binary from GoReleaser archive output.
+3. Copy bundled `frpc` from `dist/frp/frpc_<arch>`.
+4. Include systemd units from `build/root-dir/lib/systemd/system/`.
+5. Use `build/makeself/entrypoint.sh` as the installer entrypoint.
+6. Generate and verify `artifacts.json` during release artifact validation.
+7. Run `makeself --nox11 <staging> <output> <label>` through GoReleaser to
+   produce `nixstasis-<version>-linux-<arch>.run` under `dist/makeself/`.
 
 ### Install Script
 
-`packages/client/scripts/release/install.sh` is a POSIX shell script that:
+`packages/client/build/makeself/entrypoint.sh` is a POSIX shell script that:
 
 1. Checks for root privileges (`id -u` equals 0; avoids `$EUID` which is
    bash-only).
@@ -211,9 +199,9 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 ## Dependencies
 
 - `packages/frp/bin/download_frp.sh` (shared FRP acquisition, already used)
-- `packages/client/scripts/fetch_frpc.sh` (stages frpc into build/root-dir)
+- `packages/client/build/bin/fetch_frpc.sh` (stages frpc into GoReleaser output)
 - `.github/workflows/release_client.yml` (release pipeline)
-- `packages/client/scripts/release/verify_artifacts.sh` (artifact validation)
+- `packages/client/build/bin/verify_artifacts.sh` (artifact validation)
 - `packages/client/build/root-dir/` (FHS layout source)
 - `prod.env` (FRP version pins)
 - `packages/client/.goreleaser.yaml` (archive structure reference)
