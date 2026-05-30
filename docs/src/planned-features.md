@@ -528,7 +528,7 @@ production-like environment.
 
 ### `rich-api-examples`
 
-- Status: planned
+- Status: completed
 - Overview:
 - Add example-rich API documentation for maintained HTTP contracts. Provide
     representative requests and responses for successful calls, validation
@@ -570,6 +570,14 @@ production-like environment.
     controllers change.
 - Too many examples can obscure the canonical contract if not organized by API
     surface.
+- Completion notes:
+- Rich API examples are documented in `docs/src/client-server-interface.md` with
+    traceable implementation, test, and OpenAPI references.
+- Generated Ash contracts remain linked through
+    `packages/server/priv/static/openapi.yaml`; bespoke controller contracts
+    remain under `docs/src/reference/openapi/`.
+- The feature task list in `docs/src/features/rich-api-examples/tasks.md` is
+    complete.
 - Dependencies:
 - `docs/src/client-server-interface.md`
 - `docs/src/reference/openapi/`

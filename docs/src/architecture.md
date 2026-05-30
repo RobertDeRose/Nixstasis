@@ -52,10 +52,10 @@ See [Project Structure](repository-structure.md) for path-by-path details.
 
 ## Component Relationships
 
-- Caddy routes `nixstasis.<base-domain>` to Phoenix at `nixstasis:4000`.
+- Caddy routes `nixstasis.<base-domain>` to Phoenix at `nixstasis:${PORT}`.
 - Caddy routes `frp-admin.<base-domain>` to the FRPS dashboard port.
 - Caddy routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
-- Caddy on-demand TLS calls `http://nixstasis:4000/api/v1/check_domain`.
+- Caddy on-demand TLS calls `http://nixstasis:${PORT}/api/v1/check_domain`.
 - The Go client calls Phoenix JSON endpoints under `/api/v1/devices/...`.
 - The Go client starts `frpc` when the server heartbeat response includes a non-empty `remote_access_token`.
 - Phoenix queues device commands as pending commands and returns them in heartbeat responses.
@@ -95,16 +95,19 @@ Nixstasis intentionally has multiple API surfaces with different consumers.
 - Caddy on-demand TLS approval calls `GET /api/v1/check_domain` from inside the
   Compose network.
 - Ash JSON:API routes live under `/api/json` and have generated OpenAPI in
-  `packages/server/priv/static/openapi.yaml`.
+  `packages/server/priv/static/openapi.yaml`, including generated builder action
+  contracts under `/api/json/builder_contract/*`.
 - E2E harness APIs live under `/e2e` and are gated by
   `NixstasisWeb.Plugs.E2EEnabled`.
 
 The current docs distinguish these contracts in [API & Runtime Contracts](reference/contracts.md).
-Future consolidation of practical bespoke APIs into Ash-backed generated
-OpenAPI is tracked as planned work, not as current architecture.
+Builder contracts now straddle generated Ash JSON:API routes and retained
+`/api/v1` compatibility wrappers; device runtime, Caddy TLS ask, report preview,
+and E2E routes remain bespoke controller contracts.
 
-AuthCrunch claim and role mapping is deployment-sensitive and remains an area to
-document more explicitly as the authorization model hardens.
+AuthCrunch claim and role mapping is documented as a Caddy-owned edge policy with
+Phoenix mapping trusted `X-Token-*` role claims into UI capability maps after
+Caddy admits browser traffic.
 
 Traceable references:
 

@@ -80,7 +80,7 @@
   Go client compatibility tests cover authentication, pending/approved
   registration token behavior, heartbeat remote-access directives, command result
   acknowledgement, deferred payload retrieval, and status-code semantics.
-- `POST /api/v1/devices/register` calls `Devices.register_device/1`.
+- `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands.
 - `POST /api/v1/devices/:device_id/command_results` calls `Devices.acknowledge_command_results/2`.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
