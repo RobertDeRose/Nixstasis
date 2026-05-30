@@ -172,12 +172,10 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 
 1. Finds all `.run` files in `$DIST_DIR`.
 2. Extracts each to a temp directory with `--noexec --target <dir>`.
-3. Validates `artifacts.json` exists and is valid JSON (using `jq` or
-   `python3 -m json.tool`).
-4. Validates every file listed in `artifacts.json` exists and its sha256
-   matches.
-5. Validates the archive contains `install.sh`, `nixstasis`, and `frpc`.
-6. Requires at least one `.run` file only when `VERIFY_INSTALLERS=true`, so the
+3. Validates the archive contains required installer, binary, `frpc`, config,
+   and systemd unit payload files.
+4. Validates the packaged `nixstasis` and `frpc` files are executable.
+5. Requires at least one `.run` file only when `VERIFY_INSTALLERS=true`, so the
    existing pre-installer artifact verification step can still validate tar,
    deb, and rpm outputs before installers are built.
 

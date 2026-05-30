@@ -116,6 +116,8 @@ if ! command -v docker >/dev/null 2>&1; then
   fail "docker compose is required"
 fi
 
+docker compose version >/dev/null 2>&1 || fail "docker compose is required"
+
 if [ ! -f "$ENV_FILE" ]; then
   fail "missing env file: $ENV_FILE"
 fi
