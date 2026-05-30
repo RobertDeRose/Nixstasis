@@ -74,12 +74,12 @@ production-like environment.
 - Move bespoke Phoenix controller APIs under Ash-backed actions/resources where
   practical so their OpenAPI contracts can be generated from the same source of
   truth as the `/api/json` surface.
-- Define the production AuthCrunch/Phoenix role and claim contract, including
+- Completed: production AuthCrunch/Phoenix role and claim contract, including
   header mapping, LiveView authorization behavior, and operator role semantics.
-- Add production operations runbooks for backup/restore, secret rotation,
+- Completed: production operations runbooks for backup/restore, secret rotation,
   incident response, HA expectations, and production monitoring.
-- Add richer API examples for common success, validation-error, authorization,
-  and edge-case responses across maintained API contracts.
+- Completed: richer API examples for common success, validation-error,
+  authorization, and edge-case responses across maintained API contracts.
 
 ## Feature Map
 

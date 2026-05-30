@@ -46,6 +46,12 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
+                  meta:
+                    type: object
+                    properties:
+                      active_filters:
+                        type: object
+                        additionalProperties: true
   /api/v1/devices/register:
     post:
       summary: Register a managed device
@@ -97,6 +103,28 @@ paths:
                       id:
                         type: string
                         format: uuid
+                      mac_address:
+                        type: string
+                      product_name:
+                        type: string
+                      account_number:
+                        type: string
+                        nullable: true
+                      approval_status:
+                        type: string
+                        enum: [pending, approved, rejected]
+                      last_seen_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      schema:
+                        type: object
+                        additionalProperties: true
+                      metadata:
+                        type: object
+                        additionalProperties: true
+                      remote_access_requested:
+                        type: boolean
                       api_token:
                         type: string
                         nullable: true
