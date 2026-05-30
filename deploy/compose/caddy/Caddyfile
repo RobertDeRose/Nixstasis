@@ -68,8 +68,46 @@ nixstasis.{$BASE_DOMAIN} {
     on_demand
   }
 
-  authorize with entra_policy
-  reverse_proxy nixstasis:{$PORT}
+  @device_registration {
+    method POST
+    path /api/v1/devices/register
+  }
+
+  @device_heartbeat {
+    method POST
+    path_regexp ^/api/v1/devices/[^/]+/heartbeat$
+  }
+
+  @device_command_results {
+    method POST
+    path_regexp ^/api/v1/devices/[^/]+/command_results$
+  }
+
+  @device_command_payload {
+    method GET
+    path_regexp ^/api/v1/devices/[^/]+/command_payloads/[^/]+$
+  }
+
+  handle @device_registration {
+    reverse_proxy nixstasis:{$PORT}
+  }
+
+  handle @device_heartbeat {
+    reverse_proxy nixstasis:{$PORT}
+  }
+
+  handle @device_command_results {
+    reverse_proxy nixstasis:{$PORT}
+  }
+
+  handle @device_command_payload {
+    reverse_proxy nixstasis:{$PORT}
+  }
+
+  handle {
+    authorize with entra_policy
+    reverse_proxy nixstasis:{$PORT}
+  }
 }
 
 frp-admin.{$BASE_DOMAIN} {

@@ -17,7 +17,7 @@ defmodule NixstasisWeb.AshJsonApiRouter do
 
   def modify_open_api(spec, _conn, _opts) do
     spec
-    |> Map.update!(:security, fn _security -> [] end)
+    |> Map.update!(:security, fn _security -> [%{"bearerAuth" => []}] end)
     |> put_builder_load_time_minimum()
     |> put_builder_error_responses()
   end

@@ -132,6 +132,10 @@ require_exact_env_value PHOENIX_BIND_HOST 127.0.0.1
 require_exact_env_value CADDY_CONFIG ./caddy/Caddyfile
 require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
+require_caddy_text 'path /api/v1/devices/register'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
 reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'

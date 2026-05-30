@@ -118,11 +118,17 @@ Traceable references:
 ### Caddy to Phoenix
 
 - Public host `nixstasis.{$BASE_DOMAIN}` terminates TLS at Caddy and reverse proxies to `nixstasis:${PORT}`.
-- Production browser authorization is enforced at Caddy/AuthCrunch before the
-  request reaches Phoenix. Caddy maps provider-specific OIDC groups into
-  provider-generic `nixstasis/*` roles, then Phoenix maps trusted `X-Token-*`
-  role claim headers into UI permission maps. Forwarded headers are not trusted
-  outside the supported Caddy deployment path.
+- Production browser/operator authorization is enforced at Caddy/AuthCrunch
+  before those requests reach Phoenix. Caddy maps provider-specific OIDC groups
+  into provider-generic `nixstasis/*` roles, then Phoenix maps trusted
+  `X-Token-*` role claim headers into UI permission maps and JSON:API route
+  permissions. Forwarded headers are not trusted outside the supported Caddy
+  deployment path.
+- Caddy intentionally bypasses AuthCrunch only for the Go client device protocol:
+  `POST /api/v1/devices/register`, `POST /api/v1/devices/:id/heartbeat`,
+  `POST /api/v1/devices/:id/command_results`, and
+  `GET /api/v1/devices/:id/command_payloads/:ref`. These routes authenticate in
+  Phoenix with registration-issued device credentials where applicable.
 - Caddy on-demand TLS asks Phoenix at `http://nixstasis:${PORT}/api/v1/check_domain`.
 - Compose publishes only Caddy ports `80` and `443` for the main HTTP ingress.
 - Default laptop mode maps the same host pattern to `.localhost` names:
