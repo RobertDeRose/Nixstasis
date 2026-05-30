@@ -294,14 +294,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      view
-      |> element(
-        "button[phx-click='open_device_details'][phx-value-id='#{blocked.id}']",
-        "DE:AD:BE:EF:00:04"
-      )
-      |> render_click()
-
-      assert render(view) =~ "not authorized to view device details"
+      assert render(view) =~ allowed.mac_address
+      refute render(view) =~ blocked.mac_address
     end
 
     test "device details navigation is blocked when scoped device list is empty", %{conn: conn} do
@@ -314,14 +308,36 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/devices")
 
+      refute render(view) =~ device.mac_address
+    end
+
+    test "scoped manage permissions only allow visible authorized devices", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "DE:AD:BE:EF:00:09", approval_status: :pending})
+      blocked = create_device!(%{mac_address: "DE:AD:BE:EF:00:0A", approval_status: :pending})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "can_manage" => true, "device_ids" => [allowed.id]})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      assert render(view) =~ allowed.mac_address
+      refute render(view) =~ blocked.mac_address
+
+      render_hook(view, "toggle_selection", %{"id" => blocked.id})
+      assert render(view) =~ "not authorized to manage this device"
+
       view
-      |> element(
-        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
-        "DE:AD:BE:EF:00:05"
-      )
+      |> element("input[type='checkbox'][phx-value-id='#{allowed.id}']")
       |> render_click()
 
-      assert render(view) =~ "not authorized to view device details"
+      view
+      |> element("button[phx-click='bulk_approve']", "Approve")
+      |> render_click()
+
+      assert Devices.get_device!(allowed.id).approval_status == :approved
+      assert Devices.get_device!(blocked.id).approval_status == :pending
     end
 
     test "device-details navigation p95 is within 2 seconds", %{conn: conn} do

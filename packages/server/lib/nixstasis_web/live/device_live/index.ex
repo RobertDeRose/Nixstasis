@@ -95,7 +95,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       search: search
     ]
 
-    devices = Devices.list_devices(opts)
+    devices = opts |> Devices.list_devices() |> filter_authorized_devices(socket.assigns.device_permissions)
 
     socket =
       socket
@@ -248,10 +248,15 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   def handle_event("toggle_selection", %{"id" => id}, socket) do
-    if not Permissions.can_manage_devices?(socket.assigns.device_permissions) do
-      {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
-    else
-      toggle_device_selection(socket, id)
+    cond do
+      not Permissions.can_manage_devices?(socket.assigns.device_permissions) ->
+        {:noreply, put_flash(socket, :error, "You are not authorized to manage devices.")}
+
+      not Permissions.can_manage_device?(socket.assigns.device_permissions, id) ->
+        {:noreply, put_flash(socket, :error, "You are not authorized to manage this device.")}
+
+      true ->
+        toggle_device_selection(socket, id)
     end
   end
 
@@ -460,5 +465,13 @@ defmodule NixstasisWeb.DeviceLive.Index do
       },
       search: assigns.search
     )
+    |> filter_authorized_devices(assigns.device_permissions)
+  end
+
+  defp filter_authorized_devices(devices, permissions) do
+    case Permissions.authorized_device_ids(permissions) do
+      nil -> devices
+      ids -> Enum.filter(devices, &MapSet.member?(ids, &1.id))
+    end
   end
 end
