@@ -191,7 +191,7 @@ Command delivery response:
         "args": [],
         "payload": {
           "name": "disk",
-          "data": "# stary script content"
+          "data": "# Starlark script content"
         }
       }
     ]
@@ -303,7 +303,7 @@ Success response:
 {
   "content_type": "text/plain",
   "name": "disk",
-  "data": "# stary script content"
+  "data": "# Starlark script content"
 }
 ```
 
