@@ -9,6 +9,7 @@ REPO="fatedier/frp"                                # GitHub repository
 DOWNLOAD_VERSION="${FRP_VERSION:-0.68.1}"
 OUTPUT_DIR="${OUTPUT_DIR:-dist/frp}" # Directory to save the binary
 TMP_DIR="${OUTPUT_DIR}/.${ARCH}"
+CACHE_DIR="${FRP_CACHE_DIR:-build/tools/frp}"
 
 fail() {
   echo "Error: $1" >&2
@@ -41,25 +42,40 @@ for tool in curl tar; do
   command -v "$tool" >/dev/null 2>&1 || fail "$tool is required"
 done
 
+ensure_verified_archive() {
+  local archive_path="$1"
+  local expected_sha256="$2"
+
+  if [[ -f "$archive_path" ]]; then
+    if [[ "$(sha256_file "$archive_path")" == "$expected_sha256" ]]; then
+      echo "Using cached $(basename "$archive_path")"
+      return
+    fi
+
+    echo "Cached $(basename "$archive_path") checksum mismatch; re-downloading" >&2
+    rm -f "$archive_path"
+  fi
+
+  echo "Downloading $(basename "${DOWNLOAD_URL}")"
+  curl -fsSL "${DOWNLOAD_URL}" -o "$archive_path"
+
+  if [[ "$(sha256_file "$archive_path")" != "$expected_sha256" ]]; then
+    rm -f "$archive_path"
+    fail "checksum mismatch for $(basename "${DOWNLOAD_URL}")"
+  fi
+}
+
 # GitHub Download URL
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${DOWNLOAD_VERSION}/frp_${DOWNLOAD_VERSION}_linux_${ARCH}.tar.gz"
-ARCHIVE_PATH="${TMP_DIR}/$(basename "${DOWNLOAD_URL}")"
+ARCHIVE_PATH="${CACHE_DIR}/$(basename "${DOWNLOAD_URL}")"
 
 # Create output directory
 rm -rf "$TMP_DIR"
-mkdir -p "$OUTPUT_DIR" "$TMP_DIR"
+mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$CACHE_DIR"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
-# Download and verify the binary archive before extracting frpc.
-echo "Downloading $(basename "${DOWNLOAD_URL}")"
-curl -fsSL "${DOWNLOAD_URL}" -o "$ARCHIVE_PATH"
-
-actual_sha256=$(sha256_file "$ARCHIVE_PATH")
 expected_sha256=$(expected_sha256)
-
-if [[ "$actual_sha256" != "$expected_sha256" ]]; then
-  fail "checksum mismatch for $(basename "${DOWNLOAD_URL}")"
-fi
+ensure_verified_archive "$ARCHIVE_PATH" "$expected_sha256"
 
 tar zxvf "$ARCHIVE_PATH" -C "${TMP_DIR}" --strip-components=1 "frp_${DOWNLOAD_VERSION}_linux_${ARCH}/frpc"
 
