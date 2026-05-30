@@ -62,9 +62,9 @@ files are placed and how host-level service management is handled.
 - Package maintainer scripts seed `/etc/nixstasis/config.yaml` from
   `/usr/share/nixstasis/config.example.yaml` only when the host does not already
   have a config file.
-- Native packages install systemd units for registration and polling, but
-  operators remain responsible for configuring and enabling services according to
-  their deployment workflow.
+- Native package postinstall scripts enable registration and polling units. When
+  systemd is running, they also start registration and the polling path
+  immediately.
 
 ### Self-Extracting `.run` Installers
 
