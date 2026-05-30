@@ -1,5 +1,5 @@
 defmodule NixstasisWeb.OperatorContextTest do
-  use NixstasisWeb.ConnCase, async: true
+  use NixstasisWeb.ConnCase, async: false
 
   alias NixstasisWeb.OperatorContext
 
@@ -35,5 +35,14 @@ defmodule NixstasisWeb.OperatorContextTest do
 
   test "detects local development requests when no AuthCrunch claim headers exist", %{conn: conn} do
     assert :local_development = OperatorContext.from_conn(conn)
+  end
+
+  test "fails closed for requests without AuthCrunch claim headers when fallback is disabled", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    assert :error = OperatorContext.from_conn(conn)
   end
 end
