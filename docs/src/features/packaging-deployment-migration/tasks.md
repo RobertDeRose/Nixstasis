@@ -7,7 +7,7 @@
 **Purpose**: Establish the feature scaffolding, release directories, and baseline docs needed by all stories.
 
 - [X] T001 Create the Compose deployment directory structure in `deploy/compose/`, `deploy/compose/caddy/`, and `deploy/compose/frps/`
-- [X] T002 Create the client release scaffolding for GoReleaser in `packages/client/.goreleaser.yaml` and `packages/client/scripts/release/`
+- [X] T002 Create the client release scaffolding for GoReleaser in `packages/client/.goreleaser.yaml` and `packages/client/build/`
 - [X] T003 P Create the server container build scaffolding in `packages/server/Dockerfile`, `packages/server/.dockerignore`, and `packages/server/bin/`
 - [X] T004 P Create the Caddy container build scaffolding in `packages/caddy/Dockerfile` and update helper scripts under `packages/caddy/bin/`
 - [X] T005 P Add initial workflow files for image and client release delivery in `.github/workflows/build_server_image.yml`, `.github/workflows/build_caddy_image.yml`, and `.github/workflows/release_client.yml`
@@ -23,7 +23,7 @@
 - [X] T006 Define canonical runtime configuration values in `packages/server/config/runtime.exs` for `PORT`, `PHX_HOST`, `DATABASE_URL`, and related deployment inputs
 - [X] T007 P Normalize the TLS approval route and domain-rule implementation in `packages/server/lib/nixstasis_web/router.ex` and `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`
 - [X] T008 P Add server-side BDD coverage for runtime-contract and TLS approval behavior in `packages/server/test/nixstasis_web/controllers/` and `packages/server/test/nixstasis/`
-- [X] T009 Define shared pinned artifact policy and provenance notes in `deploy/compose/README.md` and `packages/client/scripts/release/README.md`
+- [X] T009 Define shared pinned artifact policy and provenance notes in `deploy/compose/README.md` and `packages/client/build/README.md`
 - [X] T010 P Add shared validation helpers for bundled `frpc` path resolution and renamed config roots in `packages/client/internal/config/` and `packages/client/internal/frp/`
 - [X] T011 P Add or update workflow guard logic for new image/client release paths in `.github/workflows/_check_configs.yml`
 

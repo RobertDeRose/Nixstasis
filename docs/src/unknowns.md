@@ -11,8 +11,10 @@ observable from repository files. It does not prescribe changes.
 
 ## Ambiguities
 
-- Production AuthCrunch role and claim mapping is future work tracked in
-  [Planned Features](planned-features.md), not an unresolved operational unknown.
+- Production AuthCrunch role and claim mapping is documented in
+  [API & Runtime Contracts](reference/contracts.md); remaining uncertainty is
+  whether Phoenix should enforce additional fail-closed checks if production
+  traffic bypasses Caddy.
 
 ## Conflicting Signals Between Code and Specs
 
