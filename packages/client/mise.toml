@@ -55,22 +55,22 @@ run = "goreleaser check"
 [tasks."release:snapshot"]
 description = "Build snapshot release artifacts"
 dir = "{{config_root}}"
-run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean || true; PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --parallelism 1"
+run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean --parallelism 1"
 
 [tasks."release:snapshot:archives"]
 description = "Build snapshot archive artifacts"
 dir = "{{config_root}}"
-run = "goreleaser release --snapshot --clean --skip=nfpm --skip=makeself || true; goreleaser release --snapshot --parallelism 1 --skip=nfpm --skip=makeself"
+run = "goreleaser release --snapshot --clean --parallelism 1 --skip=nfpm --skip=makeself"
 
 [tasks."release:snapshot:native"]
 description = "Build snapshot deb and rpm artifacts"
 dir = "{{config_root}}"
-run = "goreleaser release --snapshot --clean --skip=archive --skip=makeself || true; goreleaser release --snapshot --parallelism 1 --skip=archive --skip=makeself"
+run = "goreleaser release --snapshot --clean --parallelism 1 --skip=archive --skip=makeself"
 
 [tasks."release:snapshot:run"]
 description = "Build snapshot self-extracting installer artifacts"
 dir = "{{config_root}}"
-run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean --skip=archive --skip=nfpm || true; PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --parallelism 1 --skip=archive --skip=nfpm"
+run = "./build/bin/install_makeself.sh && PATH=\"{{config_root}}/build/tools/makeself/bin:$PATH\" goreleaser release --snapshot --clean --parallelism 1 --skip=archive --skip=nfpm"
 
 [tasks."release:verify"]
 description = "Verify release artifacts"
