@@ -6,7 +6,7 @@ set -euo pipefail
 # Inputs
 ARCH="$1"
 REPO="fatedier/frp"                                # GitHub repository
-DOWNLOAD_VERSION=0.68.1
+DOWNLOAD_VERSION="${FRP_VERSION:-0.68.1}"
 OUTPUT_DIR="${OUTPUT_DIR:-dist/frp}" # Directory to save the binary
 TMP_DIR="${OUTPUT_DIR}/.${ARCH}"
 

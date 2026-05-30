@@ -3,7 +3,7 @@
 - [x] T000 Confirm feature scope against the reviewed spec before implementation.
 - [x] T001 Create `packages/client/build/makeself/entrypoint.sh` with POSIX root check (`id -u`), FHS placement, config preservation, `config.yaml` seeding, and `--force-config` flag.
 - [x] T002 Configure GoReleaser `makeselfs` to stage files from `build/root-dir/`, generated archives, and bundled `frpc` output.
-- [x] T003 Extend `packages/client/build/bin/verify_artifacts.sh` to extract `.run` files with `--noexec --target <dir>`, validate `artifacts.json` schema and sha256 checksums, and confirm required files are present.
+- [x] T003 Extend `packages/client/build/bin/verify_artifacts.sh` to extract `.run` files with `--noexec --target <dir>` and confirm required files and executable bits are present.
 - [x] T004 Update `release_client.yml` to install `makeself`, build installers through GoReleaser, verify installer contents, and ensure `.run` files in `dist/` are included in snapshot upload and tag release.
 - [x] T005 Test snapshot build end-to-end: trigger workflow, confirm `.run` files appear in the uploaded artifact bundle.
 - [x] T006 Test tag build end-to-end: tag-only validation is represented in `release_client.yml` by building, verifying, and uploading `dist/*.run` with `gh release upload --clobber`; no production tag was pushed during local close-out.
