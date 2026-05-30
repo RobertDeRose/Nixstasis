@@ -35,9 +35,40 @@ require_env_value() {
     fail "missing required env value: $name"
   fi
 
-  if [ "$value" = "*" ]; then
+  if has_wildcard_token "$value"; then
     fail "$name must be least-privilege and cannot be wildcard"
   fi
+}
+
+has_wildcard_token() {
+  value="$1"
+  wildcard=false
+
+  case $- in
+    *f*) noglob_was_set=true ;;
+    *) noglob_was_set=false; set -f ;;
+  esac
+
+  # shellcheck disable=SC2086
+  set -- $value
+
+  for token do
+    token=${token#\"}
+    token=${token%\"}
+    token=${token#\'}
+    token=${token%\'}
+
+    if [ "$token" = "*" ]; then
+      wildcard=true
+      break
+    fi
+  done
+
+  if [ "$noglob_was_set" = false ]; then
+    set +f
+  fi
+
+  [ "$wildcard" = true ]
 }
 
 require_exact_env_value() {
@@ -81,25 +112,9 @@ require_wildcard_authorize_before_proxy() {
   ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
 }
 
-if command -v docker >/dev/null 2>&1; then
-  COMPOSE_VARIANT="docker"
-elif command -v container-compose >/dev/null 2>&1; then
-  COMPOSE_VARIANT="container-compose"
-else
-  fail "docker compose or container-compose is required"
+if ! command -v docker >/dev/null 2>&1; then
+  fail "docker compose is required"
 fi
-
-compose_build() {
-  if [ "$COMPOSE_VARIANT" = "docker" ]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build "$@"
-    return
-  fi
-
-  RENDERED_COMPOSE_FILE=$(mktemp "$COMPOSE_DIR/.nixstasis-compose.XXXXXX.yml")
-  trap 'rm -f "$RENDERED_COMPOSE_FILE"' EXIT HUP INT TERM
-  "$COMPOSE_DIR/scripts/render_compose.sh" "$ENV_FILE" "$RENDERED_COMPOSE_FILE"
-  container-compose build -f "$RENDERED_COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
-}
 
 if [ ! -f "$ENV_FILE" ]; then
   fail "missing env file: $ENV_FILE"
@@ -129,7 +144,7 @@ reject_caddy_text 'allow roles \*'
 reject_caddy_text 'allow groups \*'
 require_wildcard_authorize_before_proxy
 
-compose_build >/dev/null
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build >/dev/null
 
 for service in caddy nixstasis frps postgres; do
   grep -Eq "^[[:space:]]{2}${service}:$" "$COMPOSE_FILE"

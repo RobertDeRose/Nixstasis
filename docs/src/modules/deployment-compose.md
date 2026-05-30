@@ -133,7 +133,7 @@
 
 ### External
 
-- Docker Compose or rendered config for Apple Container `container-compose`.
+- Docker Compose.
 - PostgreSQL image (always included; production can override `DATABASE_URL`).
 - Pinned release image references from Compose configuration.
 
