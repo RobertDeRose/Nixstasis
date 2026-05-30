@@ -139,8 +139,12 @@ Scale client containers with `--clients N` or `docker compose --scale client=N`.
 
 ```sh
 deploy/compose/scripts/check_runtime_contract.sh
-deploy/compose/scripts/validate_stack.sh
+deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
+
+`validate_stack.sh` validates production deployment inputs and the production
+`./caddy/Caddyfile` policy. Use `dev-lab.sh` for the local `dev.env` and laptop
+Caddyfile workflow.
 
 ## Production Operations
 
