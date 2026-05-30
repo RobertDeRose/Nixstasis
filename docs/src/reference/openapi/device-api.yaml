@@ -196,6 +196,10 @@ paths:
           description: Missing or invalid API key
         "403":
           description: Device is not approved
+        "404":
+          description: Device not found
+        "422":
+          description: Heartbeat processing failed
         "429":
           description: Heartbeat rejected by rate limit
   /api/v1/devices/{id}/command_results:
