@@ -44,20 +44,36 @@ expected_sha256() {
   fail "MAKESELF_SHA256 is required when MAKESELF_VERSION changes"
 }
 
+ensure_verified_archive() {
+  local archive_path="$1"
+  local expected_sha256="$2"
+
+  if [[ -f "$archive_path" ]]; then
+    if [[ "$(sha256_file "$archive_path")" == "$expected_sha256" ]]; then
+      echo "Using cached ${ARCHIVE}"
+      return
+    fi
+
+    echo "Cached ${ARCHIVE} checksum mismatch; re-downloading" >&2
+    rm -f "$archive_path"
+  fi
+
+  echo "Downloading ${URL}"
+  curl -fsSL "$URL" -o "$archive_path"
+
+  if [[ "$(sha256_file "$archive_path")" != "$expected_sha256" ]]; then
+    rm -f "$archive_path"
+    fail "checksum mismatch for ${ARCHIVE}"
+  fi
+}
+
 cd "$CLIENT_DIR"
 
 mkdir -p "$INSTALL_DIR" "$WORK_DIR"
 
 tmp_archive="${WORK_DIR}/${ARCHIVE}"
-echo "Downloading ${URL}"
-curl -fsSL "$URL" -o "$tmp_archive"
-
-actual_sha256="$(sha256_file "$tmp_archive")"
 expected_sha256="$(expected_sha256)"
-
-if [[ "$actual_sha256" != "$expected_sha256" ]]; then
-  fail "checksum mismatch for ${ARCHIVE}"
-fi
+ensure_verified_archive "$tmp_archive" "$expected_sha256"
 
 rm -f "${INSTALL_DIR}/makeself" "${INSTALL_DIR}/makeself-header.sh"
 rm -rf "${WORK_DIR}/makeself-${MAKESELF_VERSION}"
