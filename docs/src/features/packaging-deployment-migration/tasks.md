@@ -67,12 +67,12 @@
 ### Tests for User Story 2 ⚠️
 
 - [X] T023 P US2 Add Go unit tests for bundled `frpc` path resolution and config-root defaults in `packages/client/internal/config/config_test.go` and `packages/client/internal/frp/manager_test.go`
-- [X] T024 P US2 Add release artifact verification for package contents in `packages/client/scripts/release/verify_artifacts.sh`
+- [X] T024 P US2 Add release artifact verification for package contents in `packages/client/build/bin/verify_artifacts.sh`
 
 ### Implementation for User Story 2
 
 - [X] T025 P US2 Implement the GoReleaser configuration in `packages/client/.goreleaser.yaml`
-- [X] T026 P US2 Add pinned `frpc` fetch and staging scripts in `packages/client/scripts/fetch_frpc.sh` and `packages/client/scripts/release/`
+- [X] T026 P US2 Add pinned `frpc` fetch and staging scripts in `packages/client/build/bin/` and `packages/client/build/`
 - [X] T027 US2 Rename the client command and packaging metadata in `packages/client/cmd/nixstasis/` and `packages/client/Makefile`, removing the abandoned `package_options.yml` path
 - [X] T028 US2 Update client runtime defaults to `nixstasis` paths in `packages/client/internal/config/config.go`, `packages/client/internal/frp/manager.go`, and `packages/client/internal/script/discovery.go`
 - [X] T029 US2 Update polling and registration flows to use bundled `frpc` and renamed config paths in `packages/client/cmd/nixstasis/poll.go` and `packages/client/cmd/nixstasis/register.go`
@@ -188,7 +188,7 @@ Task: "Create the Compose FRPS configuration in deploy/compose/frps/frps.toml"
 ```bash
 # Client release scaffolding
 Task: "Implement the GoReleaser configuration in packages/client/.goreleaser.yaml"
-Task: "Add pinned frpc fetch and staging scripts in packages/client/scripts/fetch_frpc.sh and packages/client/scripts/release/"
+Task: "Add pinned frpc fetch and staging scripts in packages/client/build/bin/ and packages/client/build/"
 
 # Client runtime path updates
 Task: "Update client runtime defaults to nixstasis paths in packages/client/internal/config/config.go, packages/client/internal/frp/manager.go, and packages/client/internal/script/discovery.go"

@@ -223,9 +223,9 @@ production-like environment.
 - Install script upgrade behavior must avoid overwriting operator-owned config.
 - Dependencies:
 - `packages/frp/bin/download_frp.sh`
-- `packages/client/scripts/fetch_frpc.sh`
+- `packages/client/build/bin/fetch_frpc.sh`
 - `.github/workflows/release_client.yml`
-- `packages/client/scripts/release/verify_artifacts.sh`
+- `packages/client/build/bin/verify_artifacts.sh`
 - `packages/client/build/root-dir/`
 - `prod.env`
 - Suggested validation:

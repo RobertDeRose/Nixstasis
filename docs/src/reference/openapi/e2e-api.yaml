@@ -300,9 +300,11 @@ components:
         started_at:
           type: string
           format: date-time
+          nullable: true
         finished_at:
           type: string
           format: date-time
+          nullable: true
     E2ERunResultSubmit:
       type: object
       required: [journey_id, status]
@@ -322,6 +324,7 @@ components:
           nullable: true
         duration_ms:
           type: integer
+          nullable: true
     E2ERunResult:
       type: object
       properties:
@@ -344,11 +347,14 @@ components:
         started_at:
           type: string
           format: date-time
+          nullable: true
         finished_at:
           type: string
           format: date-time
+          nullable: true
         duration_ms:
           type: integer
+          nullable: true
     E2ERunStatus:
       type: string
       enum: [queued, running, passed, failed, cancelled, blocked]
