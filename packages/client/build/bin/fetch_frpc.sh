@@ -61,7 +61,7 @@ if [[ "$actual_sha256" != "$expected_sha256" ]]; then
   fail "checksum mismatch for $(basename "${DOWNLOAD_URL}")"
 fi
 
-tar zxvf "$ARCHIVE_PATH" -C "${TMP_DIR}" --wildcards '*/frpc' --strip-components=1
+tar zxvf "$ARCHIVE_PATH" -C "${TMP_DIR}" --strip-components=1 "frp_${DOWNLOAD_VERSION}_linux_${ARCH}/frpc"
 
 if [[ ! -f "${TMP_DIR}/frpc" ]]; then
   fail "frpc missing from $(basename "${DOWNLOAD_URL}")"
