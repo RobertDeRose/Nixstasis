@@ -116,7 +116,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp apply_action(socket, :new, _params) do
-    if Permissions.can_manage_devices?(socket.assigns.device_permissions) do
+    if Permissions.can_create_devices?(socket.assigns.device_permissions) do
       socket
       |> assign(:page_title, "New Device")
       |> assign(:device, %Device{})

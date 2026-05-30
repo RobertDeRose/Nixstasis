@@ -15,6 +15,19 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
   end
 
+  test "local development defaults add missing permission maps without expanding existing ones", %{conn: conn} do
+    existing_device_permissions = %{"can_view" => true, "can_manage" => false}
+
+    conn =
+      conn
+      |> init_test_session(%{"device_permissions" => existing_device_permissions})
+      |> DevicePermissions.call([])
+
+    assert get_session(conn, "device_permissions") == existing_device_permissions
+
+    assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+  end
+
   test "fails closed when fallback is disabled and AuthCrunch headers are absent", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)

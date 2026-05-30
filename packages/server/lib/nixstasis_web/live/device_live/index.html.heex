@@ -51,7 +51,7 @@
         </.link>
       </div>
       <.link
-        :if={NixstasisWeb.Permissions.can_manage_devices?(@device_permissions)}
+        :if={NixstasisWeb.Permissions.can_create_devices?(@device_permissions)}
         patch={~p"/devices/new"}
         class="btn btn-sm btn-primary"
       >
@@ -248,6 +248,7 @@
     title={@page_title}
     action={@live_action}
     device={@device}
+    device_permissions={@device_permissions}
     patch={~p"/devices"}
   />
 </.modal>
