@@ -49,14 +49,14 @@ paths:
   /api/v1/devices/register:
     post:
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Approved devices receive an API token; pending devices do not. Deferred from Ash conversion until Go client registration compatibility tests cover pending and approved token behavior.
+      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. Deferred from Ash conversion until Go client registration compatibility tests cover pending and approved token behavior.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [mac_address]
+              required: [mac_address, schema_definition]
               properties:
                 mac_address:
                   type: string
@@ -64,6 +64,22 @@ paths:
                 product_name:
                   type: string
                   example: atom-001122334455
+                schema_definition:
+                  type: object
+                  required: [product]
+                  additionalProperties: true
+                  description: Product schema used to validate registration. Legacy clients may send the same object as `schema`.
+                  example:
+                    product: atom-001122334455
+                    type: object
+                    properties:
+                      temp:
+                        type: number
+                schema:
+                  type: object
+                  additionalProperties: true
+                  deprecated: true
+                  description: Legacy alias for `schema_definition`.
                 metadata:
                   type: object
                   additionalProperties: true
@@ -85,8 +101,8 @@ paths:
                         type: string
                         nullable: true
                         description: Present only after server approval.
-        "400":
-          description: Invalid registration payload
+        "422":
+          description: Missing or invalid registration schema
   /api/v1/devices/{id}/heartbeat:
     post:
       summary: Submit device heartbeat and telemetry
@@ -230,8 +246,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CommandPayload"
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: Device is not approved
         "404":
-          description: Payload not found
+          description: Device or payload not found
   /api/v1/check_domain:
     get:
       summary: Authorize Caddy on-demand TLS host
