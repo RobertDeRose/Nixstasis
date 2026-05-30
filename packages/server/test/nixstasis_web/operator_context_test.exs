@@ -28,6 +28,21 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["device_permissions"]["can_remote_access"] == true
   end
 
+  test "merges mixed roles with maximum privileges regardless of order" do
+    assert {:ok, context} =
+             OperatorContext.from_headers(%{
+               "x-token-user-roles" => "nixstasis/operator nixstasis/viewer"
+             })
+
+    assert context["device_permissions"] == %{
+             "can_view" => true,
+             "can_manage" => true,
+             "can_remote_access" => true
+           }
+
+    assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
+  end
+
   test "fails closed for missing or unknown production roles" do
     assert :error = OperatorContext.from_headers(%{"x-token-user-email" => "user@example.com"})
     assert :error = OperatorContext.from_headers(%{"x-token-user-roles" => "guest"})
