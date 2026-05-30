@@ -39,5 +39,7 @@ deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 
 `check_runtime_contract.sh` validates repository contract drift. `validate_stack.sh`
-validates the operator `.env`, Caddy policy shape, and rendered production stack,
-then runs Docker Compose build validation. It requires a working Docker daemon.
+validates the operator production `.env`, requires
+`CADDY_CONFIG=./caddy/Caddyfile`, checks the production Caddy policy shape and
+rendered stack, then runs Docker Compose build validation. It requires a working
+Docker daemon.

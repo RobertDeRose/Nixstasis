@@ -112,6 +112,7 @@ require_env_value NIXSTASIS_OPERATOR_GROUPS
 require_env_value NIXSTASIS_ADMIN_GROUPS
 require_exact_env_value PORT 4000
 require_exact_env_value PHOENIX_BIND_HOST 127.0.0.1
+require_exact_env_value CADDY_CONFIG ./caddy/Caddyfile
 require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
 reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
