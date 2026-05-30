@@ -464,7 +464,7 @@ production-like environment.
 
 ### `production-operations-runbooks`
 
-- Status: planned
+- Status: completed
 - Overview:
 - Add production operations runbooks that go beyond the Compose deployment
     contract. Cover backup/restore, secret rotation, incident response,
@@ -506,6 +506,13 @@ production-like environment.
     validation.
 - Over-prescriptive backup tooling can conflict with an operator's managed
     database platform.
+- Completion notes:
+- Production operations runbooks are available under `docs/src/operations/` and
+    cover backup/restore, secret rotation, health checks, incident response,
+    upgrades/rollbacks, and HA/scaling expectations.
+- The feature task list in
+    `docs/src/features/production-operations-runbooks/tasks.md` is complete.
+- Operations navigation is linked from `docs/src/SUMMARY.md`.
 - Dependencies:
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/scripts/check_runtime_contract.sh`
