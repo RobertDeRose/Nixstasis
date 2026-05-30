@@ -14,6 +14,6 @@
 - [x] T009 Add report API examples for maintained hand-documented surfaces that remain outside generated Ash OpenAPI, and link alert-rule examples to generated `/api/json/alert_rules` OpenAPI.
 - [x] T010 Update Reference links so readers can find generated Ash OpenAPI examples and retained bespoke examples from the same entry point.
 - [x] T011 Validate examples against current tests, generated OpenAPI, and implementation references; update examples that do not match current behavior.
-- [ ] T012 Run `mdbook build docs` and fix navigation, link, or rendering issues.
-- [ ] T013 Run applicable OpenAPI validation for edited hand-maintained YAML contracts, or document why no project validation command applies.
-- [ ] T999 Review completed examples against goals, non-goals, constraints, and success criteria before close-out.
+- [x] T012 Run `mdbook build docs` and fix navigation, link, or rendering issues.
+- [x] T013 Run applicable OpenAPI validation for edited hand-maintained YAML contracts, or document why no project validation command applies. No hand-maintained OpenAPI YAML contracts were edited in the final implementation, and the generated Ash OpenAPI file was left unchanged after review.
+- [x] T999 Review completed examples against goals, non-goals, constraints, and success criteria before close-out.
