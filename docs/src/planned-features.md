@@ -545,8 +545,8 @@ production-like environment.
 - Add examples for builder schema option lookup, validation success, validation
     failure, stale selections, missing schemas, and authorization failures where
     applicable.
-- Add examples for report and alert-rule API surfaces that remain hand-maintained
-    outside generated Ash OpenAPI.
+- Add examples for report APIs that remain hand-maintained and link alert-rule
+    contracts to generated Ash OpenAPI.
 - Keep OpenAPI examples and prose examples synchronized, or link one canonical
     source from the other.
 - Constraints:
