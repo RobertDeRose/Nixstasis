@@ -48,11 +48,6 @@ cd "$CLIENT_DIR"
 
 mkdir -p "$INSTALL_DIR" "$WORK_DIR"
 
-if [[ -x "${INSTALL_DIR}/makeself" && -f "${INSTALL_DIR}/makeself-header.sh" ]]; then
-  "${INSTALL_DIR}/makeself" --version >/dev/null
-  exit 0
-fi
-
 tmp_archive="${WORK_DIR}/${ARCHIVE}"
 echo "Downloading ${URL}"
 curl -fsSL "$URL" -o "$tmp_archive"
@@ -64,6 +59,7 @@ if [[ "$actual_sha256" != "$expected_sha256" ]]; then
   fail "checksum mismatch for ${ARCHIVE}"
 fi
 
+rm -f "${INSTALL_DIR}/makeself" "${INSTALL_DIR}/makeself-header.sh"
 rm -rf "${WORK_DIR}/makeself-${MAKESELF_VERSION}"
 sh "$tmp_archive" --quiet --target "$WORK_DIR" --noexec
 

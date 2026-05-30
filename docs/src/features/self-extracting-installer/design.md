@@ -181,10 +181,9 @@ In `release_client.yml`, after `verify_artifacts.sh`:
 
 ## Risks And Tradeoffs
 
-- `makeself` is a CI runtime dependency; pinning its version prevents
-  surprising format changes. This feature uses the Ubuntu 24.04 package first;
-  explicit version pinning can be added later if release reproducibility needs
-  it.
+- `makeself` is a CI runtime dependency. The client release tasks download
+  pinned `makeself` `2.7.1`, verify its SHA-256 before extracting it, and require
+  `MAKESELF_SHA256` when overriding `MAKESELF_VERSION`.
 - Self-extracting archives are less auditable than plain tarballs; operators
   who prefer inspection can use `--noexec --target <dir>` to extract without
   running.
