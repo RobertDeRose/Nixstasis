@@ -77,7 +77,7 @@ Request:
 {
   "mac_address": "00:11:22:33:44:55",
   "product_name": "atom-001122334455",
-  "schema": {
+  "schema_definition": {
     "product": "atom-001122334455",
     "version": "v1",
     "type": "object",
@@ -142,10 +142,12 @@ Request:
 
 ```json
 {
-  "scripts": {
-    "disk": {
-      "data": {
-        "usage_pct": 73.2
+  "telemetry": {
+    "scripts": {
+      "disk": {
+        "data": {
+          "usage_pct": 73.2
+        }
       }
     }
   },
@@ -245,9 +247,9 @@ Traceable references:
 
 ### Command Results
 
-Command results are correlated by `command_id`. A heartbeat or command-result
-batch that repeats a command identifier should not execute duplicate work; later
-duplicates are reported as `FAILED` with a `duplicate_command_id` reason.
+Command results are correlated by `command_id`. The server acknowledges results
+that match pending commands for the authenticated device and ignores unknown or
+non-matching command identifiers.
 
 Request:
 
@@ -449,6 +451,16 @@ Validation response with stale selections cleared:
 }
 ```
 
+Validation success response:
+
+```json
+{
+  "valid": true,
+  "issues": [],
+  "cleared_slot_ids": []
+}
+```
+
 Traceable references:
 
 - `docs/src/reference/openapi/builder-api.yaml`
@@ -522,6 +534,23 @@ matches an existing run:
   "environment_label": "local",
   "trigger_source": "ci",
   "idempotency_key": "ci-2026-05-30T120000Z"
+}
+```
+
+Idempotent reuse response returns the existing run through the same success
+response path:
+
+```json
+{
+  "data": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "suite_id": "full",
+    "journey_ids": ["auth", "dashboard"],
+    "environment_label": "local",
+    "trigger_source": "ci",
+    "protocol_version": "1",
+    "status": "queued"
+  }
 }
 ```
 
