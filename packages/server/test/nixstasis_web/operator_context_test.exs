@@ -43,6 +43,21 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
   end
 
+  test "applies forwarded device scope claims to device permissions" do
+    assert {:ok, context} =
+             OperatorContext.from_headers(%{
+               "x-token-user-roles" => "nixstasis/operator",
+               "x-token-device-ids" => "device-a,device-b"
+             })
+
+    assert context["device_permissions"] == %{
+             "can_view" => true,
+             "can_manage" => true,
+             "can_remote_access" => true,
+             "device_ids" => ["device-a", "device-b"]
+           }
+  end
+
   test "fails closed for missing or unknown production roles" do
     assert :error = OperatorContext.from_headers(%{"x-token-user-email" => "user@example.com"})
     assert :error = OperatorContext.from_headers(%{"x-token-user-roles" => "guest"})

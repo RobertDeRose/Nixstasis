@@ -7158,7 +7158,8 @@ paths:
           $ref: '#/components/responses/errors'
       tags:
         - telemetry_event
-security: []
+security:
+  - bearerAuth: []
 servers:
   - url: /
     variables: {}

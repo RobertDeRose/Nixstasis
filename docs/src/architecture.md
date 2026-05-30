@@ -90,13 +90,17 @@ Nixstasis intentionally has multiple API surfaces with different consumers.
 - Browser routes and LiveView sockets are reached through Caddy/AuthCrunch in
   the supported deployment. Caddy is the public authentication edge.
 - Device runtime APIs live under `/api/v1/devices/...` and are used by the Go
-  client. Registration issues credentials; heartbeat, command results, and
-  payload fetches use the approved device API token.
+  client. Caddy routes the device registration, heartbeat, command result, and
+  command payload endpoints to Phoenix without AuthCrunch because those are not
+  browser/operator requests. Registration issues credentials; heartbeat, command
+  results, and payload fetches use the approved device API token.
 - Caddy on-demand TLS approval calls `GET /api/v1/check_domain` from inside the
   Compose network.
 - Ash JSON:API routes live under `/api/json` and have generated OpenAPI in
   `packages/server/priv/static/openapi.yaml`, including generated builder action
-  contracts under `/api/json/builder_contract/*`.
+  contracts under `/api/json/builder_contract/*`. Public production access to
+  this generated operator/developer resource API goes through Caddy/AuthCrunch,
+  and Phoenix applies route-level role checks as a fail-closed backstop.
 - E2E harness APIs live under `/e2e` and are gated by
   `NixstasisWeb.Plugs.E2EEnabled`.
 

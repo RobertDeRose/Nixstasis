@@ -101,7 +101,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
     assert %{"errors" => [%{"code" => "invalid_body"}]} = json_response(conn, 400)
   end
 
-  test "alert-rule JSON:API read requires viewer role when local fallback is disabled", %{conn: conn} do
+  test "JSON:API resource reads require viewer role when local fallback is disabled", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
 
@@ -123,7 +123,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
     assert %{"data" => []} = json_response(conn, 200)
   end
 
-  test "alert-rule JSON:API writes require manager role when local fallback is disabled", %{conn: conn} do
+  test "JSON:API report-family writes require manager role when local fallback is disabled", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
 
@@ -159,5 +159,118 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> post("/api/json/alert_rules", params)
 
     assert %{"data" => %{"type" => "alert_rule"}} = json_response(conn, 201)
+  end
+
+  test "JSON:API device creation requires unscoped manage permission", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    allowed = Devices.list_devices() |> List.first()
+
+    params = %{
+      "data" => %{
+        "type" => "device",
+        "attributes" => %{
+          "mac_address" => "12:34:56:78:9A:BC",
+          "product_name" => "jsonapi-v1",
+          "schema" => %{"product" => "jsonapi-v1", "version" => "v1", "properties" => %{}}
+        }
+      }
+    }
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("content-type", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_req_header("x-token-device-ids", allowed.id)
+             |> post("/api/json/devices", params)
+             |> json_response(403)
+
+    conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> post("/api/json/devices", params)
+
+    assert %{"data" => %{"type" => "device"}} = json_response(conn, 201)
+  end
+
+  test "JSON:API device update honors scoped manage permission", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    [allowed] = Devices.list_devices()
+    blocked = create_device!("FF:EE:DD:CC:BB:AA")
+
+    params = %{
+      "data" => %{
+        "type" => "device",
+        "id" => blocked.id,
+        "attributes" => %{"product_name" => "blocked-update"}
+      }
+    }
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("content-type", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_req_header("x-token-device-ids", allowed.id)
+             |> patch("/api/json/devices/#{blocked.id}", params)
+             |> json_response(403)
+
+    params = put_in(params, ["data", "id"], allowed.id)
+
+    conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> put_req_header("x-token-device-ids", allowed.id)
+      |> patch("/api/json/devices/#{allowed.id}", params)
+
+    assert %{"data" => %{"type" => "device"}} = json_response(conn, 200)
+  end
+
+  test "JSON:API settings require admin role", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> get("/api/json/system_settings")
+             |> json_response(403)
+
+    conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/admin")
+      |> get("/api/json/system_settings")
+
+    assert %{"data" => []} = json_response(conn, 200)
+  end
+
+  defp create_device!(mac_address) do
+    {:ok, device} =
+      Devices.create_device(%{
+        mac_address: mac_address,
+        product_name: "jsonapi-v1",
+        schema: %{"product" => "jsonapi-v1", "version" => "v1", "properties" => %{}}
+      })
+
+    device
   end
 end

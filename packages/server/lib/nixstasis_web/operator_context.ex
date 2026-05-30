@@ -25,7 +25,10 @@ defmodule NixstasisWeb.OperatorContext do
     "x-token-subject",
     "x-token-user-email",
     "x-token-user-name",
-    "x-token-user-roles"
+    "x-token-user-roles",
+    "x-token-device-id",
+    "x-token-device-ids",
+    "x-token-allowed-device-ids"
   ]
 
   def from_conn(conn) do
@@ -49,7 +52,9 @@ defmodule NixstasisWeb.OperatorContext do
   def from_headers(headers) when is_map(headers) do
     roles = headers |> Map.get("x-token-user-roles") |> normalize_claim_values()
 
-    case permissions_for_roles(roles) do
+    device_ids = device_scope_from_headers(headers)
+
+    case permissions_for_roles(roles, device_ids) do
       {:ok, permissions} ->
         {:ok,
          %{
@@ -90,15 +95,20 @@ defmodule NixstasisWeb.OperatorContext do
     Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
   end
 
-  defp permissions_for_roles([]), do: :error
+  defp permissions_for_roles([], _device_ids), do: :error
 
-  defp permissions_for_roles(roles) do
+  defp permissions_for_roles(roles, device_ids) do
     known_roles = Enum.filter(roles, &Map.has_key?(@role_capabilities, &1))
 
     if known_roles == [] do
       :error
     else
-      {:ok, Enum.reduce(known_roles, fail_closed_permissions(), &merge_role_permissions/2)}
+      permissions =
+        known_roles
+        |> Enum.reduce(fail_closed_permissions(), &merge_role_permissions/2)
+        |> scope_device_permissions(device_ids)
+
+      {:ok, permissions}
     end
   end
 
@@ -125,4 +135,20 @@ defmodule NixstasisWeb.OperatorContext do
   end
 
   defp normalize_claim_values(_value), do: []
+
+  defp device_scope_from_headers(headers) do
+    [
+      Map.get(headers, "x-token-device-id"),
+      Map.get(headers, "x-token-device-ids"),
+      Map.get(headers, "x-token-allowed-device-ids")
+    ]
+    |> Enum.flat_map(&normalize_claim_values/1)
+    |> Enum.uniq()
+  end
+
+  defp scope_device_permissions(permissions, []), do: permissions
+
+  defp scope_device_permissions(permissions, device_ids) do
+    update_in(permissions, ["device_permissions"], &Map.put(&1, "device_ids", device_ids))
+  end
 end
