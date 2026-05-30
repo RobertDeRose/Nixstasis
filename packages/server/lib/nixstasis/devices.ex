@@ -474,12 +474,14 @@ defmodule Nixstasis.Devices do
   """
   def approve_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
+           pending_ids = pending_device_ids(ids)
+
            result =
              Device
              |> Ash.Query.filter(id in ^ids and approval_status == :pending)
              |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
 
-           clear_device_token_hashes(ids)
+           clear_device_token_hashes(pending_ids)
            {result, list_devices_by_ids(ids)}
          end) do
       {:ok, {result, devices}} ->
@@ -865,6 +867,15 @@ defmodule Nixstasis.Devices do
     Device
     |> Ash.Query.filter(id in ^ids)
     |> Ash.read!(domain: Domain)
+  end
+
+  defp pending_device_ids([]), do: []
+
+  defp pending_device_ids(ids) do
+    Device
+    |> Ash.Query.filter(id in ^ids and approval_status == :pending)
+    |> Ash.read!(domain: Domain)
+    |> Enum.map(& &1.id)
   end
 
   defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) and map_size(attrs) > 0 do
