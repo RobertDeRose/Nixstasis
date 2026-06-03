@@ -19,7 +19,7 @@ frp:
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"
-  authorized_keys_path: "/var/lib/nixstasis/.ssh/authorized_keys"
+  authorized_keys_path: "/var/lib/nixstasis-support/.ssh/authorized_keys"
   exec_work_dir: "/"
   exec_env:
     - "LANG=C"
@@ -29,6 +29,7 @@ runtime:
     df: "/usr/bin/df"
     stat: "/usr/bin/stat"
     nproc: "/usr/bin/nproc"
+    pcp-metrics: "/usr/libexec/nixstasis/pcp-metrics.sh"
   mqtt_publish_topics:
     - "nixstasis/+/request"
   mqtt_subscribe_topics:

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // #nosec G304 -- callers pass validated application-owned paths.
@@ -166,6 +167,32 @@ func authorizedKeyExists(existing []byte, key string) bool {
 func enforceAuthorizedKeysMode(path string) error {
 	if err := os.Chmod(path, 0o600); err != nil {
 		return fmt.Errorf("chmod authorized_keys: %w", err)
+	}
+	return chownAuthorizedKeysToParent(path)
+}
+
+func chownAuthorizedKeysToParent(path string) error {
+	dirInfo, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		return fmt.Errorf("stat authorized_keys dir: %w", err)
+	}
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat authorized_keys: %w", err)
+	}
+	dirStat, ok := dirInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil
+	}
+	fileStat, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil
+	}
+	if fileStat.Uid == dirStat.Uid && fileStat.Gid == dirStat.Gid {
+		return nil
+	}
+	if err := os.Chown(path, int(dirStat.Uid), int(dirStat.Gid)); err != nil {
+		return fmt.Errorf("chown authorized_keys: %w", err)
 	}
 	return nil
 }

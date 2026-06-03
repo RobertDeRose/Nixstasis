@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
@@ -212,6 +213,41 @@ func TestSSHAuthorizeWritesValidKeyWithStrictPermissions(t *testing.T) {
 	}
 	if mode := info.Mode().Perm(); mode != 0o600 {
 		t.Fatalf("mode = %o, want 600", mode)
+	}
+}
+
+func TestSSHAuthorizeMatchesAuthorizedKeysOwnerToSSHDir(t *testing.T) {
+	dir := t.TempDir()
+	sshDir := filepath.Join(dir, ".ssh")
+	path := filepath.Join(sshDir, "authorized_keys")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatalf("create ssh dir: %v", err)
+	}
+
+	handler := NewHandlerWithAuthorizedKeys("", path)
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-owner",
+		Type:      "ssh_authorize",
+		PublicKey: testPublicKey,
+	}})[0]
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_authorize to succeed, got %s: %s", result.Status, result.Error)
+	}
+
+	sshDirInfo, err := os.Stat(sshDir)
+	if err != nil {
+		t.Fatalf("stat ssh dir: %v", err)
+	}
+	keysInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat authorized_keys: %v", err)
+	}
+
+	sshDirStat := sshDirInfo.Sys().(*syscall.Stat_t)
+	keysStat := keysInfo.Sys().(*syscall.Stat_t)
+	if keysStat.Uid != sshDirStat.Uid || keysStat.Gid != sshDirStat.Gid {
+		t.Fatalf("authorized_keys owner = %d:%d, want %d:%d", keysStat.Uid, keysStat.Gid, sshDirStat.Uid, sshDirStat.Gid)
 	}
 }
 
