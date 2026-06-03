@@ -104,8 +104,19 @@ func getIPFromInterfaces() (string, error) {
 	return "", errors.New("no valid IP address found")
 }
 
-// GenerateDeviceName creates the atom-<mac> name.
-func GenerateDeviceName(mac string) string {
-	stripped := strings.ReplaceAll(mac, ":", "")
-	return "atom-" + strings.ToLower(stripped)
+// GenerateDeviceName creates the atom-<normalized-id> name.
+func GenerateDeviceName(id string) string {
+	var builder strings.Builder
+	for _, char := range id {
+		switch {
+		case char >= '0' && char <= '9':
+			builder.WriteRune(char)
+		case char >= 'a' && char <= 'z':
+			builder.WriteRune(char)
+		case char >= 'A' && char <= 'Z':
+			builder.WriteRune(char + ('a' - 'A'))
+		}
+	}
+
+	return "atom-" + builder.String()
 }
