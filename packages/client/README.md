@@ -127,11 +127,17 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
-For Compose dev-harness remote-access validation, use the dev-lab script at
-`deploy/compose/scripts/dev-lab.sh` from the repository root. It starts the full
+For Compose dev-harness remote-access validation, use `mise run deploy:dev -- up`
+from the repository root. It starts the full
 stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
-with `--clients N`.
+with `--clients N`. The container image entrypoint writes
+`/etc/nixstasis/config.yaml` from Compose-provided environment before systemd
+starts, so the packaged systemd units can use the local Compose server and FRPS
+service names without changing the native package defaults. The image also keeps
+`systemd-user-sessions.service` in `multi-user.target` so systemd removes
+`/run/nologin` and SSH remote-access sessions can authenticate as the dedicated
+`nixstasis-support` account.
 
 ## Packaging And Installation
 
@@ -164,7 +170,11 @@ The generated archive and native packages install these client assets:
 - systemd units `nixstasis-registration.service`, `nixstasis-poll.service`, and `nixstasis-poll.path`
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
-from the example template if the host does not already have one.
+from the example template if the host does not already have one. It also ensures
+the `nixstasis` system user has `/var/lib/nixstasis` as its home. Remote SSH
+access uses a separate `nixstasis-support` account with `/bin/bash` as its
+login shell, temporary keys under `/var/lib/nixstasis-support/.ssh/authorized_keys`,
+and passwordless sudo for diagnostics and repair work.
 
 Install native packages with the host package manager:
 
@@ -207,10 +217,15 @@ The bundled FRP client template sets
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
 from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
 the `remote_access_token` returned by the server heartbeat response and passes
-it to the transient FRPC unit as the `FRPS_AUTH_TOKEN` systemd credential.
+it to the transient FRPC unit through a root-only systemd `EnvironmentFile`.
 `frp.auth_token` is not the normal remote-access token source. Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
 as an override.
+
+The container image also carries a disabled-by-default
+`nixstasis-simulator-http.service`. Compose dev-lab enables it with
+`NIXSTASIS_SIMULATOR_HTTP_ENABLED=true` to provide a local HTTPS target for FRP
+HTTP-route smoke tests; native installs leave it disabled.
 
 The repository also exposes a Nix flake package for Nix-managed hosts and build
 validation:
