@@ -1,5 +1,5 @@
 # FRP Client Configuration Template
-# frpc expands {{ .Envs.* }} placeholders from its process environment at startup.
+# frpc expands Go-template placeholders from its process environment at startup.
 # The Nixstasis client passes all values as environment variables; do not edit
 # this file for site-specific settings — use /etc/nixstasis/config.yaml instead.
 
@@ -31,3 +31,12 @@ type = "tcpmux"
 multiplexer = "httpconnect"
 customDomains = ["{{ .Envs.SSH_NAME }}"]
 localPort = {{ .Envs.FRPC_SSH_LOCAL_PORT }}
+
+# Proxy Configuration 3: PCP Access
+# Exposes pmcd through TCP multiplexing for remote PCP diagnostics.
+[[proxies]]
+name = "{{ .Envs.PCP_NAME }}"
+type = "tcpmux"
+multiplexer = "httpconnect"
+customDomains = ["{{ .Envs.PCP_NAME }}"]
+localPort = {{ .Envs.FRPC_PCP_LOCAL_PORT }}
