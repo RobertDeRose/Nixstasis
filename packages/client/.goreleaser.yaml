@@ -54,6 +54,8 @@ nfpms:
     formats:
       - deb
       - rpm
+    dependencies:
+      - sudo
     scripts:
       postinstall: ./build/debian/postinstall.sh
       preremove: ./build/debian/preremove.sh

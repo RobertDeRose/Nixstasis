@@ -16,7 +16,7 @@ const (
 	defaultConfigRoot         = "/etc/nixstasis"
 	defaultUserConfig         = "$HOME/.config/nixstasis"
 	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
-	defaultAuthorizedKeysPath = "/var/lib/nixstasis/.ssh/authorized_keys"
+	defaultAuthorizedKeysPath = "/var/lib/nixstasis-support/.ssh/authorized_keys"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 )
