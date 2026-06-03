@@ -701,6 +701,21 @@ defmodule Nixstasis.Devices do
     })
   end
 
+  def command_result_status(device_id, command_id) when is_binary(device_id) and is_binary(command_id) do
+    case Ecto.UUID.cast(command_id) do
+      {:ok, command_id} -> pending_command_result_status(device_id, command_id)
+      :error -> :pending
+    end
+  end
+
+  def command_result_status(_device_id, _command_id), do: :pending
+
+  def command_succeeded?(device_id, command_id) when is_binary(device_id) and is_binary(command_id) do
+    command_result_status(device_id, command_id) == :ok
+  end
+
+  def command_succeeded?(_device_id, _command_id), do: false
+
   def pop_pending_commands(%Device{} = device) do
     Repo.transaction(fn ->
       ids = claim_pending_command_ids(device.id)
@@ -944,6 +959,19 @@ defmodule Nixstasis.Devices do
       )
 
       nil
+  end
+
+  defp pending_command_result_status(device_id, command_id) do
+    case read_pending_command(device_id, command_id) do
+      %{status: :acked, command_payload: %{} = payload} ->
+        case payload["result_status"] || payload[:result_status] do
+          "ok" -> :ok
+          _ -> :failed
+        end
+
+      _ ->
+        :pending
+    end
   end
 
   defp command_result_status(result) do

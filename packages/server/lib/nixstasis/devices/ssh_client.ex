@@ -1,7 +1,6 @@
 defmodule Nixstasis.Devices.SshClient do
   @moduledoc """
-  A simple SSH client that connects to a device via an SSH tunnel using SSH command-line tool.
-  It uses Elixir's Port to manage the SSH process and communicate with it.
+  SSH client for browser terminal sessions through the FRPS TCP mux endpoint.
   """
   use GenServer
   require Logger
@@ -14,6 +13,10 @@ defmodule Nixstasis.Devices.SshClient do
     GenServer.cast(pid, {:send_data, data})
   end
 
+  def resize(pid, columns, rows) do
+    GenServer.cast(pid, {:resize, columns, rows})
+  end
+
   def stop(pid) do
     GenServer.stop(pid, :normal, 5_000)
   end
@@ -21,70 +24,85 @@ defmodule Nixstasis.Devices.SshClient do
   def validate_executables(opts \\ []) do
     ssh_executable = Keyword.get(opts, :ssh_executable, "ssh")
     proxy_executable = Keyword.get(opts, :proxy_executable, "ncat")
+    env_executable = Keyword.get(opts, :env_executable, "env")
 
     with {:ok, ssh_path} <- find_required_executable(ssh_executable),
-         {:ok, proxy_path} <- find_required_executable(proxy_executable) do
-      {:ok, %{ssh: ssh_path, proxy: proxy_path}}
+         {:ok, proxy_path} <- find_required_executable(proxy_executable),
+         {:ok, env_path} <- find_required_executable(env_executable) do
+      {:ok, %{ssh: ssh_path, proxy: proxy_path, env: env_path}}
     end
   end
 
-  def ssh_host(device_mac) when is_binary(device_mac) do
-    "atom-#{normalized_device_id(device_mac)}-ssh"
+  def ssh_host(device_id) when is_binary(device_id) do
+    "atom-#{normalized_device_id(device_id)}-ssh"
+  end
+
+  def frp_endpoint do
+    config = Application.get_env(:nixstasis, :ssh_client, [])
+
+    host =
+      Keyword.get(config, :frp_host) ||
+        Application.get_env(:nixstasis, :base_domain) ||
+        "example.com"
+
+    port = Keyword.get(config, :frp_port) || "2022"
+
+    {to_string(host), to_string(port)}
+  end
+
+  def ssh_user do
+    config = Application.get_env(:nixstasis, :ssh_client, [])
+    config |> Keyword.get(:user, "nixstasis-support") |> to_string()
+  end
+
+  def terminal_type do
+    config = Application.get_env(:nixstasis, :ssh_client, [])
+    config |> Keyword.get(:terminal_type, "xterm-256color") |> to_string()
   end
 
   @impl true
   def init(opts) do
-    device_mac = Keyword.fetch!(opts, :device_mac)
+    device_id = Keyword.fetch!(opts, :device_id)
     private_key = Keyword.fetch!(opts, :private_key)
     channel_pid = Keyword.fetch!(opts, :channel_pid)
+    columns = sane_dimension(Keyword.get(opts, :columns), 80)
+    rows = sane_dimension(Keyword.get(opts, :rows), 24)
 
     with {:ok, executables} <- validate_executables(opts) do
-      start_ssh_port(device_mac, private_key, channel_pid, executables)
+      start_ssh_port(device_id, private_key, channel_pid, executables, columns, rows)
     else
       {:error, reason} -> {:stop, reason}
     end
   end
 
-  defp start_ssh_port(device_mac, private_key, channel_pid, executables) do
-    # Write private key to a temporary file
+  defp start_ssh_port(device_id, private_key, channel_pid, executables, columns, rows) do
     key_path = write_temp_key(private_key)
+    tty_path = remote_tty_path()
 
-    # Construct SSH command
-    # We use -tt to force PTY allocation, which is needed for interactive shell
-    # We use -o StrictHostKeyChecking=no because these are ephemeral connections to devices behind NAT
-    # We use -o UserKnownHostsFile=/dev/null to avoid cluttering known_hosts
-    proxy_cmd = "#{executables.proxy} --proxy-type http --proxy #{frp_host()}:#{frp_port()} %h %p"
+    ssh_args = ssh_args(device_id, key_path, executables, remote_shell_command(tty_path, columns, rows))
 
-    args = [
-      "-i",
-      key_path,
-      "-o",
-      "ProxyCommand=#{proxy_cmd}",
-      "-o",
-      "StrictHostKeyChecking=no",
-      "-o",
-      "UserKnownHostsFile=/dev/null",
-      # Reduce noise
-      "-o",
-      "LogLevel=ERROR",
-      # Force PTY
-      "-tt",
-      "nixstasis@#{ssh_host(device_mac)}"
-    ]
+    args = ["TERM=#{terminal_type()}", executables.ssh | ssh_args]
 
-    Logger.info("Starting SSH connection to #{device_mac}...")
+    Logger.info("Starting SSH connection to #{device_id}...")
 
-    # Open the port
-    # We use [:binary, :exit_status, :stderr_to_stdout] to handle data as binaries
     port =
-      Port.open({:spawn_executable, executables.ssh}, [
+      Port.open({:spawn_executable, executables.env}, [
         :binary,
         :exit_status,
         :stderr_to_stdout,
         args: args
       ])
 
-    {:ok, %{port: port, key_path: key_path, channel_pid: channel_pid}}
+    {:ok,
+     %{
+       port: port,
+       key_path: key_path,
+       channel_pid: channel_pid,
+       device_id: device_id,
+       executables: executables,
+       tty_path: tty_path,
+       size: {columns, rows}
+     }}
   end
 
   @impl true
@@ -94,8 +112,25 @@ defmodule Nixstasis.Devices.SshClient do
   end
 
   @impl true
+  def handle_cast({:resize, columns, rows}, state) do
+    columns = sane_dimension(columns, nil)
+    rows = sane_dimension(rows, nil)
+
+    cond do
+      is_nil(columns) or is_nil(rows) ->
+        {:noreply, state}
+
+      state[:size] == {columns, rows} ->
+        {:noreply, state}
+
+      true ->
+        resize_remote_tty(state, columns, rows)
+        {:noreply, %{state | size: {columns, rows}}}
+    end
+  end
+
+  @impl true
   def handle_info({port, {:data, data}}, %{port: port} = state) do
-    # Forward data to the channel
     send(state.channel_pid, {:ssh_output, data})
     {:noreply, state}
   end
@@ -109,7 +144,6 @@ defmodule Nixstasis.Devices.SshClient do
 
   @impl true
   def terminate(_reason, state) do
-    # Cleanup temp key file
     if state[:key_path] do
       File.rm(state.key_path)
     end
@@ -122,7 +156,6 @@ defmodule Nixstasis.Devices.SshClient do
     id = Ecto.UUID.generate()
     path = Path.join(dir, "nixstasis_ssh_client_#{id}")
     File.write!(path, content)
-    # SSH requires strict permissions
     File.chmod!(path, 0o600)
     path
   end
@@ -134,19 +167,73 @@ defmodule Nixstasis.Devices.SshClient do
     end
   end
 
-  defp normalized_device_id(device_mac) do
-    device_mac
-    |> String.replace(":", "")
+  defp ssh_args(device_id, key_path, executables, remote_command) do
+    {frp_host, frp_port} = frp_endpoint()
+    proxy_cmd = "#{executables.proxy} --proxy-type http --proxy #{frp_host}:#{frp_port} %h %p"
+
+    [
+      "-i",
+      key_path,
+      "-o",
+      "ProxyCommand=#{proxy_cmd}",
+      "-o",
+      "StrictHostKeyChecking=no",
+      "-o",
+      "UserKnownHostsFile=/dev/null",
+      "-o",
+      "LogLevel=ERROR",
+      "-tt",
+      "#{ssh_user()}@#{ssh_host(device_id)}",
+      remote_command
+    ]
+  end
+
+  defp remote_shell_command(tty_path, columns, rows) do
+    "sh -lc 'tty > #{tty_path}; stty rows #{rows} cols #{columns}; exec \"${SHELL:-/bin/sh}\" -l'"
+  end
+
+  defp remote_resize_command(tty_path, columns, rows) do
+    "sh -lc 'tty_path=$(cat #{tty_path} 2>/dev/null); " <>
+      "[ -n \"$tty_path\" ] && stty rows #{rows} cols #{columns} < \"$tty_path\" > \"$tty_path\"'"
+  end
+
+  defp resize_remote_tty(state, columns, rows) do
+    Task.start(fn ->
+      args =
+        ssh_args(
+          state.device_id,
+          state.key_path,
+          state.executables,
+          remote_resize_command(state.tty_path, columns, rows)
+        )
+
+      System.cmd(state.executables.env, ["TERM=#{terminal_type()}", state.executables.ssh | args],
+        stderr_to_stdout: true
+      )
+    end)
+
+    :ok
+  end
+
+  defp remote_tty_path do
+    id = Ecto.UUID.generate() |> String.replace("-", "")
+    "/tmp/nixstasis-terminal-#{id}.tty"
+  end
+
+  defp sane_dimension(value, _default) when is_integer(value) and value > 0, do: value
+
+  defp sane_dimension(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {integer, ""} when integer > 0 -> integer
+      _ -> default
+    end
+  end
+
+  defp sane_dimension(_value, default), do: default
+
+  defp normalized_device_id(device_id) do
+    device_id
+    |> String.replace(~r/[^0-9A-Za-z]/, "")
     |> String.downcase()
-  end
-
-  defp frp_host do
-    Application.get_env(:nixstasis, :ssh_client, [])
-    |> Keyword.get(:frp_host, Application.get_env(:nixstasis, :base_domain, "example.com"))
-  end
-
-  defp frp_port do
-    Application.get_env(:nixstasis, :ssh_client, [])
-    |> Keyword.get(:frp_port, "2022")
   end
 end
