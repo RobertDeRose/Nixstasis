@@ -27,11 +27,15 @@ FROM ubuntu:noble-20260410
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
+    SYSTEMD_OFFLINE=1 apt-get install -y --no-install-recommends \
       systemd systemd-sysv \
       openssh-server \
+      openssl \
+      pcp \
+      sudo \
       ca-certificates \
       dbus && \
+    (cd /var/lib/pcp/pmns && ./Rebuild) && \
     rm -rf /var/lib/apt/lists/* && \
     # Clean up unnecessary systemd units
     rm -f /lib/systemd/system/multi-user.target.wants/* && \
@@ -45,10 +49,15 @@ RUN apt-get update -qq && \
     mkdir -p /run/sshd && \
     sed -i 's/#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    systemctl add-wants multi-user.target systemd-user-sessions.service && \
     systemctl enable ssh
 
 # Install frpc
 COPY --from=builder /frpc /usr/libexec/nixstasis/frpc
+
+# Seed container runtime configuration from Compose env before systemd starts.
+COPY build/container-entrypoint.sh /usr/libexec/nixstasis/container-entrypoint
+RUN chmod 0755 /usr/libexec/nixstasis/container-entrypoint
 
 # Install client binary
 COPY --from=builder /nixstasis /usr/bin/nixstasis
@@ -59,17 +68,29 @@ COPY build/root-dir/lib/systemd/system/ /lib/systemd/system/
 # Install default config
 COPY build/root-dir/usr/share/nixstasis/ /usr/share/nixstasis/
 
-# Create nixstasis user and directories
-RUN useradd --system --create-home --home-dir /var/lib/nixstasis nixstasis && \
-    mkdir -p /var/lib/nixstasis/.ssh && \
+# Install built-in telemetry scripts and helpers
+COPY build/root-dir/usr/libexec/nixstasis/ /usr/libexec/nixstasis/
+RUN chmod 0755 /usr/libexec/nixstasis/pcp-metrics.sh
+
+# Create service and remote-support users.
+RUN useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis && \
+    useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash nixstasis-support && \
+    mkdir -p /var/lib/nixstasis/.ssh /var/lib/nixstasis-support/.ssh /etc/sudoers.d && \
     chown -R nixstasis:nixstasis /var/lib/nixstasis && \
-    chmod 700 /var/lib/nixstasis/.ssh
+    chown -R nixstasis-support:nixstasis-support /var/lib/nixstasis-support && \
+    chmod 750 /var/lib/nixstasis /var/lib/nixstasis-support && \
+    chmod 700 /var/lib/nixstasis/.ssh /var/lib/nixstasis-support/.ssh && \
+    printf 'nixstasis-support ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/nixstasis-support && \
+    chmod 0440 /etc/sudoers.d/nixstasis-support
 
 # Enable client services
 RUN systemctl enable nixstasis-registration.service && \
-    systemctl enable nixstasis-poll.path
+    systemctl enable nixstasis-poll.path && \
+    systemctl disable pmcd.service pmlogger.service pmie.service pmproxy.service && \
+    systemctl enable nixstasis-pmcd.service && \
+    systemctl enable nixstasis-pmlogger.service
 
 VOLUME ["/sys/fs/cgroup"]
 STOPSIGNAL SIGRTMIN+3
 
-ENTRYPOINT ["/lib/systemd/systemd"]
+ENTRYPOINT ["/usr/libexec/nixstasis/container-entrypoint"]
