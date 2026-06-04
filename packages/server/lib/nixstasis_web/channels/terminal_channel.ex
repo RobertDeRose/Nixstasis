@@ -17,17 +17,23 @@ defmodule NixstasisWeb.TerminalChannel do
   @idle_warning_offset 30 * 1000
   # Time until warning: 9m 30s
   @idle_warning_time @idle_timeout - @idle_warning_offset
+  @ssh_authorization_wait_attempts 30
+  @ssh_authorization_wait_interval_ms 500
 
   # Join "terminal:DEVICE_ID"
   @impl true
   def join("terminal:" <> device_id, payload, socket) do
     session_ref = payload["token"]
+    command_id = payload["command_id"]
+    columns = parse_terminal_dimension(payload["columns"], 80)
+    rows = parse_terminal_dimension(payload["rows"], 24)
 
     with {:ok, %{private_key: private_key}} <-
            SshKeyManager.fetch_terminal_session(session_ref, device_id),
          :ok <- authorize_terminal_join(socket, device_id),
+         :ok <- ensure_ssh_authorized(device_id, command_id),
          {:ok, device} <- get_device(device_id),
-         {:ok, pid} <- start_ssh_client(device, private_key) do
+         {:ok, pid} <- start_ssh_client(device, private_key, columns, rows) do
       SshKeyManager.clear_terminal_session(session_ref)
 
       Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
@@ -46,11 +52,14 @@ defmodule NixstasisWeb.TerminalChannel do
       {:ok, socket}
     else
       {:error, reason} ->
-        SshKeyManager.clear_terminal_session(session_ref)
+        maybe_clear_terminal_session(session_ref, reason)
         Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
         {:error, terminal_join_error(reason)}
     end
   end
+
+  defp maybe_clear_terminal_session(_session_ref, :ssh_authorization_pending), do: :ok
+  defp maybe_clear_terminal_session(session_ref, _reason), do: SshKeyManager.clear_terminal_session(session_ref)
 
   defp authorize_terminal_join(socket, device_id) do
     terminal_device_id = socket.assigns[:terminal_device_id]
@@ -61,6 +70,29 @@ defmodule NixstasisWeb.TerminalChannel do
       true -> {:error, :unauthorized}
     end
   end
+
+  defp ensure_ssh_authorized(_device_id, nil), do: :ok
+  defp ensure_ssh_authorized(_device_id, ""), do: :ok
+
+  defp ensure_ssh_authorized(device_id, command_id) do
+    wait_until_ssh_authorized(device_id, command_id, @ssh_authorization_wait_attempts)
+  end
+
+  defp wait_until_ssh_authorized(device_id, command_id, attempts) when attempts > 0 do
+    case Devices.command_result_status(device_id, command_id) do
+      :ok ->
+        :ok
+
+      :failed ->
+        {:error, :ssh_authorization_failed}
+
+      :pending ->
+        Process.sleep(@ssh_authorization_wait_interval_ms)
+        wait_until_ssh_authorized(device_id, command_id, attempts - 1)
+    end
+  end
+
+  defp wait_until_ssh_authorized(_device_id, _command_id, 0), do: {:error, :ssh_authorization_pending}
 
   # Handle input from the browser terminal
   @impl true
@@ -80,6 +112,20 @@ defmodule NixstasisWeb.TerminalChannel do
      socket
      |> assign(:idle_timer, idle_timer)
      |> assign(:idle_generation, idle_generation)}
+  end
+
+  @impl true
+  def handle_in("resize", %{"columns" => columns, "rows" => rows}, socket) do
+    columns = parse_terminal_dimension(columns, nil)
+    rows = parse_terminal_dimension(rows, nil)
+
+    if columns && rows do
+      if pid = socket.assigns[:ssh_client] do
+        resize_ssh_client(socket.assigns.ssh_client_module, pid, columns, rows)
+      end
+    end
+
+    {:noreply, socket}
   end
 
   # Session management callbacks
@@ -144,11 +190,13 @@ defmodule NixstasisWeb.TerminalChannel do
     _ -> {:error, :device_not_found}
   end
 
-  defp start_ssh_client(device, private_key) do
+  defp start_ssh_client(device, private_key, columns, rows) do
     case ssh_client_module().start_link(
-           device_mac: device.mac_address,
+           device_id: device.id,
            private_key: private_key,
-           channel_pid: self()
+           channel_pid: self(),
+           columns: columns,
+           rows: rows
          ) do
       {:ok, pid} -> {:ok, pid}
       {:error, reason} -> {:error, reason}
@@ -172,6 +220,12 @@ defmodule NixstasisWeb.TerminalChannel do
   defp terminal_join_error(:device_mismatch), do: %{reason: "unauthorized", code: "device_mismatch"}
 
   defp terminal_join_error(:unauthorized), do: %{reason: "unauthorized", code: "unauthorized"}
+
+  defp terminal_join_error(:ssh_authorization_pending),
+    do: %{reason: "authorization_pending", code: "ssh_authorization_pending"}
+
+  defp terminal_join_error(:ssh_authorization_failed),
+    do: %{reason: "authorization_failed", code: "ssh_authorization_failed"}
 
   defp terminal_join_error(reason) when is_atom(reason) do
     %{reason: "terminal_unavailable", code: Atom.to_string(reason)}
@@ -203,4 +257,23 @@ defmodule NixstasisWeb.TerminalChannel do
   catch
     _, _ -> :ok
   end
+
+  defp resize_ssh_client(module, pid, columns, rows) do
+    if function_exported?(module, :resize, 3) do
+      module.resize(pid, columns, rows)
+    end
+  catch
+    _, _ -> :ok
+  end
+
+  defp parse_terminal_dimension(value, _default) when is_integer(value) and value > 0, do: value
+
+  defp parse_terminal_dimension(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {integer, ""} when integer > 0 -> integer
+      _ -> default
+    end
+  end
+
+  defp parse_terminal_dimension(_value, default), do: default
 end

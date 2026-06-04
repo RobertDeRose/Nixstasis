@@ -2,6 +2,7 @@ defmodule Nixstasis.DevicesTest do
   use Nixstasis.DataCase
 
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
 
   describe "devices" do
     @valid_attrs %{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "key"}
@@ -299,6 +300,30 @@ defmodule Nixstasis.DevicesTest do
       assert device.product_name == "internal-thermostat"
       assert device.schema == %{}
     end
+
+    test "register_device/1 preserves existing ids when devices re-register" do
+      assert {:ok, device} =
+               Devices.register_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A5",
+                 "product_name" => "initial-product"
+               })
+
+      assert {:ok, _event} =
+               Domain.create_telemetry_event(%{
+                 device_id: device.id,
+                 payload: %{},
+                 timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+               })
+
+      assert {:ok, registered_again} =
+               Devices.register_device(%{
+                 "mac_address" => "AA:BB:CC:DD:EE:A5",
+                 "product_name" => "updated-product"
+               })
+
+      assert registered_again.id == device.id
+      assert registered_again.product_name == "updated-product"
+    end
   end
 
   describe "command queue boundaries" do
@@ -323,6 +348,23 @@ defmodule Nixstasis.DevicesTest do
                  %{"command_id" => "not-a-command", "status" => "OK"},
                  %{"command_id" => command.id, "status" => "OK"}
                ])
+    end
+
+    test "command_result_status/2 distinguishes successful and failed acknowledgements" do
+      device = device_fixture(%{mac_address: "77:66:66:66:66:66", approval_status: :approved})
+      {:ok, ok_command} = Devices.queue_command(device, %{"id" => 1})
+      {:ok, failed_command} = Devices.queue_command(device, %{"id" => 2})
+
+      assert Devices.command_result_status(device.id, ok_command.id) == :pending
+
+      assert {:ok, 2} =
+               Devices.acknowledge_command_results(device, [
+                 %{"command_id" => ok_command.id, "status" => "OK"},
+                 %{"command_id" => failed_command.id, "status" => "FAILED", "error" => "missing public key"}
+               ])
+
+      assert Devices.command_result_status(device.id, ok_command.id) == :ok
+      assert Devices.command_result_status(device.id, failed_command.id) == :failed
     end
   end
 end

@@ -50,6 +50,47 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     assert hd(telemetry).payload["scripts"]["disk"]["data"]["usage_pct"] == 73.2
   end
 
+  test "POST /api/v1/devices/:id/heartbeat returns ssh_authorize public key at top level", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, _} = Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"commands" => [command]} = json_response(conn, 200)["data"]
+    assert command["type"] == "ssh_authorize"
+    assert command["public_key"] == "ssh-ed25519 test"
+    assert command["payload"] == %{"public_key" => "ssh-ed25519 test", "type" => "ssh_authorize"}
+  end
+
+  test "POST /api/v1/devices/:id/heartbeat returns ssh_authorize support key path", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, _} =
+      Devices.queue_command(device, %{
+        "type" => "ssh_authorize",
+        "public_key" => "ssh-ed25519 test",
+        "payload" => %{
+          "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
+          "data" => "ssh-ed25519 test"
+        }
+      })
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"commands" => [command]} = json_response(conn, 200)["data"]
+    assert command["public_key"] == "ssh-ed25519 test"
+
+    assert command["payload"] == %{
+             "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
+             "data" => "ssh-ed25519 test"
+           }
+  end
+
   test "heartbeat omits remote_access_token when remote access is not requested", %{
     conn: conn,
     device: device,
