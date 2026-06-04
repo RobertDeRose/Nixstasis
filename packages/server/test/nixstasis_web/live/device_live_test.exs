@@ -28,7 +28,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
 
     defp output_for("printf nixstasis-smoke\n"), do: "nixstasis-smoke"
-    defp output_for("whoami\n"), do: "nixstasis\n"
+    defp output_for("whoami\n"), do: "nixstasis-support\n"
     defp output_for(data), do: data
   end
 
@@ -509,19 +509,56 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> element("a[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ ~s(id="terminal-container")
       assert html =~ ~s(data-token=)
       assert html =~ ~s(data-socket-token=)
+      assert html =~ ~s(data-command-id=)
 
-      %{terminal_socket_token: socket_token} = :sys.get_state(view.pid).socket.assigns
+      %{ssh_authorize_command_id: command_id, terminal_socket_token: socket_token} =
+        :sys.get_state(view.pid).socket.assigns
+
+      assert is_binary(command_id)
+
+      [command] = Nixstasis.Domain.list_pending_commands!()
+      assert command.id == command_id
+
+      assert command.command_payload["payload"] == %{
+               "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
+               "data" => command.command_payload["public_key"]
+             }
 
       assert {:ok, %{"device_id" => device_id}} =
                Phoenix.Token.verify(NixstasisWeb.Endpoint, "terminal_socket", socket_token, max_age: 3600)
 
       assert device_id == device.id
+    end
+
+    test "terminal close clears consumed session assigns", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E6"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{ssh_token: token} = :sys.get_state(view.pid).socket.assigns
+
+      render_hook(view, "terminal_closed", %{"token" => token})
+
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.ssh_session_started
+      assert assigns.terminal_closed?
+      assert assigns.ssh_authorize_command_id == nil
+      assert assigns.terminal_socket_token == nil
+
+      html = render(view)
+      assert html =~ ~s(id="terminal-container")
+      assert html =~ ~s(data-closed="true")
+      assert html =~ "Terminal session ended"
+      assert html =~ "Start New Remote Session"
     end
 
     test "terminal journey launches, runs commands, closes, and reopens", %{conn: conn} do
@@ -550,11 +587,11 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html = render_hook(view, "close_remote_access", %{})
       refute html =~ ~s(id="terminal-container")
-      assert has_element?(view, "button[phx-click='start_ssh_session']", "Start Remote Session")
+      assert html =~ "Opening remote session"
       assert Devices.get_device!(device.id).remote_access_requested == false
 
       view
-      |> element("button[phx-click='retry_session']", "Retry Session")
+      |> element("button[phx-click='retry_session']", "Restart Session")
       |> render_click()
 
       assert Devices.get_device!(device.id).remote_access_requested == true
@@ -566,7 +603,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       second_socket = start_terminal_from_view(view, device.id)
       refute terminal_session_ref(view) == first_session_ref
       Phoenix.ChannelTest.push(second_socket, "input", %{"data" => "whoami\n"})
-      assert_push("output", %{data: "nixstasis\n"})
+      assert_push("output", %{data: "nixstasis-support\n"})
     end
 
     test "unauthorized sessions cannot start remote access", %{conn: conn} do
@@ -585,7 +622,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> element("a[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ "not authorized to start remote access"
@@ -611,7 +648,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+        |> element("a[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ "not authorized to start remote access"
@@ -627,7 +664,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, device} = Devices.get_device(device.id)
       {:ok, _updated} = Devices.update_device(device, %{last_seen_at: DateTime.utc_now()})
 
-      assert eventually_rendered?(view, "Remote Access Requested:")
+      assert eventually_rendered?(view, "Remote access is requested")
       refute render(view) =~ "Device Offline"
     end
 
@@ -668,13 +705,84 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("button[phx-click='retry_session']", "Retry Session")
+      |> element("button[phx-click='retry_session']", "Restart Session")
       |> render_click()
 
       assert render(view) =~ "Session reinitialized"
       assert render(view) =~ "Overview"
       assert render(view) =~ "PCP Data"
       assert render(view) =~ "Terminal"
+    end
+
+    test "PCP tab renders persisted PCP telemetry samples", %{conn: conn} do
+      device = create_device!(%{mac_address: "FA:FA:FA:FA:FA:FB"})
+
+      {:ok, _event} =
+        Nixstasis.Domain.create_telemetry_event(%{
+          device_id: device.id,
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:second),
+          payload: %{
+            "scripts" => %{
+              "pcp" => %{
+                "data" => %{
+                  "output" => %{
+                    "load_1m" => 1.25,
+                    "memory_used" => 4_547_452,
+                    "memory_used_pct" => 55.96,
+                    "disk_full_pct" => 2.75
+                  }
+                }
+              }
+            }
+          }
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      html =
+        view
+        |> element("a[phx-value-tab='pcp']", "PCP Data")
+        |> render_click()
+
+      assert html =~ "PCP Metrics"
+      assert html =~ "phx-update=\"ignore\""
+      assert html =~ "Load 1m"
+      assert html =~ "55.96"
+      assert html =~ "2.75"
+    end
+
+    test "PCP tab refreshes when new heartbeat telemetry arrives", %{conn: conn} do
+      device = create_device!(%{mac_address: "FA:FA:FA:FA:FA:FC"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='pcp']", "PCP Data")
+      |> render_click()
+
+      {:ok, _event} =
+        Nixstasis.Domain.create_telemetry_event(%{
+          device_id: device.id,
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:second),
+          payload: %{
+            "scripts" => %{
+              "pcp" => %{
+                "data" => %{
+                  "output" => %{
+                    "load_1m" => 0.75,
+                    "memory_used" => 1_234_567,
+                    "memory_used_pct" => 15.19,
+                    "disk_full_pct" => 4.5
+                  }
+                }
+              }
+            }
+          }
+        })
+
+      send(view.pid, {:device_last_seen_updated, %{id: device.id}})
+
+      assert eventually_rendered?(view, "15.19")
+      assert render(view) =~ "4.5"
     end
   end
 
@@ -747,10 +855,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp start_terminal_from_view(view, device_id) do
     view
-    |> element("button[phx-click='start_ssh_session']", "Start Remote Session")
+    |> element("a[phx-value-tab='terminal']", "Terminal")
     |> render_click()
 
     %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
+
+    acknowledge_ssh_authorize_command!(device_id, view)
 
     assert {:ok, _, socket} =
              NixstasisWeb.UserSocket
@@ -763,5 +873,16 @@ defmodule NixstasisWeb.DeviceLiveTest do
   defp terminal_session_ref(view) do
     %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
     session_ref
+  end
+
+  defp acknowledge_ssh_authorize_command!(device_id, view) do
+    %{ssh_authorize_command_id: command_id} = :sys.get_state(view.pid).socket.assigns
+    device = Devices.get_device!(device_id)
+    _ = Devices.pop_pending_commands(device)
+
+    assert {:ok, 1} =
+             Devices.acknowledge_command_results(device, [
+               %{"command_id" => command_id, "status" => "OK", "output" => %{}}
+             ])
   end
 end

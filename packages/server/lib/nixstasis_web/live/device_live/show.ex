@@ -3,8 +3,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   require Logger
 
+  import Ecto.Query
+
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Repo
   alias Nixstasis.Devices.SshKeyManager
   alias NixstasisWeb.Permissions
 
@@ -21,7 +25,9 @@ defmodule NixstasisWeb.DeviceLive.Show do
      |> assign(:device_permissions, permissions)
      |> assign(:can_view_device_details?, Permissions.can_view_device_details?(permissions))
      |> assign(:can_remote_access_device?, Permissions.can_remote_access_device?(permissions))
-     |> assign(:remote_access_auto_open?, true)}
+     |> assign(:remote_access_auto_open?, true)
+     |> assign(:terminal_closed?, false)
+     |> assign(:terminal_maximized?, false)}
   end
 
   @impl true
@@ -55,7 +61,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   @impl true
   def handle_event("change_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
+    socket =
+      socket
+      |> assign(:active_tab, tab)
+      |> maybe_refresh_pcp_chart(tab)
+      |> maybe_start_terminal_session(tab)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -78,36 +90,15 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
+  def handle_event("toggle_terminal_maximized", _, socket) do
+    {:noreply, Phoenix.Component.update(socket, :terminal_maximized?, &(!&1))}
+  end
+
+  @impl true
   def handle_event("start_ssh_session", _, socket) do
-    device = socket.assigns.device
-
-    cond do
-      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
-        {:noreply, put_flash(socket, :error, "You are not authorized to start remote access for this device.")}
-
-      socket.assigns.device_offline ->
-        {:noreply, put_flash(socket, :error, "Device is offline; unable to start remote access")}
-
-      true ->
-        case SshKeyManager.generate_key_pair() do
-          {:ok, %{private_key: private_key, public_key: public_key}} ->
-            {:ok, _} =
-              Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => public_key})
-
-            {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
-
-            socket_token =
-              Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
-
-            {:noreply,
-             socket
-             |> assign(:ssh_session_started, true)
-             |> assign(:ssh_token, session_ref)
-             |> assign(:terminal_socket_token, socket_token)}
-
-          {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to generate SSH keys: #{reason}")}
-        end
+    case start_ssh_session(socket) do
+      {:ok, socket} -> {:noreply, socket}
+      {:error, message} -> {:noreply, put_flash(socket, :error, message)}
     end
   end
 
@@ -120,8 +111,95 @@ defmodule NixstasisWeb.DeviceLive.Show do
      |> assign(:remote_access_auto_open?, false)
      |> assign(:remote_access_lease_ref, nil)
      |> assign(:ssh_session_started, false)
+     |> assign(:ssh_authorize_command_id, nil)
      |> assign(:ssh_token, nil)
-     |> assign(:terminal_socket_token, nil)}
+     |> assign(:terminal_socket_token, nil)
+     |> assign(:terminal_closed?, false)}
+  end
+
+  @impl true
+  def handle_event("terminal_authorized", %{"command_id" => command_id}, socket) do
+    if command_id == socket.assigns[:ssh_authorize_command_id] do
+      {:noreply, assign(socket, :ssh_authorize_command_id, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("terminal_closed", %{"token" => token}, socket) do
+    if token == socket.assigns[:ssh_token] do
+      clear_ssh_session(socket)
+
+      {:noreply,
+       socket
+       |> assign(:terminal_closed?, true)
+       |> assign(:ssh_authorize_command_id, nil)
+       |> assign(:terminal_socket_token, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("terminal_closed", _params, socket), do: {:noreply, socket}
+
+  defp maybe_start_terminal_session(socket, "terminal") do
+    cond do
+      socket.assigns[:ssh_token] && !socket.assigns[:terminal_closed?] ->
+        socket
+
+      true ->
+        case start_ssh_session(socket) do
+          {:ok, socket} -> socket
+          {:error, message} -> put_flash(socket, :error, message)
+        end
+    end
+  end
+
+  defp maybe_start_terminal_session(socket, _tab), do: socket
+
+  defp start_ssh_session(socket) do
+    device = socket.assigns.device
+
+    cond do
+      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
+        {:error, "You are not authorized to start remote access for this device."}
+
+      socket.assigns.device_offline ->
+        {:error, "Device is offline; unable to start remote access"}
+
+      true ->
+        clear_ssh_session(socket)
+
+        case SshKeyManager.generate_key_pair() do
+          {:ok, %{private_key: private_key, public_key: public_key}} ->
+            {:ok, command} =
+              Devices.queue_command(device, %{
+                "type" => "ssh_authorize",
+                "public_key" => public_key,
+                "payload" => %{
+                  "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
+                  "data" => public_key
+                }
+              })
+
+            {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
+
+            socket_token =
+              Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
+
+            {:ok,
+             socket
+             |> assign(:ssh_session_started, true)
+             |> assign(:ssh_authorize_command_id, command.id)
+             |> assign(:ssh_token, session_ref)
+             |> assign(:terminal_socket_token, socket_token)
+             |> assign(:terminal_closed?, false)}
+
+          {:error, reason} ->
+            {:error, "Failed to generate SSH keys: #{reason}"}
+        end
+    end
   end
 
   @impl true
@@ -135,8 +213,10 @@ defmodule NixstasisWeb.DeviceLive.Show do
        |> assign(:remote_access_auto_open?, false)
        |> assign(:remote_access_lease_ref, nil)
        |> assign(:ssh_session_started, false)
+       |> assign(:ssh_authorize_command_id, nil)
        |> assign(:ssh_token, nil)
        |> assign(:terminal_socket_token, nil)
+       |> assign(:terminal_closed?, false)
        |> put_flash(:info, "Remote access session expired")}
     else
       {:noreply, socket}
@@ -151,11 +231,14 @@ defmodule NixstasisWeb.DeviceLive.Show do
       {:ok, device} ->
         now_offline = not Devices.online?(device)
 
-        if was_offline != now_offline do
-          {:noreply, refresh_device_view(socket, device)}
-        else
-          {:noreply, socket}
-        end
+        socket =
+          if was_offline != now_offline do
+            refresh_device_view(socket, device)
+          else
+            assign_device_view(socket, device, socket.assigns.return_to)
+          end
+
+        {:noreply, maybe_refresh_pcp_chart(socket, socket.assigns[:active_tab])}
 
       :error ->
         {:noreply, socket}
@@ -220,18 +303,22 @@ defmodule NixstasisWeb.DeviceLive.Show do
         {device, nil}
       end
 
+    latest_pcp = latest_pcp_sample(device.id)
+
     socket
     |> assign(:remote_access_auto_open?, true)
     |> assign_device_view(device, return_to)
     |> assign(:remote_access_lease_ref, lease_ref)
     |> assign(:active_tab, "overview")
     |> assign(:ssh_session_started, false)
+    |> assign(:ssh_authorize_command_id, nil)
     |> assign(:ssh_token, nil)
     |> assign(:terminal_socket_token, nil)
-    |> assign(:cpu_chart, chart_config("CPU Usage", [75], ["#3B82F6"]))
-    |> assign(:memory_chart, chart_config("Memory Usage", [45], ["#10B981"]))
-    |> assign(:disk_chart, chart_config("Disk Usage", [60], ["#F59E0B"]))
-    |> assign(:pcp_chart, line_chart_config())
+    |> assign(:terminal_closed?, false)
+    |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["#3B82F6"]))
+    |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["#10B981"]))
+    |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["#F59E0B"]))
+    |> assign(:pcp_chart, pcp_chart_config(device))
   end
 
   defp refresh_device_view(socket, device) do
@@ -263,14 +350,22 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:device_offline, not Devices.online?(device))
   end
 
+  defp maybe_refresh_pcp_chart(%{assigns: %{device: %Device{} = device}} = socket, "pcp") do
+    assign(socket, :pcp_chart, pcp_chart_config(device))
+  end
+
+  defp maybe_refresh_pcp_chart(socket, _tab), do: socket
+
   defp maybe_clear_ssh_assigns(socket, device) do
     if Devices.online?(device) do
       socket
     else
       socket
       |> assign(:ssh_session_started, false)
+      |> assign(:ssh_authorize_command_id, nil)
       |> assign(:ssh_token, nil)
       |> assign(:terminal_socket_token, nil)
+      |> assign(:terminal_closed?, false)
     end
   end
 
@@ -290,15 +385,19 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   defp ensure_online_view_assigns(socket, device) do
     if Devices.online?(device) do
+      latest_pcp = latest_pcp_sample(device.id)
+
       socket
       |> assign_new(:active_tab, fn -> "overview" end)
-      |> assign_new(:cpu_chart, fn -> chart_config("CPU Usage", [75], ["#3B82F6"]) end)
-      |> assign_new(:memory_chart, fn -> chart_config("Memory Usage", [45], ["#10B981"]) end)
-      |> assign_new(:disk_chart, fn -> chart_config("Disk Usage", [60], ["#F59E0B"]) end)
-      |> assign_new(:pcp_chart, fn -> line_chart_config() end)
+      |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["#3B82F6"]))
+      |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["#10B981"]))
+      |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["#F59E0B"]))
+      |> assign(:pcp_chart, pcp_chart_config(device))
       |> assign_new(:ssh_session_started, fn -> false end)
+      |> assign_new(:ssh_authorize_command_id, fn -> nil end)
       |> assign_new(:ssh_token, fn -> nil end)
       |> assign_new(:terminal_socket_token, fn -> nil end)
+      |> assign_new(:terminal_closed?, fn -> false end)
     else
       socket
     end
@@ -355,37 +454,98 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> Devices.close_remote_access_lease()
   end
 
-  defp line_chart_config do
+  defp pcp_chart_config(device) do
+    samples = pcp_samples(device.id)
+
     %{
       chart: %{
-        type: "line",
-        height: 350,
+        type: "area",
+        height: 560,
+        animations: %{
+          enabled: false
+        },
         zoom: %{enabled: false}
       },
       dataLabels: %{enabled: false},
-      stroke: %{curve: "straight"},
-      title: %{text: "System Metrics (Last 24h)", align: "left"},
+      stroke: %{curve: "smooth", width: 3},
+      fill: %{type: "gradient", gradient: %{opacityFrom: 0.22, opacityTo: 0.02}},
+      markers: %{size: 0, hover: %{size: 5}},
+      tooltip: %{shared: true, intersect: false},
+      title: %{text: "PCP Metrics", align: "left"},
+      noData: %{text: "Waiting for PCP telemetry..."},
       series: [
-        %{
-          name: "CPU Load",
-          data: [10, 41, 35, 51, 49, 62, 69, 91, 148]
-        },
-        %{
-          name: "Memory Usage",
-          data: [20, 31, 25, 41, 39, 52, 59, 81, 138]
-        }
+        %{name: "Load 1m", data: Enum.map(samples, & &1.load_1m)},
+        %{name: "Memory Used %", data: Enum.map(samples, & &1.memory_used_pct)},
+        %{name: "Disk Full %", data: Enum.map(samples, & &1.disk_full_pct)}
       ],
-      xaxis: %{
-        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]
-      }
+      xaxis: %{categories: Enum.map(samples, & &1.label)}
     }
   end
+
+  defp pcp_samples(device_id) do
+    Telemetry
+    |> where([event], event.device_id == ^device_id)
+    |> order_by([event], desc: event.timestamp)
+    |> limit(24)
+    |> Repo.all()
+    |> Enum.reverse()
+    |> Enum.flat_map(&pcp_sample/1)
+  end
+
+  defp latest_pcp_sample(device_id) do
+    device_id
+    |> pcp_samples()
+    |> List.last(%{load_1m: 0, memory_used: 0, memory_used_pct: 0, disk_full_pct: 0})
+  end
+
+  defp pcp_sample(%Telemetry{timestamp: timestamp, payload: payload}) do
+    with %{} = pcp <- pcp_payload(payload),
+         {:ok, load_1m} <- number_value(pcp["load_1m"]),
+         {:ok, memory_used} <- number_value(pcp["memory_used"]),
+         {:ok, memory_used_pct} <- number_value(pcp["memory_used_pct"]),
+         {:ok, disk_full_pct} <- number_value(pcp["disk_full_pct"]) do
+      [
+        %{
+          label: Calendar.strftime(timestamp, "%H:%M:%S"),
+          load_1m: round_float(load_1m),
+          memory_used: round_float(memory_used),
+          memory_used_pct: round_float(memory_used_pct),
+          disk_full_pct: round_float(disk_full_pct)
+        }
+      ]
+    else
+      _ -> []
+    end
+  end
+
+  defp pcp_payload(payload) do
+    get_in(payload, ["scripts", "pcp", "data", "output"]) ||
+      get_in(payload, ["scripts", "pcp", "data"])
+  end
+
+  defp number_value(value) when is_integer(value), do: {:ok, value}
+  defp number_value(value) when is_float(value), do: {:ok, value}
+
+  defp number_value(value) when is_binary(value) do
+    case Float.parse(value) do
+      {number, ""} -> {:ok, number}
+      _ -> :error
+    end
+  end
+
+  defp number_value(_value), do: :error
+
+  defp round_float(value) when is_integer(value), do: value
+  defp round_float(value) when is_float(value), do: Float.round(value, 2)
 
   defp chart_config(label, data, colors) do
     %{
       chart: %{
         type: "radialBar",
         height: 250,
+        animations: %{
+          enabled: false
+        },
         sparkline: %{
           enabled: true
         }
@@ -414,13 +574,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
             name: %{
               show: true,
               offsetY: -10,
-              color: "#888",
-              fontSize: "13px"
+              fontSize: "13px",
+              fontWeight: 600
             },
             value: %{
               offsetY: 5,
-              color: "#111",
               fontSize: "20px",
+              fontWeight: 700,
               show: true
             }
           }

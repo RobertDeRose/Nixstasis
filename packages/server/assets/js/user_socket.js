@@ -58,7 +58,10 @@ window.connectTerminalSocket = (token) => {
       socket.disconnect()
     }
 
-    socket = new Socket("/socket", {params: {token: token}})
+    socket = new Socket("/socket", {
+      params: {token: token},
+      rejoinAfterMs: () => 1000,
+    })
     socket.connect()
     activeToken = token
     window.userSocket = socket
