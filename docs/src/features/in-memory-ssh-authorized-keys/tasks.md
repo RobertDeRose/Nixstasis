@@ -2,15 +2,15 @@
 
 ## Setup
 
-- [ ] T000 Confirm the active worktree is
+- [x] T000 Confirm the active worktree is
   `feat/in-memory-ssh-authorized-keys` and the feature spec matches the intended
   `in-memory-ssh-authorized-keys` brief.
 - [ ] T001 Read `packages/AGENTS.md`, `packages/client/AGENTS.md`, and
   `packages/server/AGENTS.md` before changing package files.
-- [ ] T002 Inventory current browser-terminal SSH flow across server terminal
+- [x] T002 Inventory current browser-terminal SSH flow across server terminal
   session creation, `ssh_authorize` command delivery, heartbeat serialization,
   client command handling, packaging, and docs.
-- [ ] T003 Reconcile `docs/src/planned-features.md` on this branch with the
+- [x] T003 Reconcile `docs/src/planned-features.md` on this branch with the
   reviewed feature spec if the planned feature entry is absent or stale.
 
 ## Contract Foundation
