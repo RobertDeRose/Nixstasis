@@ -10,7 +10,7 @@ Type=simple
 SyslogIdentifier=nixstasis
 ExecStart=/usr/bin/nixstasis register
 PrivateTmp=true
-Restart=always
+Restart=on-failure
 RestartSec=120s
 
 [Install]
