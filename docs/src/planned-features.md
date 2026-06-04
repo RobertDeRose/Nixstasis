@@ -316,6 +316,211 @@ production-like environment.
     `FRPS_AUTH_TOKEN`.
 - Suggested first workflow command: `/start-feature server-provided-frps-token`
 
+### `in-memory-ssh-authorized-keys`
+
+- Status: planned
+- Overview:
+- Replace file-based browser-terminal SSH key authorization with an OpenSSH
+    `AuthorizedKeysCommand` integration backed by the Go client runtime. The
+    server still issues short-lived ephemeral terminal keys, but the managed
+    device stores those keys in memory only. When `sshd` needs to authenticate a
+    browser terminal session for the dedicated support account, a small helper
+    asks the running Nixstasis client over local IPC whether the offered key is
+    currently authorized. This avoids writing operator SSH keys to disk and keeps
+    support access independent from the `nixstasis` service account's filesystem
+    permissions.
+- Background and problem statement:
+- Browser terminal access currently targets a dedicated `nixstasis-support`
+    account so operators can diagnose and repair devices using tools such as
+    `sudo systemctl`, `run0 systemctl`, package managers, journal logs, and
+    system status commands.
+- The `nixstasis` account should remain the service identity for the client
+    process and should not be the account operators SSH into for repairs.
+- A file-based `authorized_keys` design requires the client process to write to
+    `/var/lib/nixstasis-support/.ssh/authorized_keys`.
+- If the client runs as root, file writes work but broaden the client daemon's
+    privilege boundary.
+- If the client later runs as the unprivileged `nixstasis` user, it cannot write
+    keys owned by `nixstasis-support` unless a privileged helper or sudo rule is
+    introduced.
+- OpenSSH already supports dynamic key lookup through `AuthorizedKeysCommand`,
+    which lets the client keep ephemeral keys in memory and answer key lookup
+    requests at authentication time.
+- Requirements:
+- Configure `sshd` for the support account so it does not use a persistent
+    `authorized_keys` file for browser-terminal keys.
+- Add an OpenSSH config snippet equivalent to:
+    `Match User nixstasis-support`, `AuthorizedKeysFile none`,
+    `AuthorizedKeysCommand /usr/libexec/nixstasis/ssh-authorized-keys %u %k`,
+    and `AuthorizedKeysCommandUser nixstasis-ssh-authority`.
+- Add a locked-down `nixstasis-ssh-authority` system user for running the helper;
+    it must not be the `nixstasis-support` operator account.
+- Add a small helper binary or command at
+    `/usr/libexec/nixstasis/ssh-authorized-keys`.
+- The helper must accept the OpenSSH-supplied username and public key, ask the
+    local client runtime over IPC/RPC whether that key is currently authorized,
+    print the public key to stdout only when authorized, and print nothing when
+    denied or unavailable.
+- The Go client must maintain an in-memory set of ephemeral SSH public keys with
+    metadata such as target user, command/session id, issued time, expiry time,
+    and optional device/session context.
+- The Go client must expose a local-only IPC endpoint, preferably a Unix-domain
+    socket under `/run/nixstasis/`, for the helper to query current SSH key
+    authorization state.
+- The IPC socket must have strict permissions so only the helper identity and the
+    client runtime can access it.
+- The client must enforce key TTL and remove keys after expiry, explicit terminal
+    close, command/session completion where possible, or client restart.
+- The server's `ssh_authorize` command should deliver the ephemeral public key
+    and TTL/session context to the client without requiring an
+    `authorized_keys_path`.
+- The server-side SSH client must continue to connect as `nixstasis-support` for
+    browser terminal sessions.
+- The support account must support privileged diagnostics and repair through both
+    `sudo` and systemd `run0`, while the dynamic key helper remains narrow and
+    only answers key lookups.
+- Constraints:
+- Do not grant broad sudo to the `nixstasis` service account just so it can edit
+    `nixstasis-support` SSH files.
+- Do not persist ephemeral browser-terminal public keys in
+    `/var/lib/nixstasis-support/.ssh/authorized_keys` for new installs.
+- Do not make the helper perform arbitrary client commands; it only answers
+    whether an offered key is authorized.
+- Do not expose the IPC endpoint on TCP or any non-local network interface.
+- Do not let the helper trust user-controlled paths or write files based on SSH
+    login input.
+- Keep browser/operator authorization in Phoenix/Caddy separate from device-side
+    SSH key authorization. A key is valid only after the server has authorized the
+    operator and sent the device an `ssh_authorize` command.
+- Keep support-user SSH access separate from FRP token distribution; FRP opens
+    the route, while this feature decides whether a public key may authenticate.
+- Non-goals:
+- Replacing FRP or changing the FRPS TCP mux route.
+- Implementing a general-purpose remote shell daemon outside OpenSSH.
+- Supporting password-based support login.
+- Implementing permanent operator SSH keys or long-lived device-local user
+    accounts for every operator.
+- Building a full privileged command execution framework.
+- Proposed runtime flow:
+- Operator clicks Start Remote Session in the Phoenix UI.
+- Server generates an ephemeral SSH key pair and queues `ssh_authorize` for the
+    device with the public key, target user `nixstasis-support`, and a short TTL.
+- Client receives the command during polling and stores the public key in memory
+    only.
+- Server opens the browser terminal channel and starts `ssh` through FRP as
+    `nixstasis-support@atom-<device>-ssh`.
+- Device `sshd` receives the public-key authentication attempt and invokes
+    `/usr/libexec/nixstasis/ssh-authorized-keys %u %k` as
+    `nixstasis-ssh-authority`.
+- The helper sends the username and offered key to the client IPC socket.
+- The client checks the in-memory authorization set, TTL, and target user.
+- If authorized, the helper prints the matching public key to stdout and exits
+    successfully; OpenSSH continues login.
+- If not authorized, expired, or the client is unavailable, the helper prints
+    nothing and OpenSSH denies the key.
+- When the terminal closes, the server may send an explicit revoke/close command
+    if available; independently, the client expires the key by TTL.
+- Packaging and installer requirements:
+- Client installers must create or update `nixstasis-support` for operator SSH
+    sessions.
+- Client installers must create or update `nixstasis-ssh-authority` as a locked
+    system user for `AuthorizedKeysCommandUser`.
+- Client installers must install the helper under `/usr/libexec/nixstasis/` with
+    root-owned, non-writable permissions.
+- Client installers must install an sshd config drop-in for the support user and
+    reload/restart sshd safely when systemd is available.
+- Client installers must ensure `/run/nixstasis/` runtime ownership and mode allow
+    the client daemon and helper to communicate but do not expose the socket to
+    untrusted local users.
+- If package upgrades find an old file-based
+    `/var/lib/nixstasis-support/.ssh/authorized_keys`, they should preserve it
+    unless the design explicitly defines cleanup; avoid deleting operator-owned
+    keys unexpectedly.
+- Migration and compatibility notes:
+- Existing file-based `runtime.authorized_keys_path` can remain as a temporary
+    fallback for older clients during rollout, but new installs should prefer the
+    `AuthorizedKeysCommand` path.
+- Server command payloads may need a compatibility shape: clients that advertise
+    dynamic SSH auth receive TTL/session fields, while older clients receive the
+    file path they understand.
+- Device capability reporting or version checks may be needed before removing the
+    file-based path entirely.
+- The design should decide whether the client persists no keys across restart or
+    whether restart should explicitly invalidate all pending terminal sessions.
+    The default should be in-memory only, so restart invalidates sessions.
+- Security considerations:
+- The helper must be small, deterministic, and auditable because OpenSSH invokes
+    it during authentication.
+- The helper must bound request size and timeout quickly if the client IPC socket
+    is missing or unresponsive.
+- The client should compare canonical public-key values, not raw unbounded input,
+    and should reject malformed key material before adding it to memory.
+- The IPC protocol should include the requested Unix username and public key; it
+    should not authorize keys for users other than `nixstasis-support` unless the
+    feature explicitly expands scope later.
+- Logging must be useful for diagnosis but must not leak private key material.
+    Logging public-key fingerprints is acceptable; logging full keys should be
+    considered carefully.
+- Password authentication should remain disabled for support SSH access.
+- `nixstasis-support` may have passwordless sudo and/or polkit/run0 privileges
+    for repair workflows, but this feature must not grant broad sudo or run0
+    privileges to the dynamic-key helper.
+- Success criteria:
+- A browser terminal session authenticates to `nixstasis-support` without creating
+    or modifying `/var/lib/nixstasis-support/.ssh/authorized_keys`.
+- The client can run as an unprivileged service user and still authorize support
+    SSH logins through the helper/IPC path.
+- Expired, revoked, unknown, malformed, or wrong-user keys are denied by printing
+    no authorized keys.
+- Restarting the client invalidates in-memory terminal keys.
+- Operators can run repair commands through both supported privilege paths, such
+    as `sudo systemctl status nixstasis-poll.service`,
+    `run0 systemctl status nixstasis-poll.service`, `journalctl`, and package
+    manager commands after logging in as `nixstasis-support`.
+- Tests prove the helper handles allow, deny, timeout, malformed-key, wrong-user,
+    and client-unavailable cases.
+- Tests prove the server still targets `nixstasis-support` and no longer requires
+    `authorized_keys_path` for dynamic-capable clients.
+- Risks and tradeoffs:
+- `AuthorizedKeysCommand` adds an authentication-time dependency on the local
+    client process and IPC socket; if the client is down, support SSH is denied.
+- Keeping keys in memory improves security but makes restart invalidate active or
+    pending terminal sessions.
+- OpenSSH config syntax and supported tokens vary by distro/version, so package
+    tests should cover the supported Linux targets.
+- A helper/IPC protocol is more complex than appending a file, but it is narrower
+    and avoids broad filesystem write permissions.
+- Dependencies:
+- `packages/client/cmd/nixstasis/poll.go`
+- `packages/client/internal/commands/handler.go`
+- `packages/client/internal/config/config.go`
+- `packages/client/build/root-dir/`
+- `packages/client/build/debian/postinstall.sh`
+- `packages/client/.goreleaser.yaml`
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`
+- `deploy/compose/docker-compose.yml`
+- `deploy/compose/scripts/check_runtime_contract.sh`
+- `docs/src/modules/deployment-compose.md`
+- `docs/src/modules/edge-frp.md`
+- Suggested validation:
+- Unit tests for client in-memory SSH authorization store: add, match, expiry,
+    revoke, malformed key rejection, and wrong-user denial.
+- Unit tests for the helper command with a fake Unix socket server covering allow,
+    deny, timeout, invalid response, and missing socket.
+- Integration test using a real `sshd` config in a container where
+    `AuthorizedKeysCommand` authenticates a short-lived key and denies it after
+    TTL expiry.
+- Server tests for `ssh_authorize` payload shape and SSH target user.
+- Compose dev-lab smoke test that launches a terminal, runs `whoami`, runs a sudo
+    diagnostic command, closes the session, and verifies a later expired key is
+    denied.
+- Runtime contract checks for installed helper path, sshd drop-in, support user,
+    authority user, sudoers rule, run0/polkit support, and absence of file-based
+    key writes for new dynamic clients.
+- Suggested first workflow command: `/start-feature in-memory-ssh-authorized-keys`
+
 ### `ash-api-contract-unification`
 
 - Status: partially implemented
