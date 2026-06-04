@@ -83,4 +83,15 @@ run = "go run ./scripts/mock_api -log=stderr"
 
 [tasks."e2e:scaffold"]
 description = "Generate E2E journey scaffold; pass script args after --"
-run = "scripts/e2e/scaffold {{arg(name='args', var=true, default='')}}"
+usage = 'arg "[args]" help="Arguments passed to scripts/e2e/scaffold" var=#true double_dash="required"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+args=()
+if [[ -n "${usage_args:-}" ]]; then
+  eval "args=(${usage_args})"
+fi
+
+scripts/e2e/scaffold "${args[@]}"
+'''
