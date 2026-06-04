@@ -26,8 +26,9 @@
 
 - FRPS published ports from Compose:
   - `${FRPS_BIND_PORT}`
-  - `${FRPS_HTTP_PORT}`
   - `${FRPS_TCPMUX_PORT}`
+- FRPS internal HTTP vhost port used only by Caddy wildcard proxying:
+  - `${FRPS_HTTP_PORT}`
 - FRPS internal dashboard port:
   - `${FRPS_DASHBOARD_PORT}`
 - FRPS config fields:
@@ -64,10 +65,19 @@
 - FRPC reads `/usr/share/nixstasis/frpc.toml` directly; frpc expands runtime
   `{{ .Envs.* }}` placeholders from the session environment.
 - The FRPS auth token from the heartbeat response is passed from the launcher to
-  `frp-session` as a systemd credential rather than as a `systemd-run --setenv`
-  value.
+  `frp-session` through a root-only systemd `EnvironmentFile` rather than as a
+  `systemd-run --setenv` value.
 - Caddy proxies wildcard HTTP traffic to FRPS HTTP vhost port.
-- Server SSH terminal uses FRP TCP mux through `ncat --proxy-type http`.
+- The FRPS HTTP vhost port is internal to Compose; only Caddy publishes device
+  HTTP access externally.
+- Compose dev-lab clients can enable `nixstasis-simulator-http.service` to
+  provide the local HTTPS target that FRPC proxies for HTTP-route smoke tests.
+- Server SSH terminal uses FRP TCP mux through `ncat --proxy-type http` and
+  resolves the TCP mux host from `NIXSTASIS_SSH_FRP_HOST` in Compose.
+- PCP diagnostic TCP mux routes are registered by the same on-demand FRPC
+  session as SSH. They are not always-on; they exist only while remote access is
+  requested for the device. The Device page PCP chart itself uses heartbeat
+  telemetry rather than keeping a live PCP socket open from Phoenix.
 
 Traceable references:
 

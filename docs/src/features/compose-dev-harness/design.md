@@ -37,8 +37,9 @@ normal development.
   certificates rather than public DNS or public certificate issuance.
 - Default laptop mode must exercise Caddy on-demand approval through Phoenix
   `GET /api/v1/check_domain`.
-- Provide a managed test-device path that registers with the server, runs or
-  simulates FRPC, and exposes SSH through FRP so the UI terminal can connect.
+- Provide a managed test-device path that starts PCP services, registers with the
+  server, runs or simulates FRPC, and exposes SSH through FRP so the UI terminal
+  can connect.
 - Provide validation steps for opening a terminal from `/devices/:id` and running
   a harmless command through the browser UI.
 - Provide optional public-fidelity guidance for DuckDNS or a real domain using
@@ -69,14 +70,13 @@ normal development.
 
 ### One-Command Dev Lab
 
-The fastest local path is a single-command dev lab (`dev-lab.sh up --devices N`)
-that starts the server stack and seeds N pre-approved virtual devices via release
-RPC. Virtual devices are seeded idempotently by MAC address and bypass
-registration, polling, and FRPC entirely. This path validates server UI, database,
-and API behavior but does not exercise the Go client or FRP tunnel path. The dev
-lab uses a tracked `dev.env` with hardcoded development defaults (no template
-secrets), uses `NIXSTASIS_FORCE_SSL=false`, and the Compose development harness
-with `docker compose --env-file dev.env`.
+The fastest local path is a single-command dev lab (`mise run deploy:dev -- up
+--clients N`) that starts the server stack and runs N managed client containers.
+The dev lab inspects the runtime MAC addresses, pre-approves those rows after the
+server is ready, and the Go clients still complete registration and polling with
+issued credentials. The dev lab uses a tracked `dev.env` with hardcoded
+development defaults (no template secrets), uses `NIXSTASIS_FORCE_SSL=false`, and
+the Compose development harness with `docker compose --env-file dev.env`.
 
 ### Default Laptop Mode
 
@@ -87,12 +87,15 @@ Default laptop mode is local-first and deterministic:
   compose file with `docker compose --env-file dev.env`.
 - Use Caddy local certificates or internal CA for HTTPS.
 - Use local host routing for reserved app hosts and device wildcard hosts.
-- Configure Caddy on-demand TLS with the existing Phoenix ask endpoint so domain
-  approval remains part of the flow.
+- Use Caddy's internal CA directly for deterministic laptop HTTPS; production
+  on-demand TLS still validates domains through the Phoenix ask endpoint.
 - Run a test device using a containerized client with systemd, sshd, frpc, and
   the Go client binary — matching real device lifecycle.
 - The client container acts as both the Go client and the SSH target reachable
   through FRP.
+- The client image entrypoint writes `/etc/nixstasis/config.yaml` from Compose
+  environment before systemd starts so registration and polling use the local
+  Compose service names.
 - Set `NIXSTASIS_FORCE_SSL=false` so Phoenix does not enforce SSL redirects in
   local mode.
 
@@ -128,6 +131,12 @@ as PID 1, sshd for remote access, frpc for tunnel connectivity, and the Go clien
 binary started via systemd units. This matches the real device lifecycle including
 registration, polling, FRPC process management, and SSH key authorization. Scale
 client containers with `--clients N` or `docker compose --scale client=N`.
+For HTTP-route validation, the dev env enables a simulator-local HTTPS endpoint
+on `127.0.0.1:443`; wildcard device requests then traverse Caddy, FRPS, FRPC,
+and an actual client-local TLS listener instead of stopping at proxy
+registration.
+Because application logs are owned by systemd services, diagnostics read journald
+inside the container rather than Docker stdout.
 
 ### TLS Observation Diagnostics
 
@@ -142,8 +151,8 @@ programmatically confirm Caddy reached Phoenix for domain approval.
 ### Terminal Smoke Coverage
 
 The minimum terminal smoke test must launch the terminal from `/devices/:id`, run a
-harmless command such as `whoami` or `printf nixstasis-smoke`, close the session,
-and reopen a terminal for the same test device. This is implemented as an ExUnit
+harmless command such as `whoami`, `sudo systemctl status nixstasis-poll.service`,
+or `printf nixstasis-smoke`, close the session, and reopen a terminal for the same test device. This is implemented as an ExUnit
 LiveView integration test using a fake SSH client, covering command execution and
 session lifecycle behavior without requiring a running FRP tunnel or browser
 automation.
@@ -174,7 +183,7 @@ there is a concrete implementation need beyond documenting validation steps.
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `deploy/compose/frps/frps.toml`
-- `deploy/compose/scripts/dev-lab.sh`
+- `.mise/tasks/deploy/dev.sh`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
 - `packages/client/Dockerfile`
@@ -208,7 +217,7 @@ there is a concrete implementation need beyond documenting validation steps.
 - Local smoke test confirming FRPC connects to FRPS using development config.
 - ExUnit LiveView integration test that launches a terminal and runs a harmless
   command through a fake SSH client.
-- Dev-lab one-command flow seeding virtual devices and confirming server UI
-  accessibility.
+- Dev-lab one-command flow starting real client simulators and confirming server
+  UI accessibility.
 - Optional DuckDNS or real-domain validation that documents certificate issuance,
   DNS challenge behavior, and expected failure modes.
