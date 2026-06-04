@@ -4,6 +4,8 @@ services:
     build:
       context: ../../packages
       dockerfile: server/Dockerfile
+      args:
+        NIXSTASIS_SESSION_COOKIE_SECURE: ${NIXSTASIS_SESSION_COOKIE_SECURE:-true}
     environment:
       PHX_SERVER: "true"
       PORT: ${PORT:-4000}
@@ -16,7 +18,10 @@ services:
       NIXSTASIS_TLS_OBSERVATIONS_ENABLED: ${NIXSTASIS_TLS_OBSERVATIONS_ENABLED:-false}
       NIXSTASIS_TLS_OBSERVATIONS_TOKEN: ${NIXSTASIS_TLS_OBSERVATIONS_TOKEN:-}
       NIXSTASIS_E2E_ENABLED: ${NIXSTASIS_E2E_ENABLED:-false}
+      NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK: ${NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK:-false}
       FRPS_AUTH_TOKEN: ${FRPS_AUTH_TOKEN}
+      FRPS_TCPMUX_PORT: ${FRPS_TCPMUX_PORT}
+      NIXSTASIS_SSH_FRP_HOST: ${NIXSTASIS_SSH_FRP_HOST:-frps}
     ports:
       - "${PHOENIX_BIND_HOST:-127.0.0.1}:${PORT:-4000}:${PORT:-4000}"
     depends_on:
@@ -74,7 +79,12 @@ services:
         : "$${FRPS_DASHBOARD_PASSWORD:?FRPS_DASHBOARD_PASSWORD is required}"
         : "$${BASE_DOMAIN:?BASE_DOMAIN is required}"
         for port_name in FRPS_BIND_PORT FRPS_DASHBOARD_PORT FRPS_TCPMUX_PORT FRPS_HTTP_PORT; do
-          eval "port_value=\$${port_name}"
+          case "$$port_name" in
+            FRPS_BIND_PORT) port_value="$$FRPS_BIND_PORT" ;;
+            FRPS_DASHBOARD_PORT) port_value="$$FRPS_DASHBOARD_PORT" ;;
+            FRPS_TCPMUX_PORT) port_value="$$FRPS_TCPMUX_PORT" ;;
+            FRPS_HTTP_PORT) port_value="$$FRPS_HTTP_PORT" ;;
+          esac
           case "$$port_value" in
             ''|*[!0-9]*) echo "$$port_name must be numeric" >&2; exit 1 ;;
           esac
@@ -104,7 +114,6 @@ services:
       FRPS_HTTP_PORT: ${FRPS_HTTP_PORT}
     ports:
       - "${BIND_HOST:-0.0.0.0}:${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"
-      - "${BIND_HOST:-0.0.0.0}:${FRPS_HTTP_PORT}:${FRPS_HTTP_PORT}"
       - "${BIND_HOST:-0.0.0.0}:${FRPS_TCPMUX_PORT}:${FRPS_TCPMUX_PORT}"
     volumes:
       - ./frps/frps.toml:/etc/frp/frps.toml.template:ro
@@ -122,7 +131,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     restart: unless-stopped
 
   client:
@@ -133,6 +142,10 @@ services:
     environment:
       NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-http://nixstasis:4000}
       NIXSTASIS_FRP_AUTH_TOKEN: ${NIXSTASIS_FRP_AUTH_TOKEN:-}
+      NIXSTASIS_FRP_SERVER_ADDR: frps
+      NIXSTASIS_FRP_SERVER_PORT: ${FRPS_BIND_PORT}
+      NIXSTASIS_FRP_HTTP_LOCAL_ADDR: ${NIXSTASIS_FRP_HTTP_LOCAL_ADDR:-127.0.0.1:443}
+      NIXSTASIS_SIMULATOR_HTTP_ENABLED: ${NIXSTASIS_SIMULATOR_HTTP_ENABLED:-false}
     privileged: true
     tmpfs:
       - /run

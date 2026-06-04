@@ -7,7 +7,7 @@
 - [x] T004 Define the development Compose override strategy without changing production Compose semantics.
 - [x] T005 Add or update local development configuration templates for Phoenix, Caddy, FRPS, and PostgreSQL.
 - [x] T006 Add or update scripts for starting, stopping, and validating default laptop mode.
-- [x] T006a Add a one-command dev lab flow that starts the server and seeds virtual devices.
+- [x] T006a Add a one-command dev lab flow that starts the server and real client simulators.
 - [x] T007 Add a local Go-client managed test-device path that registers with the server and connects FRPC to FRPS.
 - [x] T008 Add an SSH test target reachable through FRP for browser terminal validation.
 - [x] T009 Add validation that Caddy on-demand TLS calls Phoenix `GET /api/v1/check_domain`.

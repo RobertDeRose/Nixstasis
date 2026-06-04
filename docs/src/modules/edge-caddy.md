@@ -15,6 +15,8 @@
 ## Key Files
 
 - `deploy/compose/caddy/Caddyfile`
+- `deploy/compose/caddy/Caddyfile.dev`
+- `deploy/compose/caddy/Caddyfile.laptop`
 - `packages/caddy/Dockerfile`
 - `packages/caddy/bin/build_caddy.sh`
 
@@ -65,6 +67,9 @@ same Nixstasis role contract.
 
 - Browser/operator HTTPS traffic to `nixstasis.<base-domain>` is authorized by
   AuthCrunch before proxying to Phoenix.
+- Default local dev/test HTTPS uses `Caddyfile.dev`, which is loopback-bound by
+  `dev.env` and relies on Phoenix's explicit local auth fallback instead of a
+  live OIDC provider.
 - Device protocol HTTPS traffic on `nixstasis.<base-domain>` bypasses AuthCrunch
   only for registration, heartbeat, command result, and command payload routes;
   Phoenix enforces the device credential contract for those runtime calls.
