@@ -66,7 +66,7 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:approval_status, :api_token_hash]}
+      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash]}
     end
 
     update :update do

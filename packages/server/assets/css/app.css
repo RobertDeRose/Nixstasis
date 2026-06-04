@@ -159,6 +159,15 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+#terminal-container .xterm {
+  width: 100%;
+  height: 100%;
+}
+
+#terminal-container .xterm-viewport {
+  overflow-y: auto;
+}
+
 
 @layer utilities {
   .table-zebra tbody tr:nth-child(even) :where(.table-zebra tbody tr:nth-child(even)) {

@@ -33,9 +33,12 @@ defmodule NixstasisWeb.HeartbeatJSON do
       type: payload["type"] || payload[:type] || "unknown",
       args: payload["args"] || payload[:args] || [],
       payload: inline_payload,
+      public_key: payload["public_key"] || payload[:public_key],
       payload_ref: payload_ref,
       queued_at: cmd.queued_at
     }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
   end
 
   defp normalize_inline_payload(_payload, payload_ref) when not is_nil(payload_ref), do: nil
