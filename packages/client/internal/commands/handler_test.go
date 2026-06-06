@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
@@ -293,6 +294,173 @@ func TestSSHAuthorizeAcceptsTopLevelPublicKeyAtConfiguredPath(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(data)); got != testPublicKey {
 		t.Fatalf("authorized_keys = %q, want %q", got, testPublicKey)
+	}
+}
+
+func TestSSHAuthorizeStoresDynamicKeyInMemory(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", "", store)
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-dynamic",
+		Type:      "ssh_authorize",
+		PublicKey: testPublicKey,
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.PayloadContentType,
+			Name:        "session-1",
+			Data:        `{"target_user":"nixstasis-support","ttl_seconds":300,"session_ref":"session-1"}`,
+		},
+	}})[0]
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected dynamic ssh_authorize to succeed, got %s: %s", result.Status, result.Error)
+	}
+	key, err := sshauth.ParseAuthorizedKeyLine(testPublicKey)
+	if err != nil {
+		t.Fatalf("ParseAuthorizedKeyLine() error = %v", err)
+	}
+	if _, ok := store.Authorize("nixstasis-support", key.Type, key.Blob); !ok {
+		t.Fatal("dynamic key was not stored")
+	}
+}
+
+func TestSSHAuthorizeRejectsInvalidDynamicPayloads(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", "", store)
+	cases := []struct {
+		name    string
+		payload string
+	}{
+		{name: "invalid ttl", payload: `{"target_user":"nixstasis-support","ttl_seconds":0,"session_ref":"session-1"}`},
+		{name: "wrong user", payload: `{"target_user":"root","ttl_seconds":300,"session_ref":"session-1"}`},
+		{name: "missing session", payload: `{"target_user":"nixstasis-support","ttl_seconds":300}`},
+		{name: "malformed json", payload: `{`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-" + tc.name,
+				Type:      "ssh_authorize",
+				PublicKey: testPublicKey,
+				Payload: &transport.CommandPayload{
+					ContentType: sshauth.PayloadContentType,
+					Data:        tc.payload,
+				},
+			}})[0]
+			if result.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected failure, got %s", result.Status)
+			}
+		})
+	}
+}
+
+func TestSSHRevokeRemovesStoredAuthorization(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", "", store)
+
+	authorize := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-auth",
+		Type:      "ssh_authorize",
+		PublicKey: testPublicKey,
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.PayloadContentType,
+			Name:        "session-revoke",
+			Data:        `{"target_user":"nixstasis-support","ttl_seconds":300,"session_ref":"session-revoke"}`,
+		},
+	}})[0]
+	if authorize.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_authorize ok, got %s: %s", authorize.Status, authorize.Error)
+	}
+	if store.Len() != 1 {
+		t.Fatalf("store len = %d, want 1", store.Len())
+	}
+
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+			Name:        "session-revoke",
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_revoke ok, got %s: %s", revoke.Status, revoke.Error)
+	}
+	output, ok := revoke.Output.(map[string]any)
+	if !ok {
+		t.Fatalf("revoke output = %v, want map", revoke.Output)
+	}
+	if got, want := output["mode"], "dynamic_ssh_revoke"; got != want {
+		t.Fatalf("output mode = %v, want %v", got, want)
+	}
+	if got, want := output["session_ref"], "session-revoke"; got != want {
+		t.Fatalf("output session_ref = %v, want %v", got, want)
+	}
+	if got, _ := output["revoked"].(int); got != 1 {
+		t.Fatalf("output revoked = %v, want 1", output["revoked"])
+	}
+	if store.Len() != 0 {
+		t.Fatalf("store len after revoke = %d, want 0", store.Len())
+	}
+}
+
+func TestSSHRevokeResolvesSessionRefFromData(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", "", store)
+
+	_, err := store.Add(testPublicKey, "nixstasis-support", "cmd-auth", "session-data", 5*time.Minute)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+			Data:        `{"session_ref":"session-data"}`,
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_revoke ok, got %s: %s", revoke.Status, revoke.Error)
+	}
+	if store.Len() != 0 {
+		t.Fatalf("store len = %d, want 0", store.Len())
+	}
+}
+
+func TestSSHRevokeFailsWithoutSessionRef(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", "", store)
+
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected ssh_revoke failure, got %s", revoke.Status)
+	}
+}
+
+func TestSSHRevokeIsSerialAndUnsupportedWithoutStore(t *testing.T) {
+	if !commandRequiresSerial(transport.CommandRequest{Type: "ssh_revoke"}) {
+		t.Fatal("ssh_revoke must run serially with the other stateful commands")
+	}
+
+	handler := NewHandlerWithAuthorizedKeys("", "")
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+			Name:        "session-missing",
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected failure when store is missing, got %s", revoke.Status)
 	}
 }
 
