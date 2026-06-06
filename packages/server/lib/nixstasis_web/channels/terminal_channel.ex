@@ -262,7 +262,6 @@ defmodule NixstasisWeb.TerminalChannel do
     _, _ -> :ok
   end
 
-<<<<<<< HEAD
   defp resize_ssh_client(module, pid, columns, rows) do
     if function_exported?(module, :resize, 3) do
       module.resize(pid, columns, rows)
@@ -293,4 +292,4 @@ defmodule NixstasisWeb.TerminalChannel do
     end
   end
 end
-end
+
