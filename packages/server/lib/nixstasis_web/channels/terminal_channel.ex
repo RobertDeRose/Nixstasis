@@ -292,4 +292,3 @@ defmodule NixstasisWeb.TerminalChannel do
     end
   end
 end
-
