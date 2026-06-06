@@ -109,7 +109,7 @@
   `authorized_keys_path`.
 - [ ] T039 Add server tests for terminal sequencing, queue-failure cleanup,
   command-result gating, timeout cleanup, and SSH destination user.
-- [ ] T040 Add or update terminal close/revoke behavior if an existing command or
+- [x] T040 Add or update terminal close/revoke behavior if an existing command or
   server hook can explicitly revoke client-side in-memory authorization.
   Implementation: server queues a new `ssh_revoke` command
   (`application/vnd.nixstasis.ssh-revoke+json;version=1`, payload
@@ -199,10 +199,10 @@
 - [ ] T067 Run package/release verification that covers helper installation,
   sshd drop-in, users, socket permissions, public-key-only login, and legacy file
   preservation.
-- [ ] T068 Run a real-sshd container integration test proving
+- [x] T068 Run a real-sshd container integration test proving
   `AuthorizedKeysCommand` invokes the helper with `%u %t %k`, allows a
   short-lived key, and denies it after TTL expiry.
-- [ ] T069 Run a Compose dev-lab/browser terminal smoke test that launches a
+- [x] T069 Run a Compose dev-lab/browser terminal smoke test that launches a
   session, runs `whoami` and verifies `nixstasis-support`, runs a safe sudo or
   run0 diagnostic command, closes the session, and verifies expired-key denial.
 - [ ] T070 Run documentation validation for changed mdBook pages and OpenAPI
