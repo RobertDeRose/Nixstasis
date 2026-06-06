@@ -443,9 +443,69 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   defp clear_ssh_session(socket) do
-    socket.assigns
-    |> Map.get(:ssh_token)
-    |> SshKeyManager.clear_terminal_session()
+    session_ref = socket.assigns |> Map.get(:ssh_token)
+
+    cond do
+      is_nil(session_ref) ->
+        :ok
+
+      true ->
+        _ = Devices.queue_terminal_revoke(socket.assigns.device, session_ref)
+        SshKeyManager.clear_terminal_session(session_ref)
+    end
+  end
+
+  defp clear_pending_ssh_session(socket) do
+    case socket.assigns[:ssh_session_pending] do
+      %{session_ref: session_ref, timer: timer} ->
+        Process.cancel_timer(timer)
+        _ = Devices.queue_terminal_revoke(socket.assigns.device, session_ref)
+        SshKeyManager.clear_terminal_session(session_ref)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp terminal_socket_token(device_id) do
+    Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device_id})
+  end
+
+  defp start_pending_ssh_authorization(device, private_key, public_key) do
+    with {:ok, session_ref} <- SshKeyManager.create_terminal_session(device.id, private_key),
+         {:ok, _command} <- queue_dynamic_ssh_authorization(device, session_ref, public_key) do
+      {:ok, session_ref}
+    else
+      {:error, reason} = error ->
+        if is_binary(reason), do: SshKeyManager.clear_terminal_session(reason)
+        error
+    end
+  end
+
+  defp queue_dynamic_ssh_authorization(device, session_ref, public_key) do
+    payload_data =
+      Jason.encode!(%{
+        target_user: "nixstasis-support",
+        ttl_seconds: @terminal_authorization_ttl_seconds,
+        session_ref: session_ref
+      })
+
+    case Devices.queue_command(device, %{
+           "type" => "ssh_authorize",
+           "public_key" => public_key,
+           "payload" => %{
+             "content_type" => "application/vnd.nixstasis.ssh-authorize+json;version=1",
+             "name" => session_ref,
+             "data" => payload_data
+           }
+         }) do
+      {:ok, command} ->
+        {:ok, command}
+
+      {:error, reason} ->
+        SshKeyManager.clear_terminal_session(session_ref)
+        {:error, reason}
+    end
   end
 
   defp close_remote_access(socket) do

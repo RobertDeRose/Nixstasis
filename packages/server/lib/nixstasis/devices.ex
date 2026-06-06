@@ -716,27 +716,49 @@ defmodule Nixstasis.Devices do
 
   def command_succeeded?(_device_id, _command_id), do: false
 
-  def pop_pending_commands(%Device{} = device) do
-    Repo.transaction(fn ->
-      ids = claim_pending_command_ids(device.id)
+  @doc """
+  Queues a best-effort `ssh_revoke` command so the client can drop the in-memory
+  authorization for the given terminal session. Returns `:ok` even when the
+  device is no longer reachable, dynamic-incapable, or the queue insert fails;
+  terminal cleanup must not block on a revoke that the client may never see.
+  """
+  def queue_terminal_revoke(%Device{} = device, session_ref)
+      when is_binary(session_ref) and session_ref != "" do
+    if ssh_authorize_dynamic_capable?(device) do
+      payload_data =
+        Jason.encode!(%{session_ref: session_ref})
 
-      if ids == [] do
-        []
-      else
-        PendingCommand
-        |> Ash.Query.filter(id in ^ids)
-        |> Ash.read!(domain: Domain)
+      case queue_command(device, %{
+             "type" => "ssh_revoke",
+             "payload" => %{
+               "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+               "name" => session_ref,
+               "data" => payload_data
+             }
+           }) do
+        {:ok, _command} -> :ok
+        {:error, reason} -> {:error, reason}
       end
-    end)
-    |> case do
-      {:ok, commands} -> commands
-      _ -> []
+    else
+      :ok
     end
   end
+
+  def queue_terminal_revoke(_device, _session_ref), do: :ok
+
+  def pop_pending_commands(%Device{} = device, opts \\ []) do
+    allow_dynamic_ssh? = Keyword.get(opts, :allow_dynamic_ssh?, true)
 
   defp claim_pending_command_ids(device_id) do
     now = DateTime.utc_now()
 
+    dynamic_filter =
+      if allow_dynamic_ssh? do
+        ""
+      else
+        "AND NOT (COALESCE(command_payload->>'type', '') = 'ssh_authorize' AND COALESCE(command_payload->'payload'->>'content_type', '') LIKE 'application/vnd.nixstasis.ssh-authorize+json%') " <>
+          "AND NOT (COALESCE(command_payload->>'type', '') = 'ssh_revoke' AND COALESCE(command_payload->'payload'->>'content_type', '') LIKE 'application/vnd.nixstasis.ssh-revoke+json%')"
+      end
     %{rows: rows} =
       Repo.query!(
         """
