@@ -114,6 +114,8 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "ssh_authorize":
 		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Args, cmd.Payload)
+	case "ssh_revoke":
+		return h.sshRevoke(ctx, cmd.CommandID, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
 	}
@@ -121,7 +123,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script", "ssh_authorize":
+	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke":
 		return true
 	default:
 		return false
@@ -155,6 +157,101 @@ func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string,
 		CommandID: commandID,
 		Status:    transport.CommandStatusOK,
 		Output:    map[string]any{"path": path},
+	}
+}
+
+type dynamicSSHAuthorizePayload struct {
+	TargetUser string `json:"target_user"`
+	TTLSeconds int    `json:"ttl_seconds"`
+	SessionRef string `json:"session_ref"`
+}
+
+func (h *Handler) dynamicSSHAuthorize(ctx context.Context, commandID, publicKey string, payload *transport.CommandPayload) transport.CommandResult {
+	if h.sshAuthStore == nil {
+		return failureResult(commandID, "ssh authorization store is not configured")
+	}
+	if strings.TrimSpace(publicKey) == "" {
+		return failureResult(commandID, "missing public key")
+	}
+	var data dynamicSSHAuthorizePayload
+	if err := json.Unmarshal([]byte(payload.Data), &data); err != nil {
+		return failureResult(commandID, "invalid ssh_authorize payload: "+err.Error())
+	}
+	if data.TargetUser != "nixstasis-support" {
+		return failureResult(commandID, "unsupported target_user")
+	}
+	if data.SessionRef == "" {
+		return failureResult(commandID, "session_ref is required")
+	}
+	if data.TTLSeconds <= 0 {
+		return failureResult(commandID, "ttl_seconds must be positive")
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+	entry, err := h.sshAuthStore.Add(publicKey, data.TargetUser, commandID, data.SessionRef, time.Duration(data.TTLSeconds)*time.Second)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	afterCommandCommitHook()
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output: map[string]any{
+			"mode":        "dynamic_ssh_authorize",
+			"target_user": entry.TargetUser,
+			"session_ref": entry.SessionRef,
+			"expires_at":  entry.ExpiresAt.Format(time.RFC3339),
+			"fingerprint": entry.Key.Fingerprint,
+		},
+	}
+}
+
+func isDynamicSSHAuthorizePayload(payload *transport.CommandPayload) bool {
+	if payload == nil {
+		return false
+	}
+	contentType := strings.ToLower(strings.TrimSpace(payload.ContentType))
+	return strings.HasPrefix(contentType, strings.ToLower(sshauth.PayloadContentType)) ||
+		strings.HasPrefix(contentType, "application/vnd.nixstasis.ssh-authorize+json")
+}
+
+type sshRevokePayload struct {
+	SessionRef string `json:"session_ref"`
+}
+
+func (h *Handler) sshRevoke(ctx context.Context, commandID string, payload *transport.CommandPayload) transport.CommandResult {
+	if h.sshAuthStore == nil {
+		return failureResult(commandID, "ssh authorization store is not configured")
+	}
+	if payload == nil {
+		return failureResult(commandID, "missing ssh_revoke payload")
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+
+	sessionRef := strings.TrimSpace(payload.Name)
+	if sessionRef == "" {
+		var data sshRevokePayload
+		if err := json.Unmarshal([]byte(payload.Data), &data); err == nil {
+			sessionRef = strings.TrimSpace(data.SessionRef)
+		}
+	}
+	if sessionRef == "" {
+		return failureResult(commandID, "session_ref is required")
+	}
+
+	revoked := h.sshAuthStore.RevokeSession(sessionRef)
+	afterCommandCommitHook()
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output: map[string]any{
+			"mode":        "dynamic_ssh_revoke",
+			"session_ref": sessionRef,
+			"revoked":     revoked,
+		},
 	}
 }
 
