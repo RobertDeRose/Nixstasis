@@ -43,6 +43,7 @@ defmodule NixstasisWeb.TerminalChannel do
 
       socket =
         socket
+        |> assign(:terminal_device_id, device_id)
         |> assign(:terminal_session_ref, session_ref)
         |> assign(:ssh_client, pid)
         |> assign(:ssh_client_module, ssh_client_module())
@@ -53,6 +54,7 @@ defmodule NixstasisWeb.TerminalChannel do
     else
       {:error, reason} ->
         maybe_clear_terminal_session(session_ref, reason)
+        queue_revoke(device_id, session_ref)
         Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
         {:error, terminal_join_error(reason)}
     end
@@ -179,7 +181,9 @@ defmodule NixstasisWeb.TerminalChannel do
 
   @impl true
   def terminate(_reason, socket) do
-    SshKeyManager.clear_terminal_session(socket.assigns[:terminal_session_ref])
+    session_ref = socket.assigns[:terminal_session_ref]
+    SshKeyManager.clear_terminal_session(session_ref)
+    queue_revoke(socket.assigns[:terminal_device_id], session_ref)
     stop_ssh_client(socket.assigns[:ssh_client_module], socket.assigns[:ssh_client])
     :ok
   end
@@ -258,6 +262,7 @@ defmodule NixstasisWeb.TerminalChannel do
     _, _ -> :ok
   end
 
+<<<<<<< HEAD
   defp resize_ssh_client(module, pid, columns, rows) do
     if function_exported?(module, :resize, 3) do
       module.resize(pid, columns, rows)
@@ -276,4 +281,16 @@ defmodule NixstasisWeb.TerminalChannel do
   end
 
   defp parse_terminal_dimension(_value, default), do: default
+
+  defp queue_revoke(nil, _session_ref), do: :ok
+  defp queue_revoke(_device_id, nil), do: :ok
+  defp queue_revoke(_device_id, ""), do: :ok
+
+  defp queue_revoke(device_id, session_ref) do
+    case get_device(device_id) do
+      {:ok, device} -> _ = Devices.queue_terminal_revoke(device, session_ref)
+      _ -> :ok
+    end
+  end
+end
 end
