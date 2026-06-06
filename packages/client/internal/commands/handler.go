@@ -3,12 +3,15 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
@@ -25,6 +28,7 @@ var afterCommandCommitHook = func() {}
 type Handler struct {
 	scriptsDir         string
 	authorizedKeysPath string
+	sshAuthStore       *sshauth.Store
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -35,6 +39,11 @@ func NewHandler(scriptsDir string) *Handler {
 // NewHandlerWithAuthorizedKeys constructs a Handler with an explicit authorized_keys target.
 func NewHandlerWithAuthorizedKeys(scriptsDir, authorizedKeysPath string) *Handler {
 	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath}
+}
+
+// NewHandlerWithSSHAuth constructs a Handler with dynamic SSH authorization support.
+func NewHandlerWithSSHAuth(scriptsDir, authorizedKeysPath string, store *sshauth.Store) *Handler {
+	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath, sshAuthStore: store}
 }
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
@@ -131,6 +140,10 @@ func commandRequiresSerial(cmd transport.CommandRequest) bool {
 }
 
 func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, args []string, payload *transport.CommandPayload) transport.CommandResult {
+	if isDynamicSSHAuthorizePayload(payload) {
+		return h.dynamicSSHAuthorize(ctx, commandID, publicKey, payload)
+	}
+
 	key, requestedPath, err := resolveSSHAuthorize(publicKey, args, payload)
 	if err != nil {
 		return failureResult(commandID, err.Error())
