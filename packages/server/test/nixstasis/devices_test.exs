@@ -367,4 +367,67 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.command_result_status(device.id, failed_command.id) == :failed
     end
   end
+
+  describe "queue_terminal_revoke/2" do
+    test "returns :ok for empty session_ref without queuing anything" do
+      device = device_fixture(%{mac_address: "70:70:70:70:70:70", approval_status: :approved})
+
+      assert :ok = Devices.queue_terminal_revoke(device, "")
+
+      assert [] = Devices.pop_pending_commands(device)
+    end
+
+    test "returns :ok without queuing when device is not ssh_authorize_dynamic capable" do
+      device = device_fixture(%{mac_address: "71:71:71:71:71:71", approval_status: :approved})
+
+      assert :ok = Devices.queue_terminal_revoke(device, "session-no-revoke")
+
+      assert [] = Devices.pop_pending_commands(device)
+    end
+
+    test "queues an ssh_revoke command for capable devices" do
+      device = device_fixture(%{mac_address: "72:72:72:72:72:72", approval_status: :approved})
+
+      seen_at = DateTime.utc_now() |> DateTime.to_iso8601()
+
+      dynamic_device = %{
+        device
+        | metadata: %{"capabilities" => ["ssh_authorize_dynamic_v1"], "capabilities_seen_at" => seen_at}
+      }
+
+      assert :ok = Devices.queue_terminal_revoke(dynamic_device, "session-abc")
+
+      [command] = Devices.pop_pending_commands(dynamic_device)
+      assert command.command_payload["type"] == "ssh_revoke"
+
+      payload = command.command_payload["payload"]
+      assert payload["name"] == "session-abc"
+      assert payload["content_type"] == "application/vnd.nixstasis.ssh-revoke+json;version=1"
+
+      assert %{"session_ref" => "session-abc"} = Jason.decode!(payload["data"])
+    end
+
+    test "pop_pending_commands/1 filters ssh_revoke for non-dynamic devices" do
+      legacy_device =
+        device_fixture(%{mac_address: "74:74:74:74:74:74", approval_status: :approved})
+
+      {:ok, _} = Devices.queue_command(legacy_device, %{"id" => "keep", "type" => "generic"})
+
+      {:ok, _} =
+        Devices.queue_command(legacy_device, %{
+          "type" => "ssh_revoke",
+          "payload" => %{
+            "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+            "name" => "should-be-filtered",
+            "data" => "{}"
+          }
+        })
+
+      [command] =
+        Devices.pop_pending_commands(legacy_device, allow_dynamic_ssh?: false)
+
+      assert command.command_payload["id"] == "keep"
+      assert command.command_payload["type"] == "generic"
+    end
+  end
 end
