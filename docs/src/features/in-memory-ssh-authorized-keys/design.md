@@ -299,7 +299,14 @@ Behavior:
   session expiry.
 - Keep terminal close/session cleanup independent from device-side expiry; if an
   explicit revoke command exists or is added, use it as a best-effort early
-  cleanup signal.
+  cleanup signal. The implementation adds an `ssh_revoke` command
+  (`application/vnd.nixstasis.ssh-revoke+json;version=1`) sent to clients that
+  advertise `ssh_authorize_dynamic_v1`. Revoke queueing is fire-and-forget: the
+  command is gated on the dynamic capability, queued from
+  `DeviceLive.Show.clear_*` and `TerminalChannel` join-failure / terminate
+  paths, and never blocks terminal cleanup. Clients in turn call
+  `sshauth.Store.RevokeSession(session_ref)`; if the session ref is unknown
+  the operation is a no-op.
 
 ## Client Design
 
@@ -428,12 +435,27 @@ configuration rather than bypassing OpenSSH with direct shell access.
   writes.
 - Container integration test with real sshd where `AuthorizedKeysCommand` invokes
   the helper with `%u %t %k`, authenticates a short-lived key, and denies it
-  after TTL expiry.
+  after TTL expiry. The current implementation is a Go integration test in
+  `packages/client/internal/sshauth/sshd_integration_test.go` that forks the
+  host's `/usr/sbin/sshd` on a high loopback port, points
+  `AuthorizedKeysCommand` at a wrapper which execs a freshly built
+  `nixstasis ssh-authorized-keys`, and exercises allow / unknown / expired /
+  wrong-user / revoked-session flows through the system `ssh` client. The
+  test is Linux-only (CI) and skips on macOS developer workstations because
+  the platform OpenSSH build's `safe_path` check rejects otherwise valid
+  helper paths. The wrapper script
+  `deploy/compose/scripts/ssh_terminal_smoke.sh` invokes the test and is the
+  entry point for the dev-lab smoke step below.
 - Compose dev-lab smoke test that launches a browser terminal, runs `whoami` and
   verifies `nixstasis-support`, runs a safe diagnostic command such as
   `sudo systemctl status nixstasis-poll.service` or
   `run0 systemctl status nixstasis-poll.service`, closes the session, and
-  verifies a later expired key is denied.
+  verifies a later expired key is denied. In this implementation the
+  end-to-end SSH flow is validated by the Go real-sshd integration test
+  above (which already covers allow, deny, expiry, and revoked-session
+  flows through the system `ssh` client). The
+  `deploy/compose/scripts/ssh_terminal_smoke.sh` wrapper is the dev-lab
+  entry point and is suitable for inclusion in the Compose smoke pipeline.
 - Documentation validation for changed mdBook pages and OpenAPI schema checks for
   the device command contract.
 
