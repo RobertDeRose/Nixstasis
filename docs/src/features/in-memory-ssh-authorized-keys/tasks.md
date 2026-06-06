@@ -111,6 +111,17 @@
   command-result gating, timeout cleanup, and SSH destination user.
 - [ ] T040 Add or update terminal close/revoke behavior if an existing command or
   server hook can explicitly revoke client-side in-memory authorization.
+  Implementation: server queues a new `ssh_revoke` command
+  (`application/vnd.nixstasis.ssh-revoke+json;version=1`, payload
+  `{"session_ref":...}`) for clients that advertise
+  `ssh_authorize_dynamic_v1`; the command is filtered out of
+  `pop_pending_commands` for non-dynamic devices. Queueing happens in
+  `Devices.queue_terminal_revoke/2`, called from `DeviceLive.Show.clear_*`
+  and `TerminalChannel` join-failure / terminate paths as a best-effort
+  fire-and-forget signal. The Go client adds an `ssh_revoke` case to
+  `commands.ExecuteBatch` that calls `sshauth.Store.RevokeSession`; the
+  unknown-session case is a no-op. See `design.md` "Server Design" and
+  "Client Design" for the full contract.
 
 ## Packaging And Runtime Contract
 
