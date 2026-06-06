@@ -135,7 +135,8 @@ func (m *Manager) GetStatus() ConnectionStatus {
 // a root-only EnvironmentFile so it is not exposed in the systemd-run command.
 func systemdRunArgs(configPath string, frpConfig config.FRPConfig, environmentPath string) []string {
 	args := make([]string, 0, 18+2*len(frpcTemplateEnv(frpConfig)))
-	args = append(args,
+	args = append(
+		args,
 		"--quiet",
 		"--collect",
 		"--service-type=simple",
