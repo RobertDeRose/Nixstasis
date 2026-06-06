@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
