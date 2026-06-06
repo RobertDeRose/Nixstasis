@@ -318,7 +318,7 @@ production-like environment.
 
 ### `in-memory-ssh-authorized-keys`
 
-- Status: planned
+- Status: in-progress
 - Overview:
 - Replace file-based browser-terminal SSH key authorization with an OpenSSH
     `AuthorizedKeysCommand` integration backed by the Go client runtime. The
