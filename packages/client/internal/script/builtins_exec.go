@@ -56,7 +56,8 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 	var cmdName string
 	var argList *starlark.List
 
-	if err := starlark.UnpackArgs("exec_cmd", args, kwargs,
+	if err := starlark.UnpackArgs(
+		"exec_cmd", args, kwargs,
 		"cmd", &cmdName,
 		"args?", &argList,
 	); err != nil {
