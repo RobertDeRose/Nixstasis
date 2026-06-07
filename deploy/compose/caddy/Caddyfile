@@ -125,5 +125,6 @@ frp-admin.{$BASE_DOMAIN} {
   }
 
   authorize with entra_policy
+  header -X-Frame-Options
   reverse_proxy frps:{$FRPS_HTTP_PORT}
 }

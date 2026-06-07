@@ -564,7 +564,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert html =~ ~s(id="terminal-container")
       assert html =~ ~s(data-closed="true")
       assert html =~ "Terminal session ended"
-      assert has_element?(view, "button[phx-click='start_ssh_session']")
+      assert has_element?(view, "button[phx-click='retry_session'][aria-label='Restart session']")
     end
 
     test "terminal journey launches, runs commands, closes, and reopens", %{conn: conn} do
@@ -597,7 +597,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert Devices.get_device!(device.id).remote_access_requested == false
 
       view
-      |> element("button[phx-click='retry_session']", "Restart Session")
+      |> element("button[phx-click='retry_session'][aria-label='Restart session']")
       |> render_click()
 
       assert Devices.get_device!(device.id).remote_access_requested == true
@@ -711,7 +711,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("button[phx-click='retry_session']", "Restart Session")
+      |> element("button[phx-click='retry_session'][aria-label='Restart session']")
       |> render_click()
 
       assert render(view) =~ "Session reinitialized"
