@@ -467,7 +467,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     %{
       chart: %{
         type: "area",
-        height: 560,
+        height: 600,
         animations: %{
           enabled: false
         },
@@ -478,6 +478,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
       fill: %{type: "gradient", gradient: %{opacityFrom: 0.22, opacityTo: 0.02}},
       markers: %{size: 0, hover: %{size: 5}},
       tooltip: %{shared: true, intersect: false},
+      legend: %{
+        position: "top",
+        horizontalAlign: "left",
+        offsetX: 0,
+        offsetY: 0,
+        markers: %{width: 12, height: 12, radius: 2}
+      },
       title: %{text: "PCP Metrics", align: "left"},
       noData: %{text: "Waiting for PCP telemetry..."},
       series: [
@@ -485,7 +492,18 @@ defmodule NixstasisWeb.DeviceLive.Show do
         %{name: "Memory Used %", data: Enum.map(samples, & &1.memory_used_pct)},
         %{name: "Disk Full %", data: Enum.map(samples, & &1.disk_full_pct)}
       ],
-      xaxis: %{categories: Enum.map(samples, & &1.label)}
+      xaxis: %{
+        categories: Enum.map(samples, & &1.label),
+        labels: %{
+          rotate: -45,
+          rotateAlways: true,
+          hideOverlappingLabels: true,
+          trim: false,
+          style: %{fontSize: "11px"}
+        },
+        tickAmount: 8,
+        axisTicks: %{offsetY: -4}
+      }
     }
   end
 
