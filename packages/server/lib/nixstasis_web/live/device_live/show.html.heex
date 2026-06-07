@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div class={if(@maximized?, do: "mt-4", else: "mt-8")}>
+    <div id="tab-view" class={if(@maximized?, do: "mt-4", else: "mt-8")}>
       <div class="flex items-center justify-between gap-2 mb-3">
         <div role="tablist" class="tabs tabs-lifted">
           <a
@@ -107,6 +107,7 @@
             </button>
           </div>
           <div
+            id="tab-maximize-button"
             class="tooltip tooltip-bottom"
             data-tip={if @maximized?, do: "Minimize", else: "Maximize"}
           >
@@ -129,7 +130,7 @@
             <button
               id="tab-fullscreen-button"
               phx-hook="Fullscreen"
-              data-fullscreen-target="tab-content-panel"
+              data-fullscreen-target="tab-view"
               class="btn btn-sm btn-outline"
               aria-label="Toggle fullscreen"
             >
@@ -173,10 +174,13 @@
 
         <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
           <%= if @ssh_session_started or @terminal_closed? do %>
-            <div class={[
-              "bg-black text-white p-4 overflow-hidden rounded-lg min-h-0",
-              if(@maximized?, do: "flex-1", else: "h-[560px]")
-            ]}>
+            <div
+              id="tab-terminal-wrapper"
+              class={[
+                "bg-black text-white p-4 overflow-hidden rounded-lg min-h-0",
+                if(@maximized?, do: "flex-1", else: "h-[560px]")
+              ]}
+            >
               <div
                 id="terminal-container"
                 phx-update="ignore"
@@ -204,10 +208,13 @@
               </p>
             </div>
           <% else %>
-            <div class={[
-              "flex flex-col items-center justify-center bg-base-200 rounded-lg min-h-0",
-              if(@maximized?, do: "flex-1", else: "h-[560px]")
-            ]}>
+            <div
+              id="tab-terminal-wrapper"
+              class={[
+                "flex flex-col items-center justify-center bg-base-200 rounded-lg min-h-0",
+                if(@maximized?, do: "flex-1", else: "h-[560px]")
+              ]}
+            >
               <p class="text-lg">Opening remote session...</p>
               <p class="mt-2 text-sm text-base-content/60">
                 Waiting for device authorization...
