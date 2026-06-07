@@ -170,6 +170,9 @@ defmodule Nixstasis.Monitoring do
 
   defp map_get(map, "telemetry") when is_map(map), do: Map.get(map, "telemetry") || Map.get(map, :telemetry)
 
+  defp map_get(map, key) when is_map(map) and is_binary(key),
+    do: Map.get(map, key) || Map.get(map, String.to_existing_atom(key))
+
   defp map_get(map, "connection_status") when is_map(map),
     do: Map.get(map, "connection_status") || Map.get(map, :connection_status)
 

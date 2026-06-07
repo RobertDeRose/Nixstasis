@@ -526,9 +526,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert command.id == command_id
 
       assert command.command_payload["payload"] == %{
-               "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
-               "data" => command.command_payload["public_key"]
+               "content_type" => "application/vnd.nixstasis.ssh-authorize+json;version=1",
+               "name" => command.command_payload["payload"]["name"],
+               "data" => command.command_payload["payload"]["data"]
              }
+
+      payload_data = Jason.decode!(command.command_payload["payload"]["data"])
+      assert payload_data["target_user"] == "nixstasis-support"
+      assert is_integer(payload_data["ttl_seconds"])
+      assert payload_data["session_ref"] == command.command_payload["payload"]["name"]
 
       assert {:ok, %{"device_id" => device_id}} =
                Phoenix.Token.verify(NixstasisWeb.Endpoint, "terminal_socket", socket_token, max_age: 3600)

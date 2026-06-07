@@ -18,9 +18,6 @@ defmodule Nixstasis.Devices do
   @remote_access_leases_name __MODULE__.RemoteAccessLeases
   @remote_access_lease_ttl_ms 60 * 60 * 1000
 
-  @ssh_authorize_dynamic_capability "ssh_authorize_dynamic_v1"
-  @capability_fresh_seconds 5 * 60
-
   @impl true
   def init(:remote_access_leases) do
     {:ok, %{leases: %{}, device_refs: %{}}}
@@ -719,56 +716,35 @@ defmodule Nixstasis.Devices do
 
   def command_succeeded?(_device_id, _command_id), do: false
 
-  def ssh_authorize_dynamic_capable?(%Device{} = device) do
-    with %{} = metadata <- device.metadata,
-         capabilities when is_list(capabilities) <- metadata["capabilities"] || metadata[:capabilities],
-         true <- @ssh_authorize_dynamic_capability in capabilities,
-         {:ok, seen_at, _offset} <-
-           DateTime.from_iso8601(metadata["capabilities_seen_at"] || metadata[:capabilities_seen_at]),
-         true <- DateTime.diff(DateTime.utc_now(), seen_at, :second) < @capability_fresh_seconds do
-      true
-    else
-      _ -> false
-    end
-  end
-
-  def ssh_authorize_dynamic_capable?(_device), do: false
-
   @doc """
   Queues a best-effort `ssh_revoke` command so the client can drop the in-memory
   authorization for the given terminal session. Returns `:ok` even when the
-  device is no longer reachable, dynamic-incapable, or the queue insert fails;
-  terminal cleanup must not block on a revoke that the client may never see.
+  device is no longer reachable or the queue insert fails; terminal cleanup
+  must not block on a revoke that the client may never see.
   """
   def queue_terminal_revoke(%Device{} = device, session_ref)
       when is_binary(session_ref) and session_ref != "" do
-    if ssh_authorize_dynamic_capable?(device) do
-      payload_data =
-        Jason.encode!(%{session_ref: session_ref})
+    payload_data =
+      Jason.encode!(%{session_ref: session_ref})
 
-      case queue_command(device, %{
-             "type" => "ssh_revoke",
-             "payload" => %{
-               "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
-               "name" => session_ref,
-               "data" => payload_data
-             }
-           }) do
-        {:ok, _command} -> :ok
-        {:error, reason} -> {:error, reason}
-      end
-    else
-      :ok
+    case queue_command(device, %{
+           "type" => "ssh_revoke",
+           "payload" => %{
+             "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+             "name" => session_ref,
+             "data" => payload_data
+           }
+         }) do
+      {:ok, _command} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 
   def queue_terminal_revoke(_device, _session_ref), do: :ok
 
-  def pop_pending_commands(%Device{} = device, opts \\ []) do
-    allow_dynamic_ssh? = Keyword.get(opts, :allow_dynamic_ssh?, true)
-
+  def pop_pending_commands(%Device{} = device) do
     Repo.transaction(fn ->
-      ids = claim_pending_command_ids(device.id, allow_dynamic_ssh?)
+      ids = claim_pending_command_ids(device.id)
 
       if ids == [] do
         []
@@ -784,16 +760,8 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp claim_pending_command_ids(device_id, allow_dynamic_ssh?) do
+  defp claim_pending_command_ids(device_id) do
     now = DateTime.utc_now()
-
-    dynamic_filter =
-      if allow_dynamic_ssh? do
-        ""
-      else
-        "AND NOT (COALESCE(command_payload->>'type', '') = 'ssh_authorize' AND COALESCE(command_payload->'payload'->>'content_type', '') LIKE 'application/vnd.nixstasis.ssh-authorize+json%') " <>
-          "AND NOT (COALESCE(command_payload->>'type', '') = 'ssh_revoke' AND COALESCE(command_payload->'payload'->>'content_type', '') LIKE 'application/vnd.nixstasis.ssh-revoke+json%')"
-      end
 
     %{rows: rows} =
       Repo.query!(
@@ -804,7 +772,6 @@ defmodule Nixstasis.Devices do
           SELECT id
           FROM pending_commands
           WHERE device_id = $1::uuid AND status = 'queued'
-          #{dynamic_filter}
           ORDER BY queued_at ASC, id ASC
           LIMIT $3
           FOR UPDATE SKIP LOCKED
