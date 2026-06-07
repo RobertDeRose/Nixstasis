@@ -172,34 +172,59 @@ defmodule NixstasisWeb.DeviceLive.Show do
       true ->
         clear_ssh_session(socket)
 
-        case SshKeyManager.generate_key_pair() do
-          {:ok, %{private_key: private_key, public_key: public_key}} ->
-            {:ok, command} =
-              Devices.queue_command(device, %{
-                "type" => "ssh_authorize",
-                "public_key" => public_key,
-                "payload" => %{
-                  "name" => "/var/lib/nixstasis-support/.ssh/authorized_keys",
-                  "data" => public_key
-                }
-              })
+        with {:ok, %{private_key: private_key, public_key: public_key}} <-
+               SshKeyManager.generate_key_pair(),
+             {:ok, session_ref} <- SshKeyManager.create_terminal_session(device.id, private_key),
+             {:ok, command} <-
+               Devices.queue_command(
+                 device,
+                 build_ssh_authorize_command(device, session_ref, public_key)
+               ) do
+          socket_token =
+            Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
 
-            {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
-
-            socket_token =
-              Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
-
-            {:ok,
-             socket
-             |> assign(:ssh_session_started, true)
-             |> assign(:ssh_authorize_command_id, command.id)
-             |> assign(:ssh_token, session_ref)
-             |> assign(:terminal_socket_token, socket_token)
-             |> assign(:terminal_closed?, false)}
+          {:ok,
+           socket
+           |> assign(:ssh_session_started, true)
+           |> assign(:ssh_authorize_command_id, command.id)
+           |> assign(:ssh_token, session_ref)
+           |> assign(:terminal_socket_token, socket_token)
+           |> assign(:terminal_closed?, false)}
+        else
+          {:error, reason} when is_binary(reason) ->
+            {:error, "Failed to start SSH session: #{reason}"}
 
           {:error, reason} ->
-            {:error, "Failed to generate SSH keys: #{reason}"}
+            {:error, "Failed to start SSH session: #{inspect(reason)}"}
         end
+    end
+  end
+
+  # Build the ssh_authorize command body. The dynamic in-memory content type
+  # is the only supported shape: the client stores the key in its in-memory
+  # sshauth store keyed by `session_ref` and exposes it to sshd through the
+  # AuthorizedKeysCommand helper over the local IPC socket.
+  defp build_ssh_authorize_command(_device, session_ref, public_key) do
+    %{
+      "type" => "ssh_authorize",
+      "public_key" => public_key,
+      "payload" => %{
+        "content_type" => "application/vnd.nixstasis.ssh-authorize+json;version=1",
+        "name" => session_ref,
+        "data" =>
+          Jason.encode!(%{
+            "target_user" => "nixstasis-support",
+            "ttl_seconds" => ssh_authorization_ttl_seconds(),
+            "session_ref" => session_ref
+          })
+      }
+    }
+  end
+
+  defp ssh_authorization_ttl_seconds do
+    case Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds) do
+      seconds when is_integer(seconds) and seconds > 0 -> seconds
+      _ -> 300
     end
   end
 
