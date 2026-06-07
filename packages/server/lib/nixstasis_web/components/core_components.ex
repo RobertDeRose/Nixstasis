@@ -470,6 +470,12 @@ defmodule NixstasisWeb.CoreComponents do
     """
   end
 
+  def icon(%{name: "fa-" <> _} = assigns) do
+    ~H"""
+    <span class={[@name, @class]} />
+    """
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do

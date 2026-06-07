@@ -564,7 +564,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert html =~ ~s(id="terminal-container")
       assert html =~ ~s(data-closed="true")
       assert html =~ "Terminal session ended"
-      assert html =~ "Start New Remote Session"
+      assert has_element?(view, "button[phx-click='start_ssh_session']")
     end
 
     test "terminal journey launches, runs commands, closes, and reopens", %{conn: conn} do
