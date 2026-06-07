@@ -169,6 +169,44 @@
   overflow-y: auto;
 }
 
+#tab-view:fullscreen {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+  padding: 1rem;
+  height: 100vh;
+}
+
+#tab-view:fullscreen #tab-content-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#tab-view:fullscreen #tab-content-panel section:not(.hidden) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#tab-view:fullscreen #cockpit-frame {
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  border: 0;
+}
+
+#tab-view:fullscreen #pcp-chart {
+  flex: 1;
+  min-height: 0;
+}
+
+#tab-view:fullscreen #tab-terminal-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ApexCharts injects a hardcoded #fff background on its export menu at runtime
    via dynamically-created <style> tags that load after app.css. Use
    !important on the conflicting properties so the menu follows the active

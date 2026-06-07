@@ -1,5 +1,8 @@
 export default {
   mounted() {
+    this.maximizeBtn = document.getElementById("tab-maximize-button")
+    this.fullscreenIcon = this.el.querySelector('[class*="fa-"]')
+
     this.handleClick = (event) => {
       const target = this.targetElement()
       if (!target) return
@@ -11,11 +14,17 @@ export default {
       }
     }
 
-    this.handleFullscreenChange = () => this.updateLabel()
+    this.handleFullscreenChange = () => this.updateUI()
 
     this.el.addEventListener("click", this.handleClick)
     document.addEventListener("fullscreenchange", this.handleFullscreenChange)
-    this.updateLabel()
+    this.updateUI()
+  },
+
+  updated() {
+    this.maximizeBtn = document.getElementById("tab-maximize-button")
+    this.fullscreenIcon = this.el.querySelector('[class*="fa-"]')
+    this.updateUI()
   },
 
   destroyed() {
@@ -29,11 +38,21 @@ export default {
     return document.getElementById(targetId)
   },
 
-  updateLabel() {
+  updateUI() {
     const isFullscreen = !!document.fullscreenElement
     const wrapper = this.el.parentElement
+
     if (wrapper?.dataset) {
       wrapper.dataset.tip = isFullscreen ? "Exit Fullscreen" : "Fullscreen"
+    }
+
+    if (this.maximizeBtn) {
+      this.maximizeBtn.classList.toggle("hidden", isFullscreen)
+    }
+
+    if (this.fullscreenIcon) {
+      this.fullscreenIcon.classList.toggle("fa-maximize", !isFullscreen)
+      this.fullscreenIcon.classList.toggle("fa-minimize", isFullscreen)
     }
   }
 }
