@@ -19,7 +19,6 @@ frp:
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"
-  authorized_keys_path: "/var/lib/nixstasis-support/.ssh/authorized_keys"
   exec_work_dir: "/"
   exec_env:
     - "LANG=C"

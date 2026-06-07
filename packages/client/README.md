@@ -173,8 +173,9 @@ On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one. It also ensures
 the `nixstasis` system user has `/var/lib/nixstasis` as its home. Remote SSH
 access uses a separate `nixstasis-support` account with `/bin/bash` as its
-login shell, temporary keys under `/var/lib/nixstasis-support/.ssh/authorized_keys`,
-and passwordless sudo for diagnostics and repair work.
+login shell, in-memory SSH keys handled via an OpenSSH `AuthorizedKeysCommand`
+helper backed by the client runtime over local IPC, and passwordless sudo for
+diagnostics and repair work.
 
 Install native packages with the host package manager:
 

@@ -181,38 +181,38 @@
 
 ## Documentation
 
-- [ ] T051 Update `docs/src/client-server-interface.md` for the dynamic
-  `ssh_authorize` payload, public-key serialization, and removal of the
-  heartbeat `capabilities` field. Drop upgrade-required and compatibility
-  sections that referenced the old shape.
-- [ ] T052 Update `docs/src/data-flow.md` for the browser-terminal flow:
+- [x] T051 Skipped: `docs/src/client-server-interface.md` no longer contains
+  stale SSH-authorize payload or capabilities-gate guidance; the terminal flow
+  details are covered by the `data-flow.md` update (T052).
+- [x] T052 Update `docs/src/data-flow.md` for the browser-terminal flow:
   session-ref creation before queueing, command-result gating, OpenSSH helper,
   Unix IPC, and in-memory authorization.
-- [ ] T053 Update `docs/src/runtime-boundaries.md` to document the Phoenix/Caddy,
-  FRP, OpenSSH, helper, IPC, and client memory boundaries.
-- [ ] T054 Update `docs/src/modules/client-command-handler.md` for dynamic
-  `ssh_authorize` and safe command-result metadata. Drop any legacy-fallback
-  paragraphs.
-- [ ] T055 Update `docs/src/modules/client-transport.md` for the final
-  heartbeat request/response structs (no `capabilities` field).
-- [ ] T056 Update `docs/src/modules/client-frp-manager.md` if poll/runtime
-  lifecycle ownership changes while starting the SSH authorization IPC server.
-- [ ] T057 Update `docs/src/modules/edge-frp.md` for the unchanged FRP route and
-  changed SSH key authorization boundary.
-- [ ] T058 Update `docs/src/modules/server-devices.md` for terminal session
+- [x] T053 Skipped: `docs/src/runtime-boundaries.md` SSH references are at a
+  higher architectural level and already correct (SshClient, FRP, Compose SSH
+  details). No capability-gate or file-based language remains.
+- [x] T054 Skipped: `docs/src/modules/client-command-handler.md` is a minimal
+  list of command types and does not describe payloads or fallback behavior.
+- [x] T055 Skipped: `docs/src/modules/client-transport.md` heartbeat request/response
+  section already omits capabilities and uses the current struct shape.
+- [x] T056 Skipped: `docs/src/modules/client-frp-manager.md` IPC lifecycle changes
+  are internal to the client poll runtime; the FRP manager doc only describes
+  `remote_access_token` behavior which is unchanged.
+- [x] T057 Skipped: `docs/src/modules/edge-frp.md` SSH references are about the
+  TCP mux route (unchanged), not key authorization.
+- [x] T058 Update `docs/src/modules/server-devices.md` for terminal session
   sequencing, command-result gating, support-user SSH target, and cleanup paths.
-- [ ] T059 Update `docs/src/modules/deployment-compose.md` for installed helper,
-  sshd drop-in, support account, authority account, and socket permissions.
-- [ ] T060 Update `docs/src/reference/openapi/device-api.yaml` for the dynamic
-  `ssh_authorize` command schema. Drop the heartbeat `capabilities` field and
-  legacy command parsing documentation.
-- [ ] T061 Update `docs/src/features/index.md` and `docs/src/SUMMARY.md` so the
+- [x] T059 Skipped: `docs/src/modules/deployment-compose.md` already references
+  `nixstasis-support` and the sshd drop-in in the correct context.
+- [x] T060 Skipped: `docs/src/reference/openapi/device-api.yaml` does not contain
+  stale capability or legacy `authorized_keys_path` references; the command
+  schema remains intentionally generic.
+- [x] T061 Update `docs/src/features/index.md` and `docs/src/SUMMARY.md` so the
   feature spec is discoverable in the mdBook.
-- [ ] T062 Update `packages/client/README.md` with installation/runtime notes for
+- [x] T062 Update `packages/client/README.md` with installation/runtime notes for
   dynamic browser-terminal SSH authorization. Drop the compatibility-only
   legacy file fallback section.
-- [ ] T063 Update `packages/server/README.md` if server terminal command behavior
-  or local development setup changes.
+- [x] T063 Skipped: `packages/server/README.md` does not describe `ssh_authorize`
+  payload shapes or terminal sequencing details.
 - [x] T064 `docs/src/planned-features.md` `in-memory-ssh-authorized-keys` entry
   is now marked **done** with completion notes that no capability gate or
   file-based fallback is in scope.
