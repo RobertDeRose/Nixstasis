@@ -1,11 +1,12 @@
 # Font Awesome Free 6.7.2
 
 Vendored subset of the [Font Awesome Free](https://fontawesome.com) icon set
-(only the three icons currently used by the device detail view).
+(only the icons currently used by the device detail view).
 
 ## Icons
 
 - `solid/up-right-and-down-left-from-center.svg` — maximize button
+- `solid/down-left-and-up-right-to-center.svg` — minimize button
 - `solid/maximize.svg` — fullscreen button
 - `solid/arrows-rotate.svg` — restart-session button
 
