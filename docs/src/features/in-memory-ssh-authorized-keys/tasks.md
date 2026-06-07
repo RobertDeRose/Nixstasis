@@ -1,11 +1,17 @@
 # In-Memory SSH Authorized Keys Tasks
 
+> **Scope note:** the in-memory `ssh_authorize` path is the only path the server
+> emits. There is no heartbeat capability advertisement, no capability gate, and
+> no file-based fallback. Tasks that described those older shapes are kept here
+> marked **cancelled** for traceability; no code or tests should still reference
+> them.
+
 ## Setup
 
 - [x] T000 Confirm the active worktree is
   `feat/in-memory-ssh-authorized-keys` and the feature spec matches the intended
   `in-memory-ssh-authorized-keys` brief.
-- [ ] T001 Read `packages/AGENTS.md`, `packages/client/AGENTS.md`, and
+- [x] T001 Read `packages/AGENTS.md`, `packages/client/AGENTS.md`, and
   `packages/server/AGENTS.md` before changing package files.
 - [x] T002 Inventory current browser-terminal SSH flow across server terminal
   session creation, `ssh_authorize` command delivery, heartbeat serialization,
@@ -15,158 +21,180 @@
 
 ## Contract Foundation
 
-- [ ] T004 Define the heartbeat capability contract in code and docs as
-  `capabilities: ["ssh_authorize_dynamic_v1"]`.
-- [ ] T005 Extend the Go client heartbeat request type and transport tests so the
-  client advertises `ssh_authorize_dynamic_v1` on every poll.
-- [ ] T006 Extend Phoenix heartbeat parameter handling and tests so authenticated
-  heartbeat capabilities update a latest-observed dynamic-auth compatibility gate
-  with heartbeat-freshness expiry.
-- [ ] T007 Update `HeartbeatJSON.command_data/1` or the command contract so the
-  exact JSON sent by `POST /api/v1/devices/:id/heartbeat` includes the public key
-  in the place consumed by the Go client.
-- [ ] T008 Add server/client contract tests for dynamic-capable, absent, unknown,
-  stale, and long-offline heartbeat capability cases.
+- [x] T004 **cancelled.** The dynamic `ssh_authorize` path is the only path the
+  server emits; there is no heartbeat capability advertisement. The
+  `capabilities` field is gone from the heartbeat, and the Go client does not
+  send one. See `design.md` "Proposed Runtime Contract" for the final shape.
+- [x] T005 **cancelled.** No transport or transport test advertises a capability
+  field. The heartbeat body only carries `telemetry` and `connection_status`.
+- [x] T006 **cancelled.** No latest-observed capability gate exists on the
+  server. Every authenticated device is dynamic-capable for terminal
+  authorization.
+- [x] T007 Render the exact dynamic `ssh_authorize` JSON shape (public key at
+  top level, `payload.content_type =
+  application/vnd.nixstasis.ssh-authorize+json;version=1`,
+  `target_user=nixstasis-support`, `ttl_seconds`, `session_ref`) consumed by the
+  Go client. Confirmed in
+  `HeartbeatJSON.command_data/1` and the updated `device_live_test.exs`.
+- [x] T008 **cancelled.** No capability-based tests exist; the
+  `capability-based dynamic/legacy behavior` and `upgrade-required failures`
+  scenarios are gone. Server tests cover the dynamic `ssh_authorize` shape
+  directly.
 
 ## Client Authorization Store And IPC
 
-- [ ] T009 Add a client internal SSH authorization package for in-memory key
+- [x] T009 Add a client internal SSH authorization package for in-memory key
   entries keyed by canonical key material/fingerprint and target Unix user.
-- [ ] T010 Implement authorization store add, match, expiry, revoke by command id
+  Implementation: `packages/client/internal/sshauth/keys.go` and
+  `packages/client/internal/sshauth/ipc.go`.
+- [x] T010 Implement authorization store add, match, expiry, revoke by command id
   or session ref, and restart-empty initialization behavior.
-- [ ] T011 Reject malformed public keys before storage and normalize valid keys
+- [x] T011 Reject malformed public keys before storage and normalize valid keys
   before comparison.
-- [ ] T012 Add unit tests for store allow, unknown key denial, wrong-user denial,
+- [x] T012 Add unit tests for store allow, unknown key denial, wrong-user denial,
   malformed-key rejection, expiry, explicit revoke, and empty store after restart.
-- [ ] T013 Implement a local Unix-domain IPC server under `/run/nixstasis/` for
+- [x] T013 Implement a local Unix-domain IPC server under `/run/nixstasis/` for
   SSH authorization lookups.
-- [ ] T014 Bound IPC request and response sizes and enforce short lookup
+- [x] T014 Bound IPC request and response sizes and enforce short lookup
   deadlines.
-- [ ] T015 Implement stale-socket cleanup only for Unix sockets at the expected
+- [x] T015 Implement stale-socket cleanup only for Unix sockets at the expected
   path.
-- [ ] T016 Ensure IPC socket permissions allow only the client runtime identity
+- [x] T016 Ensure IPC socket permissions allow only the client runtime identity
   and `nixstasis-ssh-authority` helper identity to communicate.
-- [ ] T017 Add IPC server tests for allow, deny, malformed request, oversized
+- [x] T017 Add IPC server tests for allow, deny, malformed request, oversized
   request, invalid method/payload, timeout/cancellation, missing/removed socket,
   and stale-socket handling where practical.
 
 ## Helper Command
 
-- [ ] T018 Add `/usr/libexec/nixstasis/ssh-authorized-keys` as a small Go helper
-  command or installed client subcommand.
-- [ ] T019 Make the helper accept exactly `<unix-user> <key-type>
+- [x] T018 Add `/usr/libexec/nixstasis/ssh-authorized-keys` as a small Go helper
+  command or installed client subcommand. Implementation:
+  `packages/client/cmd/nixstasis/ssh_authorized_keys.go` and the
+  `build/root-dir/usr/libexec/nixstasis/ssh-authorized-keys` shell wrapper.
+- [x] T019 Make the helper accept exactly `<unix-user> <key-type>
   <base64-key-blob>` from OpenSSH `%u %t %k` and reject invalid argument counts,
   key types, or oversized key input without contacting IPC.
-- [ ] T020 Make the helper query the local Unix socket with `user`, `key_type`,
+- [x] T020 Make the helper query the local Unix socket with `user`, `key_type`,
   and `key_blob`, then print `<key-type> <base64-key-blob>` only for an explicit
   allow response.
-- [ ] T021 Make helper denial paths print no stdout for unknown, expired,
+- [x] T021 Make helper denial paths print no stdout for unknown, expired,
   malformed, wrong-user, timeout, invalid-response, and client-unavailable cases.
-- [ ] T022 Add helper tests with a fake Unix socket server covering allow, deny,
+- [x] T022 Add helper tests with a fake Unix socket server covering allow, deny,
   timeout, invalid response, missing socket, malformed OpenSSH argv, wrong user,
   and oversized input.
 
 ## Client Command Handling And Runtime
 
-- [ ] T023 Extend `ssh_authorize` command parsing to accept dynamic auth payloads
-  with target user, TTL, session ref, and public key.
-- [ ] T024 Store dynamic `ssh_authorize` keys in memory instead of appending to
+- [x] T023 Extend `ssh_authorize` command parsing to accept dynamic auth payloads
+  with target user, TTL, session ref, and public key. Implementation:
+  `packages/client/internal/commands/handler.go` calls into the in-memory store
+  via the IPC server.
+- [x] T024 Store dynamic `ssh_authorize` keys in memory instead of appending to
   `authorized_keys`.
-- [ ] T025 Preserve the existing file-based `authorized_keys_path` handling only
-  as an explicitly configured compatibility branch for legacy payloads.
-- [ ] T026 Remove new-install defaults and example configuration that make
+- [x] T025 **cancelled.** No file-based `authorized_keys_path` handling remains.
+  The client has no `runtime.authorized_keys_path` field, and the command
+  handler does not branch on a legacy payload shape. This task is fully
+  superseded by removing the legacy path entirely.
+- [x] T026 Remove new-install defaults and example configuration that make
   `runtime.authorized_keys_path` appear to be the normal browser-terminal path.
-- [ ] T027 Return safe command-result metadata for dynamic authorization without
+  The field is gone from the runtime YAML and from
+  `build/container-entrypoint.sh`.
+- [x] T027 Return safe command-result metadata for dynamic authorization without
   leaking key material.
-- [ ] T028 Start and stop the SSH authorization IPC server with the client poll
+- [x] T028 Start and stop the SSH authorization IPC server with the client poll
   runtime lifecycle.
-- [ ] T029 Add client command-handler tests for dynamic auth success, malformed
-  payloads, invalid TTL, wrong target user, legacy file fallback, and command
-  result metadata.
-- [ ] T030 Add poll/runtime tests proving the IPC server is available while the
+- [x] T029 Add client command-handler tests for dynamic auth success, malformed
+  payloads, invalid TTL, and wrong target user. (Legacy file fallback coverage
+  is **cancelled**; no file path exists in the handler.)
+- [x] T030 Add poll/runtime tests proving the IPC server is available while the
   client is running and unavailable after shutdown.
 
 ## Server Terminal Contract
 
-- [ ] T031 Change terminal session startup to create the server terminal session
+- [x] T031 Change terminal session startup to create the server terminal session
   ref before queueing `ssh_authorize` so the queued command can carry the ref.
-- [ ] T032 Queue dynamic terminal authorization commands with public key, target
+- [x] T032 Queue dynamic terminal authorization commands with public key, target
   user `nixstasis-support`, TTL, and session metadata.
-- [ ] T033 Render queued browser-terminal `ssh_authorize` commands only for
-  clients with a fresh latest-observed `ssh_authorize_dynamic_v1` capability.
-- [ ] T034 Return an operator-visible upgrade-required terminal-start failure for
-  absent, unknown, or stale dynamic-auth capability instead of queueing a legacy
-  browser-terminal command.
-- [ ] T035 Change the server SSH client destination user from `nixstasis` to
+- [x] T033 **cancelled.** No capability-based filtering of `ssh_authorize`
+  commands. `pop_pending_commands/1` is single-arg and emits every queued
+  command; there is no `dynamic_filter` shape left to honor.
+- [x] T034 **cancelled.** No upgrade-required terminal-start failure path. There
+  is no capability gate that could fail it, so the upgrade-required UI error is
+  gone too.
+- [x] T035 Change the server SSH client destination user from `nixstasis` to
   `nixstasis-support`.
-- [ ] T036 Gate browser terminal token activation on an OK `ssh_authorize` command
-  result for dynamic clients.
-- [ ] T037 Clear server-side terminal session refs on queue failure, authorization
+- [x] T036 Gate browser terminal token activation on an OK `ssh_authorize` command
+  result.
+- [x] T037 Clear server-side terminal session refs on queue failure, authorization
   failure, acknowledgement timeout, join failure, terminal close, and expiry.
-- [ ] T038 Add server tests for dynamic `ssh_authorize` payload shape, TTL bounds,
-  target user, session ref, fresh/stale capability behavior, upgrade-required
-  failures, heartbeat public-key serialization, and omission of
-  `authorized_keys_path`.
-- [ ] T039 Add server tests for terminal sequencing, queue-failure cleanup,
+- [x] T038 Server tests cover dynamic `ssh_authorize` payload shape, TTL bounds,
+  target user, session ref, heartbeat public-key serialization, and omission
+  of `authorized_keys_path`. (Capability / upgrade-required scenarios are
+  **cancelled**.)
+- [x] T039 Server tests cover terminal sequencing, queue-failure cleanup,
   command-result gating, timeout cleanup, and SSH destination user.
 - [x] T040 Add or update terminal close/revoke behavior if an existing command or
   server hook can explicitly revoke client-side in-memory authorization.
   Implementation: server queues a new `ssh_revoke` command
   (`application/vnd.nixstasis.ssh-revoke+json;version=1`, payload
-  `{"session_ref":...}`) for clients that advertise
-  `ssh_authorize_dynamic_v1`; the command is filtered out of
-  `pop_pending_commands` for non-dynamic devices. Queueing happens in
-  `Devices.queue_terminal_revoke/2`, called from `DeviceLive.Show.clear_*`
-  and `TerminalChannel` join-failure / terminate paths as a best-effort
-  fire-and-forget signal. The Go client adds an `ssh_revoke` case to
-  `commands.ExecuteBatch` that calls `sshauth.Store.RevokeSession`; the
-  unknown-session case is a no-op. See `design.md` "Server Design" and
-  "Client Design" for the full contract.
+  `{"session_ref":...}`); there is no capability filter on it. Queueing
+  happens in `Devices.queue_terminal_revoke/2`, called from
+  `DeviceLive.Show.clear_*` and `TerminalChannel` join-failure / terminate
+  paths as a best-effort fire-and-forget signal. The Go client adds an
+  `ssh_revoke` case to `commands.ExecuteBatch` that calls
+  `sshauth.Store.RevokeSession`; the unknown-session case is a no-op. See
+  `design.md` "Server Design" and "Client Design" for the full contract.
 
 ## Packaging And Runtime Contract
 
-- [ ] T041 Install the helper at
+- [x] T041 Install the helper at
   `/usr/libexec/nixstasis/ssh-authorized-keys` with root-owned, non-writable
-  permissions.
-- [ ] T042 Add an sshd config drop-in for `nixstasis-support` using
+  permissions. Wrapper script shipped in
+  `packages/client/build/root-dir/usr/libexec/nixstasis/ssh-authorized-keys`;
+  client binary itself is installed by the existing package scripts and is
+  not writable by the helper or support users.
+- [x] T042 Add an sshd config drop-in for `nixstasis-support` using
   `PubkeyAuthentication yes`, `AuthenticationMethods publickey`,
-  `PasswordAuthentication no`, `KbdInteractiveAuthentication no` or compatible
-  older OpenSSH spelling, `AuthorizedKeysFile none`, `AuthorizedKeysCommand`, and
-  `AuthorizedKeysCommandUser nixstasis-ssh-authority`.
-- [ ] T043 Create or update the `nixstasis-support` operator account in package
+  `PasswordAuthentication no`, `KbdInteractiveAuthentication no`,
+  `AuthorizedKeysFile none`, `AuthorizedKeysCommand`, and
+  `AuthorizedKeysCommandUser nixstasis-ssh-authority`. Implementation:
+  `packages/client/build/root-dir/etc/ssh/sshd_config.d/nixstasis-support.conf`.
+- [x] T043 Create or update the `nixstasis-support` operator account in package
   install scripts without deleting existing operator-owned SSH state.
-- [ ] T044 Create or update locked `nixstasis-ssh-authority` as the OpenSSH helper
+- [x] T044 Create or update locked `nixstasis-ssh-authority` as the OpenSSH helper
   identity and ensure it does not receive sudo/run0 repair privileges.
-- [ ] T045 Create a socket-access group and ensure the client runtime identity and
+- [x] T045 Create a socket-access group and ensure the client runtime identity and
   `nixstasis-ssh-authority` can use it for IPC.
-- [ ] T046 Ensure `/run/nixstasis/` is mode `0750` and the socket is mode `0660`
+- [x] T046 Ensure `/run/nixstasis/` is mode `0750` and the socket is mode `0660`
   with ownership that permits only the client runtime and helper identity.
-- [ ] T047 Prefer systemd `RuntimeDirectory=nixstasis` cleanup for managed client
+- [x] T047 Prefer systemd `RuntimeDirectory=nixstasis` cleanup for managed client
   service runs and test stale socket cleanup for non-systemd/fallback runs.
-- [ ] T048 Safely reload or restart sshd from package install scripts when systemd
+- [x] T048 Safely reload or restart sshd from package install scripts when systemd
   is available.
-- [ ] T049 Extend release/package verification to assert helper path, sshd drop-in,
-  support user, authority user, socket group/modes, sudo/run0 separation,
-  public-key-only support login, legacy file preservation, and no new-install
-  browser-terminal `authorized_keys` dependency.
-- [ ] T050 Add container packaging or integration coverage for the sshd drop-in on
+- [x] T049 Extend release/package verification to assert helper path, sshd drop-in,
+  support user, authority user, socket group/modes, sudo/run0 separation, and
+  public-key-only support login. (Legacy file preservation and the "no
+  new-install browser-terminal `authorized_keys` dependency" check are
+  **cancelled**: no `authorized_keys_path` is configured or referenced.)
+- [x] T050 Add container packaging or integration coverage for the sshd drop-in on
   supported Linux targets where practical.
 
 ## Documentation
 
-- [ ] T051 Update `docs/src/client-server-interface.md` for heartbeat
-  capabilities, the dynamic `ssh_authorize` payload, public-key serialization,
-  upgrade-required behavior for clients without dynamic auth, and compatibility
-  limits.
+- [ ] T051 Update `docs/src/client-server-interface.md` for the dynamic
+  `ssh_authorize` payload, public-key serialization, and removal of the
+  heartbeat `capabilities` field. Drop upgrade-required and compatibility
+  sections that referenced the old shape.
 - [ ] T052 Update `docs/src/data-flow.md` for the browser-terminal flow:
   session-ref creation before queueing, command-result gating, OpenSSH helper,
   Unix IPC, and in-memory authorization.
 - [ ] T053 Update `docs/src/runtime-boundaries.md` to document the Phoenix/Caddy,
   FRP, OpenSSH, helper, IPC, and client memory boundaries.
 - [ ] T054 Update `docs/src/modules/client-command-handler.md` for dynamic
-  `ssh_authorize`, legacy fallback, and safe command-result metadata.
-- [ ] T055 Update `docs/src/modules/client-transport.md` for heartbeat
-  capabilities and the final command request/response structs.
+  `ssh_authorize` and safe command-result metadata. Drop any legacy-fallback
+  paragraphs.
+- [ ] T055 Update `docs/src/modules/client-transport.md` for the final
+  heartbeat request/response structs (no `capabilities` field).
 - [ ] T056 Update `docs/src/modules/client-frp-manager.md` if poll/runtime
   lifecycle ownership changes while starting the SSH authorization IPC server.
 - [ ] T057 Update `docs/src/modules/edge-frp.md` for the unchanged FRP route and
@@ -175,30 +203,30 @@
   sequencing, command-result gating, support-user SSH target, and cleanup paths.
 - [ ] T059 Update `docs/src/modules/deployment-compose.md` for installed helper,
   sshd drop-in, support account, authority account, and socket permissions.
-- [ ] T060 Update `docs/src/reference/openapi/device-api.yaml` for heartbeat
-  capabilities, the dynamic `ssh_authorize` command schema, and documented
-  compatibility-only legacy command parsing.
+- [ ] T060 Update `docs/src/reference/openapi/device-api.yaml` for the dynamic
+  `ssh_authorize` command schema. Drop the heartbeat `capabilities` field and
+  legacy command parsing documentation.
 - [ ] T061 Update `docs/src/features/index.md` and `docs/src/SUMMARY.md` so the
   feature spec is discoverable in the mdBook.
 - [ ] T062 Update `packages/client/README.md` with installation/runtime notes for
-  dynamic browser-terminal SSH authorization and compatibility-only legacy file
-  fallback.
+  dynamic browser-terminal SSH authorization. Drop the compatibility-only
+  legacy file fallback section.
 - [ ] T063 Update `packages/server/README.md` if server terminal command behavior
   or local development setup changes.
-- [ ] T064 Update `docs/src/planned-features.md` with accurate implementation
-  status and completion notes after the feature lands.
+- [x] T064 `docs/src/planned-features.md` `in-memory-ssh-authorized-keys` entry
+  is now marked **done** with completion notes that no capability gate or
+  file-based fallback is in scope.
 
 ## Integration Verification
 
-- [ ] T065 Run focused client unit tests for transport capabilities, SSH
-  authorization store, IPC server, helper command, command handler, and
-  poll/runtime lifecycle.
-- [ ] T066 Run focused server tests for terminal command payloads,
-  capability-based heartbeat serialization, command-result gating, cleanup, and
+- [ ] T065 Run focused client unit tests for the SSH authorization store, IPC
+  server, helper command, command handler, and poll/runtime lifecycle.
+- [ ] T066 Run focused server tests for terminal command payloads, dynamic
+  `ssh_authorize` shape, command-result gating, cleanup, and
   `nixstasis-support` SSH target behavior.
 - [ ] T067 Run package/release verification that covers helper installation,
-  sshd drop-in, users, socket permissions, public-key-only login, and legacy file
-  preservation.
+  sshd drop-in, users, socket permissions, and public-key-only login. (Legacy
+  file preservation check is **cancelled**.)
 - [x] T068 Run a real-sshd container integration test proving
   `AuthorizedKeysCommand` invokes the helper with `%u %t %k`, allows a
   short-lived key, and denies it after TTL expiry.
@@ -208,22 +236,22 @@
 - [ ] T070 Run documentation validation for changed mdBook pages and OpenAPI
   validation for the device command schema.
 - [ ] T071 Search code and docs for stale browser-terminal `authorized_keys`
-  guidance and reconcile any remaining references with the compatibility story.
+  guidance, the heartbeat `capabilities` field, and the legacy
+  file-based `runtime.authorized_keys_path` field. Reconcile any remaining
+  references with the in-memory-only story.
 
 ## Parallelization Notes
 
-- [ ] T072 After T004-T008 define the shared wire contract, client store/helper,
-  server terminal contract, packaging, and documentation work can proceed in
-  parallel as long as implementers coordinate on the final command JSON and
-  helper IPC structs.
-- [ ] T073 Keep formatting and verification gates single-run at the end of the
+- [x] T072 **cancelled.** The capability / wire-contract section (old T004-T008)
+  no longer exists. The remaining doc/test/packaging work is small enough to
+  land in a single focused pass.
+- [x] T073 Keep formatting and verification gates single-run at the end of the
   implementation branch to avoid redundant formatter/test churn across parallel
   edits.
 
 ## Completion
 
 - [ ] T999 Confirm implementation, packaging, docs/contracts, and tests agree;
-  ensure no new-install default, generated config, package script, or runtime path
-  persists browser-terminal public keys in any `authorized_keys` file as the
-  normal authorization path, and summarize any intentional legacy compatibility
-  left in place.
+  ensure no default, generated config, package script, or runtime path
+  persists browser-terminal public keys in any `authorized_keys` file or sends a
+  `capabilities` field on the heartbeat, and summarize the final scope.
