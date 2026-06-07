@@ -127,6 +127,15 @@
 
         <section class={if(@active_tab == "terminal", do: "block min-h-0", else: "hidden")}>
           <div class="mb-3 flex items-center justify-end gap-2">
+            <div :if={@terminal_closed?} class="tooltip tooltip-bottom" data-tip="Start new remote session">
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="start_ssh_session"
+                aria-label="Start new remote session"
+              >
+                <.icon name="fa-arrows-rotate" class="size-4" />
+              </button>
+            </div>
             <div
               class="tooltip tooltip-bottom"
               data-tip={if @terminal_maximized?, do: "Restore", else: "Maximize"}
@@ -136,10 +145,7 @@
                 phx-click="toggle_terminal_maximized"
                 aria-label={if @terminal_maximized?, do: "Restore terminal", else: "Maximize terminal"}
               >
-                <.icon
-                  name={if @terminal_maximized?, do: "hero-arrows-pointing-in", else: "hero-arrows-pointing-out"}
-                  class="size-4"
-                />
+                <.icon name="fa-up-right-and-down-left-from-center" class="size-4" />
               </button>
             </div>
             <div class="tooltip tooltip-bottom" data-tip="Fullscreen">
@@ -150,8 +156,7 @@
                 class="btn btn-sm btn-outline"
                 aria-label="Toggle fullscreen"
               >
-                <.icon name="hero-arrows-pointing-out" class="size-4 fullscreen-icon-enter" />
-                <.icon name="hero-arrows-pointing-in" class="size-4 fullscreen-icon-exit hidden" />
+                <.icon name="fa-maximize" class="size-4" />
               </button>
             </div>
           </div>
@@ -181,13 +186,10 @@
                 </div>
               </div>
             </div>
-            <div :if={@terminal_closed?} class="mt-4 flex items-center justify-between gap-4">
+            <div :if={@terminal_closed?} class="mt-4">
               <p class="text-sm text-base-content/70">
                 Terminal session ended. Start a new session to reconnect.
               </p>
-              <button class="btn btn-primary" phx-click="start_ssh_session">
-                Start New Remote Session
-              </button>
             </div>
           <% else %>
             <div class={[
