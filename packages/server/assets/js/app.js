@@ -27,7 +27,7 @@ import topbar from "../vendor/topbar"
 import ApexChart from "./hooks/apex_charts"
 import IndeterminateCheckbox from "./hooks/indeterminate_checkbox"
 import TerminalHook from "./hooks/terminal"
-import TerminalFullscreen from "./hooks/terminal_fullscreen"
+import Fullscreen from "./hooks/fullscreen"
 
 const ReportColumnTitle = {
   mounted() {
@@ -345,7 +345,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     ...colocatedHooks,
     ApexChart,
     TerminalHook,
-    TerminalFullscreen,
+    Fullscreen,
     IndeterminateCheckbox,
     ReportColumnTitle,
     ReportFilterValue,
