@@ -318,17 +318,18 @@ production-like environment.
 
 ### `in-memory-ssh-authorized-keys`
 
-- Status: in-progress
+- Status: done
 - Overview:
 - Replace file-based browser-terminal SSH key authorization with an OpenSSH
-    `AuthorizedKeysCommand` integration backed by the Go client runtime. The
-    server still issues short-lived ephemeral terminal keys, but the managed
-    device stores those keys in memory only. When `sshd` needs to authenticate a
-    browser terminal session for the dedicated support account, a small helper
-    asks the running Nixstasis client over local IPC whether the offered key is
-    currently authorized. This avoids writing operator SSH keys to disk and keeps
-    support access independent from the `nixstasis` service account's filesystem
-    permissions.
+  `AuthorizedKeysCommand` integration backed by the Go client runtime. The
+  server still issues short-lived ephemeral terminal keys, but the managed
+  device stores those keys in memory only. When `sshd` needs to authenticate a
+  browser terminal session for the dedicated support account, a small helper
+  asks the running Nixstasis client over local IPC whether the offered key is
+  currently authorized. This avoids writing operator SSH keys to disk and keeps
+  support access independent from the `nixstasis` service account's filesystem
+  permissions. The dynamic `ssh_authorize` payload is the only path the server
+  emits; there is no capability gate and no file-based fallback.
 - Background and problem statement:
 - Browser terminal access currently targets a dedicated `nixstasis-support`
     account so operators can diagnose and repair devices using tools such as
@@ -437,17 +438,15 @@ production-like environment.
     unless the design explicitly defines cleanup; avoid deleting operator-owned
     keys unexpectedly.
 - Migration and compatibility notes:
-- Existing file-based `runtime.authorized_keys_path` can remain as a temporary
-    fallback for older clients during rollout, but new installs should prefer the
-    `AuthorizedKeysCommand` path.
-- Server command payloads may need a compatibility shape: clients that advertise
-    dynamic SSH auth receive TTL/session fields, while older clients receive the
-    file path they understand.
-- Device capability reporting or version checks may be needed before removing the
-    file-based path entirely.
-- The design should decide whether the client persists no keys across restart or
-    whether restart should explicitly invalidate all pending terminal sessions.
-    The default should be in-memory only, so restart invalidates sessions.
+- The dynamic `ssh_authorize` payload is the only path. There is no
+  `runtime.authorized_keys_path` runtime config and no file-based fallback for
+  browser-terminal SSH keys.
+- Server command payloads do not need a compatibility shape: the dynamic JSON
+  payload is the only `ssh_authorize` shape the server emits, and the Go client
+  always writes offered keys into its in-memory store.
+- No per-device capability reporting is required. The server treats every
+  authenticated device as dynamic-capable for terminal authorization.
+- The client persists no keys across restart, so restart invalidates sessions.
 - Security considerations:
 - The helper must be small, deterministic, and auditable because OpenSSH invokes
     it during authentication.
@@ -479,8 +478,8 @@ production-like environment.
     manager commands after logging in as `nixstasis-support`.
 - Tests prove the helper handles allow, deny, timeout, malformed-key, wrong-user,
     and client-unavailable cases.
-- Tests prove the server still targets `nixstasis-support` and no longer requires
-    `authorized_keys_path` for dynamic-capable clients.
+- Tests prove the server still targets `nixstasis-support` and does not require
+  `authorized_keys_path` for any client.
 - Risks and tradeoffs:
 - `AuthorizedKeysCommand` adds an authentication-time dependency on the local
     client process and IPC socket; if the client is down, support SSH is denied.
@@ -517,8 +516,8 @@ production-like environment.
     diagnostic command, closes the session, and verifies a later expired key is
     denied.
 - Runtime contract checks for installed helper path, sshd drop-in, support user,
-    authority user, sudoers rule, run0/polkit support, and absence of file-based
-    key writes for new dynamic clients.
+  authority user, sudoers rule, run0/polkit support, and absence of file-based
+  key writes for new installs.
 - Suggested first workflow command: `/start-feature in-memory-ssh-authorized-keys`
 
 ### `ash-api-contract-unification`
