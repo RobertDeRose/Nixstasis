@@ -146,6 +146,7 @@ services:
       NIXSTASIS_FRP_SERVER_PORT: ${FRPS_BIND_PORT}
       NIXSTASIS_FRP_HTTP_LOCAL_ADDR: ${NIXSTASIS_FRP_HTTP_LOCAL_ADDR:-127.0.0.1:443}
       NIXSTASIS_SIMULATOR_HTTP_ENABLED: ${NIXSTASIS_SIMULATOR_HTTP_ENABLED:-false}
+      NIXSTASIS_SSH_AUTHORITY_SOCKET: /run/nixstasis/ssh-authority.sock
     privileged: true
     tmpfs:
       - /run
