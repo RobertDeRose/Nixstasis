@@ -142,9 +142,16 @@ func prepareSocketPath(path string) error {
 	if path == "" || !filepath.IsAbs(path) {
 		return errors.New("ssh authorization socket path must be absolute")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create ssh authorization runtime directory: %w", err)
 	}
+	// The poll process may run as a service user, but the IPC socket is
+	// shared with the nixstasis-ssh-authority helper that sshd drops to
+	// for AuthorizedKeysCommand. Make sure the directory is traversable
+	// for the helper by handing group ownership to nixstasis-ssh when the
+	// group exists on the host.
+	chownRuntimeDirectory(dir)
 	info, err := os.Lstat(path)
 	if err == nil {
 		if info.Mode().Type() != os.ModeSocket {
@@ -159,6 +166,18 @@ func prepareSocketPath(path string) error {
 		return fmt.Errorf("stat ssh authorization socket: %w", err)
 	}
 	return nil
+}
+
+func chownRuntimeDirectory(dir string) {
+	group, err := user.LookupGroup("nixstasis-ssh")
+	if err != nil {
+		return
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return
+	}
+	ignoreError(os.Chown(dir, -1, gid))
 }
 
 func chownSocketGroup(path string) {
