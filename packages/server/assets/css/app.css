@@ -168,6 +168,23 @@
   overflow-y: auto;
 }
 
+/* ApexCharts injects a hardcoded #fff background on its export menu at runtime
+   via dynamically-created <style> tags that load after app.css. Use
+   !important on the conflicting properties so the menu follows the active
+   daisyUI theme in both light and dark mode. */
+.apexcharts-menu {
+  background: var(--color-base-100) !important;
+  border-color: var(--color-base-300) !important;
+}
+
+.apexcharts-menu-item {
+  color: var(--color-base-content);
+}
+
+.apexcharts-menu-item:hover {
+  background: var(--color-base-200);
+}
+
 
 @layer utilities {
   .table-zebra tbody tr:nth-child(even) :where(.table-zebra tbody tr:nth-child(even)) {
