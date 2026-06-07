@@ -11,10 +11,6 @@ import (
 )
 
 const (
-	// Capability is advertised in heartbeat requests when the client supports
-	// dynamic browser-terminal SSH authorization.
-	Capability = "ssh_authorize_dynamic_v1"
-
 	// DefaultSocketPath is the trusted local IPC path used by the OpenSSH helper.
 	DefaultSocketPath = "/run/nixstasis/ssh-authority.sock"
 
