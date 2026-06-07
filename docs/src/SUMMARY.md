@@ -56,6 +56,7 @@
   - [Dashboard Home](features/dashboard-home/design.md)
   - [Phoenix UI Polish](features/phoenix-ui-polish/design.md)
   - [Go Client Rewrite](features/go-client-rewrite/design.md)
+  - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
   - [Starlark Script System](features/starlark-script-system/design.md)
   - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
   - [Report View Improvements](features/report-view-improvements/design.md)

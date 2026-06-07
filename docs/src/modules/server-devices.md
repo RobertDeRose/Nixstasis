@@ -84,7 +84,18 @@
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands.
 - `POST /api/v1/devices/:device_id/command_results` calls `Devices.acknowledge_command_results/2`.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
-- Device detail LiveView queues `ssh_authorize` commands before terminal session startup.
+- Terminal session startup creates an opaque session ref **before** queueing
+  `ssh_authorize`, so the queued command carries the ref. See
+   `packages/server/lib/nixstasis_web/live/device_live/show.ex` lines 171-192 for the full sequencing.
+- Terminal authorization commands carry the public key at top level and a dynamic
+  JSON payload with `target_user=nixstasis-support`, `ttl_seconds`, and
+  `session_ref`. The in-memory `ssh_authorize` payload is the only shape the
+  server emits; there is no file-based fallback and no capability gate.
+- Browser terminal token activation is gated on an OK `ssh_authorize` command
+  result from the device.
+- Server queues an `ssh_revoke` command (`content_type:
+  application/vnd.nixstasis.ssh-revoke+json;version=1`) on terminal close,
+  session expiry, or cleanup paths as a best-effort early invalidation signal.
 - Device detail is reached through `/devices/:id`; opening remote-access tabs may
   set `remote_access_requested`, and close/cleanup paths must clear stale remote
   access intent.
