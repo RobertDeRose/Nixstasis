@@ -26,9 +26,8 @@ var afterCommandCommitHook = func() {}
 
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir         string
-	authorizedKeysPath string
-	sshAuthStore       *sshauth.Store
+	scriptsDir   string
+	sshAuthStore *sshauth.Store
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -36,14 +35,9 @@ func NewHandler(scriptsDir string) *Handler {
 	return &Handler{scriptsDir: scriptsDir}
 }
 
-// NewHandlerWithAuthorizedKeys constructs a Handler with an explicit authorized_keys target.
-func NewHandlerWithAuthorizedKeys(scriptsDir, authorizedKeysPath string) *Handler {
-	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath}
-}
-
-// NewHandlerWithSSHAuth constructs a Handler with dynamic SSH authorization support.
-func NewHandlerWithSSHAuth(scriptsDir, authorizedKeysPath string, store *sshauth.Store) *Handler {
-	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath, sshAuthStore: store}
+// NewHandlerWithSSHAuth constructs a Handler with in-memory SSH authorization support.
+func NewHandlerWithSSHAuth(scriptsDir string, store *sshauth.Store) *Handler {
+	return &Handler{scriptsDir: scriptsDir, sshAuthStore: store}
 }
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
@@ -122,7 +116,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 	case "remove_script":
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "ssh_authorize":
-		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Args, cmd.Payload)
+		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Payload)
 	case "ssh_revoke":
 		return h.sshRevoke(ctx, cmd.CommandID, cmd.Payload)
 	default:
@@ -139,52 +133,15 @@ func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	}
 }
 
-func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, args []string, payload *transport.CommandPayload) transport.CommandResult {
-	if isDynamicSSHAuthorizePayload(payload) {
-		return h.dynamicSSHAuthorize(ctx, commandID, publicKey, payload)
-	}
-
-	key, requestedPath, err := resolveSSHAuthorize(publicKey, args, payload)
-	if err != nil {
-		return failureResult(commandID, err.Error())
-	}
-	path, err := h.resolveAuthorizedKeysPath(requestedPath)
-	if err != nil {
-		return failureResult(commandID, err.Error())
-	}
-	if ctx.Err() != nil {
-		return failureResult(commandID, "timeout")
-	}
-	if err := appendAuthorizedKey(path, key); err != nil {
-		return failureResult(commandID, err.Error())
-	}
-	afterCommandCommitHook()
-	if ctx.Err() != nil {
-		return transport.CommandResult{
-			CommandID: commandID,
-			Status:    transport.CommandStatusOK,
-			Output:    map[string]any{"path": path, "timed_out_after_commit": true},
-		}
-	}
-	return transport.CommandResult{
-		CommandID: commandID,
-		Status:    transport.CommandStatusOK,
-		Output:    map[string]any{"path": path},
-	}
-}
-
-type dynamicSSHAuthorizePayload struct {
-	TargetUser string `json:"target_user"`
-	TTLSeconds int    `json:"ttl_seconds"`
-	SessionRef string `json:"session_ref"`
-}
-
-func (h *Handler) dynamicSSHAuthorize(ctx context.Context, commandID, publicKey string, payload *transport.CommandPayload) transport.CommandResult {
+func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, payload *transport.CommandPayload) transport.CommandResult {
 	if h.sshAuthStore == nil {
 		return failureResult(commandID, "ssh authorization store is not configured")
 	}
 	if strings.TrimSpace(publicKey) == "" {
 		return failureResult(commandID, "missing public key")
+	}
+	if payload == nil {
+		return failureResult(commandID, "missing ssh_authorize payload")
 	}
 	var data dynamicSSHAuthorizePayload
 	if err := json.Unmarshal([]byte(payload.Data), &data); err != nil {
@@ -220,13 +177,10 @@ func (h *Handler) dynamicSSHAuthorize(ctx context.Context, commandID, publicKey 
 	}
 }
 
-func isDynamicSSHAuthorizePayload(payload *transport.CommandPayload) bool {
-	if payload == nil {
-		return false
-	}
-	contentType := strings.ToLower(strings.TrimSpace(payload.ContentType))
-	return strings.HasPrefix(contentType, strings.ToLower(sshauth.PayloadContentType)) ||
-		strings.HasPrefix(contentType, "application/vnd.nixstasis.ssh-authorize+json")
+type dynamicSSHAuthorizePayload struct {
+	TargetUser string `json:"target_user"`
+	TTLSeconds int    `json:"ttl_seconds"`
+	SessionRef string `json:"session_ref"`
 }
 
 type sshRevokePayload struct {
@@ -266,27 +220,6 @@ func (h *Handler) sshRevoke(ctx context.Context, commandID string, payload *tran
 			"revoked":     revoked,
 		},
 	}
-}
-
-func (h *Handler) resolveAuthorizedKeysPath(requestedPath string) (string, error) {
-	if h.authorizedKeysPath == "" {
-		return "", fmt.Errorf("authorized_keys path is not configured")
-	}
-	canonical, err := canonicalAuthorizedKeysPath(h.authorizedKeysPath)
-	if err != nil {
-		return "", err
-	}
-	if requestedPath == "" {
-		return canonical, nil
-	}
-	requested, err := canonicalAuthorizedKeysPath(requestedPath)
-	if err != nil {
-		return "", err
-	}
-	if requested != canonical {
-		return "", fmt.Errorf("authorized_keys path is not allowed")
-	}
-	return canonical, nil
 }
 
 func (h *Handler) listScripts(ctx context.Context, commandID string) transport.CommandResult {
@@ -496,24 +429,4 @@ func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (scr
 		return latest, nil
 	}
 	return script.ScriptInfo{}, fmt.Errorf("script not found")
-}
-
-func resolveSSHAuthorize(publicKey string, args []string, payload *transport.CommandPayload) (key, path string, err error) {
-	key = publicKey
-	if key == "" && payload != nil {
-		key = payload.Data
-	}
-	if payload != nil {
-		path = payload.Name
-	}
-	if key == "" && len(args) > 0 {
-		key = args[0]
-	}
-	if path == "" && len(args) > 1 {
-		path = args[1]
-	}
-	if key == "" {
-		return "", "", fmt.Errorf("missing public key")
-	}
-	return key, path, nil
 }

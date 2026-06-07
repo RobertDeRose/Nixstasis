@@ -16,9 +16,9 @@ const (
 	defaultConfigRoot         = "/etc/nixstasis"
 	defaultUserConfig         = "$HOME/.config/nixstasis"
 	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
-	defaultAuthorizedKeysPath = "/var/lib/nixstasis-support/.ssh/authorized_keys"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
+	defaultSSHAuthoritySocket = "/run/nixstasis/ssh-authority.sock"
 )
 
 // Config holds the top-level configuration structure.
@@ -66,7 +66,7 @@ type RuntimeConfig struct {
 	ExecEnv             []string          `mapstructure:"exec_env"`
 	MQTTPublishTopics   []string          `mapstructure:"mqtt_publish_topics"`
 	MQTTSubscribeTopics []string          `mapstructure:"mqtt_subscribe_topics"`
-	AuthorizedKeysPath  string            `mapstructure:"authorized_keys_path"`
+	SSHAuthoritySocket  string            `mapstructure:"ssh_authority_socket"`
 }
 
 // LogConfig holds configuration for logging.
@@ -91,7 +91,7 @@ func setDefaults() *viper.Viper {
 	v.SetDefault("frp.http_local_addr", "127.0.0.1:443")
 	v.SetDefault("frp.ssh_local_port", 22)
 	v.SetDefault("runtime.exec_work_dir", "/")
-	v.SetDefault("runtime.authorized_keys_path", defaultAuthorizedKeysPath)
+	v.SetDefault("runtime.ssh_authority_socket", defaultSSHAuthoritySocket)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")
 
