@@ -18,15 +18,7 @@
       <span class="font-bold">Last Seen:</span> {@device.last_seen_at || "Never"}
     </:subtitle>
     <:actions>
-      <div class="flex items-center gap-2">
-        <div
-          class="tooltip tooltip-bottom"
-          data-tip="If PCP or Terminal data becomes unavailable, restart the session without leaving this view."
-        >
-          <button class="btn btn-sm btn-outline" phx-click="retry_session">Restart Session</button>
-        </div>
-        <.link navigate={@return_to || ~p"/devices"} class="btn btn-ghost">Back to List</.link>
-      </div>
+      <.link navigate={@return_to || ~p"/devices"} class="btn btn-ghost">Back to List</.link>
     </:actions>
   </.header>
 
@@ -104,6 +96,18 @@
         <div class="flex items-center gap-2">
           <div
             class="tooltip tooltip-bottom"
+            data-tip="Restart session (reinitializes PCP, terminal, and remote access)"
+          >
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="retry_session"
+              aria-label="Restart session"
+            >
+              <.icon name="fa-arrows-rotate" class="size-4" />
+            </button>
+          </div>
+          <div
+            class="tooltip tooltip-bottom"
             data-tip={if @maximized?, do: "Restore", else: "Maximize"}
           >
             <button
@@ -161,17 +165,6 @@
         </section>
 
         <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
-          <div :if={@terminal_closed?} class="mb-3 flex items-center justify-end gap-2">
-            <div class="tooltip tooltip-bottom" data-tip="Start new remote session">
-              <button
-                class="btn btn-sm btn-outline"
-                phx-click="start_ssh_session"
-                aria-label="Start new remote session"
-              >
-                <.icon name="fa-arrows-rotate" class="size-4" />
-              </button>
-            </div>
-          </div>
           <%= if @ssh_session_started or @terminal_closed? do %>
             <div class={[
               "bg-black text-white p-4 overflow-hidden rounded-lg min-h-0",
