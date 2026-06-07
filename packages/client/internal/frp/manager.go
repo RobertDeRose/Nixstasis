@@ -164,11 +164,18 @@ func systemdRunArgs(configPath string, frpConfig config.FRPConfig, environmentPa
 }
 
 func writeEnvironmentFile(authToken string) (string, error) {
-	if err := os.MkdirAll(frpRuntimeDir, 0o700); err != nil {
+	// The runtime dir is shared between the FRP process and the in-memory
+	// SSH authority socket. The latter is group-readable by the
+	// nixstasis-ssh group (used by sshd's AuthorizedKeysCommandUser), so
+	// the directory must be traversable by that group. The Dockerfile
+	// creates it with the right ownership and mode; this is a defensive
+	// fallback when running outside the image.
+	if err := os.MkdirAll(frpRuntimeDir, 0o750); err != nil {
 		return "", fmt.Errorf("failed to create FRP runtime directory: %w", err)
 	}
-	// #nosec G302 -- this is a private runtime directory, not a file.
-	if err := os.Chmod(frpRuntimeDir, 0o700); err != nil {
+	// #nosec G302 -- runtime dir is group-traversable so the ssh authority
+	// helper user can reach the socket.
+	if err := os.Chmod(frpRuntimeDir, 0o750); err != nil {
 		return "", fmt.Errorf("failed to secure FRP runtime directory: %w", err)
 	}
 
