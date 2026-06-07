@@ -144,9 +144,19 @@
                 SSH session to the device support account through FRP.
               </p>
             </div>
-            <button class="btn btn-sm btn-outline" phx-click="toggle_terminal_maximized">
-              {if(@terminal_maximized?, do: "Restore", else: "Maximize")}
-            </button>
+            <div class="flex items-center gap-2">
+              <button class="btn btn-sm btn-outline" phx-click="toggle_terminal_maximized">
+                {if(@terminal_maximized?, do: "Restore", else: "Maximize")}
+              </button>
+              <button
+                id="terminal-fullscreen-button"
+                phx-hook="TerminalFullscreen"
+                data-fullscreen-target="terminal-container"
+                class="btn btn-sm btn-outline"
+              >
+                Fullscreen
+              </button>
+            </div>
           </div>
           <%= if @ssh_session_started or @terminal_closed? do %>
             <div class={[
