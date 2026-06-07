@@ -108,14 +108,21 @@
           </div>
           <div
             class="tooltip tooltip-bottom"
-            data-tip={if @maximized?, do: "Restore", else: "Maximize"}
+            data-tip={if @maximized?, do: "Minimize", else: "Maximize"}
           >
             <button
               class="btn btn-sm btn-outline"
               phx-click="toggle_maximized"
-              aria-label={if @maximized?, do: "Restore", else: "Maximize"}
+              aria-label={if @maximized?, do: "Minimize", else: "Maximize"}
             >
-              <.icon name="fa-up-right-and-down-left-from-center" class="size-4" />
+              <.icon
+                name={
+                  if @maximized?,
+                    do: "fa-down-left-and-up-right-to-center",
+                    else: "fa-up-right-and-down-left-from-center"
+                }
+                class="size-4"
+              />
             </button>
           </div>
           <div class="tooltip tooltip-bottom" data-tip="Fullscreen">
