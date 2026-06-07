@@ -15,6 +15,7 @@ in-progress, or planned work. Each feature directory contains a `design.md` and
 ## Client And Runtime
 
 - [Go Client Rewrite](go-client-rewrite/design.md)
+- [In-Memory SSH Authorized Keys](in-memory-ssh-authorized-keys/design.md)
 - [Starlark Script System](starlark-script-system/design.md)
 - [Server-Provided FRPS Token](server-provided-frps-token/design.md)
 

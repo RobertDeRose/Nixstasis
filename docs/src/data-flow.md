@@ -175,19 +175,31 @@ sequenceDiagram
     participant LiveView as DeviceLive.Show
     participant Devices
     participant Client as nixstasis client
+    participant IPC as IPC server
+    participant Helper as AuthorizedKeysCommand
+    participant SSHD as device sshd
     participant Socket as TerminalChannel
     participant SSH as SshClient
     participant FRP as FRP TCP mux
 
     Browser->>LiveView: start_ssh_session
     LiveView->>Devices: Generate SSH key pair
+    LiveView->>Devices: Create terminal session ref
     LiveView->>Devices: Queue ssh_authorize command
     Client->>Devices: Heartbeat claims command
-    Client->>Client: Install authorized key
+    Client->>Client: Validate payload, store key in memory
+    Client->>IPC: ssh-authority.sock (key stored)
+    Device-->>Devices: OK command result
+    LiveView->>Browser: Activate terminal socket token
     Browser->>Socket: Join terminal:<device_id>
     Socket->>Devices: Resolve terminal session ref
-    Socket->>SSH: Start SSH Port with ncat proxy
+    Socket->>SSH: Start ssh as nixstasis-support
     SSH->>FRP: Connect through FRP TCP mux
+    SSHD->>Helper: AuthorizedKeysCommand %u %t %k
+    Helper->>IPC: Query key authorization
+    IPC-->>Helper: authorized
+    Helper-->>SSHD: Print authorized key
+    SSHD-->>SSH: Authenticated
     Browser->>Socket: Terminal input
     Socket->>SSH: send_data(input)
     SSH-->>Socket: output events
@@ -196,22 +208,37 @@ sequenceDiagram
 
 1. Browser triggers `start_ssh_session` in `DeviceLive.Show`.
 2. Server generates an SSH key pair with `SshKeyManager.generate_key_pair/0`.
-3. Server queues an `ssh_authorize` command for the device containing the public key.
-4. Server stores private key material behind an opaque terminal session ref and signs a Phoenix socket token containing the device ID.
-5. Browser connects to `UserSocket` with socket token.
-6. Browser joins topic `terminal:<device_id>` with the terminal session ref.
-7. `TerminalChannel.join/3` resolves the session ref, verifies device binding, and starts `Nixstasis.Devices.SshClient`.
-8. `SshClient` writes private key to a temp file and opens an `ssh` Port using `ncat` as HTTP proxy to the FRP TCP mux endpoint.
-9. Browser input is sent to `SshClient.send_data/2`.
-10. SSH process output is pushed back as channel `output` events.
-11. Session stops on SSH exit, idle timeout, or max duration.
+3. Server creates an opaque terminal session ref **before** queueing the command.
+4. Server queues an `ssh_authorize` command for the device with the public key,
+   target user `nixstasis-support`, TTL, and session ref.
+5. Client claims the command on heartbeat, validates the dynamic JSON payload,
+   and stores the public key in its in-memory authorization store.
+6. Client exposes the key over a local Unix-domain IPC socket
+   (`/run/nixstasis/ssh-authority.sock`).
+7. Server observes the OK command result and activates the terminal socket token.
+8. Browser connects to `UserSocket` with the socket token.
+9. Browser joins topic `terminal:<device_id>` with the terminal session ref.
+10. `TerminalChannel.join/3` resolves the session ref, verifies device binding,
+    and starts `Nixstasis.Devices.SshClient` targeting `nixstasis-support`.
+11. `SshClient` writes private key to a temp file and opens an `ssh` Port using
+    `ncat` as HTTP proxy to the FRP TCP mux endpoint.
+12. Device-side sshd invokes `AuthorizedKeysCommand` with `%u %t %k`; the helper
+    queries the client IPC server and prints the authorized key on match.
+13. Browser input is sent to `SshClient.send_data/2`.
+14. SSH process output is pushed back as channel `output` events.
+15. Session stops on SSH exit, idle timeout, or max duration. Server queues an
+    `ssh_revoke` command as a best-effort early cleanup signal.
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:57-80`
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex:98-200`
 - `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-113`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex:17-94`
+- `packages/client/internal/sshauth/store.go`
+- `packages/client/internal/sshauth/ipc.go`
+- `packages/client/cmd/nixstasis/ssh_authorized_keys.go`
+- `packages/client/build/root-dir/etc/ssh/sshd_config.d/nixstasis-support.conf`
 
 ## LiveView Event Cycle
 
