@@ -715,8 +715,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
       |> render_click()
 
       assert render(view) =~ "Session reinitialized"
-      assert render(view) =~ "Overview"
-      assert render(view) =~ "PCP Data"
+      assert render(view) =~ "Cockpit"
+      assert render(view) =~ "Performance Metrics"
       assert render(view) =~ "Terminal"
     end
 
@@ -747,7 +747,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("a[phx-value-tab='pcp']", "PCP Data")
+        |> element("a[phx-value-tab='pcp']", "Performance Metrics")
         |> render_click()
 
       assert html =~ "PCP Metrics"
@@ -762,7 +762,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='pcp']", "PCP Data")
+      |> element("a[phx-value-tab='pcp']", "Performance Metrics")
       |> render_click()
 
       {:ok, _event} =

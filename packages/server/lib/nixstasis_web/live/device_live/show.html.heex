@@ -77,19 +77,11 @@
       <div role="tablist" class="tabs tabs-lifted">
         <a
           role="tab"
-          class={"tab #{@active_tab == "overview" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="overview"
-        >
-          Overview
-        </a>
-        <a
-          role="tab"
           class={"tab #{@active_tab == "pcp" && "tab-active"}"}
           phx-click="change_tab"
           phx-value-tab="pcp"
         >
-          PCP Data
+          Performance Metrics
         </a>
         <a
           role="tab"
@@ -98,6 +90,14 @@
           phx-value-tab="terminal"
         >
           Terminal
+        </a>
+        <a
+          role="tab"
+          class={"tab #{@active_tab == "overview" && "tab-active"}"}
+          phx-click="change_tab"
+          phx-value-tab="overview"
+        >
+          Cockpit
         </a>
       </div>
 
