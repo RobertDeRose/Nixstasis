@@ -64,7 +64,7 @@ defmodule NixstasisWeb.Layouts do
     ~H"""
     <div class="drawer-side z-50">
       <label for="drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-      <div class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
+      <div class="menu bg-base-200 text-base-content min-h-full w-fit p-4">
         <div class="mb-8 px-2 flex items-center gap-3">
           <img src={~p"/images/logo.svg"} class="dark:invert" width="40" alt="Nixstasis Logo" />
           <div>
@@ -123,16 +123,8 @@ defmodule NixstasisWeb.Layouts do
             <.theme_toggle />
           </div>
 
-          <div class="card bg-base-100 shadow-sm p-4 text-sm">
-            <div class="flex justify-between items-center mb-2">
-              <span class="font-semibold">System Status</span>
-              <div class="tooltip" data-tip="System Online">
-                <div class="w-3 h-3 rounded-full bg-success"></div>
-              </div>
-            </div>
-            <div class="text-xs opacity-70">
-              v{Application.spec(:nixstasis, :vsn)}
-            </div>
+          <div class="text-xs opacity-70">
+            v{Application.spec(:nixstasis, :vsn)}
           </div>
         </div>
       </div>
