@@ -19,6 +19,7 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
@@ -72,7 +73,13 @@ func runPoll(cfg *config.Config) error {
 		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
 	})
 	frpManager := frp.NewManager()
-	cmdHandler := commands.NewHandlerWithAuthorizedKeys(cfg.Scripts.Dir, cfg.Runtime.AuthorizedKeysPath)
+	sshAuthStore := sshauth.NewStore()
+	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
+	if err := sshAuthServer.Start(ctx); err != nil {
+		return fmt.Errorf("start ssh authorization server: %w", err)
+	}
+	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
+	cmdHandler := commands.NewHandlerWithSSHAuth(cfg.Scripts.Dir, sshAuthStore)
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)

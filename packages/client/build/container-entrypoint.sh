@@ -91,7 +91,7 @@ frp:
   ssh_local_port: $frp_ssh_local_port
 
 runtime:
-  authorized_keys_path: '/var/lib/nixstasis-support/.ssh/authorized_keys'
+  ssh_authority_socket: '/run/nixstasis/ssh-authority.sock'
   exec_work_dir: '/'
   exec_commands:
     pcp-metrics: '/usr/libexec/nixstasis/pcp-metrics.sh'
