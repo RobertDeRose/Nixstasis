@@ -670,7 +670,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, device} = Devices.get_device(device.id)
       {:ok, _updated} = Devices.update_device(device, %{last_seen_at: DateTime.utc_now()})
 
-      assert eventually_rendered?(view, "Remote access is requested")
+      assert eventually_rendered?(view, ~s|id="pcp-chart"|)
       refute render(view) =~ "Device Offline"
     end
 
@@ -716,8 +716,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       assert render(view) =~ "Session reinitialized"
       assert render(view) =~ "Cockpit"
-      assert render(view) =~ "Performance Metrics"
-      assert render(view) =~ "Terminal"
+      assert render(view) =~ "Performance History"
+      assert render(view) =~ "Remote Terminal"
     end
 
     test "PCP tab renders persisted PCP telemetry samples", %{conn: conn} do
@@ -747,7 +747,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("a[phx-value-tab='pcp']", "Performance Metrics")
+        |> element("a[phx-value-tab='pcp']", "Performance History")
         |> render_click()
 
       assert html =~ "PCP Metrics"
@@ -762,7 +762,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='pcp']", "Performance Metrics")
+      |> element("a[phx-value-tab='pcp']", "Performance History")
       |> render_click()
 
       {:ok, _event} =

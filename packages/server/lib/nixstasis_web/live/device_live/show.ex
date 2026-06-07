@@ -334,7 +334,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:remote_access_auto_open?, true)
     |> assign_device_view(device, return_to)
     |> assign(:remote_access_lease_ref, lease_ref)
-    |> assign(:active_tab, "overview")
+    |> assign(:active_tab, "pcp")
     |> assign(:ssh_session_started, false)
     |> assign(:ssh_authorize_command_id, nil)
     |> assign(:ssh_token, nil)
@@ -413,7 +413,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
       latest_pcp = latest_pcp_sample(device.id)
 
       socket
-      |> assign_new(:active_tab, fn -> "overview" end)
+      |> assign_new(:active_tab, fn -> "pcp" end)
       |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["#3B82F6"]))
       |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["#10B981"]))
       |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["#F59E0B"]))
