@@ -30,6 +30,14 @@ export default {
   },
 
   updateLabel() {
-    this.el.textContent = document.fullscreenElement ? "Exit Fullscreen" : "Fullscreen"
+    const isFullscreen = !!document.fullscreenElement
+    const enter = this.el.querySelector(".fullscreen-icon-enter")
+    const exit = this.el.querySelector(".fullscreen-icon-exit")
+    if (enter) enter.classList.toggle("hidden", isFullscreen)
+    if (exit) exit.classList.toggle("hidden", !isFullscreen)
+    const wrapper = this.el.parentElement
+    if (wrapper?.dataset) {
+      wrapper.dataset.tip = isFullscreen ? "Exit Fullscreen" : "Fullscreen"
+    }
   }
 }
