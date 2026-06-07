@@ -52,6 +52,10 @@ RUN apt-get update -qq && \
     systemctl add-wants multi-user.target systemd-user-sessions.service && \
     systemctl enable ssh
 
+# Install sshd drop-in for the nixstasis-support in-memory SSH authorization path.
+COPY build/root-dir/etc/ssh/sshd_config.d/nixstasis-support.conf /etc/ssh/sshd_config.d/nixstasis-support.conf
+RUN chmod 0644 /etc/ssh/sshd_config.d/nixstasis-support.conf
+
 # Install frpc
 COPY --from=builder /frpc /usr/libexec/nixstasis/frpc
 
@@ -70,11 +74,17 @@ COPY build/root-dir/usr/share/nixstasis/ /usr/share/nixstasis/
 
 # Install built-in telemetry scripts and helpers
 COPY build/root-dir/usr/libexec/nixstasis/ /usr/libexec/nixstasis/
-RUN chmod 0755 /usr/libexec/nixstasis/pcp-metrics.sh
+RUN chmod 0755 /usr/libexec/nixstasis/pcp-metrics.sh && \
+    chmod 0755 /usr/libexec/nixstasis/ssh-authorized-keys
 
-# Create service and remote-support users.
-RUN useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis && \
+# Create service and remote-support users, plus the dedicated
+# nixstasis-ssh-authority account that sshd drops privileges to when
+# running AuthorizedKeysCommand.
+RUN groupadd --system nixstasis-ssh && \
+    useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis && \
     useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash nixstasis-support && \
+    useradd --system --no-create-home --home-dir /var/lib/empty --shell /usr/sbin/nologin -G nixstasis-ssh nixstasis-ssh-authority && \
+    install -d -m 0750 -o root -g nixstasis-ssh /run/nixstasis && \
     mkdir -p /var/lib/nixstasis/.ssh /var/lib/nixstasis-support/.ssh /etc/sudoers.d && \
     chown -R nixstasis:nixstasis /var/lib/nixstasis && \
     chown -R nixstasis-support:nixstasis-support /var/lib/nixstasis-support && \
