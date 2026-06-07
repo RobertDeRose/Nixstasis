@@ -27,7 +27,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
      |> assign(:can_remote_access_device?, Permissions.can_remote_access_device?(permissions))
      |> assign(:remote_access_auto_open?, true)
      |> assign(:terminal_closed?, false)
-     |> assign(:terminal_maximized?, false)}
+     |> assign(:maximized?, false)}
   end
 
   @impl true
@@ -93,8 +93,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
-  def handle_event("toggle_terminal_maximized", _, socket) do
-    {:noreply, Phoenix.Component.update(socket, :terminal_maximized?, &(!&1))}
+  def handle_event("toggle_maximized", _, socket) do
+    {:noreply, Phoenix.Component.update(socket, :maximized?, &(!&1))}
   end
 
   @impl true

@@ -31,7 +31,7 @@
   </.header>
 
   <div class="mt-4">
-    <div class={["grid grid-cols-1 md:grid-cols-3 gap-4", @terminal_maximized? && @active_tab == "terminal" && "hidden"]}>
+    <div class={["grid grid-cols-1 md:grid-cols-3 gap-4", @maximized? && "hidden"]}>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title justify-center">CPU</h2>
@@ -73,61 +73,96 @@
       </div>
     </div>
 
-    <div class={if(@terminal_maximized? and @active_tab == "terminal", do: "mt-4", else: "mt-8")}>
-      <div role="tablist" class="tabs tabs-lifted">
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "pcp" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="pcp"
-        >
-          Performance History
-        </a>
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "terminal" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="terminal"
-        >
-          Remote Terminal
-        </a>
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "overview" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="overview"
-        >
-          Cockpit
-        </a>
+    <div class={if(@maximized?, do: "mt-4", else: "mt-8")}>
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div role="tablist" class="tabs tabs-lifted">
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "pcp" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="pcp"
+          >
+            Performance History
+          </a>
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "terminal" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="terminal"
+          >
+            Remote Terminal
+          </a>
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "overview" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="overview"
+          >
+            Cockpit
+          </a>
+        </div>
+        <div class="flex items-center gap-2">
+          <div
+            class="tooltip tooltip-bottom"
+            data-tip={if @maximized?, do: "Restore", else: "Maximize"}
+          >
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="toggle_maximized"
+              aria-label={if @maximized?, do: "Restore", else: "Maximize"}
+            >
+              <.icon name="fa-up-right-and-down-left-from-center" class="size-4" />
+            </button>
+          </div>
+          <div class="tooltip tooltip-bottom" data-tip="Fullscreen">
+            <button
+              id="tab-fullscreen-button"
+              phx-hook="Fullscreen"
+              data-fullscreen-target="tab-content-panel"
+              class="btn btn-sm btn-outline"
+              aria-label="Toggle fullscreen"
+            >
+              <.icon name="fa-maximize" class="size-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box">
-        <section class={if(@active_tab == "overview", do: "block", else: "hidden")}>
+      <div
+        id="tab-content-panel"
+        class={[
+          "p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box",
+          if(@maximized?, do: "h-[calc(100vh-12rem)] flex flex-col", else: "")
+        ]}
+      >
+        <section class={if(@active_tab == "overview", do: "block flex-1 min-h-0", else: "hidden")}>
           <iframe
             id="cockpit-frame"
             src={@cockpit_url}
             title="Cockpit"
             allow="fullscreen"
-            class="w-full h-[800px] border-0 rounded-box"
+            class={
+              if(@maximized?, do: "h-full w-full border-0 rounded-box", else: "w-full h-[800px] border-0 rounded-box")
+            }
           >
           </iframe>
         </section>
 
-        <section class={if(@active_tab == "pcp", do: "block", else: "hidden")}>
+        <section class={if(@active_tab == "pcp", do: "block flex-1 min-h-0", else: "hidden")}>
           <div
             id="pcp-chart"
             phx-hook="ApexChart"
             phx-update="ignore"
             data-options={Jason.encode!(@pcp_chart)}
             data-active={if(@active_tab == "pcp", do: "true", else: "false")}
-            class="min-h-[600px]"
+            class={if(@maximized?, do: "h-full", else: "min-h-[600px]")}
           >
           </div>
         </section>
 
-        <section class={if(@active_tab == "terminal", do: "block min-h-0", else: "hidden")}>
-          <div class="mb-3 flex items-center justify-end gap-2">
-            <div :if={@terminal_closed?} class="tooltip tooltip-bottom" data-tip="Start new remote session">
+        <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
+          <div :if={@terminal_closed?} class="mb-3 flex items-center justify-end gap-2">
+            <div class="tooltip tooltip-bottom" data-tip="Start new remote session">
               <button
                 class="btn btn-sm btn-outline"
                 phx-click="start_ssh_session"
@@ -136,34 +171,11 @@
                 <.icon name="fa-arrows-rotate" class="size-4" />
               </button>
             </div>
-            <div
-              class="tooltip tooltip-bottom"
-              data-tip={if @terminal_maximized?, do: "Restore", else: "Maximize"}
-            >
-              <button
-                class="btn btn-sm btn-outline"
-                phx-click="toggle_terminal_maximized"
-                aria-label={if @terminal_maximized?, do: "Restore terminal", else: "Maximize terminal"}
-              >
-                <.icon name="fa-up-right-and-down-left-from-center" class="size-4" />
-              </button>
-            </div>
-            <div class="tooltip tooltip-bottom" data-tip="Fullscreen">
-              <button
-                id="terminal-fullscreen-button"
-                phx-hook="TerminalFullscreen"
-                data-fullscreen-target="terminal-container"
-                class="btn btn-sm btn-outline"
-                aria-label="Toggle fullscreen"
-              >
-                <.icon name="fa-maximize" class="size-4" />
-              </button>
-            </div>
           </div>
           <%= if @ssh_session_started or @terminal_closed? do %>
             <div class={[
               "bg-black text-white p-4 overflow-hidden rounded-lg min-h-0",
-              if(@terminal_maximized?, do: "h-[calc(100vh-18rem)]", else: "h-[560px]")
+              if(@maximized?, do: "flex-1", else: "h-[560px]")
             ]}>
               <div
                 id="terminal-container"
@@ -193,8 +205,8 @@
             </div>
           <% else %>
             <div class={[
-              "flex flex-col items-center justify-center bg-base-200 rounded-lg",
-              if(@terminal_maximized?, do: "h-[calc(100vh-18rem)]", else: "h-[560px]")
+              "flex flex-col items-center justify-center bg-base-200 rounded-lg min-h-0",
+              if(@maximized?, do: "flex-1", else: "h-[560px]")
             ]}>
               <p class="text-lg">Opening remote session...</p>
               <p class="mt-2 text-sm text-base-content/60">
