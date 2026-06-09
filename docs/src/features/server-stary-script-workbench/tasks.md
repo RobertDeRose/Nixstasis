@@ -15,30 +15,30 @@
 - [X] T001 Inventory existing Stary parser, executor, install, remove, and test
   behavior in `packages/client/internal/script/` and
   `packages/client/cmd/nixstasis/`.
-- [ ] T002 Inventory existing server device command persistence and delivery
+- [X] T002 Inventory existing server device command persistence and delivery
   behavior in `packages/server/lib/nixstasis/devices.ex`,
   `packages/server/lib/nixstasis/devices/pending_command.ex`, and
   `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`.
-- [ ] T003 Decide whether server-side validation is implemented natively in
+- [X] T003 Decide whether server-side validation is implemented natively in
   Elixir or by a packaged/supervised validation helper, and record the decision
   in `docs/src/features/server-stary-script-workbench/design.md`.
-- [ ] T004 Define the test-only script execution contract between Phoenix and the
+- [X] T004 Define the test-only script execution contract between Phoenix and the
   Go client, including payload shape, timeout behavior, result envelope, and
   unsupported-client failure behavior.
-- [ ] T005 Define when test and deploy commands use inline payloads versus
+- [X] T005 Define when test and deploy commands use inline payloads versus
   deferred command payloads, including payload retention and 404 behavior.
-- [ ] T006 Define script draft, version, validation result, test run, deployment
+- [X] T006 Define script draft, version, validation result, test run, deployment
   run, and per-client result lifecycle states.
 
 ## Phase 2: Server Persistence And Domain
 
-- [ ] T007 Add server persistence for script drafts and script versions in
+- [X] T007 Add server persistence for script drafts and script versions in
   `packages/server/priv/repo/migrations/` and
   `packages/server/lib/nixstasis/scripts/`.
-- [ ] T008 Add server persistence for validation results, test runs, deployment
+- [X] T008 Add server persistence for validation results, test runs, deployment
   runs, and per-client action results in `packages/server/priv/repo/migrations/`
   and `packages/server/lib/nixstasis/scripts/`.
-- [ ] T009 Wire script resources or context modules into
+- [X] T009 Wire script resources or context modules into
   `packages/server/lib/nixstasis/domain.ex` or the appropriate server domain
   boundary.
 - [ ] T010 Add authorization checks for script create, edit, validate, test, and
