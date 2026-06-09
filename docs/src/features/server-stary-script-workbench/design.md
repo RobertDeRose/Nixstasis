@@ -89,6 +89,49 @@ must preserve:
 - `exec_cmd` is deny-by-default and only succeeds when the runtime allowlist
   maps the requested command to an absolute executable path.
 
+### Current Server Delivery Baseline
+
+The server already has the building blocks for queued device commands and
+heartbeat-driven delivery:
+
+- `Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, resolves
+  offline alerts, evaluates rule alerts, and then pops pending commands.
+- `Devices.pop_pending_commands/1` is the delivery boundary that claims queued
+  commands for a device during heartbeat processing.
+- `PendingCommand` stores `command_payload`, `status`, `queued_at`,
+  `delivered_at`, and the owning `device`.
+- `DeviceCommandController.command_results/2` authenticates the device, accepts a
+  list of command results, and calls `Devices.acknowledge_command_results/2`.
+- `DeviceCommandController.command_payload/2` serves deferred command payloads by
+  reference and returns `404` when a payload is missing.
+- The client transport already models `CommandRequest`, `CommandPayload`,
+  `CommandResult`, `PollResponse`, `FetchCommandPayload`, and `SendCommandResults`.
+- `CommandRequest` already includes `payload` and `payload_ref`, so commands can
+  be delivered inline or by deferred payload.
+- The heartbeat path is already the place where command delivery and remote
+  access intent are co-resident.
+
+### Test And Payload Contract
+
+The workbench uses the existing device command transport rather than creating a
+separate testing API:
+
+- Test execution is represented as a new command type, `run_script`.
+- `run_script` carries rendered `.stary` content as a `command_payload`.
+- Small payloads may be sent inline in the command record.
+- Larger payloads should be referenced through `payload_ref` and fetched through
+  `GET /api/v1/devices/:device_id/command_payloads/:ref`.
+- The payload `content_type` should identify Stary script text so the client can
+  distinguish it from install/remove payloads.
+- The client responds through the existing `POST /api/v1/devices/:device_id/command_results`
+  endpoint with a single command result per execution attempt.
+- The result envelope should preserve the client-side script execution status,
+  output, warnings, validation status, error type, and error message.
+- A missing deferred payload remains a normal `404` contract and should surface
+  as a failed test result.
+- Deployment can continue to use the existing `install_script` command shape for
+  installed script artifacts.
+
 ### Script Draft Model
 
 The server stores script drafts and versions as durable records. A draft holds
@@ -109,12 +152,28 @@ The script lifecycle is explicit:
 Status should be derived from version/action records where practical rather than
 being a fragile single mutable field.
 
+The feature should use a small, explicit state vocabulary for the persisted
+objects involved in the workbench:
+
+- Script draft status: `draft`, `validated`, `archived`.
+- Script version status: `candidate`, `validated`, `deployed`, `superseded`,
+  `archived`.
+- Validation run status: `pending`, `passed`, `failed`.
+- Test run status: `pending`, `running`, `passed`, `failed`, `timed_out`,
+  `unsupported`, `unavailable`.
+- Deployment run status: `pending`, `running`, `deployed`, `partial`,
+  `failed`.
+- Per-client action status: `queued`, `delivered`, `acknowledged`, `failed`,
+  `missing_payload`.
+
 ### Validation Boundary
 
 Server-side validation gives fast feedback for syntax, front matter, and schema
 shape. It must use the same Stary format expectations as the Go client. The
-server may implement validation directly or invoke a packaged validation helper,
-but it must not diverge from client acceptance rules.
+server will delegate validation to a packaged, supervised helper rather than
+reimplementing the parser and schema checks independently in Elixir. That keeps
+the server contract aligned with the client runtime and avoids divergence in
+front-matter or JSON Schema acceptance rules.
 
 Runtime validation remains client-owned. Test results must preserve client
 failure reasons, including schema mismatch, runtime exceptions, timeout, and
