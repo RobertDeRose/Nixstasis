@@ -66,6 +66,29 @@ authoritative execution boundary.
 
 ## Proposed Design
 
+### Current Runtime Baseline
+
+The existing client runtime already defines the operational shape this feature
+must preserve:
+
+- `ParseStaryFile` and `ParseStaryContent` require `---` front matter, YAML
+  decode into `FrontMatter`, a non-empty script name, and a non-nil schema.
+- `DiscoverScripts` scans the system and user script directories, ignores
+  non-`.stary` files, and skips invalid scripts rather than failing the whole
+  poll cycle.
+- `Executor.ExecuteScripts` shares a single runtime per poll cycle, executes up
+  to 20 scripts in parallel, and returns a result map keyed by script name.
+- `Runtime.Execute` requires a callable `main()`, enforces the configured
+  timeout, and converts Starlark return values to Go maps.
+- `install_script` validates front matter, schema, version, and script name
+  shape before writing into the user install directory.
+- `remove_script` resolves duplicate script names by latest version when
+  possible, otherwise requires path selection.
+- `script test` resolves scripts by path or name, prints YAML output on success,
+  and preserves validation/runtime errors as non-success exits.
+- `exec_cmd` is deny-by-default and only succeeds when the runtime allowlist
+  maps the requested command to an absolute executable path.
+
 ### Script Draft Model
 
 The server stores script drafts and versions as durable records. A draft holds

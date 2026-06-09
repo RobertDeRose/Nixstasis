@@ -6,13 +6,13 @@
 
 ## Phase 0: Scope Guard
 
-- [ ] T000 Confirm this feature remains independent from command allowlist
+- [X] T000 Confirm this feature remains independent from command allowlist
   management and dashboard device groups. `exec_cmd` denial should be surfaced as
   client test output, not modeled as a dependency on another feature.
 
 ## Phase 1: Discovery And Contract Design
 
-- [ ] T001 Inventory existing Stary parser, executor, install, remove, and test
+- [X] T001 Inventory existing Stary parser, executor, install, remove, and test
   behavior in `packages/client/internal/script/` and
   `packages/client/cmd/nixstasis/`.
 - [ ] T002 Inventory existing server device command persistence and delivery
