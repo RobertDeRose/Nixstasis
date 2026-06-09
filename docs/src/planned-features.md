@@ -7,6 +7,18 @@ boundaries operators rely on in deployment. Local development must be able to te
 dynamic TLS approval and browser-driven SSH terminal flows without waiting for a
 production-like environment.
 
+Nixstasis also needs a server-managed Stary script lifecycle so operators can
+author, validate, test, and deploy telemetry scripts from the web interface
+instead of relying only on client-local CLI workflows.
+
+Because Stary scripts can call `exec_cmd`, Nixstasis needs server-managed command
+allowlist policies that operators can compose into categories and assign to
+specific devices before those scripts are allowed to execute host commands.
+
+Operators also need first-class device groups in the Dashboard Devices view so
+they can organize fleets by operational ownership, location, role, or rollout
+cohort instead of relying only on product, account, status, and search filters.
+
 ## Goals
 
 - Provide a repeatable Compose development harness for end-to-end remote-access
@@ -17,6 +29,14 @@ production-like environment.
   Phoenix, Caddy, FRPS, FRPC, and managed-device identity.
 - Support an optional public-fidelity mode using DuckDNS or a real operator-owned
   domain when developers need to validate public ACME behavior.
+- Provide a browser-based workflow for developing Stary scripts, editing
+  front-matter metadata, validating syntax and schema declarations, and testing
+  candidate scripts against selected managed clients before deployment.
+- Provide a browser-based workflow for defining command execution allowlists,
+  grouping them into reusable categories, and assigning the resulting policy to
+  selected devices.
+- Provide a Devices view workflow for creating, editing, filtering by, and
+  assigning operator-managed device groups.
 
 ## Non-Goals
 
@@ -27,6 +47,15 @@ production-like environment.
   a local equivalent can validate the same application behavior.
 - Requiring ngrok, localtunnel, or another third-party tunnel provider for the
   default development workflow.
+- Replacing the client-side Stary runtime, script parser, schema validator, or
+  CLI workflows that already support local development.
+- Treating server-side script tests as a substitute for client-side runtime
+  enforcement during normal polling.
+- Turning `exec_cmd` into a general remote shell, arbitrary command runner, or
+  package-management framework.
+- Allowing scripts to grant themselves additional command execution permissions.
+- Treating product name, account number, approval status, or ad hoc search
+  filters as a complete replacement for durable operator-managed groups.
 
 ## Global Constraints
 
@@ -43,6 +72,21 @@ production-like environment.
   routing so development does not require public DNS or public ingress.
 - Optional public-fidelity mode may use DuckDNS or a real domain with DNS-based
   ACME validation to test publicly trusted certificate behavior.
+- The server web interface may orchestrate Stary validation and test execution,
+  but clients remain the authoritative execution environment for runtime behavior
+  and builtin availability.
+- Server-managed script deployment must be auditable and scoped to explicit
+  client selections, groups, or future targeting rules rather than silently
+  changing every managed client.
+- Server-managed command allowlists must remain deny-by-default, use explicit
+  absolute executable paths, and be resolved into device-local runtime policy
+  before a Stary script can execute `exec_cmd`.
+- Composed allowlist categories are additive only in the first version; removing
+  or narrowing permissions requires changing the assigned category or device
+  policy rather than relying on hidden precedence rules.
+- Device groups are operator-managed fleet organization records, not a source of
+  device identity. Registration and heartbeat authentication continue to depend
+  on device identity, approval state, and API tokens.
 
 ## Cross-Cutting Decisions
 
@@ -55,6 +99,17 @@ production-like environment.
   not a prerequisite for local feature development.
 - Keep production Compose docs and Compose dev-harness docs explicitly separated so
   test affordances do not become accidental production guidance.
+- Treat server-side Stary authoring as a new script-management feature layered on
+  top of the completed client-local Starlark script system.
+- Validate front matter and Starlark syntax before dispatching tests to clients,
+  while still requiring selected clients to execute test runs so builtin,
+  environment, timeout, and output-schema behavior matches reality.
+- Keep server-managed Stary authoring, command allowlist management, and device
+  groups as independent feature tracks. They may integrate later, but each should
+  be specifiable, implementable, and testable on its own.
+- The command policy UI can call entries "whitelists" for operator familiarity,
+  but implementation docs use "allowlist" for consistency with the existing
+  `exec_cmd` runtime boundary.
 
 ## Resolved Questions
 
@@ -69,8 +124,6 @@ production-like environment.
 
 ## Backlog
 
-- Document `exec_cmd` intent as deny-by-default and allowlist-gated by absolute
-  executable path.
 - Move bespoke Phoenix controller APIs under Ash-backed actions/resources where
   practical so their OpenAPI contracts can be generated from the same source of
   truth as the `/api/json` surface.
@@ -85,7 +138,7 @@ production-like environment.
 
 ### `compose-dev-harness`
 
-- Status: delivered
+- Status: completed
 - Overview:
 - Create a default Compose development harness that can run the server-side stack,
     register or simulate a managed client, validate Caddy dynamic TLS approval with
@@ -239,7 +292,7 @@ production-like environment.
 
 ### `server-provided-frps-token`
 
-- Status: implemented
+- Status: completed
 - Overview:
 - Move the remote-access trigger from a boolean heartbeat response flag to a
     server-provided FRPS auth token. When the server wants a client to open
@@ -318,7 +371,7 @@ production-like environment.
 
 ### `in-memory-ssh-authorized-keys`
 
-- Status: done
+- Status: completed
 - Overview:
 - Replace file-based browser-terminal SSH key authorization with an OpenSSH
   `AuthorizedKeysCommand` integration backed by the Go client runtime. The
@@ -522,7 +575,7 @@ production-like environment.
 
 ### `ash-api-contract-unification`
 
-- Status: partially implemented
+- Status: in-progress
 - Overview:
 - Rework the custom Phoenix controller APIs that represent durable product
     contracts so they are exposed through Ash actions/resources where practical,
@@ -793,3 +846,310 @@ production-like environment.
 - Run `mdbook build docs` and, where practical, OpenAPI validation for example
     payloads.
 - Suggested first workflow command: `/start-feature rich-api-examples`
+
+### `server-stary-script-workbench`
+
+- Status: planned
+- Overview:
+- Add a server web interface for creating, editing, validating, testing, and
+    deploying Stary scripts. The UI should include a structured front-matter
+    editor, a script body editor, syntax/schema validation, and a workflow for
+    running candidate scripts on one or more selected clients before rollout.
+- Requirements:
+- Provide a script inventory in the server web UI with draft, validated, tested,
+    deployed, failed, and archived states.
+- Provide a front-matter model editor for script metadata, unique name, output
+    schema, timeout or warning metadata when supported, and other fields required
+    by the existing `stary` format.
+- Provide a script body editor for the Starlark portion of the script.
+- Validate YAML front matter, Stary file structure, declared output schema, and
+    Starlark parseability before a script can be queued for testing or
+    deployment.
+- Reuse the existing client Stary semantics for runtime behavior; do not create a
+    separate server dialect that can pass validation but fail on clients.
+- Allow an operator to select one or more clients for test execution.
+- Dispatch test runs through the existing authenticated client command path or a
+    deliberately designed successor, and capture per-client status, output,
+    warnings, validation errors, execution errors, and timeout results.
+- Keep test runs separate from deployed polling scripts so operators can test a
+    draft without affecting normal telemetry collection.
+- Provide a deployment workflow that installs or updates a validated script on
+    selected clients only after an explicit operator action.
+- Record script versions, validation results, test results, deployment targets,
+    actor identity, and timestamps for audit and rollback decisions.
+- Surface deployment and test failures in the UI without blocking unrelated
+    clients from reporting normal telemetry.
+- Constraints:
+- The client remains the authoritative execution boundary for Starlark builtins,
+    command allowlisting, timeouts, and output validation.
+- Server-side validation must not require shelling out to an unmanaged client
+    binary in production unless that dependency is explicitly packaged and
+    supervised.
+- Script test commands must be authenticated, authorized, bounded by timeout, and
+    rate limited so the web interface cannot become an unbounded remote execution
+    surface.
+- Draft scripts and test results may contain sensitive operator-authored logic or
+    device output and must follow the same authorization model as other
+    operator-only device controls.
+- Deployment must preserve client-local safeguards: malformed scripts, schema
+    mismatches, and forbidden builtins still fail on the client.
+- Non-goals:
+- Replacing client-local `test_script`, `repl`, `list_scripts`,
+    `install_script`, or `remove_script` workflows.
+- Building a collaborative IDE with real-time multi-user editing.
+- Providing a full source-control system for scripts in the first increment.
+- Automatically deploying scripts to every client without an explicit target
+    selection.
+- Designing a new scripting language or changing Stary file syntax.
+- Success criteria:
+- An operator can create or edit a draft Stary script in the server UI using a
+    structured front-matter editor and Starlark body editor.
+- Invalid front matter, invalid schema declarations, malformed Stary structure,
+    and Starlark syntax errors are caught before the script can be tested.
+- The operator can choose one or more connected clients, run the draft as a test,
+    and inspect each client's output, warnings, validation status, execution
+    status, and errors.
+- Test execution does not install the draft as a normal polling script.
+- The operator can deploy a validated and tested script to selected clients and
+    see per-client deployment status.
+- Scripts that call `exec_cmd` surface the client runtime's allowlist rejection
+    clearly during test execution when the selected client has not enabled the
+    requested command.
+- Audit records identify who validated, tested, and deployed each script version,
+    what clients were targeted, and what result each client reported.
+- Existing client-side Stary CLI tests and runtime tests continue to pass.
+- Risks and tradeoffs:
+- A rich editor can grow into a large IDE feature; the first version should focus
+    on structured front matter, basic code editing, validation, test dispatch, and
+    deployment state.
+- Server-side validation improves feedback speed but can become misleading if it
+    does not use the same parser and validation rules as the Go client.
+- Running tests on live clients provides fidelity but introduces remote execution
+    risk, uneven client availability, and per-client builtin differences.
+- Deploying scripts from the server centralizes operations but creates versioning,
+    audit, rollback, and authorization requirements that client-local files did
+    not have.
+- Dependencies:
+- `docs/src/features/starlark-script-system/design.md`
+- `packages/client/internal/script/format.go`
+- `packages/client/internal/script/runtime.go`
+- `packages/client/internal/script/validator.go`
+- `packages/client/cmd/nixstasis/test_script.go`
+- `packages/client/cmd/nixstasis/install_script.go`
+- `packages/client/internal/commands/handler.go`
+- `packages/client/internal/transport/client.go`
+- `packages/server/lib/nixstasis_web/live/`
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`
+- `packages/server/lib/nixstasis/devices/`
+- `packages/server/lib/nixstasis/domain.ex`
+- Suggested validation:
+- Server tests for script draft persistence, status transitions, authorization,
+    and audit event creation.
+- Parser/validation contract tests that prove server-side validation accepts and
+    rejects the same Stary front matter and schemas as the Go client.
+- LiveView tests for the front-matter editor, script body editor, validation
+    errors, client selection, and test/deploy actions.
+- Client command tests for test-only script execution and install/update
+    commands, including timeout, forbidden builtin, invalid schema, and malformed
+    script cases.
+- End-to-end test that creates a draft in the UI, validates it, tests it on one
+    or more clients, deploys it to selected clients, and observes the resulting
+    telemetry/reporting behavior.
+- End-to-end test that runs an `exec_cmd` script against a selected client and
+    shows the client's allowlist rejection as a test result when the command is
+    not enabled.
+- Suggested first workflow command: `/start-feature server-stary-script-workbench`
+
+### `server-command-allowlist-management`
+
+- Status: planned
+- Overview:
+- Add a server web interface for defining `exec_cmd` command allowlists,
+    grouping allowlists into reusable categories, and assigning the resulting
+    command policy to selected devices. This gives operators a controlled way to
+    grant Stary scripts the host-command capabilities they need without changing
+    the client runtime's deny-by-default security boundary.
+- Requirements:
+- Provide a command allowlist inventory in the server web UI with name,
+    description, status, version, command entries, and audit metadata.
+- Each command entry must identify the operator-facing command name and the
+    absolute executable path that the client should allow.
+- Reject command entries with relative paths, shell fragments, empty names,
+    ambiguous path aliases, or duplicate command names within the same resolved
+    policy.
+- Provide allowlist categories that group one or more allowlists into a larger
+    additive policy, so operators can create reusable categories such as
+    diagnostics, networking, service health, or hardware inspection.
+- Allow categories to include other categories only if cycle detection and clear
+    resolved-policy preview are implemented; otherwise keep first-version
+    composition to direct allowlist membership.
+- Provide assignment workflows for selecting which devices receive which
+    allowlists or categories.
+- Show the resolved command policy for each targeted device before deployment,
+    including command name, absolute path, source allowlist or category, version,
+    and any conflict that blocks deployment.
+- Deliver assigned policy to clients through an authenticated device command,
+    heartbeat payload extension, or another explicit device-runtime contract.
+- Make clients persist the active command policy in a client-owned runtime config
+    location and load it into `RuntimeConfig.ExecCommandAllowlist` before Stary
+    scripts execute.
+- Record policy versions, assigned devices, actor identity, timestamps, and
+    client acknowledgement or failure results.
+- Provide rollback or reassignment behavior so operators can remove a command
+    grant from selected devices and observe acknowledgement.
+- Constraints:
+- `exec_cmd` remains deny-by-default when no policy is assigned or when policy
+    delivery fails.
+- The server must not allow operators to authorize arbitrary shell strings; only
+    named commands resolving to absolute executable paths are in scope.
+- Additive category composition must not hide conflicts. If two sources define
+    the same command name with different absolute paths, deployment should fail
+    until the operator resolves the conflict.
+- Policy assignment must be authorized as an admin/operator capability, not a
+    viewer capability.
+- Client-side enforcement remains mandatory; server policy validation is not a
+    substitute for the client checking the allowlist at execution time.
+- Policy delivery must be idempotent and safe across missed heartbeats, duplicate
+    command IDs, offline devices, and downgraded clients that do not support
+    remote allowlist updates.
+- Non-goals:
+- Implementing arbitrary argument allowlisting in the first increment unless the
+    script runtime already enforces argument-level policy.
+- Granting direct interactive shell access.
+- Automatically inferring required commands by parsing Stary script bodies.
+- Replacing OS-level permissions, sudo policy, or service-account hardening.
+- Building per-script sandboxing beyond the existing Stary runtime boundary.
+- Success criteria:
+- An operator can create small command allowlists with explicit command names and
+    absolute executable paths.
+- An operator can group allowlists into larger categories and preview the
+    resolved additive policy.
+- An operator can assign an allowlist or category to one or more devices and see
+    per-device pending, acknowledged, failed, and active policy status.
+- A client with no assigned allowlist rejects `exec_cmd`.
+- A client with an assigned allowlist accepts only the configured command names
+    or exact absolute paths and rejects unlisted commands.
+- Removing or changing an assignment eventually updates the client's active
+    policy and is visible in the server UI.
+- Audit records identify who created, changed, assigned, removed, and deployed
+    each allowlist policy version.
+- Risks and tradeoffs:
+- Command allowlists are powerful device-control policy. Weak authorization,
+    vague paths, or hidden category inheritance would turn a script feature into
+    a broad remote execution surface.
+- Additive categories are simpler and easier to reason about than allow/deny
+    precedence, but they require explicit cleanup when an operator wants to
+    narrow permissions.
+- Absolute paths are safer than PATH lookup, but operators must account for
+    distro differences across device fleets.
+- Client acknowledgement may lag because offline devices only receive policy on
+    a later poll cycle.
+- Dependencies:
+- `packages/client/internal/script/builtins_exec.go`
+- `packages/client/internal/script/runtime.go`
+- `packages/client/cmd/nixstasis/poll.go`
+- `packages/client/internal/commands/handler.go`
+- `packages/client/internal/transport/client.go`
+- `packages/server/lib/nixstasis/devices.ex`
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`
+- `packages/server/lib/nixstasis_web/live/`
+- `packages/server/lib/nixstasis/domain.ex`
+- `docs/src/modules/client-starlark-runtime.md`
+- `docs/src/data-flow.md`
+- Suggested validation:
+- Server tests for allowlist/category CRUD, conflict detection, cycle detection
+    if nested categories are supported, device assignment, authorization, audit
+    events, and policy versioning.
+- LiveView tests for creating allowlists, composing categories, previewing a
+    resolved device policy, assigning to devices, and removing assignments.
+- Client tests proving `RuntimeConfig.ExecCommandAllowlist` is populated from the
+    delivered policy and that `exec_cmd` rejects unassigned, relative, mismatched,
+    and conflicting command entries.
+- Command-delivery or heartbeat-contract tests covering offline devices,
+    duplicate deliveries, unsupported clients, acknowledgements, and rollback.
+- End-to-end test that assigns a diagnostics allowlist to a test device, runs a
+    Stary script using an allowed command, then removes the assignment and proves
+    the same script can no longer execute the command.
+- Suggested first workflow command: `/start-feature server-command-allowlist-management`
+
+### `dashboard-device-groups`
+
+- Status: planned
+- Overview:
+- Add operator-managed device groups to the Dashboard Devices view. Operators can
+    create groups, edit group metadata, assign and remove devices, and filter the
+    device list by group.
+- Requirements:
+- Provide a groups management surface from the Devices view, including create,
+    rename, describe, archive/delete, and membership count behavior.
+- Support assigning one or more selected devices to a group from the existing
+    Devices table selection workflow.
+- Support removing one or more selected devices from a group without deleting the
+    device records.
+- Allow a device to belong to multiple groups.
+- Add group filters to the Devices list and preserve them in route-backed filter
+    state alongside existing product, account number, IPv4, approval status,
+    connectivity status, search, and sort parameters.
+- Show group membership in the Devices list or detail flow without making the
+    table unreadable on small screens.
+- Provide empty, loading, unauthorized, and conflict states for group management.
+- Keep group membership updates auditable with actor identity, timestamp, device
+    IDs, group ID, and action.
+- Expose a domain/context API for group CRUD, membership assignment, membership
+    removal, device listing by group, and group membership lookup.
+- Constraints:
+- Device groups are manual operator organization, not automatic product-name or
+    account-number grouping.
+- Group membership must not change device registration, approval, heartbeat,
+    remote-access, or API-token behavior.
+- Group management requires device management permission; read-only users may
+    filter or view groups only if their device permissions allow those devices.
+- Existing scoped-device authorization must still apply when listing group
+    members or applying group filters.
+- Deleting or archiving a group must not delete devices.
+- Non-goals:
+- Rule-based dynamic groups in the first increment.
+- Nested groups or hierarchy.
+- Per-group RBAC inheritance.
+- Bulk device import/export.
+- Replacing existing product, account, status, or search filters.
+- Success criteria:
+- An authorized operator can create a device group from the Devices view.
+- An authorized operator can select devices in the table and add them to or
+    remove them from a group.
+- A device can appear in multiple groups and group membership is visible from the
+    Devices workflow.
+- Filtering the Devices list by group returns the expected devices and composes
+    correctly with existing filters and search.
+- Unauthorized users cannot manage groups or infer devices outside their allowed
+    device scope through group membership.
+- Group create, update, membership add/remove, and archive/delete actions are
+    covered by audit events or an equivalent traceable history.
+- Risks and tradeoffs:
+- Manual groups are straightforward and predictable, but operators must maintain
+    membership as fleets change.
+- Showing group membership in a dense device table can add clutter; the UI should
+    use compact summaries and defer detailed editing to a focused panel or modal.
+- Many-to-many group membership requires careful filtering and scoped
+    authorization tests to avoid leaking device existence.
+- Dependencies:
+- `packages/server/lib/nixstasis/devices.ex`
+- `packages/server/lib/nixstasis/devices/device.ex`
+- `packages/server/lib/nixstasis_web/live/device_live/index.ex`
+- `packages/server/lib/nixstasis_web/live/device_live/index.html.heex`
+- `packages/server/lib/nixstasis_web/permissions.ex`
+- `packages/server/lib/nixstasis/domain.ex`
+- `docs/src/features/device-detail-page/design.md`
+- `docs/src/features/dashboard-home/design.md`
+- Suggested validation:
+- Server/domain tests for group CRUD, uniqueness rules, membership add/remove,
+    multi-group membership, delete/archive behavior, and device filtering by
+    group.
+- LiveView tests for creating groups, adding selected devices, removing selected
+    devices, filtering by group, preserving query params, and unauthorized states.
+- Authorization tests proving scoped users only see allowed group memberships and
+    cannot manage groups without device-management permission.
+- Regression tests proving existing product, account, IPv4, approval,
+    connectivity, search, and sort filters continue to compose correctly.
+- `mix ash.codegen --check` if Ash resources or relationships change.
+- Suggested first workflow command: `/start-feature dashboard-device-groups`
