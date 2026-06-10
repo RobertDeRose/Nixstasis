@@ -62,14 +62,14 @@
 
 ## Phase 4: Client Test-Only Execution
 
-- [ ] T017 Add a client command handler path for executing provided Stary script
+- [X] T017 Add a client command handler path for executing provided Stary script
   content without installing it in `packages/client/internal/commands/`.
-- [ ] T018 Return a structured test result envelope from the client with status,
+- [X] T018 Return a structured test result envelope from the client with status,
   output, warnings, validation status, error type, error message, and timing data
   where available.
-- [ ] T019 Add client tests for successful test-only execution, invalid script,
+- [X] T019 Add client tests for successful test-only execution, invalid script,
   schema mismatch, runtime failure, timeout, and `exec_cmd` allowlist rejection.
-- [ ] T020 Ensure test-only execution does not change installed scripts or normal
+- [X] T020 Ensure test-only execution does not change installed scripts or normal
   polling script discovery.
 
 ## Phase 5: Server Test And Deployment Orchestration

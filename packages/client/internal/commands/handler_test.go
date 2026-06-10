@@ -66,6 +66,155 @@ func TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported(t *testing.T) 
 	}
 }
 
+func TestGivenValidRunScriptPayload_WhenExecuteBatch_ThenReturnsStructuredResult(t *testing.T) {
+	handler := NewHandler("")
+	content := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "ok"}
+`)
+
+	results := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        content,
+		},
+	}})
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Status != transport.CommandStatusOK {
+		t.Fatalf("expected run_script to succeed, got %s: %s", results[0].Status, results[0].Error)
+	}
+	output, ok := results[0].Output.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured output, got %T", results[0].Output)
+	}
+	if output["status"] != "passed" {
+		t.Fatalf("expected passed status, got %v", output["status"])
+	}
+	if output["validation"] != "valid" {
+		t.Fatalf("expected valid validation status, got %v", output["validation"])
+	}
+}
+
+func TestGivenInvalidRunScriptPayload_WhenExecuteBatch_ThenReturnsFailedEnvelope(t *testing.T) {
+	handler := NewHandler("")
+	content := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": 1}
+`)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        content,
+		},
+	}})[0]
+
+	if result.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected run_script failure, got %s", result.Status)
+	}
+	output, ok := result.Output.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured failure output, got %T", result.Output)
+	}
+	if output["status"] != "failed" {
+		t.Fatalf("expected failed envelope, got %v", output["status"])
+	}
+	if output["error_type"] != "validation" {
+		t.Fatalf("expected validation error type, got %v", output["error_type"])
+	}
+}
+
+func TestGivenDeferredRunScriptPayload_WhenExecuteBatch_ThenFailsClosed(t *testing.T) {
+	handler := NewHandler("")
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID:  "cmd-run",
+		Type:       "run_script",
+		PayloadRef: "script-ref",
+	}})[0]
+
+	if result.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected deferred payload failure, got %s", result.Status)
+	}
+	if result.Error != "deferred script payload lookup is not available in command handler" {
+		t.Fatalf("unexpected deferred payload error: %s", result.Error)
+	}
+}
+
+func TestGivenRunScript_WhenExecuteBatch_ThenDoesNotTouchInstalledScripts(t *testing.T) {
+	scriptsDir := t.TempDir()
+	existing := filepath.Join(scriptsDir, "existing_1.stary")
+	content := strings.TrimSpace(`---
+name: installed
+version: "1"
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "installed"}
+`)
+	if err := os.WriteFile(existing, []byte(content), 0o644); err != nil {
+		t.Fatalf("write installed script: %v", err)
+	}
+
+	handler := NewHandler(scriptsDir)
+	testContent := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "ok"}
+`)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        testContent,
+		},
+	}})[0]
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected run_script to succeed, got %s: %s", result.Status, result.Error)
+	}
+
+	discovered, err := filepath.Glob(filepath.Join(scriptsDir, "*.stary"))
+	if err != nil {
+		t.Fatalf("glob installed scripts: %v", err)
+	}
+	if len(discovered) != 1 || discovered[0] != existing {
+		t.Fatalf("expected installed scripts to remain unchanged, got %v", discovered)
+	}
+}
+
 func TestGivenPathTraversalScriptName_WhenInstallScript_ThenFails(t *testing.T) {
 	handler := NewHandler(t.TempDir())
 	content := strings.TrimSpace(`---

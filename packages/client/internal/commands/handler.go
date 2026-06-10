@@ -113,6 +113,8 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.listScripts(ctx, cmd.CommandID)
 	case "install_script":
 		return h.installScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
+	case "run_script":
+		return h.runScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload, cmd.PayloadRef)
 	case "remove_script":
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "ssh_authorize":
@@ -126,7 +128,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke":
+	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script":
 		return true
 	default:
 		return false
@@ -317,6 +319,32 @@ func (h *Handler) installScript(ctx context.Context, commandID string, _ []strin
 	}
 }
 
+func (h *Handler) runScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload, payloadRef string) transport.CommandResult {
+	content, err := resolveRunScriptContent(payload, payloadRef)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+
+	result, err := executeTestScript(ctx, content, args)
+	if err != nil {
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusFailed,
+			Output:    result,
+			Error:     err.Error(),
+		}
+	}
+
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output:    result,
+	}
+}
+
 func (h *Handler) removeScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload) transport.CommandResult {
 	name, version, err := resolveRemoveTarget(args, payload)
 	if err != nil {
@@ -374,6 +402,77 @@ func resolveInstallContent(payload *transport.CommandPayload) (string, error) {
 		return "", fmt.Errorf("missing script content")
 	}
 	return payload.Data, nil
+}
+
+func resolveRunScriptContent(payload *transport.CommandPayload, payloadRef string) (string, error) {
+	if payload != nil {
+		if payload.ContentType != "" && payload.ContentType != "text/x-stary" && payload.ContentType != "text/stary" {
+			return "", fmt.Errorf("unsupported script payload content type: %s", payload.ContentType)
+		}
+		if payload.Data != "" {
+			return payload.Data, nil
+		}
+	}
+	if payloadRef != "" {
+		return "", fmt.Errorf("deferred script payload lookup is not available in command handler")
+	}
+	return "", fmt.Errorf("script payload is required")
+}
+
+func executeTestScript(ctx context.Context, content string, args []string) (map[string]any, error) {
+	_ = args
+	rt := script.NewRuntime(script.RuntimeConfig{})
+	defer rt.Close()
+
+	fm, body, err := script.ParseStaryContent(content)
+	if err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+		}, err
+	}
+	schema, err := script.CompileSchema(fm.Schema)
+	if err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+		}, err
+	}
+
+	output, err := rt.Execute(ctx, fm.Name+".stary", body)
+	if err != nil {
+		envelope := map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "execution",
+			"error_message": err.Error(),
+		}
+		if err.Error() == script.ErrTimeout.Error() {
+			envelope["status"] = "timed_out"
+			envelope["error_type"] = "timeout"
+		}
+		return envelope, err
+	}
+
+	if err := script.ValidateOutput(schema, output); err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+			"output":        output,
+		}, err
+	}
+
+	return map[string]any{
+		"status":     "passed",
+		"validation": "valid",
+		"output":     output,
+	}, nil
 }
 
 func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) error {
