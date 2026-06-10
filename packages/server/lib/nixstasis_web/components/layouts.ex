@@ -103,6 +103,14 @@ defmodule NixstasisWeb.Layouts do
               <.icon name="hero-chart-bar" class="size-5" /> Reports
             </.link>
           </li>
+          <li>
+            <.link
+              navigate={~p"/scripts"}
+              class={if String.starts_with?(@current_path, "/scripts"), do: "active"}
+            >
+              <.icon name="hero-document-text" class="size-5" /> Scripts
+            </.link>
+          </li>
         </ul>
 
         <div class="divider"></div>
@@ -175,6 +183,15 @@ defmodule NixstasisWeb.Layouts do
             aria-label="Reports"
           >
             <.icon name="hero-chart-bar" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Scripts">
+          <.link
+            navigate={~p"/scripts"}
+            class={if String.starts_with?(@current_path, "/scripts"), do: "active text-primary"}
+            aria-label="Scripts"
+          >
+            <.icon name="hero-document-text" class="size-6" />
           </.link>
         </li>
         <li class="tooltip tooltip-top" data-tip="Settings">

@@ -53,6 +53,8 @@ defmodule NixstasisWeb.Router do
     live("/reports/:id/edit", ReportLive.Index, :edit)
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
+    live("/scripts", ScriptLive.Index, :index)
+    live("/scripts/:id", ScriptLive.Show, :show)
 
     # get "/", PageController, :home
   end
