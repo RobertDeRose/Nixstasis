@@ -12,8 +12,8 @@ defmodule NixstasisWeb.ScriptLive.Show do
     can_manage = Permissions.can_manage_scripts?(permissions)
 
     draft = Domain.get_script_draft!(id)
-    devices = Devices.list_devices() |> elem(1)
-    versions = Domain.list_script_versions(filter: %{script_draft_id: draft.id}) |> elem(1)
+    devices = Devices.list_devices()
+    versions = Domain.list_script_versions() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
     validation_runs = Domain.list_script_validation_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
     test_runs = Domain.list_script_test_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
     deployment_runs = Domain.list_script_deployment_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
@@ -134,6 +134,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
         case Scripts.queue_test_run(session(socket), draft, version, selected_devices) do
           {:ok, _run} ->
             test_runs = Domain.list_script_test_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
+
 
             {:noreply,
              socket
