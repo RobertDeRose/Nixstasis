@@ -276,3 +276,31 @@ target clients, timestamps, and per-client result summaries.
 - End-to-end test that creates a draft in the UI, validates it, tests it on one
   or more clients, deploys it to selected clients, and observes the resulting
   telemetry behavior.
+
+## Implementation Notes
+
+### Starlark Validation Deferred
+
+Server-side Starlark parse validation is deferred to a packaged, supervised
+helper binary. No Elixir Starlark parser exists. Front-matter and schema
+validation are performed server-side in `Nixstasis.Scripts.Validator`.
+
+### Render Value Encoding
+
+`render_value/1` in `Validator` uses `Jason.encode!` for maps and lists to
+produce YAML-compatible output. This enables round-trip render/validate
+consistency. Earlier versions used `inspect/1` which produced Elixir syntax
+(quotes, atoms) that YAML parsers could not re-read.
+
+### Domain Function Return Types
+
+Ash domain list functions (`list_script_drafts`, `list_script_versions`, etc.)
+return `{:ok, list}` tuples. The `Devices.list_devices/1` context function
+uses `Ash.read!/1` and returns a bare list. LiveViews must handle both patterns.
+
+### LiveView Layout Convention
+
+This project does not use `<Layouts.app>` inside LiveView templates. The
+`app.html.heex` root layout wraps `{@inner_content}` automatically via the
+router's `put_root_layout` plug. Templates render their content directly without
+the layout wrapper.
