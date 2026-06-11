@@ -63,4 +63,112 @@ defmodule Nixstasis.Scripts.ValidatorTest do
     assert {:error, message} = Validator.validate_content(content)
     assert message =~ "name"
   end
+
+  test "rejects non-map YAML front matter" do
+    content = """
+    ---
+    - item1
+    - item2
+    ---
+
+    def main():
+        return {}
+    """
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "front matter must decode to a map"
+  end
+
+  test "rejects missing front matter delimiters" do
+    content = "name: demo\nschema:\n  type: object\n"
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "front matter must start with ---"
+  end
+
+  test "rejects non-object schema type" do
+    content = """
+    ---
+    name: demo
+    schema:
+      type: string
+    ---
+
+    def main():
+        return "ok"
+    """
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "schema type must be object"
+  end
+
+  test "accepts schema without type field" do
+    content = """
+    ---
+    name: demo
+    schema:
+      properties:
+        value:
+          type: string
+    ---
+
+    def main():
+        return {"value": "ok"}
+    """
+
+    assert {:ok, _} = Validator.validate_content(content)
+  end
+
+  test "rejects missing name in front matter" do
+    content = """
+    ---
+    schema:
+      type: object
+    ---
+
+    def main():
+        return {}
+    """
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "name"
+  end
+
+  test "rejects missing schema in front matter" do
+    content = """
+    ---
+    name: demo
+    ---
+
+    def main():
+        return {}
+    """
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "schema"
+  end
+
+  test "rejects non-string version" do
+    content = """
+    ---
+    name: demo
+    version: 123
+    schema:
+      type: object
+    ---
+
+    def main():
+        return {}
+    """
+
+    assert {:error, message} = Validator.validate_content(content)
+    assert message =~ "version"
+  end
+
+  test "accepts content with BOM" do
+    content = "\uFEFF---\nname: demo\nschema:\n  type: object\n---\n\ndef main():\n    return {}\n"
+
+    assert {:ok, %{front_matter: fm}} = Validator.validate_content(content)
+    assert fm["name"] == "demo"
+  end
 end

@@ -154,4 +154,100 @@ defmodule Nixstasis.ScriptsTest do
     assert {:error, :unauthorized} =
              Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => false}}, draft, version, [device])
   end
+
+  test "queue_test_run with multiple devices creates actions for each", %{
+    draft: draft,
+    version: version
+  } do
+    {:ok, device2} =
+      Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:F2", product_name: "target-2"})
+
+    {:ok, device2} = Devices.approve_device(device2)
+
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [
+        device_for_action(),
+        device2
+      ])
+
+    assert length(run.target_device_ids) == 2
+  end
+
+  test "ingest_test_results with mixed client statuses marks run failed", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    {:ok, device2} =
+      Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:F3", product_name: "target-3"})
+
+    {:ok, device2} = Devices.approve_device(device2)
+
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [
+        device,
+        device2
+      ])
+
+    assert {:ok, completed} =
+             Scripts.ingest_test_results(%{"script_permissions" => %{"can_manage" => true}}, run, [
+               %{"device_id" => device.id, "command_id" => "cmd-1", "status" => "OK"},
+               %{"device_id" => device2.id, "command_id" => "cmd-2", "status" => "ERROR"}
+             ])
+
+    assert completed.status == :failed
+  end
+
+  test "ingest_deployment_results with all successful clients marks run deployed", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    {:ok, device2} =
+      Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:F4", product_name: "target-4"})
+
+    {:ok, device2} = Devices.approve_device(device2)
+
+    {:ok, run} =
+      Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [
+        device,
+        device2
+      ])
+
+    assert {:ok, completed} =
+             Scripts.ingest_deployment_results(%{"script_permissions" => %{"can_manage" => true}}, run, [
+               %{"device_id" => device.id, "command_id" => "cmd-1", "status" => "OK"},
+               %{"device_id" => device2.id, "command_id" => "cmd-2", "status" => "OK"}
+             ])
+
+    assert completed.status == :deployed
+  end
+
+  test "update_draft modifies draft attributes", %{draft: draft} do
+    assert {:ok, updated} =
+             Scripts.update_draft(%{"script_permissions" => %{"can_manage" => true}}, draft, %{
+               body: "def main():\n    return {\"updated\": true}\n"
+             })
+
+    assert updated.body =~ "updated"
+  end
+
+  test "update_draft requires manage access", %{draft: draft} do
+    assert {:error, :unauthorized} =
+             Scripts.update_draft(%{"script_permissions" => %{"can_manage" => false}}, draft, %{body: "x"})
+  end
+
+  test "list_drafts returns all drafts" do
+    assert {:ok, drafts} = Scripts.list_drafts()
+    assert is_list(drafts)
+    assert length(drafts) >= 1
+  end
+
+  defp device_for_action do
+    {:ok, device} =
+      Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:F5", product_name: "target-5"})
+
+    {:ok, device} = Devices.approve_device(device)
+    device
+  end
 end

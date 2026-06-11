@@ -45,19 +45,19 @@
   deploy actions using the existing browser/operator permission model.
 - [X] T011 Add audit recording for script validation, test, deployment, archive,
   and failure transitions.
-- [ ] T012 Run named Ash codegen for new or changed Ash resources and verify no
+- [X] T012 Run named Ash codegen for new or changed Ash resources and verify no
   `*_dev.exs` migrations or `*_dev.json` snapshots remain in the worktree.
 
 ## Phase 3: Validation
 
-- [ ] T013 Implement canonical `.stary` rendering from structured front matter
+- [X] T013 Implement canonical `.stary` rendering from structured front matter
   plus script body in the server code.
-- [ ] T014 Implement server-side front-matter, Stary structure, schema, and
+- [X] T014 Implement server-side front-matter, Stary structure, schema, and
   Starlark parse validation.
-- [ ] T015 Add validation tests that cover valid scripts, invalid YAML, missing
+- [X] T015 Add validation tests that cover valid scripts, invalid YAML, missing
   script body, invalid schema, duplicate or invalid names, and Starlark syntax
   errors.
-- [ ] T016 Add compatibility tests or fixtures proving server validation agrees
+- [X] T016 Add compatibility tests or fixtures proving server validation agrees
   with Go client parsing and schema expectations for representative scripts.
 
 ## Phase 4: Client Test-Only Execution
@@ -78,11 +78,11 @@
   or more selected clients.
 - [X] T022 Implement server result ingestion for per-client test results and
   state transitions.
-- [ ] T023 Implement server actions for deploying a validated script version to
+- [X] T023 Implement server actions for deploying a validated script version to
   selected clients through the command flow.
-- [ ] T024 Implement server result ingestion for per-client deployment
+- [X] T024 Implement server result ingestion for per-client deployment
   acknowledgements and failures.
-- [ ] T025 Add server tests for offline clients, duplicate command results,
+- [X] T025 Add server tests for offline clients, duplicate command results,
   unsupported clients, partial success, retry/idempotency behavior, and
   authorization failures.
 - [ ] T026 Add client/server contract tests for inline and deferred script
@@ -90,13 +90,13 @@
 
 ## Phase 6: LiveView Workbench
 
-- [ ] T027 Add script inventory LiveView routes and templates under
+- [X] T027 Add script inventory LiveView routes and templates under
   `packages/server/lib/nixstasis_web/live/`.
-- [ ] T028 Add the structured front-matter editor and Starlark body editor.
-- [ ] T029 Add validation action handling and validation result display.
-- [ ] T030 Add client selection for test runs and per-client test result display.
-- [ ] T031 Add deployment confirmation and per-client deployment status display.
-- [ ] T032 Add archive/delete or inactive-state handling for scripts that should
+- [X] T028 Add the structured front-matter editor and Starlark body editor.
+- [X] T029 Add validation action handling and validation result display.
+- [X] T030 Add client selection for test runs and per-client test result display.
+- [X] T031 Add deployment confirmation and per-client deployment status display.
+- [X] T032 Add archive/delete or inactive-state handling for scripts that should
   leave the active inventory.
 - [ ] T033 Add LiveView tests for inventory, editing, validation, client
   selection, test results, deployment, unauthorized states, and failure states.

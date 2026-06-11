@@ -1,0 +1,263 @@
+<Layouts.app flash={@flash}>
+  <div class="p-4 max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <.link navigate={~p"/scripts"} class="text-sm text-base-content/60 hover:text-base-content">
+          ← Scripts
+        </.link>
+        <h1 class="text-2xl font-bold mt-1">{@draft.name}</h1>
+        <span class={"badge #{status_badge_class(@draft.status)} mt-2"}>{@draft.status}</span>
+      </div>
+    </div>
+
+    <div role="tablist" class="tabs tabs-boxed mb-6">
+      <button
+        role="tab"
+        class={"tab #{@active_tab == "editor" && "tab-active"}"}
+        phx-click="set_tab"
+        phx-value-tab="editor"
+      >
+        Editor
+      </button>
+      <button
+        role="tab"
+        class={"tab #{@active_tab == "validate" && "tab-active"}"}
+        phx-click="set_tab"
+        phx-value-tab="validate"
+      >
+        Validate
+      </button>
+      <button
+        role="tab"
+        class={"tab #{@active_tab == "test" && "tab-active"}"}
+        phx-click="set_tab"
+        phx-value-tab="test"
+      >
+        Test
+      </button>
+      <button
+        role="tab"
+        class={"tab #{@active_tab == "deploy" && "tab-active"}"}
+        phx-click="set_tab"
+        phx-value-tab="deploy"
+      >
+        Deploy
+      </button>
+      <button
+        role="tab"
+        class={"tab #{@active_tab == "history" && "tab-active"}"}
+        phx-click="set_tab"
+        phx-value-tab="history"
+      >
+        History
+      </button>
+    </div>
+
+    <%= if @active_tab == "editor" do %>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Front Matter</h2>
+          <.form for={%{}} as={:front_matter} phx-submit="update_front_matter" class="space-y-4">
+            <div class="form-control">
+              <label class="label"><span class="label-text">Name</span></label>
+              <input type="text" name="front_matter[name]" value={@front_matter_yaml["name"]} class="input input-bordered" />
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Version</span></label>
+              <input type="text" name="front_matter[version]" value={@front_matter_yaml["version"] || ""} class="input input-bordered" placeholder="e.g. 1.0.0" />
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Schema (YAML)</span></label>
+              <textarea name="front_matter[schema]" class="textarea textarea-bordered font-mono text-sm" rows="4">{@front_matter_yaml["schema"] |> Jason.encode!()}</textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Save Front Matter</button>
+          </.form>
+        </div>
+
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Script Body</h2>
+          <.form for={%{}} as={:editor} phx-submit="update_body" class="h-full flex flex-col">
+            <textarea
+              name="body"
+              class="textarea textarea-bordered font-mono text-sm flex-1 min-h-[400px]"
+              phx-debounce="500"
+            >{@body}</textarea>
+            <button type="submit" class="btn btn-sm btn-primary mt-3 self-start">Save Body</button>
+          </.form>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <h2 class="text-lg font-semibold mb-3">Rendered Preview</h2>
+        <pre class="bg-base-200 p-4 rounded-lg text-sm font-mono overflow-x-auto"><code>{@rendered}</code></pre>
+      </div>
+    <% end %>
+
+    <%= if @active_tab == "validate" do %>
+      <div class="space-y-4">
+        <div class="flex items-center gap-4">
+          <button phx-click="validate_script" class="btn btn-primary">
+            Run Validation
+          </button>
+          <%= if @validation_result do %>
+            <%= if @validation_result.status == :passed do %>
+              <div class="alert alert-success">
+                <.icon name="hero-check-circle" class="size-5" />
+                <span>Validation passed</span>
+              </div>
+            <% else %>
+              <div class="alert alert-error">
+                <.icon name="hero-x-circle" class="size-5" />
+                <span>{@validation_result.reason}</span>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+
+        <%= if @validation_runs != [] do %>
+          <h3 class="text-md font-semibold mt-6">Validation History</h3>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Validated At</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={run <- @validation_runs}>
+                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                  <td class="text-sm">{Calendar.strftime(run.validated_at, "%Y-%m-%d %H:%M")}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= if @active_tab == "test" do %>
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Select Devices</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                checked={device.id in @selected_device_ids}
+                phx-click="toggle_device"
+                phx-value-device_id={device.id}
+              />
+              <span class="text-sm">{device.product_name || device.mac_address}</span>
+            </label>
+          </div>
+        </div>
+
+        <button phx-click="queue_test" class="btn btn-primary" disabled={@selected_device_ids == []}>
+          Queue Test Run
+        </button>
+
+        <%= if @test_runs != [] do %>
+          <h3 class="text-md font-semibold mt-6">Test Runs</h3>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Targets</th>
+                  <th>Started</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={run <- @test_runs}>
+                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                  <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
+                  <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
+                  <td class="text-sm">{if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= if @active_tab == "deploy" do %>
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Select Devices</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                checked={device.id in @selected_device_ids}
+                phx-click="toggle_device"
+                phx-value-device_id={device.id}
+              />
+              <span class="text-sm">{device.product_name || device.mac_address}</span>
+            </label>
+          </div>
+        </div>
+
+        <button phx-click="queue_deployment" class="btn btn-warning" disabled={@selected_device_ids == []}>
+          Deploy to Selected Devices
+        </button>
+
+        <%= if @deployment_runs != [] do %>
+          <h3 class="text-md font-semibold mt-6">Deployment History</h3>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Targets</th>
+                  <th>Started</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={run <- @deployment_runs}>
+                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                  <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
+                  <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
+                  <td class="text-sm">{if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= if @active_tab == "history" do %>
+      <div class="space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Versions</h2>
+          <%= if @versions == [] do %>
+            <p class="text-sm text-base-content/60">No versions created yet</p>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={v <- @versions}>
+                    <td class="font-mono">{v.version}</td>
+                    <td><span class={"badge #{status_badge_class(v.status)}"}>{v.status}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>
