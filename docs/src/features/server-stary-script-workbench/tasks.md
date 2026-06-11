@@ -85,8 +85,11 @@
 - [X] T025 Add server tests for offline clients, duplicate command results,
   unsupported clients, partial success, retry/idempotency behavior, and
   authorization failures.
-- [ ] T026 Add client/server contract tests for inline and deferred script
+- [X] T026 Add client/server contract tests for inline and deferred script
   payload delivery, including payload lookup failure and result acknowledgement.
+  Covered by server `queue_test_run` payload creation tests, client
+  `TestGivenValidRunScriptPayload`/`TestGivenInvalidRunScriptPayload`/`TestGivenDeferredRunScriptPayload`/`TestGivenRunScript_WhenExecuteBatch_ThenDoesNotTouchInstalledScripts`
+  handler tests, and server `ingest_test_results` envelope parsing tests.
 
 ## Phase 6: LiveView Workbench
 
@@ -98,24 +101,26 @@
 - [X] T031 Add deployment confirmation and per-client deployment status display.
 - [X] T032 Add archive/delete or inactive-state handling for scripts that should
   leave the active inventory.
-- [ ] T033 Add LiveView tests for inventory, editing, validation, client
+- [X] T033 Add LiveView tests for inventory, editing, validation, client
   selection, test results, deployment, unauthorized states, and failure states.
 
 ## Phase 7: Documentation And Validation
 
-- [ ] T034 Update internal feature design notes with final contract decisions and
+- [X] T034 Update internal feature design notes with final contract decisions and
   any implementation tradeoffs discovered during development.
-- [ ] T035 Identify user-facing Development, Operations, Architecture, and
+- [X] T035 Identify user-facing Development, Operations, Architecture, and
   Reference documentation changes needed for close-out.
-- [ ] T036 Update `docs/src/reference/openapi/device-api.yaml` and
+- [X] T036 Update `docs/src/reference/openapi/device-api.yaml` and
   `docs/src/client-server-interface.md` if script test/deploy command payloads
-  or results become durable device API contracts.
-- [ ] T037 Run `mix ash.codegen --check` if Ash resources or relationships
+  or results become durable device API contracts. Not applicable: test/deploy
+  commands use existing `run_script` command type through the established device
+  command flow.
+- [X] T037 Run `mix ash.codegen --check` if Ash resources or relationships
   changed.
-- [ ] T038 Run server tests relevant to scripts, device commands, authorization,
+- [X] T038 Run server tests relevant to scripts, device commands, authorization,
   and LiveView behavior.
-- [ ] T039 Run client tests relevant to Stary parsing, test-only execution,
+- [X] T039 Run client tests relevant to Stary parsing, test-only execution,
   install/update behavior, and command handling.
-- [ ] T040 Run `mise docs:build`.
-- [ ] T999 Complete close-out by reconciling implementation, feature docs, and
+- [X] T040 Run `mise docs:build`.
+- [X] T999 Complete close-out by reconciling implementation, feature docs, and
   planned user-facing documentation updates.
