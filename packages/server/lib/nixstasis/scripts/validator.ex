@@ -47,15 +47,10 @@ defmodule Nixstasis.Scripts.Validator do
 
   def validate_front_matter(_), do: {:error, "front matter must be a map"}
 
-  def validate_draft_status(status) when is_atom(status) and status in @allowed_statuses.draft, do: :ok
-  def validate_draft_status(status) when is_binary(status), do: validate_draft_status(from_status_string(status))
+  def validate_draft_status(status), do: validate_status(status, @allowed_statuses.draft, "invalid draft status")
 
-  def validate_draft_status(_), do: {:error, "invalid draft status"}
-
-  def validate_version_status(status) when is_atom(status) and status in @allowed_statuses.version, do: :ok
-  def validate_version_status(status) when is_binary(status), do: validate_version_status(from_status_string(status))
-
-  def validate_version_status(_), do: {:error, "invalid version status"}
+  def validate_version_status(status),
+    do: validate_status(status, @allowed_statuses.version, "invalid version status")
 
   defp split_front_matter(content) do
     trimmed = String.trim_leading(content, "\ufeff")
@@ -147,9 +142,16 @@ defmodule Nixstasis.Scripts.Validator do
     |> Enum.sort_by(&elem(&1, 0))
   end
 
-  defp render_value(value) when is_binary(value), do: inspect(value)
-  defp render_value(value) when is_map(value), do: inspect(value)
-  defp render_value(value) when is_list(value), do: inspect(value)
+  defp render_value(value) when is_binary(value) do
+    if String.contains?(value, [": ", "\n", "#", "\""]) do
+      "\"#{String.replace(value, "\"", "\\\"")}\""
+    else
+      value
+    end
+  end
+
+  defp render_value(value) when is_map(value), do: Jason.encode!(value)
+  defp render_value(value) when is_list(value), do: Jason.encode!(value)
   defp render_value(value), do: to_string(value)
 
   defp from_status_string(status) do
@@ -163,6 +165,22 @@ defmodule Nixstasis.Scripts.Validator do
       _ -> nil
     end
   end
+
+  defp validate_status(status, allowed, error_message) when is_binary(status) do
+    status
+    |> from_status_string()
+    |> validate_status(allowed, error_message)
+  end
+
+  defp validate_status(status, allowed, _error_message) when is_atom(status) do
+    if status in allowed do
+      :ok
+    else
+      {:error, "invalid status"}
+    end
+  end
+
+  defp validate_status(_status, _allowed, error_message), do: {:error, error_message}
 
   defp has_key?(map, key) do
     Map.has_key?(map, key) or Map.has_key?(map, String.to_atom(key))

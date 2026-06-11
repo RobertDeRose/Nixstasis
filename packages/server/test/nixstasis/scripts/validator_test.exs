@@ -8,8 +8,8 @@ defmodule Nixstasis.Scripts.ValidatorTest do
       Validator.render_stary(%{"name" => "demo", "schema" => %{"type" => "object"}, "version" => "1"}, "def main():\n  return {}\n")
 
     assert rendered =~ "---\n"
-    assert rendered =~ "name: \"demo\""
-    assert rendered =~ "schema: %{"
+    assert rendered =~ "name: demo"
+    assert rendered =~ "schema: {\"type\":\"object\"}"
     assert rendered =~ "def main():"
   end
 
@@ -32,7 +32,7 @@ defmodule Nixstasis.Scripts.ValidatorTest do
     assert {:ok, %{front_matter: fm, body: body, rendered_content: rendered}} = Validator.validate_content(content)
     assert fm["name"] == "demo"
     assert body =~ "def main()"
-    assert rendered =~ "name: \"demo\""
+    assert rendered =~ "name: demo"
   end
 
   test "rejects missing body" do

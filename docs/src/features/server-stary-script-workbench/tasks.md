@@ -41,9 +41,9 @@
 - [X] T009 Wire script resources or context modules into
   `packages/server/lib/nixstasis/domain.ex` or the appropriate server domain
   boundary.
-- [ ] T010 Add authorization checks for script create, edit, validate, test, and
+- [X] T010 Add authorization checks for script create, edit, validate, test, and
   deploy actions using the existing browser/operator permission model.
-- [ ] T011 Add audit recording for script validation, test, deployment, archive,
+- [X] T011 Add audit recording for script validation, test, deployment, archive,
   and failure transitions.
 - [ ] T012 Run named Ash codegen for new or changed Ash resources and verify no
   `*_dev.exs` migrations or `*_dev.json` snapshots remain in the worktree.
@@ -74,9 +74,9 @@
 
 ## Phase 5: Server Test And Deployment Orchestration
 
-- [ ] T021 Implement server actions for queuing test-only script execution to one
+- [X] T021 Implement server actions for queuing test-only script execution to one
   or more selected clients.
-- [ ] T022 Implement server result ingestion for per-client test results and
+- [X] T022 Implement server result ingestion for per-client test results and
   state transitions.
 - [ ] T023 Implement server actions for deploying a validated script version to
   selected clients through the command flow.
