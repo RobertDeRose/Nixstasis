@@ -20,7 +20,10 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
     case NixstasisWeb.OperatorContext.from_conn(conn) do
       {:ok, operator_context} ->
         conn
-        |> put_session("operator_context", Map.drop(operator_context, ["device_permissions", "report_permissions"]))
+        |> put_session(
+          "operator_context",
+          Map.drop(operator_context, ["device_permissions", "report_permissions", "script_permissions"])
+        )
         |> put_permissions(operator_context)
 
       :error ->

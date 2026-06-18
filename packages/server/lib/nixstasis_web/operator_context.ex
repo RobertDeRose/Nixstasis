@@ -9,15 +9,18 @@ defmodule NixstasisWeb.OperatorContext do
   @role_capabilities %{
     "nixstasis/viewer" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => false, "can_remote_access" => false},
-      "report_permissions" => %{"can_view" => true, "can_manage" => false}
+      "report_permissions" => %{"can_view" => true, "can_manage" => false},
+      "script_permissions" => %{"can_view" => true, "can_manage" => false}
     },
     "nixstasis/operator" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
-      "report_permissions" => %{"can_view" => true, "can_manage" => true}
+      "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "script_permissions" => %{"can_view" => true, "can_manage" => true}
     },
     "nixstasis/admin" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
-      "report_permissions" => %{"can_view" => true, "can_manage" => true}
+      "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "script_permissions" => %{"can_view" => true, "can_manage" => true}
     }
   }
 
@@ -63,7 +66,8 @@ defmodule NixstasisWeb.OperatorContext do
            "name" => Map.get(headers, "x-token-user-name"),
            "roles" => roles,
            "device_permissions" => permissions["device_permissions"],
-           "report_permissions" => permissions["report_permissions"]
+           "report_permissions" => permissions["report_permissions"],
+           "script_permissions" => permissions["script_permissions"]
          }}
 
       :error ->
@@ -76,14 +80,16 @@ defmodule NixstasisWeb.OperatorContext do
   def local_development_permissions do
     %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
-      "report_permissions" => %{"can_view" => true, "can_manage" => true}
+      "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "script_permissions" => %{"can_view" => true, "can_manage" => true}
     }
   end
 
   def fail_closed_permissions do
     %{
       "device_permissions" => %{"can_view" => false, "can_manage" => false, "can_remote_access" => false},
-      "report_permissions" => %{"can_view" => false, "can_manage" => false}
+      "report_permissions" => %{"can_view" => false, "can_manage" => false},
+      "script_permissions" => %{"can_view" => false, "can_manage" => false}
     }
   end
 
@@ -119,7 +125,9 @@ defmodule NixstasisWeb.OperatorContext do
       "device_permissions" =>
         merge_capabilities(permissions["device_permissions"], role_permissions["device_permissions"]),
       "report_permissions" =>
-        merge_capabilities(permissions["report_permissions"], role_permissions["report_permissions"])
+        merge_capabilities(permissions["report_permissions"], role_permissions["report_permissions"]),
+      "script_permissions" =>
+        merge_capabilities(permissions["script_permissions"], role_permissions["script_permissions"])
     }
   end
 

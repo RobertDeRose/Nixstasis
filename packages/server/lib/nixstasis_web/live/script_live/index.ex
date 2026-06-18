@@ -6,14 +6,22 @@ defmodule NixstasisWeb.ScriptLive.Index do
 
   @impl true
   def mount(_params, session, socket) do
-    permissions = Permissions.script_permissions(session)
-    can_manage = Permissions.can_manage_scripts?(permissions)
+    can_view = Permissions.can_view_scripts?(session)
+    can_manage = Permissions.can_manage_scripts?(session)
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Scripts")
-     |> assign(:scripts, Scripts.list_drafts() |> elem(1))
-     |> assign(:can_manage, can_manage)}
+    socket =
+      socket
+      |> assign(:page_title, "Scripts")
+      |> assign(:scripts, [])
+      |> assign(:can_view, can_view)
+      |> assign(:can_manage, can_manage)
+      |> assign(:session, session)
+
+    if can_view do
+      {:ok, assign(socket, :scripts, Scripts.list_drafts() |> elem(1))}
+    else
+      {:ok, socket |> put_flash(:error, "Not authorized") |> push_navigate(to: ~p"/")}
+    end
   end
 
   @impl true

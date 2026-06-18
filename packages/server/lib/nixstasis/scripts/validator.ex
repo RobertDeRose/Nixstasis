@@ -17,7 +17,10 @@ defmodule Nixstasis.Scripts.Validator do
     front =
       front_matter
       |> normalize_front_matter()
-      |> Enum.map_join("\n", fn {key, value} -> "#{key}: #{render_value(value)}" end)
+      |> Enum.map_join("\n", fn
+        {"schema", value} when is_map(value) -> "schema:\n#{render_yaml_map(value, 1)}"
+        {key, value} -> "#{key}: #{render_value(value)}"
+      end)
 
     ["---", front, "---", String.trim_leading(body, "\n")] |> Enum.join("\n") |> String.trim_trailing()
   end
@@ -212,8 +215,13 @@ defmodule Nixstasis.Scripts.Validator do
     |> Enum.sort_by(&elem(&1, 0))
   end
 
+  @yaml_string_special ~w(true false yes no on off null True False Yes No On Off Null TRUE FALSE YES NO ON OFF NULL)
+  @yaml_number_regex ~r/^-?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$/
+
   defp render_value(value) when is_binary(value) do
-    if String.contains?(value, [": ", "\n", "#", "\""]) do
+    if String.contains?(value, [": ", "\n", "#", "\""]) or
+         value in @yaml_string_special or
+         Regex.match?(@yaml_number_regex, value) do
       "\"#{String.replace(value, "\"", "\\\"")}\""
     else
       value
@@ -223,6 +231,30 @@ defmodule Nixstasis.Scripts.Validator do
   defp render_value(value) when is_map(value), do: Jason.encode!(value)
   defp render_value(value) when is_list(value), do: Jason.encode!(value)
   defp render_value(value), do: to_string(value)
+
+  defp render_yaml_map(map, indent) when is_map(map) do
+    prefix = String.duplicate("  ", indent)
+
+    map
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map_join("\n", fn
+      {key, value} when is_map(value) ->
+        "#{prefix}#{key}:\n#{render_yaml_map(value, indent + 1)}"
+
+      {key, value} when is_list(value) ->
+        render_yaml_list(key, value, prefix)
+
+      {key, value} ->
+        "#{prefix}#{key}: #{render_value(value)}"
+    end)
+  end
+
+  defp render_yaml_list(key, [], prefix), do: "#{prefix}#{key}: []"
+
+  defp render_yaml_list(key, value, prefix) do
+    list_items = Enum.map_join(value, "\n", &"#{prefix}  - #{render_value(&1)}")
+    "#{prefix}#{key}:\n#{list_items}"
+  end
 
   defp from_status_string(status) do
     case String.trim(status) do

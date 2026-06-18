@@ -5,11 +5,14 @@ defmodule Nixstasis.Scripts.ValidatorTest do
 
   test "renders canonical stary content" do
     rendered =
-      Validator.render_stary(%{"name" => "demo", "schema" => %{"type" => "object"}, "version" => "1"}, "def main():\n  return {}\n")
+      Validator.render_stary(
+        %{"name" => "demo", "schema" => %{"type" => "object"}, "version" => "1"},
+        "def main():\n  return {}\n"
+      )
 
     assert rendered =~ "---\n"
     assert rendered =~ "name: demo"
-    assert rendered =~ "schema: {\"type\":\"object\"}"
+    assert rendered =~ "schema:\n  type: object"
     assert rendered =~ "def main():"
   end
 
