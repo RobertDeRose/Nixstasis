@@ -1202,11 +1202,15 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "missing permission state denies report index before loading", %{conn: conn} do
+    without_local_browser_auth_fallback()
+
     assert {:error, {:live_redirect, %{to: "/", flash: %{"error" => message}}}} = live(conn, ~p"/reports")
     assert message =~ "not authorized"
   end
 
   test "missing permission state denies report detail before loading report", %{conn: conn} do
+    without_local_browser_auth_fallback()
+
     report =
       report_fixture(%{
         "name" => "Blocked Before Lookup",
@@ -1220,6 +1224,8 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "malformed permission state denies report index and detail before loading", %{conn: conn} do
+    without_local_browser_auth_fallback()
+
     report =
       report_fixture(%{
         "name" => "Malformed Permission Report",
@@ -1468,5 +1474,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
   defp report_fixture(attrs) do
     {:ok, report} = Reporting.create_custom_report(attrs)
     report
+  end
+
+  defp without_local_browser_auth_fallback do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
   end
 end

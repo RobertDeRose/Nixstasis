@@ -9,7 +9,9 @@ under `deploy/compose`.
 - LiveView UI for fleet health, approvals, alerts, and reports.
 - JSONB-backed device and telemetry storage (Postgres).
 - API endpoints for device registration and heartbeat polling.
-- Schema-driven dropdown APIs for alert/report builders:
+- Schema-driven dropdown APIs for alert/report builders. Generated Ash JSON:API
+  contracts are available under `/api/json/builder_contract/*`; legacy JSON
+  compatibility wrappers remain under `/api/v1`:
   - `GET /api/v1/builder-schemas`
   - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
   - `POST /api/v1/builder-configurations/validate`
@@ -97,7 +99,7 @@ your local database before continuing.
   `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, `PORT`, `BASE_DOMAIN`,
   `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`, `JWT_KEY`,
   `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`, `FRPS_HTTP_PORT`,
-  `FRPS_DASHBOARD_PORT`, and `FRPS_TCPMUX_PORT`
+  `FRPS_DASHBOARD_PORT`, `FRPS_TCPMUX_PORT`, and `NIXSTASIS_SSH_FRP_HOST`
 - Canonical internal Phoenix port: `4000`
 - Canonical TLS approval path: `GET /api/v1/check_domain`
 - Reserved public hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
@@ -105,6 +107,11 @@ your local database before continuing.
 - Laptop diagnostics: `NIXSTASIS_TLS_OBSERVATIONS_ENABLED=true` and
   `NIXSTASIS_TLS_OBSERVATIONS_TOKEN` enable token-protected TLS ask observations
   for local validation only.
+- Browser terminal SSH uses `NIXSTASIS_SSH_FRP_HOST` plus `FRPS_TCPMUX_PORT` for
+  the server-side FRPS TCP mux target. Compose sets the host to `frps`.
+- `NIXSTASIS_SESSION_COOKIE_SECURE=false` is only for local dev/test release
+  image builds that expose the loopback HTTP diagnostic UI. Production builds
+  keep the default secure session cookie setting.
 
 ## Rewrite Status
 

@@ -13,6 +13,17 @@ defmodule Nixstasis.Domain do
     prefix "/api/json"
 
     routes do
+      base_route "/builder_contract", Nixstasis.SchemaOptions.BuilderContract do
+        route :get, "/schema_references", :list_schema_references, name: "list_builder_schema_references"
+
+        route :get, "/schemas/:schema_id/versions/:schema_version/options", :options_for,
+          name: "get_builder_schema_options",
+          query_params: [:builder]
+
+        route :post, "/builder_configurations/validate", :validate_builder_configuration,
+          name: "validate_builder_configuration"
+      end
+
       base_route "/devices", Nixstasis.Devices.Device do
         get :read
         index :read
@@ -22,6 +33,54 @@ defmodule Nixstasis.Domain do
       end
 
       base_route "/pending_commands", Nixstasis.Devices.PendingCommand do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_drafts", Nixstasis.Scripts.ScriptDraft do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_versions", Nixstasis.Scripts.ScriptVersion do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_validation_runs", Nixstasis.Scripts.ScriptValidationRun do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_test_runs", Nixstasis.Scripts.ScriptTestRun do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_deployment_runs", Nixstasis.Scripts.ScriptDeploymentRun do
+        get :read
+        index :read
+        post :create
+        patch :update
+        delete :destroy
+      end
+
+      base_route "/script_client_actions", Nixstasis.Scripts.ScriptClientAction do
         get :read
         index :read
         post :create
@@ -87,6 +146,50 @@ defmodule Nixstasis.Domain do
       define :destroy_pending_command, action: :destroy
     end
 
+    resource Nixstasis.Scripts.ScriptDraft do
+      define :list_script_drafts, action: :read
+      define :get_script_draft, action: :read, get_by: [:id]
+      define :create_script_draft, action: :create
+      define :update_script_draft, action: :update
+      define :destroy_script_draft, action: :destroy
+    end
+
+    resource Nixstasis.Scripts.ScriptVersion do
+      define :list_script_versions, action: :read
+      define :get_script_version, action: :read, get_by: [:id]
+      define :create_script_version, action: :create
+      define :update_script_version, action: :update
+      define :destroy_script_version, action: :destroy
+    end
+
+    resource Nixstasis.Scripts.ScriptValidationRun do
+      define :list_script_validation_runs, action: :read
+      define :create_script_validation_run, action: :create
+      define :update_script_validation_run, action: :update
+      define :destroy_script_validation_run, action: :destroy
+    end
+
+    resource Nixstasis.Scripts.ScriptTestRun do
+      define :list_script_test_runs, action: :read
+      define :create_script_test_run, action: :create
+      define :update_script_test_run, action: :update
+      define :destroy_script_test_run, action: :destroy
+    end
+
+    resource Nixstasis.Scripts.ScriptDeploymentRun do
+      define :list_script_deployment_runs, action: :read
+      define :create_script_deployment_run, action: :create
+      define :update_script_deployment_run, action: :update
+      define :destroy_script_deployment_run, action: :destroy
+    end
+
+    resource Nixstasis.Scripts.ScriptClientAction do
+      define :list_script_client_actions, action: :read
+      define :create_script_client_action, action: :create
+      define :update_script_client_action, action: :update
+      define :destroy_script_client_action, action: :destroy
+    end
+
     resource Nixstasis.Monitoring.Alert do
       define :list_alerts, action: :read
       define :create_alert, action: :create
@@ -119,6 +222,18 @@ defmodule Nixstasis.Domain do
       define :get_setting_by_key, action: :read, get_by: [:key]
       define :create_setting, action: :create
       define :update_setting, action: :update
+    end
+
+    resource Nixstasis.SchemaOptions.BuilderContract do
+      define :list_builder_schema_references, action: :list_schema_references
+
+      define :get_builder_schema_options,
+        action: :options_for,
+        args: [:schema_id, :schema_version, :builder]
+
+      define :validate_builder_configuration,
+        action: :validate_builder_configuration,
+        args: [:builder, :schema_id, :schema_version, :selections]
     end
   end
 end

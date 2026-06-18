@@ -11,6 +11,7 @@ defmodule NixstasisWeb.Permissions do
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
+  def script_permissions(session), do: permission_map(session, "script_permissions")
 
   def can_view_device_details?(permissions, device_id \\ nil)
 
@@ -32,11 +33,53 @@ defmodule NixstasisWeb.Permissions do
 
   def can_remote_access_device?(_, _), do: false
 
+  def can_manage_devices?(permissions) when is_map(permissions), do: permissions["can_manage"] == true
+  def can_manage_devices?(_permissions), do: false
+
+  def can_manage_all_devices?(permissions) when is_map(permissions) do
+    permissions["can_manage"] == true and authorized_device_ids(permissions) == nil
+  end
+
+  def can_manage_all_devices?(_permissions), do: false
+
+  def can_create_devices?(permissions), do: can_manage_all_devices?(permissions)
+
+  def can_manage_device?(permissions, device_id) when is_map(permissions) do
+    permissions["can_manage"] == true and device_authorized?(permissions, device_id)
+  end
+
+  def can_manage_device?(_permissions, _device_id), do: false
+
+  def authorized_device_ids(permissions) when is_map(permissions) do
+    ids =
+      [
+        Map.get(permissions, "device_id"),
+        Map.get(permissions, "device_ids"),
+        Map.get(permissions, "allowed_device_ids")
+      ]
+      |> Enum.flat_map(&normalize_authorized_device_ids/1)
+      |> Enum.uniq()
+
+    cond do
+      ids != [] -> MapSet.new(ids)
+      scoped_device_permissions?(permissions) -> MapSet.new()
+      true -> nil
+    end
+  end
+
+  def authorized_device_ids(_permissions), do: nil
+
   def can_view_reports?(session) when is_map(session), do: report_permissions(session)["can_view"] == true
   def can_view_reports?(_session), do: false
 
   def can_manage_reports?(session) when is_map(session), do: report_permissions(session)["can_manage"] == true
   def can_manage_reports?(_session), do: false
+
+  def can_view_scripts?(session) when is_map(session), do: script_permissions(session)["can_view"] == true
+  def can_view_scripts?(_session), do: false
+
+  def can_manage_scripts?(session) when is_map(session), do: script_permissions(session)["can_manage"] == true
+  def can_manage_scripts?(_session), do: false
 
   defp permission_map(session, key) when is_map(session) do
     case Map.get(session, key) do
@@ -55,25 +98,6 @@ defmodule NixstasisWeb.Permissions do
   end
 
   defp device_authorized?(_permissions, _device_id), do: false
-
-  defp authorized_device_ids(permissions) when is_map(permissions) do
-    ids =
-      [
-        Map.get(permissions, "device_id"),
-        Map.get(permissions, "device_ids"),
-        Map.get(permissions, "allowed_device_ids")
-      ]
-      |> Enum.flat_map(&normalize_authorized_device_ids/1)
-      |> Enum.uniq()
-
-    cond do
-      ids != [] -> MapSet.new(ids)
-      scoped_device_permissions?(permissions) -> MapSet.new()
-      true -> nil
-    end
-  end
-
-  defp authorized_device_ids(_permissions), do: nil
 
   defp scoped_device_permissions?(permissions) when is_map(permissions) do
     Enum.any?(["device_id", "device_ids", "allowed_device_ids"], &Map.has_key?(permissions, &1))

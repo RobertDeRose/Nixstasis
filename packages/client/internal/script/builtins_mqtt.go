@@ -30,7 +30,8 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 	var replyTopic string
 	var accept *starlark.Dict
 
-	if err := starlark.UnpackArgs("pub_and_get", args, kwargs,
+	if err := starlark.UnpackArgs(
+		"pub_and_get", args, kwargs,
 		"topic", &topic,
 		"msg", &msg,
 		"reply_topic?", &replyTopic,

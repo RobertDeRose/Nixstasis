@@ -100,6 +100,11 @@ components:
               type: string
               x-struct:
               x-validate:
+            name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
             operator:
               description: Field included by default.
               enum:
@@ -127,6 +132,7 @@ components:
               x-struct:
               x-validate:
           required:
+            - name
             - product_name
             - condition_field
             - operator
@@ -150,6 +156,68 @@ components:
       required:
         - type
         - id
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-ipv4_address:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -266,6 +334,8 @@ components:
           $ref: '#/components/schemas/device-filter-approval_status'
         id:
           $ref: '#/components/schemas/device-filter-id'
+        ipv4_address:
+          $ref: '#/components/schemas/device-filter-ipv4_address'
         last_seen_at:
           $ref: '#/components/schemas/device-filter-last_seen_at'
         mac_address:
@@ -613,6 +683,14 @@ components:
               type: string
               x-struct:
               x-validate:
+            ipv4_address:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
             last_seen_at:
               anyOf:
                 - format: date-time
@@ -1135,6 +1213,36 @@ components:
       type: object
       x-struct:
       x-validate:
+    builder_contract:
+      additionalProperties: false
+      description: A "Resource object" representing a builder_contract
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a builder_contract
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a builder_contract
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
     errors:
       items:
         $ref: '#/components/schemas/error'
@@ -1184,6 +1292,68 @@ components:
           x-validate:
         title:
           description: A short, human-readable summary of the problem. It SHOULD NOT change from occurrence to occurrence of the problem, except for purposes of localization.
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    alert_rule-filter-name:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
           type: string
           x-struct:
           x-validate:
@@ -1321,6 +1491,30 @@ components:
           x-struct:
           x-validate:
       type: object
+      x-struct:
+      x-validate:
+    builder_contract-filter:
+      additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        and:
+          items:
+            $ref: '#/components/schemas/builder_contract-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        not:
+          $ref: '#/components/schemas/builder_contract-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/builder_contract-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+      type: deepObject
       x-struct:
       x-validate:
     device-filter-last_seen_at:
@@ -1503,6 +1697,8 @@ components:
           $ref: '#/components/schemas/alert_rule-filter-condition_field'
         id:
           $ref: '#/components/schemas/alert_rule-filter-id'
+        name:
+          $ref: '#/components/schemas/alert_rule-filter-name'
         not:
           $ref: '#/components/schemas/alert_rule-filter'
         operator:
@@ -3207,7 +3403,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value)(,(id|-id|\+\+id|--id|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value))*$
+            pattern: ^(id|-id|\+\+id|--id|name|-name|\+\+name|--name|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value)(,(id|-id|\+\+id|--id|name|-name|\+\+name|--name|product_name|-product_name|\+\+product_name|--product_name|condition_field|-condition_field|\+\+condition_field|--condition_field|operator|-operator|\+\+operator|--operator|threshold_value|-threshold_value|\+\+threshold_value|--threshold_value))*$
             type: string
             x-struct:
             x-validate:
@@ -3265,11 +3461,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id,name,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id,name,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -3337,11 +3533,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id,name,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id,name,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -3365,6 +3561,12 @@ paths:
                           type: string
                           x-struct:
                           x-validate:
+                        name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
                         operator:
                           enum:
                             - '>'
@@ -3479,11 +3681,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id,name,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id,name,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -3529,11 +3731,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id,name,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id,name,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -3602,11 +3804,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              alert_rule: id,product_name,condition_field,operator,threshold_value
+              alert_rule: id,name,product_name,condition_field,operator,threshold_value
             properties:
               alert_rule:
                 description: Comma separated field names for alert_rule
-                example: id,product_name,condition_field,operator,threshold_value
+                example: id,name,product_name,condition_field,operator,threshold_value
                 type: string
                 x-struct:
                 x-validate:
@@ -4244,6 +4446,327 @@ paths:
           $ref: '#/components/responses/errors'
       tags:
         - alert
+  /api/json/builder_contract/builder_configurations/validate:
+    post:
+      callbacks: {}
+      deprecated: false
+      description: validate_builder_configuration operation on builder_contract resource
+      operationId: validate_builder_configuration
+      parameters: []
+      requestBody:
+        content:
+          application/vnd.api+json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  additionalProperties: false
+                  properties:
+                    builder:
+                      enum:
+                        - alert
+                        - report
+                      type: string
+                      x-struct:
+                      x-validate:
+                    schema_id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    schema_version:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    selections:
+                      items:
+                        additionalProperties: false
+                        properties:
+                          selected_key:
+                            type: string
+                            x-struct:
+                            x-validate:
+                          slot_id:
+                            type: string
+                            x-struct:
+                            x-validate:
+                        required:
+                          - slot_id
+                          - selected_key
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type: array
+                      x-struct:
+                      x-validate:
+                  required:
+                    - builder
+                    - schema_id
+                    - schema_version
+                    - selections
+                  type: object
+                  x-struct:
+                  x-validate:
+              required:
+                - data
+              type: object
+              x-struct:
+              x-validate:
+        description: Request body for the validate_builder_configuration operation on builder_contract resource
+        required: true
+      responses:
+        '201':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  cleared_slot_ids:
+                    items:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  issues:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        blocking:
+                          type: boolean
+                          x-struct:
+                          x-validate:
+                        issue_code:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        message:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        slot_id:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                      required:
+                        - issue_code
+                        - message
+                        - blocking
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  valid:
+                    type: boolean
+                    x-struct:
+                    x-validate:
+                required:
+                  - valid
+                  - issues
+                  - cleared_slot_ids
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
+  /api/json/builder_contract/schema_references:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: list_builder_schema_references operation on builder_contract resource
+      operationId: list_builder_schema_references
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                items:
+                  additionalProperties: false
+                  properties:
+                    product_name:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    readable:
+                      type: boolean
+                      x-struct:
+                      x-validate:
+                    schema_id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    schema_version:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - schema_id
+                    - schema_version
+                    - product_name
+                    - readable
+                  type: object
+                  x-struct:
+                  x-validate:
+                type: array
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
+  /api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: get_builder_schema_options operation on builder_contract resource
+      operationId: get_builder_schema_options
+      parameters:
+        - in: path
+          name: schema_version
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: path
+          name: schema_id
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: builder
+          required: false
+          schema:
+            enum:
+              - alert
+              - report
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  builder:
+                    enum:
+                      - alert
+                      - report
+                    type: string
+                    x-struct:
+                    x-validate:
+                  load_time_ms:
+                    minimum: 0
+                    type: integer
+                    x-struct:
+                    x-validate:
+                  options:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        key:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        label:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        order_index:
+                          type: integer
+                          x-struct:
+                          x-validate:
+                        selectable:
+                          type: boolean
+                          x-struct:
+                          x-validate:
+                        value_type:
+                          type: string
+                          x-struct:
+                          x-validate:
+                      required:
+                        - key
+                        - label
+                        - value_type
+                        - order_index
+                        - selectable
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  schema_id:
+                    type: string
+                    x-struct:
+                    x-validate:
+                  schema_version:
+                    type: string
+                    x-struct:
+                    x-validate:
+                required:
+                  - schema_id
+                  - schema_version
+                  - builder
+                  - load_time_ms
+                  - options
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '404':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        default:
+          $ref: '#/components/responses/errors'
+      tags:
+        - builder_contract
   /api/json/custom_reports:
     get:
       callbacks: {}
@@ -4752,7 +5275,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested))*$
+            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested))*$
             type: string
             x-struct:
             x-validate:
@@ -4810,11 +5333,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -4882,11 +5405,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -4919,6 +5442,12 @@ paths:
                                 - approved
                                 - rejected
                               type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        ipv4_address:
+                          anyOf:
+                            - type: string
                               x-struct:
                               x-validate:
                             - type: 'null'
@@ -5043,11 +5572,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -5093,11 +5622,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -5166,11 +5695,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
                 type: string
                 x-struct:
                 x-validate:
@@ -5203,6 +5732,12 @@ paths:
                                 - approved
                                 - rejected
                               type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        ipv4_address:
+                          anyOf:
+                            - type: string
                               x-struct:
                               x-validate:
                             - type: 'null'
@@ -6626,6 +7161,6 @@ paths:
 security:
   - bearerAuth: []
 servers:
-  - url: http://localhost:4000
+  - url: /
     variables: {}
 tags: []

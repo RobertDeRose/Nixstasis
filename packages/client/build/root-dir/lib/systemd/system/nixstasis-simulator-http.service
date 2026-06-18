@@ -1,0 +1,13 @@
+[Unit]
+Description=nixstasis-simulator-http simulator HTTPS endpoint
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/sh /usr/share/nixstasis/simulator-http.sh
+Restart=on-failure
+RestartSec=1s
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

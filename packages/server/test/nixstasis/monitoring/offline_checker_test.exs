@@ -1,6 +1,7 @@
 defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   use Nixstasis.DataCase
 
+  import ExUnit.CaptureLog
   import Swoosh.TestAssertions
 
   alias Nixstasis.Devices
@@ -41,7 +42,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
         last_seen_at: DateTime.utc_now() |> DateTime.add(-20, :minute)
       })
 
-    result = Monitoring.check_offline_devices(window_minutes: 10)
+    {result, _log} = with_log(fn -> Monitoring.check_offline_devices(window_minutes: 10) end)
+
     assert result.status == :success
 
     [alert] = Repo.all(Alert)
@@ -71,6 +73,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
       })
 
     result = Monitoring.check_offline_devices(window_minutes: 10)
+
     assert result.status == :success
     assert [%Alert{}] = Domain.list_alerts!()
 
@@ -99,7 +102,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
         last_seen_at: DateTime.utc_now() |> DateTime.add(-20, :minute)
       })
 
-    result = Monitoring.check_offline_devices(window_minutes: 10)
+    {result, _log} = with_log(fn -> Monitoring.check_offline_devices(window_minutes: 10) end)
+
     assert result.status == :success
 
     assert_receive {:webhook_request, "POST", "/alerts", body}, 1_000
@@ -107,6 +111,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   test "notification delivery failures do not break alert creation paths" do
+    stub_webhook_notifier(__MODULE__.NoopWebhookNotifier)
+
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "webhook_url" => "http://127.0.0.1:1/alerts"
@@ -121,6 +127,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
       })
 
     result = Monitoring.check_offline_devices(window_minutes: 10)
+
     assert result.status == :success
     assert [%Alert{}] = Domain.list_alerts!()
   end
@@ -170,6 +177,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   test "rule-triggered notification failures do not block alert creation" do
+    stub_webhook_notifier(__MODULE__.NoopWebhookNotifier)
+
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "webhook_url" => "http://127.0.0.1:1/alerts"
@@ -197,8 +206,27 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
 
     {:ok, device} = Devices.approve_device(device)
 
-    assert {:ok, _device, []} = Monitoring.heartbeat(device, %{"telemetry" => %{"temp" => 95}})
+    result = Monitoring.heartbeat(device, %{"telemetry" => %{"temp" => 95}})
+
+    assert {:ok, _device, []} = result
     assert [%Alert{type: :threshold}] = Domain.list_alerts!()
+  end
+
+  defp stub_webhook_notifier(notifier) do
+    previous_notifier = Application.get_env(:nixstasis, :webhook_notifier)
+    Application.put_env(:nixstasis, :webhook_notifier, notifier)
+
+    on_exit(fn ->
+      if is_nil(previous_notifier) do
+        Application.delete_env(:nixstasis, :webhook_notifier)
+      else
+        Application.put_env(:nixstasis, :webhook_notifier, previous_notifier)
+      end
+    end)
+  end
+
+  defmodule NoopWebhookNotifier do
+    def send_alert_webhook(_url, _alert), do: :ok
   end
 
   defp free_port do

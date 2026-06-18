@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/transport"
 )
 
@@ -61,6 +63,155 @@ func TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported(t *testing.T) 
 	}
 	if results[0].Status != transport.CommandStatusFailed || results[0].Error != "timeout" {
 		t.Fatalf("expected timeout failure, got status=%s error=%s", results[0].Status, results[0].Error)
+	}
+}
+
+func TestGivenValidRunScriptPayload_WhenExecuteBatch_ThenReturnsStructuredResult(t *testing.T) {
+	handler := NewHandler("")
+	content := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "ok"}
+`)
+
+	results := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        content,
+		},
+	}})
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Status != transport.CommandStatusOK {
+		t.Fatalf("expected run_script to succeed, got %s: %s", results[0].Status, results[0].Error)
+	}
+	output, ok := results[0].Output.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured output, got %T", results[0].Output)
+	}
+	if output["status"] != "passed" {
+		t.Fatalf("expected passed status, got %v", output["status"])
+	}
+	if output["validation"] != "valid" {
+		t.Fatalf("expected valid validation status, got %v", output["validation"])
+	}
+}
+
+func TestGivenInvalidRunScriptPayload_WhenExecuteBatch_ThenReturnsFailedEnvelope(t *testing.T) {
+	handler := NewHandler("")
+	content := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": 1}
+`)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        content,
+		},
+	}})[0]
+
+	if result.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected run_script failure, got %s", result.Status)
+	}
+	output, ok := result.Output.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured failure output, got %T", result.Output)
+	}
+	if output["status"] != "failed" {
+		t.Fatalf("expected failed envelope, got %v", output["status"])
+	}
+	if output["error_type"] != "validation" {
+		t.Fatalf("expected validation error type, got %v", output["error_type"])
+	}
+}
+
+func TestGivenDeferredRunScriptPayload_WhenExecuteBatch_ThenFailsClosed(t *testing.T) {
+	handler := NewHandler("")
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID:  "cmd-run",
+		Type:       "run_script",
+		PayloadRef: "script-ref",
+	}})[0]
+
+	if result.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected deferred payload failure, got %s", result.Status)
+	}
+	if result.Error != "deferred script payload lookup is not available in command handler" {
+		t.Fatalf("unexpected deferred payload error: %s", result.Error)
+	}
+}
+
+func TestGivenRunScript_WhenExecuteBatch_ThenDoesNotTouchInstalledScripts(t *testing.T) {
+	scriptsDir := t.TempDir()
+	existing := filepath.Join(scriptsDir, "existing_1.stary")
+	content := strings.TrimSpace(`---
+name: installed
+version: "1"
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "installed"}
+`)
+	if err := os.WriteFile(existing, []byte(content), 0o644); err != nil {
+		t.Fatalf("write installed script: %v", err)
+	}
+
+	handler := NewHandler(scriptsDir)
+	testContent := strings.TrimSpace(`---
+name: test-run
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": "ok"}
+`)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run",
+		Type:      "run_script",
+		Payload: &transport.CommandPayload{
+			ContentType: "text/x-stary",
+			Data:        testContent,
+		},
+	}})[0]
+
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected run_script to succeed, got %s: %s", result.Status, result.Error)
+	}
+
+	discovered, err := filepath.Glob(filepath.Join(scriptsDir, "*.stary"))
+	if err != nil {
+		t.Fatalf("glob installed scripts: %v", err)
+	}
+	if len(discovered) != 1 || discovered[0] != existing {
+		t.Fatalf("expected installed scripts to remain unchanged, got %v", discovered)
 	}
 }
 
@@ -167,111 +318,160 @@ func TestGivenPathTraversalScriptVersion_WhenRemoveScript_ThenFails(t *testing.T
 	}
 }
 
-func TestSSHAuthorizeRejectsMalformedKeys(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", path)
+func TestSSHAuthorizeStoresDynamicKeyInMemory(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
-		CommandID: "cmd-3",
+		CommandID: "cmd-dynamic",
 		Type:      "ssh_authorize",
-		Args:      []string{"not-a-key", path},
-	}})[0]
-
-	if result.Status != transport.CommandStatusFailed {
-		t.Fatalf("expected malformed key to fail, got %s", result.Status)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("expected no authorized_keys file, stat err=%v", err)
-	}
-}
-
-func TestSSHAuthorizeWritesValidKeyWithStrictPermissions(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", path)
-	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
-		CommandID: "cmd-4",
-		Type:      "ssh_authorize",
+		PublicKey: testPublicKey,
 		Payload: &transport.CommandPayload{
-			Name: path,
-			Data: testPublicKey,
+			ContentType: sshauth.PayloadContentType,
+			Name:        "session-1",
+			Data:        `{"target_user":"nixstasis-support","ttl_seconds":300,"session_ref":"session-1"}`,
 		},
 	}})[0]
 
 	if result.Status != transport.CommandStatusOK {
-		t.Fatalf("expected ssh_authorize to succeed, got %s: %s", result.Status, result.Error)
+		t.Fatalf("expected dynamic ssh_authorize to succeed, got %s: %s", result.Status, result.Error)
 	}
-	data, err := os.ReadFile(path)
+	key, err := sshauth.ParseAuthorizedKeyLine(testPublicKey)
 	if err != nil {
-		t.Fatalf("read authorized_keys: %v", err)
+		t.Fatalf("ParseAuthorizedKeyLine() error = %v", err)
 	}
-	if got := strings.TrimSpace(string(data)); got != testPublicKey {
-		t.Fatalf("authorized_keys = %q, want %q", got, testPublicKey)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat authorized_keys: %v", err)
-	}
-	if mode := info.Mode().Perm(); mode != 0o600 {
-		t.Fatalf("mode = %o, want 600", mode)
+	if _, ok := store.Authorize("nixstasis-support", key.Type, key.Blob); !ok {
+		t.Fatal("dynamic key was not stored")
 	}
 }
 
-func TestSSHAuthorizeReplacesFileAtomicallyWithoutDuplicates(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", path)
-	cmd := transport.CommandRequest{
-		CommandID: "cmd-5",
-		Type:      "ssh_authorize",
-		Args:      []string{testPublicKey, path},
+func TestSSHAuthorizeRejectsInvalidDynamicPayloads(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
+	cases := []struct {
+		name    string
+		payload string
+	}{
+		{name: "invalid ttl", payload: `{"target_user":"nixstasis-support","ttl_seconds":0,"session_ref":"session-1"}`},
+		{name: "wrong user", payload: `{"target_user":"root","ttl_seconds":300,"session_ref":"session-1"}`},
+		{name: "missing session", payload: `{"target_user":"nixstasis-support","ttl_seconds":300}`},
+		{name: "malformed json", payload: `{`},
 	}
 
-	first := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{cmd})[0]
-	cmd.CommandID = "cmd-6"
-	second := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{cmd})[0]
-	if first.Status != transport.CommandStatusOK || second.Status != transport.CommandStatusOK {
-		t.Fatalf("expected both writes to succeed, got %s/%s", first.Status, second.Status)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read authorized_keys: %v", err)
-	}
-	if count := strings.Count(string(data), testPublicKey); count != 1 {
-		t.Fatalf("expected one key entry, got %d in %q", count, string(data))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-" + tc.name,
+				Type:      "ssh_authorize",
+				PublicKey: testPublicKey,
+				Payload: &transport.CommandPayload{
+					ContentType: sshauth.PayloadContentType,
+					Data:        tc.payload,
+				},
+			}})[0]
+			if result.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected failure, got %s", result.Status)
+			}
+		})
 	}
 }
 
-func TestSSHAuthorizeAcceptsTopLevelPublicKeyAtConfiguredPath(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", path)
-	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
-		CommandID: "cmd-7",
+func TestSSHRevokeRemovesStoredAuthorization(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
+
+	authorize := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-auth",
 		Type:      "ssh_authorize",
 		PublicKey: testPublicKey,
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.PayloadContentType,
+			Name:        "session-revoke",
+			Data:        `{"target_user":"nixstasis-support","ttl_seconds":300,"session_ref":"session-revoke"}`,
+		},
 	}})[0]
+	if authorize.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_authorize ok, got %s: %s", authorize.Status, authorize.Error)
+	}
+	if store.Len() != 1 {
+		t.Fatalf("store len = %d, want 1", store.Len())
+	}
 
-	if result.Status != transport.CommandStatusOK {
-		t.Fatalf("expected ssh_authorize to succeed, got %s: %s", result.Status, result.Error)
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+			Name:        "session-revoke",
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_revoke ok, got %s: %s", revoke.Status, revoke.Error)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read authorized_keys: %v", err)
+	output, ok := revoke.Output.(map[string]any)
+	if !ok {
+		t.Fatalf("revoke output = %v, want map", revoke.Output)
 	}
-	if got := strings.TrimSpace(string(data)); got != testPublicKey {
-		t.Fatalf("authorized_keys = %q, want %q", got, testPublicKey)
+	if got, want := output["mode"], "dynamic_ssh_revoke"; got != want {
+		t.Fatalf("output mode = %v, want %v", got, want)
+	}
+	if got, want := output["session_ref"], "session-revoke"; got != want {
+		t.Fatalf("output session_ref = %v, want %v", got, want)
+	}
+	if got, _ := output["revoked"].(int); got != 1 {
+		t.Fatalf("output revoked = %v, want 1", output["revoked"])
+	}
+	if store.Len() != 0 {
+		t.Fatalf("store len after revoke = %d, want 0", store.Len())
 	}
 }
 
-func TestSSHAuthorizeDoesNotReportFailureAfterCommit(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", path)
-	originalHook := afterCommandCommitHook
-	defer func() { afterCommandCommitHook = originalHook }()
-	ctx, cancel := context.WithCancel(context.Background())
-	afterCommandCommitHook = cancel
+func TestSSHRevokeResolvesSessionRefFromData(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
 
-	result := handler.sshAuthorize(ctx, "cmd-9", testPublicKey, nil, nil)
+	_, err := store.Add(testPublicKey, "nixstasis-support", "cmd-auth", "session-data", 5*time.Minute)
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
 
-	if result.Status != transport.CommandStatusOK {
-		t.Fatalf("expected ssh_authorize to succeed once committed, got %s: %s", result.Status, result.Error)
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+			Data:        `{"session_ref":"session-data"}`,
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusOK {
+		t.Fatalf("expected ssh_revoke ok, got %s: %s", revoke.Status, revoke.Error)
+	}
+	if store.Len() != 0 {
+		t.Fatalf("store len = %d, want 0", store.Len())
+	}
+}
+
+func TestSSHRevokeFailsWithoutSessionRef(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
+
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      "ssh_revoke",
+		Payload: &transport.CommandPayload{
+			ContentType: sshauth.RevokePayloadContentType,
+		},
+	}})[0]
+	if revoke.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected ssh_revoke failure, got %s", revoke.Status)
+	}
+}
+
+func TestSSHRevokeIsSerial(t *testing.T) {
+	if !commandRequiresSerial(transport.CommandRequest{Type: "ssh_revoke"}) {
+		t.Fatal("ssh_revoke must run serially with the other stateful commands")
+	}
+	if !commandRequiresSerial(transport.CommandRequest{Type: "ssh_authorize"}) {
+		t.Fatal("ssh_authorize must run serially with the other stateful commands")
 	}
 }
 
@@ -300,24 +500,5 @@ def main():
 
 	if result.Status != transport.CommandStatusOK {
 		t.Fatalf("expected remove_script to succeed once committed, got status=%s error=%s", result.Status, result.Error)
-	}
-}
-
-func TestSSHAuthorizeRejectsNonCanonicalRequestedPath(t *testing.T) {
-	dir := t.TempDir()
-	allowed := filepath.Join(dir, "allowed", "authorized_keys")
-	other := filepath.Join(dir, "other", "authorized_keys")
-	handler := NewHandlerWithAuthorizedKeys("", allowed)
-	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
-		CommandID: "cmd-8",
-		Type:      "ssh_authorize",
-		Args:      []string{testPublicKey, other},
-	}})[0]
-
-	if result.Status != transport.CommandStatusFailed || result.Error != "authorized_keys path is not allowed" {
-		t.Fatalf("expected path rejection, got status=%s error=%s", result.Status, result.Error)
-	}
-	if _, err := os.Stat(other); !os.IsNotExist(err) {
-		t.Fatalf("expected other authorized_keys not to be written, stat err=%v", err)
 	}
 }

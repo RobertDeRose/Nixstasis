@@ -1,0 +1,29 @@
+{
+  log {
+    format console
+  }
+}
+
+auth.{$BASE_DOMAIN} {
+  tls internal
+
+  respond "Local dev/test mode uses loopback-only access and Phoenix local auth fallback." 200
+}
+
+nixstasis.{$BASE_DOMAIN} {
+  tls internal
+
+  reverse_proxy nixstasis:{$PORT}
+}
+
+frp-admin.{$BASE_DOMAIN} {
+  tls internal
+
+  reverse_proxy frps:{$FRPS_DASHBOARD_PORT}
+}
+
+*.{$BASE_DOMAIN} {
+  tls internal
+
+  reverse_proxy frps:{$FRPS_HTTP_PORT}
+}

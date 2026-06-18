@@ -35,9 +35,40 @@ require_env_value() {
     fail "missing required env value: $name"
   fi
 
-  if [ "$value" = "*" ]; then
+  if has_wildcard_token "$value"; then
     fail "$name must be least-privilege and cannot be wildcard"
   fi
+}
+
+has_wildcard_token() {
+  value="$1"
+  wildcard=false
+
+  case $- in
+    *f*) noglob_was_set=true ;;
+    *) noglob_was_set=false; set -f ;;
+  esac
+
+  # shellcheck disable=SC2086
+  set -- $value
+
+  for token do
+    token=${token#\"}
+    token=${token%\"}
+    token=${token#\'}
+    token=${token%\'}
+
+    if [ "$token" = "*" ]; then
+      wildcard=true
+      break
+    fi
+  done
+
+  if [ "$noglob_was_set" = false ]; then
+    set +f
+  fi
+
+  [ "$wildcard" = true ]
 }
 
 require_exact_env_value() {
@@ -81,25 +112,11 @@ require_wildcard_authorize_before_proxy() {
   ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
 }
 
-if command -v docker >/dev/null 2>&1; then
-  COMPOSE_VARIANT="docker"
-elif command -v container-compose >/dev/null 2>&1; then
-  COMPOSE_VARIANT="container-compose"
-else
-  fail "docker compose or container-compose is required"
+if ! command -v docker >/dev/null 2>&1; then
+  fail "docker compose is required"
 fi
 
-compose_build() {
-  if [ "$COMPOSE_VARIANT" = "docker" ]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build "$@"
-    return
-  fi
-
-  RENDERED_COMPOSE_FILE=$(mktemp "$COMPOSE_DIR/.nixstasis-compose.XXXXXX.yml")
-  trap 'rm -f "$RENDERED_COMPOSE_FILE"' EXIT HUP INT TERM
-  "$COMPOSE_DIR/scripts/render_compose.sh" "$ENV_FILE" "$RENDERED_COMPOSE_FILE"
-  container-compose build -f "$RENDERED_COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
-}
+docker compose version >/dev/null 2>&1 || fail "docker compose is required"
 
 if [ ! -f "$ENV_FILE" ]; then
   fail "missing env file: $ENV_FILE"
@@ -107,18 +124,33 @@ fi
 
 require_env_value AUTHORIZED_ROLES
 require_env_value AUTHORIZED_GROUPS
+require_env_value NIXSTASIS_VIEWER_GROUPS
+require_env_value NIXSTASIS_OPERATOR_GROUPS
+require_env_value NIXSTASIS_ADMIN_GROUPS
 require_exact_env_value PORT 4000
+require_exact_env_value PHOENIX_BIND_HOST 127.0.0.1
+require_exact_env_value CADDY_CONFIG ./caddy/Caddyfile
 require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
+require_caddy_text 'path /api/v1/devices/register'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
+require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
 reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'
 require_caddy_text 'allow groups \{\$AUTHORIZED_GROUPS\}'
+require_caddy_text 'match groups \{\$NIXSTASIS_VIEWER_GROUPS\}'
+require_caddy_text 'action add role nixstasis/viewer'
+require_caddy_text 'match groups \{\$NIXSTASIS_OPERATOR_GROUPS\}'
+require_caddy_text 'action add role nixstasis/operator'
+require_caddy_text 'match groups \{\$NIXSTASIS_ADMIN_GROUPS\}'
+require_caddy_text 'action add role nixstasis/admin'
 reject_caddy_text 'allow roles \*'
 reject_caddy_text 'allow groups \*'
 require_wildcard_authorize_before_proxy
 
-compose_build >/dev/null
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build >/dev/null
 
 for service in caddy nixstasis frps postgres; do
   grep -Eq "^[[:space:]]{2}${service}:$" "$COMPOSE_FILE"

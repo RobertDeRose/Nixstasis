@@ -1,6 +1,7 @@
 defmodule NixstasisWeb.DeviceControllerTest do
   use NixstasisWeb.ConnCase
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
 
   test "POST /api/v1/devices/register registers a new device", %{conn: conn} do
     params = %{
@@ -17,6 +18,44 @@ defmodule NixstasisWeb.DeviceControllerTest do
     conn = post(conn, ~p"/api/v1/devices/register", params)
 
     assert %{"id" => _id, "approval_status" => "pending"} = json_response(conn, 201)["data"]
+  end
+
+  test "POST /api/v1/devices/register preserves an approved device id during re-registration", %{conn: conn} do
+    {:ok, device} =
+      Devices.create_device(%{
+        mac_address: "AA:BB:CC:DD:EE:E0",
+        product_name: "existing-client",
+        approval_status: :approved
+      })
+
+    {:ok, _event} =
+      Domain.create_telemetry_event(%{
+        device_id: device.id,
+        payload: %{},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+    params = %{
+      "mac_address" => "AA:BB:CC:DD:EE:E0",
+      "product_name" => "updated-client",
+      "schema" => %{
+        "product" => "updated-client",
+        "type" => "object",
+        "properties" => %{}
+      }
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/register", params)
+
+    assert %{
+             "id" => id,
+             "approval_status" => "approved",
+             "api_token" => token
+           } = json_response(conn, 201)["data"]
+
+    assert id == device.id
+    assert is_binary(token)
+    assert token != ""
   end
 
   test "GET /api/v1/devices filters by product/account/approval status", %{conn: conn} do

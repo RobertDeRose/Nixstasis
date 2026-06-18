@@ -11,5 +11,65 @@ defmodule NixstasisWeb.AshJsonApiRouter do
     open_api: "/open_api",
     open_api_title: "Nixstasis JSON API",
     open_api_version: "1.0.0",
+    open_api_servers: ["/"],
+    modify_open_api: {__MODULE__, :modify_open_api, []},
     phoenix_endpoint: NixstasisWeb.Endpoint
+
+  def modify_open_api(spec, _conn, _opts) do
+    spec
+    |> Map.update!(:security, fn _security -> [%{"bearerAuth" => []}] end)
+    |> put_builder_load_time_minimum()
+    |> put_builder_error_responses()
+  end
+
+  defp put_builder_error_responses(%{paths: paths} = spec) do
+    validate_path = "/api/json/builder_contract/builder_configurations/validate"
+    options_path = "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options"
+
+    updated_paths =
+      paths
+      |> put_in([validate_path, Access.key!(:post), Access.key!(:responses), 400], error_response())
+      |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 400], error_response())
+      |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 404], error_response())
+
+    %{spec | paths: updated_paths}
+  end
+
+  defp put_builder_load_time_minimum(%{paths: paths} = spec) do
+    path = "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options"
+
+    updated_paths =
+      update_in(
+        paths,
+        [
+          path,
+          Access.key!(:get),
+          Access.key!(:responses),
+          200,
+          Access.key!(:content),
+          "application/vnd.api+json",
+          Access.key!(:schema),
+          Access.key!(:properties),
+          :load_time_ms
+        ],
+        &%{&1 | minimum: 0}
+      )
+
+    %{spec | paths: updated_paths}
+  end
+
+  defp error_response do
+    %{
+      description: "JSON:API error response",
+      content: %{
+        "application/vnd.api+json" => %{
+          schema: %{
+            type: "object",
+            required: [:errors],
+            properties: %{errors: %{"$ref" => "#/components/schemas/errors"}}
+          }
+        }
+      }
+    }
+  end
 end

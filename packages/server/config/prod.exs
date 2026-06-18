@@ -7,7 +7,14 @@ import Config
 # before starting your production server.
 config :nixstasis, NixstasisWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-config :nixstasis, :session_options, secure: true
+session_cookie_secure? =
+  case System.get_env("NIXSTASIS_SESSION_COOKIE_SECURE", "true") |> String.trim() |> String.downcase() do
+    value when value in ["1", "true", "yes"] -> true
+    value when value in ["0", "false", "no"] -> false
+    value -> raise "NIXSTASIS_SESSION_COOKIE_SECURE must be true or false, got: #{inspect(value)}"
+  end
+
+config :nixstasis, :session_options, secure: session_cookie_secure?
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req

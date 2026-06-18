@@ -472,14 +472,18 @@ defmodule Nixstasis.Devices do
   @doc """
   Approves multiple devices by ID.
   """
+  def approve_devices([]), do: {:error, :no_devices_selected}
+
   def approve_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
+           pending_ids = pending_device_ids(ids)
+
            result =
              Device
              |> Ash.Query.filter(id in ^ids and approval_status == :pending)
              |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
 
-           clear_device_token_hashes(ids)
+           clear_device_token_hashes(pending_ids)
            {result, list_devices_by_ids(ids)}
          end) do
       {:ok, {result, devices}} ->
@@ -496,6 +500,8 @@ defmodule Nixstasis.Devices do
   @doc """
   Rejects multiple devices by ID.
   """
+  def reject_devices([]), do: {:error, :no_devices_selected}
+
   def reject_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
            result =
@@ -691,6 +697,58 @@ defmodule Nixstasis.Devices do
     })
   end
 
+  def command_result_status(device_id, command_id) when is_binary(device_id) and is_binary(command_id) do
+    case Ecto.UUID.cast(command_id) do
+      {:ok, command_id} -> pending_command_result_status(device_id, command_id)
+      :error -> :pending
+    end
+  end
+
+  def command_result_status(_device_id, _command_id), do: :pending
+
+  def command_succeeded?(device_id, command_id) when is_binary(device_id) and is_binary(command_id) do
+    command_result_status(device_id, command_id) == :ok
+  end
+
+  def command_succeeded?(_device_id, _command_id), do: false
+
+  def command_payload_for_result(%Device{} = device, result) when is_map(result) do
+    command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
+
+    case fetch_pending_command(device.id, command_id) do
+      %{command_payload: %{} = payload} -> {:ok, payload}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def command_payload_for_result(_device, _result), do: {:error, :not_found}
+
+  @doc """
+  Queues a best-effort `ssh_revoke` command so the client can drop the in-memory
+  authorization for the given terminal session. Returns `:ok` even when the
+  device is no longer reachable or the queue insert fails; terminal cleanup
+  must not block on a revoke that the client may never see.
+  """
+  def queue_terminal_revoke(%Device{} = device, session_ref)
+      when is_binary(session_ref) and session_ref != "" do
+    payload_data =
+      Jason.encode!(%{session_ref: session_ref})
+
+    case queue_command(device, %{
+           "type" => "ssh_revoke",
+           "payload" => %{
+             "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+             "name" => session_ref,
+             "data" => payload_data
+           }
+         }) do
+      {:ok, _command} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def queue_terminal_revoke(_device, _session_ref), do: :ok
+
   def pop_pending_commands(%Device{} = device) do
     Repo.transaction(fn ->
       ids = claim_pending_command_ids(device.id)
@@ -847,15 +905,10 @@ defmodule Nixstasis.Devices do
   catch
     :exit, {{:shutdown, "owner " <> _}, {DBConnection.Holder, :checkout, _}} ->
       :ok
-    rescue
-      error ->
-        Logger.warning("Failed to clear remote access flag for #{device_id}: #{Exception.message(error)}")
-        :ok
-    catch
-      :exit, reason ->
-        Logger.warning("Failed to clear remote access flag for #{device_id}: #{inspect(reason)}")
-        :ok
-    end
+
+    :exit, reason ->
+      Logger.warning("Failed to clear remote access flag for #{device_id}: #{inspect(reason)}")
+      :ok
   end
 
   defp filter_value(filter, key) when is_map(filter) do
@@ -870,6 +923,15 @@ defmodule Nixstasis.Devices do
     Device
     |> Ash.Query.filter(id in ^ids)
     |> Ash.read!(domain: Domain)
+  end
+
+  defp pending_device_ids([]), do: []
+
+  defp pending_device_ids(ids) do
+    Device
+    |> Ash.Query.filter(id in ^ids and approval_status == :pending)
+    |> Ash.read!(domain: Domain)
+    |> Enum.map(& &1.id)
   end
 
   defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) and map_size(attrs) > 0 do
@@ -912,6 +974,13 @@ defmodule Nixstasis.Devices do
   defp fetch_pending_command(_device_id, command_id) when is_nil(command_id) or command_id == "", do: nil
 
   defp fetch_pending_command(device_id, command_id) do
+    case Ecto.UUID.cast(command_id) do
+      {:ok, command_id} -> read_pending_command(device_id, command_id)
+      :error -> nil
+    end
+  end
+
+  defp read_pending_command(device_id, command_id) do
     PendingCommand
     |> Ash.Query.filter(device_id == ^device_id and id == ^command_id)
     |> Ash.read_one!(domain: Domain)
@@ -922,6 +991,19 @@ defmodule Nixstasis.Devices do
       )
 
       nil
+  end
+
+  defp pending_command_result_status(device_id, command_id) do
+    case read_pending_command(device_id, command_id) do
+      %{status: :acked, command_payload: %{} = payload} ->
+        case payload["result_status"] || payload[:result_status] do
+          "ok" -> :ok
+          _ -> :failed
+        end
+
+      _ ->
+        :pending
+    end
   end
 
   defp command_result_status(result) do

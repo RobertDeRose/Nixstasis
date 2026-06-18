@@ -64,3 +64,4 @@ config :nixstasis, :e2e,
   ]
 
 config :nixstasis, :base_domain, "devices.example.com"
+config :nixstasis, :local_browser_auth_fallback?, true

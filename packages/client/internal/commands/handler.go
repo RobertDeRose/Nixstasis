@@ -3,12 +3,15 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/transport"
 )
 
@@ -23,8 +26,8 @@ var afterCommandCommitHook = func() {}
 
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir         string
-	authorizedKeysPath string
+	scriptsDir   string
+	sshAuthStore *sshauth.Store
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -32,9 +35,9 @@ func NewHandler(scriptsDir string) *Handler {
 	return &Handler{scriptsDir: scriptsDir}
 }
 
-// NewHandlerWithAuthorizedKeys constructs a Handler with an explicit authorized_keys target.
-func NewHandlerWithAuthorizedKeys(scriptsDir, authorizedKeysPath string) *Handler {
-	return &Handler{scriptsDir: scriptsDir, authorizedKeysPath: authorizedKeysPath}
+// NewHandlerWithSSHAuth constructs a Handler with in-memory SSH authorization support.
+func NewHandlerWithSSHAuth(scriptsDir string, store *sshauth.Store) *Handler {
+	return &Handler{scriptsDir: scriptsDir, sshAuthStore: store}
 }
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
@@ -110,10 +113,14 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.listScripts(ctx, cmd.CommandID)
 	case "install_script":
 		return h.installScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
+	case "run_script":
+		return h.runScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload, cmd.PayloadRef)
 	case "remove_script":
 		return h.removeScript(ctx, cmd.CommandID, cmd.Args, cmd.Payload)
 	case "ssh_authorize":
-		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Args, cmd.Payload)
+		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Payload)
+	case "ssh_revoke":
+		return h.sshRevoke(ctx, cmd.CommandID, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
 	}
@@ -121,62 +128,100 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script", "ssh_authorize":
+	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script":
 		return true
 	default:
 		return false
 	}
 }
 
-func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, args []string, payload *transport.CommandPayload) transport.CommandResult {
-	key, requestedPath, err := resolveSSHAuthorize(publicKey, args, payload)
-	if err != nil {
-		return failureResult(commandID, err.Error())
+func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string, payload *transport.CommandPayload) transport.CommandResult {
+	if h.sshAuthStore == nil {
+		return failureResult(commandID, "ssh authorization store is not configured")
 	}
-	path, err := h.resolveAuthorizedKeysPath(requestedPath)
-	if err != nil {
-		return failureResult(commandID, err.Error())
+	if strings.TrimSpace(publicKey) == "" {
+		return failureResult(commandID, "missing public key")
+	}
+	if payload == nil {
+		return failureResult(commandID, "missing ssh_authorize payload")
+	}
+	var data dynamicSSHAuthorizePayload
+	if err := json.Unmarshal([]byte(payload.Data), &data); err != nil {
+		return failureResult(commandID, "invalid ssh_authorize payload: "+err.Error())
+	}
+	if data.TargetUser != "nixstasis-support" {
+		return failureResult(commandID, "unsupported target_user")
+	}
+	if data.SessionRef == "" {
+		return failureResult(commandID, "session_ref is required")
+	}
+	if data.TTLSeconds <= 0 {
+		return failureResult(commandID, "ttl_seconds must be positive")
 	}
 	if ctx.Err() != nil {
 		return failureResult(commandID, "timeout")
 	}
-	if err := appendAuthorizedKey(path, key); err != nil {
+	entry, err := h.sshAuthStore.Add(publicKey, data.TargetUser, commandID, data.SessionRef, time.Duration(data.TTLSeconds)*time.Second)
+	if err != nil {
 		return failureResult(commandID, err.Error())
 	}
 	afterCommandCommitHook()
-	if ctx.Err() != nil {
-		return transport.CommandResult{
-			CommandID: commandID,
-			Status:    transport.CommandStatusOK,
-			Output:    map[string]any{"path": path, "timed_out_after_commit": true},
-		}
-	}
 	return transport.CommandResult{
 		CommandID: commandID,
 		Status:    transport.CommandStatusOK,
-		Output:    map[string]any{"path": path},
+		Output: map[string]any{
+			"mode":        "dynamic_ssh_authorize",
+			"target_user": entry.TargetUser,
+			"session_ref": entry.SessionRef,
+			"expires_at":  entry.ExpiresAt.Format(time.RFC3339),
+			"fingerprint": entry.Key.Fingerprint,
+		},
 	}
 }
 
-func (h *Handler) resolveAuthorizedKeysPath(requestedPath string) (string, error) {
-	if h.authorizedKeysPath == "" {
-		return "", fmt.Errorf("authorized_keys path is not configured")
+type dynamicSSHAuthorizePayload struct {
+	TargetUser string `json:"target_user"`
+	TTLSeconds int    `json:"ttl_seconds"`
+	SessionRef string `json:"session_ref"`
+}
+
+type sshRevokePayload struct {
+	SessionRef string `json:"session_ref"`
+}
+
+func (h *Handler) sshRevoke(ctx context.Context, commandID string, payload *transport.CommandPayload) transport.CommandResult {
+	if h.sshAuthStore == nil {
+		return failureResult(commandID, "ssh authorization store is not configured")
 	}
-	canonical, err := canonicalAuthorizedKeysPath(h.authorizedKeysPath)
-	if err != nil {
-		return "", err
+	if payload == nil {
+		return failureResult(commandID, "missing ssh_revoke payload")
 	}
-	if requestedPath == "" {
-		return canonical, nil
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
 	}
-	requested, err := canonicalAuthorizedKeysPath(requestedPath)
-	if err != nil {
-		return "", err
+
+	sessionRef := strings.TrimSpace(payload.Name)
+	if sessionRef == "" {
+		var data sshRevokePayload
+		if err := json.Unmarshal([]byte(payload.Data), &data); err == nil {
+			sessionRef = strings.TrimSpace(data.SessionRef)
+		}
 	}
-	if requested != canonical {
-		return "", fmt.Errorf("authorized_keys path is not allowed")
+	if sessionRef == "" {
+		return failureResult(commandID, "session_ref is required")
 	}
-	return canonical, nil
+
+	revoked := h.sshAuthStore.RevokeSession(sessionRef)
+	afterCommandCommitHook()
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output: map[string]any{
+			"mode":        "dynamic_ssh_revoke",
+			"session_ref": sessionRef,
+			"revoked":     revoked,
+		},
+	}
 }
 
 func (h *Handler) listScripts(ctx context.Context, commandID string) transport.CommandResult {
@@ -274,6 +319,32 @@ func (h *Handler) installScript(ctx context.Context, commandID string, _ []strin
 	}
 }
 
+func (h *Handler) runScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload, payloadRef string) transport.CommandResult {
+	content, err := resolveRunScriptContent(payload, payloadRef)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+
+	result, err := executeTestScript(ctx, content, args)
+	if err != nil {
+		return transport.CommandResult{
+			CommandID: commandID,
+			Status:    transport.CommandStatusFailed,
+			Output:    result,
+			Error:     err.Error(),
+		}
+	}
+
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output:    result,
+	}
+}
+
 func (h *Handler) removeScript(ctx context.Context, commandID string, args []string, payload *transport.CommandPayload) transport.CommandResult {
 	name, version, err := resolveRemoveTarget(args, payload)
 	if err != nil {
@@ -333,6 +404,77 @@ func resolveInstallContent(payload *transport.CommandPayload) (string, error) {
 	return payload.Data, nil
 }
 
+func resolveRunScriptContent(payload *transport.CommandPayload, payloadRef string) (string, error) {
+	if payload != nil {
+		if payload.ContentType != "" && payload.ContentType != "text/x-stary" && payload.ContentType != "text/stary" {
+			return "", fmt.Errorf("unsupported script payload content type: %s", payload.ContentType)
+		}
+		if payload.Data != "" {
+			return payload.Data, nil
+		}
+	}
+	if payloadRef != "" {
+		return "", fmt.Errorf("deferred script payload lookup is not available in command handler")
+	}
+	return "", fmt.Errorf("script payload is required")
+}
+
+func executeTestScript(ctx context.Context, content string, args []string) (map[string]any, error) {
+	_ = args
+	rt := script.NewRuntime(script.RuntimeConfig{})
+	defer rt.Close()
+
+	fm, body, err := script.ParseStaryContent(content)
+	if err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+		}, err
+	}
+	schema, err := script.CompileSchema(fm.Schema)
+	if err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+		}, err
+	}
+
+	output, err := rt.Execute(ctx, fm.Name+".stary", body)
+	if err != nil {
+		envelope := map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "execution",
+			"error_message": err.Error(),
+		}
+		if err.Error() == script.ErrTimeout.Error() {
+			envelope["status"] = "timed_out"
+			envelope["error_type"] = "timeout"
+		}
+		return envelope, err
+	}
+
+	if err := script.ValidateOutput(schema, output); err != nil {
+		return map[string]any{
+			"status":        "failed",
+			"validation":    "invalid",
+			"error_type":    "validation",
+			"error_message": err.Error(),
+			"output":        output,
+		}, err
+	}
+
+	return map[string]any{
+		"status":     "passed",
+		"validation": "valid",
+		"output":     output,
+	}, nil
+}
+
 func ensureNewerVersion(existing []script.ScriptInfo, fm script.FrontMatter) error {
 	versionNumber, err := script.ParseVersionNumber(fm.Version)
 	if err != nil {
@@ -386,24 +528,4 @@ func selectRemovalTarget(scripts []script.ScriptInfo, name, version string) (scr
 		return latest, nil
 	}
 	return script.ScriptInfo{}, fmt.Errorf("script not found")
-}
-
-func resolveSSHAuthorize(publicKey string, args []string, payload *transport.CommandPayload) (key, path string, err error) {
-	key = publicKey
-	if key == "" && payload != nil {
-		key = payload.Data
-	}
-	if payload != nil {
-		path = payload.Name
-	}
-	if key == "" && len(args) > 0 {
-		key = args[0]
-	}
-	if path == "" && len(args) > 1 {
-		path = args[1]
-	}
-	if key == "" {
-		return "", "", fmt.Errorf("missing public key")
-	}
-	return key, path, nil
 }

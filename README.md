@@ -1,4 +1,10 @@
-# Welcome to Nixstasis
+<p align="center">
+  <img src="assets/brand/nixstasis-logo.png" alt="Nixstasis logo" width="168">
+</p>
+
+<h1 align="center"><strong>Nix</strong><span>stasis</span></h1>
+
+<p align="center"><strong>State synchronization</strong></p>
 
 Nixstasis is an IoT monitoring and remote access platform. The current supported
 server deployment path for this feature is Docker Compose via `deploy/compose`.
@@ -46,7 +52,7 @@ production version pins:
 ```bash
 grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' prod.env
 goreleaser release --snapshot --clean
-./scripts/release/verify_artifacts.sh
+./build/bin/verify_artifacts.sh
 ```
 
 The supported client artifacts install `nixstasis` to `/usr/bin/nixstasis` and the bundled `frpc` runtime to `/usr/libexec/nixstasis/frpc`.

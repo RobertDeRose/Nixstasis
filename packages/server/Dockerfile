@@ -10,7 +10,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-ENV MIX_ENV=prod
+ARG NIXSTASIS_SESSION_COOKIE_SECURE=true
+
+ENV MIX_ENV=prod \
+    NIXSTASIS_SESSION_COOKIE_SECURE=${NIXSTASIS_SESSION_COOKIE_SECURE}
 
 RUN mix local.hex --force && mix local.rebar --force
 

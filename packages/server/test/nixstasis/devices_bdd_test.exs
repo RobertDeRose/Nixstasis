@@ -73,6 +73,19 @@ defmodule Nixstasis.DevicesBDDTest do
       assert Devices.get_device!(d2.id).approval_status == :approved
     end
 
+    test "bulk approve preserves tokens for devices that were already approved" do
+      pending = device_fixture(%{mac_address: "44:44:44:44:44:44", product_name: "k4", approval_status: :pending})
+      approved = device_fixture(%{mac_address: "55:55:55:55:55:55", product_name: "k5", approval_status: :approved})
+
+      assert {:ok, approved, token} = Devices.issue_device_token(approved)
+
+      assert :ok = Devices.authenticate_device(approved, token)
+      assert %{status: :success} = Devices.approve_devices([pending.id, approved.id])
+
+      assert Devices.get_device!(pending.id).approval_status == :approved
+      assert :ok = approved.id |> Devices.get_device!() |> Devices.authenticate_device(token)
+    end
+
     test "Scenario 3: Bulk Reject" do
       # GIVEN multiple selected pending devices
       d1 =

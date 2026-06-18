@@ -119,6 +119,7 @@ extend-ignore-words-re = [
   "selectin",
 ]
 extend-ignore-re = [
+  "index [0-9a-fA-F]+\\.\\.[0-9a-fA-F]+",
   "[a-zA-Z0-9]{12,24}"
 ]
 [tool.typos.default.extend-words]

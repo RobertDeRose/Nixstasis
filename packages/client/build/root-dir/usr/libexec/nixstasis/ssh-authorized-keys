@@ -1,0 +1,18 @@
+#!/bin/sh
+# Nixstasis AuthorizedKeysCommand wrapper.
+#
+# Invoked by sshd for the nixstasis-support account. OpenSSH 10.2p1+
+# requires this script to live in a directory whose every parent is owned
+# by root and not world-writable, and rejects group/other write on the
+# script itself. The script is mode 0755 root:root so the dedicated
+# `nixstasis-ssh-authority` non-root helper identity can read+execute it.
+#
+# The wrapper exports the trusted local IPC socket path so the
+# `nixstasis ssh-authorized-keys` helper can look up the offered key
+# against the in-memory store, then execs the helper with the sshd
+# arguments (%u %t %k → username, key type, base64 key blob).
+set -eu
+
+export NIXSTASIS_SSH_AUTHORITY_SOCKET="${NIXSTASIS_SSH_AUTHORITY_SOCKET:-/run/nixstasis/ssh-authority.sock}"
+
+exec /usr/bin/nixstasis ssh-authorized-keys "$@"

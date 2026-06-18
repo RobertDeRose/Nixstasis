@@ -16,13 +16,18 @@ defmodule NixstasisWeb.Router do
     plug(NixstasisWeb.Plugs.RateLimiter)
   end
 
+  pipeline :json_api do
+    plug(:api)
+    plug(NixstasisWeb.Plugs.JsonApiPermissions)
+  end
+
   pipeline :e2e_api do
     plug(:accepts, ["json"])
     plug(NixstasisWeb.Plugs.E2EEnabled)
   end
 
   scope "/api/json" do
-    pipe_through([:api])
+    pipe_through([:json_api])
 
     forward("/swaggerui", OpenApiSpex.Plug.SwaggerUI,
       path: "/api/json/open_api",
@@ -48,6 +53,8 @@ defmodule NixstasisWeb.Router do
     live("/reports/:id/edit", ReportLive.Index, :edit)
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
+    live("/scripts", ScriptLive.Index, :index)
+    live("/scripts/:id", ScriptLive.Show, :show)
 
     # get "/", PageController, :home
   end

@@ -64,7 +64,7 @@ defmodule NixstasisWeb.Layouts do
     ~H"""
     <div class="drawer-side z-50">
       <label for="drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-      <div class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
+      <div class="menu bg-base-200 text-base-content min-h-full w-fit p-4">
         <div class="mb-8 px-2 flex items-center gap-3">
           <img src={~p"/images/logo.svg"} class="dark:invert" width="40" alt="Nixstasis Logo" />
           <div>
@@ -103,6 +103,14 @@ defmodule NixstasisWeb.Layouts do
               <.icon name="hero-chart-bar" class="size-5" /> Reports
             </.link>
           </li>
+          <li>
+            <.link
+              navigate={~p"/scripts"}
+              class={if String.starts_with?(@current_path, "/scripts"), do: "active"}
+            >
+              <.icon name="hero-document-text" class="size-5" /> Scripts
+            </.link>
+          </li>
         </ul>
 
         <div class="divider"></div>
@@ -123,16 +131,8 @@ defmodule NixstasisWeb.Layouts do
             <.theme_toggle />
           </div>
 
-          <div class="card bg-base-100 shadow-sm p-4 text-sm">
-            <div class="flex justify-between items-center mb-2">
-              <span class="font-semibold">System Status</span>
-              <div class="tooltip" data-tip="System Online">
-                <div class="w-3 h-3 rounded-full bg-success"></div>
-              </div>
-            </div>
-            <div class="text-xs opacity-70">
-              v{Application.spec(:nixstasis, :vsn)}
-            </div>
+          <div class="text-xs opacity-70">
+            v{Application.spec(:nixstasis, :vsn)}
           </div>
         </div>
       </div>
@@ -183,6 +183,15 @@ defmodule NixstasisWeb.Layouts do
             aria-label="Reports"
           >
             <.icon name="hero-chart-bar" class="size-6" />
+          </.link>
+        </li>
+        <li class="tooltip tooltip-top" data-tip="Scripts">
+          <.link
+            navigate={~p"/scripts"}
+            class={if String.starts_with?(@current_path, "/scripts"), do: "active text-primary"}
+            aria-label="Scripts"
+          >
+            <.icon name="hero-document-text" class="size-6" />
           </.link>
         </li>
         <li class="tooltip tooltip-top" data-tip="Settings">

@@ -17,6 +17,7 @@ type commandLog struct {
 	mu       sync.Mutex
 	calls    []capturedCommand
 	isActive bool // controls what systemctl is-active returns
+	failRun  bool
 }
 
 type capturedCommand struct {
@@ -51,6 +52,9 @@ func (cl *commandLog) fakeExec() func(ctx context.Context, command string, args 
 
 		// For systemd-run, succeed and mark as active.
 		if command == systemdRunPath {
+			if cl.failRun {
+				return exec.CommandContext(ctx, "false")
+			}
 			cl.isActive = true
 			return exec.CommandContext(ctx, "true")
 		}
@@ -76,11 +80,14 @@ func setupTest(t *testing.T) (*commandLog, func()) {
 	cl := &commandLog{}
 	origExec := execCommandContext
 	origSys := systemdAvailable
+	origRuntimeDir := frpRuntimeDir
 	execCommandContext = cl.fakeExec()
 	systemdAvailable = func() bool { return true }
+	frpRuntimeDir = t.TempDir()
 	return cl, func() {
 		execCommandContext = origExec
 		systemdAvailable = origSys
+		frpRuntimeDir = origRuntimeDir
 	}
 }
 
@@ -207,7 +214,7 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 		"--unit\x00" + frpcTransientUnit,
 		"--property\x00PrivateTmp=true",
 		"--property\x00Restart=on-failure",
-		"--property\x00LoadCredential=" + frpsAuthTokenCredential + ":",
+		"--property\x00EnvironmentFile=" + frpRuntimeDir + "/" + frpEnvironmentFileName,
 		"--setenv\x00FRPS_SERVER_ADDR=frps.internal",
 		"--setenv\x00FRPS_SERVER_PORT=7001",
 		"--setenv\x00NAME=atom-aabbcc",
@@ -245,6 +252,47 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestStart_WritesAuthTokenEnvironmentFile(t *testing.T) {
+	_, cleanup := setupTest(t)
+	defer cleanup()
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+	cfg := validFRPConfig()
+	cfg.AuthToken = `secret"token\value`
+
+	if err := mgr.Start(configPath, cfg); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(frpRuntimeDir, frpEnvironmentFileName))
+	if err != nil {
+		t.Fatalf("read FRP environment file: %v", err)
+	}
+
+	if got, want := string(data), `FRPS_AUTH_TOKEN="secret\"token\\value"`+"\n"; got != want {
+		t.Fatalf("environment file = %q, want %q", got, want)
+	}
+}
+
+func TestStart_RemovesAuthTokenEnvironmentFileWhenSystemdRunFails(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
+	cl.failRun = true
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+
+	err := mgr.Start(configPath, validFRPConfig())
+	if err == nil || !strings.Contains(err.Error(), "failed to start frpc transient service") {
+		t.Fatalf("expected systemd-run failure, got %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(frpRuntimeDir, frpEnvironmentFileName)); !os.IsNotExist(err) {
+		t.Fatalf("expected environment file to be removed after start failure, got %v", err)
 	}
 }
 
@@ -365,13 +413,16 @@ func TestStart_RejectsInvalidHTTPLocalAddr(t *testing.T) {
 func TestStart_RequiresSystemd(t *testing.T) {
 	origExec := execCommandContext
 	origSys := systemdAvailable
+	origRuntimeDir := frpRuntimeDir
 	defer func() {
 		execCommandContext = origExec
 		systemdAvailable = origSys
+		frpRuntimeDir = origRuntimeDir
 	}()
 	cl := &commandLog{}
 	execCommandContext = cl.fakeExec()
 	systemdAvailable = func() bool { return false }
+	frpRuntimeDir = t.TempDir()
 
 	mgr := NewManager()
 	configPath := writeFRPConfig(t, `test = true`)
@@ -440,6 +491,8 @@ func TestFRPCTemplateEnv(t *testing.T) {
 		"FRPC_WEB_SERVER_PORT": "7401",
 		"FRPC_HTTP_LOCAL_ADDR": "127.0.0.1:8443",
 		"FRPC_SSH_LOCAL_PORT":  "2222",
+		"PCP_NAME":             "atom-aabbcc-pcp",
+		"FRPC_PCP_LOCAL_PORT":  "44321",
 	}
 
 	for key, want := range checks {
@@ -468,6 +521,7 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 		`"{{ .Envs.FRPS_AUTH_TOKEN }}"`,
 		`"{{ .Envs.NAME }}"`,
 		`"{{ .Envs.SSH_NAME }}"`,
+		`"{{ .Envs.PCP_NAME }}"`,
 		`"{{ .Envs.FRPC_WEB_SERVER_ADDR }}"`,
 		`"{{ .Envs.FRPC_HTTP_LOCAL_ADDR }}"`,
 	}
@@ -481,6 +535,7 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 		"{{ .Envs.FRPS_SERVER_PORT }}",
 		"{{ .Envs.FRPC_WEB_SERVER_PORT }}",
 		"{{ .Envs.FRPC_SSH_LOCAL_PORT }}",
+		"{{ .Envs.FRPC_PCP_LOCAL_PORT }}",
 	}
 	for _, want := range unquotedPlaceholders {
 		if !strings.Contains(text, want) {
@@ -493,6 +548,29 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 	}
 	if !strings.Contains(text, "frpc expands") {
 		t.Error("packaged frpc config should document frpc-native expansion")
+	}
+	if strings.Contains(text, "{{ .Envs.* }}") {
+		t.Error("packaged frpc config comments must not include invalid Go template placeholders")
+	}
+}
+
+func TestPackagedSimulatorHTTPAssets(t *testing.T) {
+	unitPath := filepath.Join("..", "..", "build", "root-dir", "lib", "systemd", "system", "nixstasis-simulator-http.service")
+	unit, err := os.ReadFile(unitPath)
+	if err != nil {
+		t.Fatalf("read simulator HTTP unit: %v", err)
+	}
+	if !strings.Contains(string(unit), "/usr/share/nixstasis/simulator-http.sh") {
+		t.Fatalf("simulator HTTP unit should run simulator-http.sh: %s", string(unit))
+	}
+
+	scriptPath := filepath.Join("..", "..", "build", "root-dir", "usr", "share", "nixstasis", "simulator-http.sh")
+	script, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("read simulator HTTP script: %v", err)
+	}
+	if !strings.Contains(string(script), "openssl s_server") {
+		t.Fatalf("simulator HTTP script should use openssl s_server: %s", string(script))
 	}
 }
 

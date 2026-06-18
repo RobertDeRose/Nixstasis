@@ -56,10 +56,14 @@ if config_env() == :prod do
     end
 
   base_domain = Deployment.required_env!("BASE_DOMAIN")
+  ssh_client_frp_host = Deployment.optional_env("NIXSTASIS_SSH_FRP_HOST", "frps")
+  ssh_client_frp_port = Deployment.optional_env("FRPS_TCPMUX_PORT", "2022")
 
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain
+  config :nixstasis, :ssh_client, frp_host: ssh_client_frp_host, frp_port: ssh_client_frp_port
   config :nixstasis, :e2e_enabled?, Deployment.enabled?("NIXSTASIS_E2E_ENABLED", false)
+  config :nixstasis, :local_browser_auth_fallback?, Deployment.enabled?("NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK", false)
   config :nixstasis, :tls_observations_enabled, Deployment.enabled?("NIXSTASIS_TLS_OBSERVATIONS_ENABLED", false)
 
   config :nixstasis, :deployment,

@@ -1,0 +1,16 @@
+[Unit]
+Description=Nixstasis container PCP logger
+Documentation=man:pmlogger(1)
+After=nixstasis-pmcd.service
+Wants=nixstasis-pmcd.service
+
+[Service]
+Type=simple
+User=pcp
+Group=pcp
+ExecStart=/usr/bin/pmlogger -L -P -c /etc/pcp/pmlogger/config.pmstat -l /var/log/pcp/pmlogger/pmlogger.log -t 10s /var/log/pcp/pmlogger/nixstasis
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

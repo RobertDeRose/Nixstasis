@@ -1,0 +1,26 @@
+---
+name: pcp
+version: "1"
+schema:
+  type: object
+  required:
+    - load_1m
+    - cpu_user
+    - memory_used
+    - memory_used_pct
+    - disk_full_pct
+  properties:
+    load_1m:
+      type: number
+    cpu_user:
+      type: number
+    memory_used:
+      type: number
+    memory_used_pct:
+      type: number
+    disk_full_pct:
+      type: number
+---
+
+def main():
+    return json.decode(exec_cmd("pcp-metrics"))

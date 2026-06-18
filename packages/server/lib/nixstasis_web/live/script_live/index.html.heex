@@ -1,0 +1,73 @@
+<div class="p-4">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold">Scripts</h1>
+    <%= if @can_manage do %>
+      <button phx-click="create_script" class="btn btn-sm btn-primary">
+        New Script
+      </button>
+    <% end %>
+  </div>
+
+  <%= if @scripts == [] do %>
+    <div class="text-center py-12 text-base-content/60">
+      <.icon name="hero-document-text" class="size-12 mx-auto mb-4" />
+      <p class="text-lg">No scripts yet</p>
+      <p class="text-sm">Create your first script to get started</p>
+    </div>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Version</th>
+            <th>Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={script <- @scripts} class="hover">
+            <td>
+              <.link navigate={~p"/scripts/#{script.id}"} class="link link-hover font-medium">
+                {script.name}
+              </.link>
+            </td>
+            <td>
+              <span class={"badge #{status_badge_class(script.status)}"}>
+                {script.status}
+              </span>
+            </td>
+            <td>
+              <%= if script.front_matter["version"] do %>
+                {script.front_matter["version"]}
+              <% else %>
+                <span class="text-base-content/40">—</span>
+              <% end %>
+            </td>
+            <td class="text-sm text-base-content/60">
+              {Calendar.strftime(script.updated_at, "%Y-%m-%d %H:%M")}
+            </td>
+            <td>
+              <div class="flex gap-2">
+                <.link navigate={~p"/scripts/#{script.id}"} class="btn btn-xs btn-ghost">
+                  Edit
+                </.link>
+                <%= if @can_manage and script.status != :archived do %>
+                  <button
+                    phx-click="archive_script"
+                    phx-value-id={script.id}
+                    class="btn btn-xs btn-ghost text-error"
+                    data-confirm="Archive this script?"
+                  >
+                    Archive
+                  </button>
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

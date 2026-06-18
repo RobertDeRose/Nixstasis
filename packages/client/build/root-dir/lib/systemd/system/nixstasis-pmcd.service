@@ -1,0 +1,15 @@
+[Unit]
+Description=Nixstasis container PCP collector
+Documentation=man:pmcd(1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'test -s /var/lib/pcp/pmns/root || (cd /var/lib/pcp/pmns && ./Rebuild)'
+ExecStart=/usr/lib/pcp/bin/pmcd -f -A -l /var/log/pcp/pmcd/pmcd.log
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

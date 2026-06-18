@@ -105,7 +105,7 @@ defmodule Nixstasis.MixProject do
         "phx.digest"
       ],
       "openapi.generate": [
-        "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiRouter --filename priv/static/openapi.yaml"
+        "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]

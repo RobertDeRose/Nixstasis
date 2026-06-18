@@ -13,7 +13,9 @@
   <.header>
     Device {@device.mac_address}
     <:subtitle>
-      Account: {@device.account_number} | Product Name: {@device.product_name}
+      <span class="font-bold">Account:</span> {@device.account_number} |
+      <span class="font-bold">Product Name:</span> {@device.product_name} |
+      <span class="font-bold">Last Seen:</span> {@device.last_seen_at || "Never"}
     </:subtitle>
     <:actions>
       <.link navigate={@return_to || ~p"/devices"} class="btn btn-ghost">Back to List</.link>
@@ -21,19 +23,14 @@
   </.header>
 
   <div class="mt-4">
-    <div class="alert alert-info mb-4 justify-between">
-      <span>
-        If PCP or Terminal data becomes unavailable, use Retry Session to reinitialize without leaving this view.
-      </span>
-      <button class="btn btn-xs btn-outline" phx-click="retry_session">Retry Session</button>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class={["grid grid-cols-1 md:grid-cols-3 gap-4", @maximized? && "hidden"]}>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title justify-center">CPU</h2>
           <div
             id="cpu-chart"
             phx-hook="ApexChart"
+            phx-update="ignore"
             data-options={Jason.encode!(@cpu_chart)}
             class="flex justify-center"
           >
@@ -46,6 +43,7 @@
           <div
             id="memory-chart"
             phx-hook="ApexChart"
+            phx-update="ignore"
             data-options={Jason.encode!(@memory_chart)}
             class="flex justify-center"
           >
@@ -58,6 +56,7 @@
           <div
             id="disk-chart"
             phx-hook="ApexChart"
+            phx-update="ignore"
             data-options={Jason.encode!(@disk_chart)}
             class="flex justify-center"
           >
@@ -66,58 +65,122 @@
       </div>
     </div>
 
-    <div class="mt-8">
-      <div role="tablist" class="tabs tabs-lifted">
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "overview" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="overview"
-        >
-          Overview
-        </a>
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "pcp" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="pcp"
-        >
-          PCP Data
-        </a>
-        <a
-          role="tab"
-          class={"tab #{@active_tab == "terminal" && "tab-active"}"}
-          phx-click="change_tab"
-          phx-value-tab="terminal"
-        >
-          Terminal
-        </a>
+    <div id="tab-view" class={if(@maximized?, do: "mt-4", else: "mt-8")}>
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div role="tablist" class="tabs tabs-lifted">
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "pcp" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="pcp"
+          >
+            Performance History
+          </a>
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "terminal" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="terminal"
+          >
+            Remote Terminal
+          </a>
+          <a
+            role="tab"
+            class={"tab #{@active_tab == "overview" && "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="overview"
+          >
+            Cockpit
+          </a>
+        </div>
+        <div class="flex items-center gap-2">
+          <div
+            class="tooltip tooltip-bottom"
+            data-tip="Restart session (reinitializes PCP, terminal, and remote access)"
+          >
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="retry_session"
+              aria-label="Restart session"
+            >
+              <.icon name="fa-arrows-rotate" class="size-4" />
+            </button>
+          </div>
+          <div
+            id="tab-maximize-button"
+            class="tooltip tooltip-bottom"
+            data-tip={if @maximized?, do: "Minimize", else: "Maximize"}
+          >
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="toggle_maximized"
+              aria-label={if @maximized?, do: "Minimize", else: "Maximize"}
+            >
+              <.icon
+                name={
+                  if @maximized?,
+                    do: "fa-down-left-and-up-right-to-center",
+                    else: "fa-up-right-and-down-left-from-center"
+                }
+                class="size-4"
+              />
+            </button>
+          </div>
+          <div class="tooltip tooltip-bottom" data-tip="Fullscreen">
+            <button
+              id="tab-fullscreen-button"
+              phx-hook="Fullscreen"
+              data-fullscreen-target="tab-view"
+              class="btn btn-sm btn-outline"
+              aria-label="Toggle fullscreen"
+            >
+              <.icon name="fa-maximize" class="size-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box">
-        <%= case @active_tab do %>
-          <% "overview" -> %>
-            <h3 class="font-bold">Details</h3>
-            <ul class="list-disc pl-5 mt-2">
-              <li>Remote Access Requested: {@device.remote_access_requested}</li>
-              <li>Last Seen: {@device.last_seen_at || "Never"}</li>
-              <li>Status: {@device.approval_status}</li>
-            </ul>
+      <div
+        id="tab-content-panel"
+        class={[
+          "p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box",
+          if(@maximized?, do: "h-[calc(100vh-10rem)] flex flex-col", else: "")
+        ]}
+      >
+        <section class={if(@active_tab == "overview", do: "block flex-1 min-h-0", else: "hidden")}>
+          <iframe
+            id="cockpit-frame"
+            src={@cockpit_url}
+            title="Cockpit"
+            allow="fullscreen"
+            class={
+              if(@maximized?, do: "h-full w-full border-0 rounded-box", else: "w-full h-[800px] border-0 rounded-box")
+            }
+          >
+          </iframe>
+        </section>
 
-            <div class="mt-4">
-              <a
-                href={@cockpit_url}
-                target="_blank"
-                class="btn btn-primary"
-              >
-                Open Cockpit
-              </a>
-            </div>
-          <% "pcp" -> %>
-            <h3 class="font-bold mb-4">Historical Performance Data</h3>
-            <div id="pcp-chart" phx-hook="ApexChart" data-options={Jason.encode!(@pcp_chart)}></div>
-          <% "terminal" -> %>
-            <%= if @ssh_session_started do %>
+        <section class={if(@active_tab == "pcp", do: "block flex-1 min-h-0", else: "hidden")}>
+          <div
+            id="pcp-chart"
+            phx-hook="ApexChart"
+            phx-update="ignore"
+            data-options={Jason.encode!(@pcp_chart)}
+            data-active={if(@active_tab == "pcp", do: "true", else: "false")}
+            class={if(@maximized?, do: "h-full", else: "min-h-[600px]")}
+          >
+          </div>
+        </section>
+
+        <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
+          <%= if @ssh_session_started or @terminal_closed? do %>
+            <div
+              id="tab-terminal-wrapper"
+              class={[
+                "bg-black text-white p-4 overflow-hidden rounded-lg min-h-0",
+                if(@maximized?, do: "flex-1", else: "h-[560px]")
+              ]}
+            >
               <div
                 id="terminal-container"
                 phx-update="ignore"
@@ -125,22 +188,40 @@
                 data-device-id={@device.id}
                 data-token={@ssh_token}
                 data-socket-token={@terminal_socket_token}
-                class="bg-black text-white p-4 font-mono h-[400px] overflow-hidden rounded-lg relative"
+                data-command-id={@ssh_authorize_command_id}
+                data-active={if(@active_tab == "terminal", do: "true", else: "false")}
+                data-closed={if(@terminal_closed?, do: "true", else: "false")}
+                class="h-full min-h-0 overflow-hidden font-mono relative"
               >
-                <div class="text-gray-500">Connecting to SSH session...</div>
+                <div class="text-gray-500">
+                  <%= if @terminal_closed? do %>
+                    Terminal session ended. Start a new session to reconnect.
+                  <% else %>
+                    Connecting to SSH session...
+                  <% end %>
+                </div>
               </div>
-            <% else %>
-              <div class="flex flex-col items-center justify-center h-[400px] bg-base-200 rounded-lg">
-                <p class="mb-4 text-lg">Start a secure remote access session with this device.</p>
-                <button class="btn btn-primary" phx-click="start_ssh_session">
-                  Start Remote Session
-                </button>
-                <p class="mt-2 text-sm text-gray-500">
-                  This will generate a temporary SSH key and authorize it on the device.
-                </p>
-              </div>
-            <% end %>
-        <% end %>
+            </div>
+            <div :if={@terminal_closed?} class="mt-4">
+              <p class="text-sm text-base-content/70">
+                Terminal session ended. Start a new session to reconnect.
+              </p>
+            </div>
+          <% else %>
+            <div
+              id="tab-terminal-wrapper"
+              class={[
+                "flex flex-col items-center justify-center bg-base-200 rounded-lg min-h-0",
+                if(@maximized?, do: "flex-1", else: "h-[560px]")
+              ]}
+            >
+              <p class="text-lg">Opening remote session...</p>
+              <p class="mt-2 text-sm text-base-content/60">
+                Waiting for device authorization...
+              </p>
+            </div>
+          <% end %>
+        </section>
       </div>
     </div>
   </div>

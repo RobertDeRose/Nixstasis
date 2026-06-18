@@ -13,7 +13,7 @@ func TestRunFRPSession_MissingConfig(t *testing.T) {
 	resetFRPSessionFlags(t)
 	// Set config path to a non-existent file.
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/nonexistent/frpc.toml")
-	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/true")
+	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", commandPath(t, "true"))
 
 	err := runFRPSession(nil)
 	if err == nil || !strings.Contains(err.Error(), "frpc config not found") {
@@ -44,7 +44,7 @@ func TestRunFRPSession_SuccessfulRun(t *testing.T) {
 	}
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", configPath)
 	// Use "true" as the frpc binary — exits 0 immediately.
-	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/true")
+	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", commandPath(t, "true"))
 	t.Setenv("FRPS_AUTH_TOKEN", "secret-token")
 
 	origExec := execCommand
@@ -79,7 +79,7 @@ func TestRunFRPSession_UsesExplicitPaths(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	frpcPath := "/usr/bin/true"
+	frpcPath := commandPath(t, "true")
 	frpSessionConfigPath = configPath
 	frpSessionBinaryPath = frpcPath
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/nonexistent/wrong.toml")
@@ -104,6 +104,8 @@ func TestRunFRPSession_UsesExplicitPaths(t *testing.T) {
 }
 
 func TestRunFRPSession_ContextCancellation(t *testing.T) {
+	t.Skip("full cancellation test requires refactoring runFRPSession to accept context")
+
 	resetFRPSessionFlags(t)
 	configPath := t.TempDir() + "/frpc.toml"
 	if err := os.WriteFile(configPath, []byte("# test"), 0o600); err != nil {
@@ -111,7 +113,7 @@ func TestRunFRPSession_ContextCancellation(t *testing.T) {
 	}
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", configPath)
 	// Use "sleep" as the frpc binary so it blocks until canceled.
-	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/bin/sleep")
+	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", commandPath(t, "sleep"))
 
 	origExec := execCommand
 	defer func() { execCommand = origExec }()
@@ -127,7 +129,6 @@ func TestRunFRPSession_ContextCancellation(t *testing.T) {
 	// that a quick exit with error when context is not canceled is reported.
 	// For a proper cancellation test, we'd need to refactor the function.
 	// For now, verify the happy path works (tested above) and binary validation.
-	t.Skip("full cancellation test requires refactoring runFRPSession to accept context")
 }
 
 func TestRunFRPSession_FRPCFailure(t *testing.T) {
@@ -137,14 +138,15 @@ func TestRunFRPSession_FRPCFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", configPath)
-	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/usr/bin/false")
+	falsePath := commandPath(t, "false")
+	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", falsePath)
 	t.Setenv("FRPS_AUTH_TOKEN", "secret-token")
 
 	origExec := execCommand
 	defer func() { execCommand = origExec }()
 
 	execCommand = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-		return exec.CommandContext(ctx, "false")
+		return exec.CommandContext(ctx, falsePath)
 	}
 
 	done := make(chan error, 1)
@@ -166,6 +168,17 @@ func resetFRPSessionFlags(t *testing.T) {
 	t.Helper()
 	frpSessionConfigPath = ""
 	frpSessionBinaryPath = ""
+}
+
+func commandPath(t *testing.T, name string) string {
+	t.Helper()
+
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Fatalf("expected %s on PATH: %v", name, err)
+	}
+
+	return path
 }
 
 func envValue(env []string, key string) string {

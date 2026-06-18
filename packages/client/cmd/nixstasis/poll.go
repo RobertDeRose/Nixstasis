@@ -19,6 +19,7 @@ import (
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/frp"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/identity"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/script"
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/telemetry"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/transport"
 )
@@ -72,7 +73,13 @@ func runPoll(cfg *config.Config) error {
 		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
 	})
 	frpManager := frp.NewManager()
-	cmdHandler := commands.NewHandlerWithAuthorizedKeys(cfg.Scripts.Dir, cfg.Runtime.AuthorizedKeysPath)
+	sshAuthStore := sshauth.NewStore()
+	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
+	if err := sshAuthServer.Start(ctx); err != nil {
+		return fmt.Errorf("start ssh authorization server: %w", err)
+	}
+	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
+	cmdHandler := commands.NewHandlerWithSSHAuth(cfg.Scripts.Dir, sshAuthStore)
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)
@@ -243,21 +250,21 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, execut
 		remoteAccessTokenHash := tokenHash(resp.RemoteAccessToken)
 		switch {
 		case !currentFRPStatus.Active:
-			startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
 		case state != nil && state.tokenHash != "" && state.tokenHash != remoteAccessTokenHash:
 			slog.Info("Server remote access token changed, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
 				state.tokenHash = ""
-				startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
 			}
 		case state != nil && state.tokenHash == "":
 			slog.Info("Server remote access token state unknown, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
-				startFRP(frpManager, cfg, mac, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
 			}
 		}
 	default:
@@ -276,10 +283,10 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, execut
 	return nil
 }
 
-func startFRP(frpManager frpController, cfg *config.Config, mac, authToken, authTokenHash string, state *remoteAccessPollState) {
+func startFRP(frpManager frpController, cfg *config.Config, uuid, authToken, authTokenHash string, state *remoteAccessPollState) {
 	slog.Info("Server requested remote access, starting FRP")
 	configPath := config.FRPCConfigPath()
-	frpConfig := runtimeFRPConfig(cfg.FRP, mac)
+	frpConfig := runtimeFRPConfig(cfg.FRP, uuid)
 	frpConfig.AuthToken = authToken
 	if err := frpManager.Start(configPath, frpConfig); err != nil {
 		slog.Error("Failed to start FRP", "error", err)
@@ -295,11 +302,11 @@ func tokenHash(token string) string {
 	return fmt.Sprintf("%x", sum[:])
 }
 
-func runtimeFRPConfig(base config.FRPConfig, mac string) config.FRPConfig {
+func runtimeFRPConfig(base config.FRPConfig, uuid string) config.FRPConfig {
 	frpConfig := base
 	frpConfig.AuthToken = ""
 	if frpConfig.Name == "" {
-		frpConfig.Name = identity.GenerateDeviceName(mac)
+		frpConfig.Name = identity.GenerateDeviceName(uuid)
 	}
 	return frpConfig
 }

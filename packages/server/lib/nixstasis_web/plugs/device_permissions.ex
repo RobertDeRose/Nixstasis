@@ -1,13 +1,14 @@
 defmodule NixstasisWeb.Plugs.DevicePermissions do
   @moduledoc """
-  Populates `device_permissions` in the session for device authorization.
+  Populates browser session permissions for LiveView authorization.
 
-  When an authentication system is added, this plug should read the
-  authenticated user/role and derive scoped permissions. Until then,
-  all requests receive full device permissions.
+  Production Caddy/AuthCrunch requests are mapped from trusted forwarded claims.
+  Requests without AuthCrunch claim headers keep permissive local-development
+  defaults.
   """
 
   import Plug.Conn
+  require Logger
 
   @behaviour Plug
 
@@ -16,19 +17,37 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
 
   @impl true
   def call(conn, _opts) do
-    case get_session(conn, "device_permissions") do
-      permissions when is_map(permissions) ->
+    case NixstasisWeb.OperatorContext.from_conn(conn) do
+      {:ok, operator_context} ->
         conn
+        |> put_session(
+          "operator_context",
+          Map.drop(operator_context, ["device_permissions", "report_permissions", "script_permissions"])
+        )
+        |> put_permissions(operator_context)
 
-      _ ->
-        put_session(conn, "device_permissions", default_permissions())
+      :error ->
+        Logger.warning("Browser request did not resolve to valid Nixstasis operator permissions")
+
+        conn
+        |> put_session("operator_context", %{"authcrunch_claim_error" => true})
+        |> put_permissions(NixstasisWeb.OperatorContext.fail_closed_permissions())
+
+      :local_development ->
+        put_default_permissions(conn)
     end
   end
 
-  defp default_permissions do
-    %{
-      "can_view" => true,
-      "can_remote_access" => true
-    }
+  defp put_default_permissions(conn) do
+    Enum.reduce(NixstasisWeb.OperatorContext.local_development_permissions(), conn, fn {key, defaults}, conn ->
+      case get_session(conn, key) do
+        permissions when is_map(permissions) -> conn
+        _ -> put_session(conn, key, defaults)
+      end
+    end)
+  end
+
+  defp put_permissions(conn, permissions) do
+    Enum.reduce(permissions, conn, fn {key, value}, conn -> put_session(conn, key, value) end)
   end
 end

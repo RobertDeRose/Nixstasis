@@ -184,33 +184,31 @@ defmodule Nixstasis.Monitoring do
     email = normalize_notification_target(Map.get(settings, "email"))
     webhook_url = normalize_notification_target(Map.get(settings, "webhook_url"))
 
-    [
-      {:email, email, fn -> Email.send_alert_email(email, alert) end},
-      {:webhook, webhook_url, fn -> Webhook.send_alert_webhook(webhook_url, alert) end}
-    ]
-    |> Enum.each(fn
-      {_type, nil, _callback} -> :ok
-      {type, _target, callback} -> spawn_notification_task(type, alert, callback)
+    notify_alert_target(:email, email, alert, fn -> email_notifier().send_alert_email(email, alert) end)
+
+    notify_alert_target(:webhook, webhook_url, alert, fn ->
+      webhook_notifier().send_alert_webhook(webhook_url, alert)
     end)
   end
 
-  defp spawn_notification_task(type, %Alert{} = alert, callback) when is_function(callback, 0) do
-    Task.start(fn ->
-      try do
-        case callback.() do
-          {:ok, _result} -> :ok
-          :ok -> :ok
-          {:error, reason} -> log_notification_failure(type, alert, reason)
-          other -> log_notification_failure(type, alert, other)
-        end
-      rescue
-        exception -> log_notification_failure(type, alert, Exception.message(exception))
-      catch
-        kind, reason -> log_notification_failure(type, alert, {kind, reason})
-      end
-    end)
+  defp notify_alert_target(_type, nil, _alert, _callback), do: :ok
 
+  defp notify_alert_target(type, _target, %Alert{} = alert, callback) when is_function(callback, 0) do
+    Task.start(fn -> deliver_alert_notification(type, alert, callback) end)
     :ok
+  end
+
+  defp deliver_alert_notification(type, %Alert{} = alert, callback) when is_function(callback, 0) do
+    case callback.() do
+      {:ok, _result} -> :ok
+      :ok -> :ok
+      {:error, reason} -> log_notification_failure(type, alert, reason)
+      other -> log_notification_failure(type, alert, other)
+    end
+  rescue
+    exception -> log_notification_failure(type, alert, Exception.message(exception))
+  catch
+    kind, reason -> log_notification_failure(type, alert, {kind, reason})
   end
 
   defp log_notification_failure(type, %Alert{} = alert, reason) do
@@ -229,6 +227,21 @@ defmodule Nixstasis.Monitoring do
   end
 
   defp normalize_notification_target(_value), do: nil
+
+  defp email_notifier do
+    notifier_module(:email_notifier, Email)
+  end
+
+  defp webhook_notifier do
+    notifier_module(:webhook_notifier, Webhook)
+  end
+
+  defp notifier_module(config_key, default) do
+    case Application.get_env(:nixstasis, config_key, default) do
+      {module, _opts} -> module
+      module -> module
+    end
+  end
 
   defp broadcast_alert_created(%Alert{} = alert) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "alerts", {:alert_created, alert})

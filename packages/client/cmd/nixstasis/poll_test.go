@@ -152,7 +152,7 @@ func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) 
 		SSHLocalPort:  2222,
 	}
 
-	got := runtimeFRPConfig(base, "aa:bb:cc:dd:ee:ff")
+	got := runtimeFRPConfig(base, "11111111-2222-3333-4444-555555555555")
 
 	if got.Name != "configured-name" {
 		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
@@ -169,7 +169,7 @@ func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) 
 }
 
 func TestPollResponseTokenOverridesRuntimeFRPAuthToken(t *testing.T) {
-	frpConfig := runtimeFRPConfig(config.FRPConfig{AuthToken: ""}, "aa:bb:cc:dd:ee:ff")
+	frpConfig := runtimeFRPConfig(config.FRPConfig{AuthToken: ""}, "11111111-2222-3333-4444-555555555555")
 	frpConfig.AuthToken = "heartbeat-token"
 
 	if frpConfig.AuthToken != "heartbeat-token" {
@@ -306,12 +306,12 @@ func TestPollOnceRestartsActiveFRPWhenTokenStateUnknown(t *testing.T) {
 	}
 }
 
-func TestRuntimeFRPConfigFallsBackToGeneratedDeviceNameOnly(t *testing.T) {
+func TestRuntimeFRPConfigFallsBackToGeneratedDeviceIDNameOnly(t *testing.T) {
 	base := config.FRPConfig{}
-	mac := "aa:bb:cc:dd:ee:ff"
+	uuid := "11111111-2222-3333-4444-555555555555"
 
-	got := runtimeFRPConfig(base, mac)
-	want := identity.GenerateDeviceName(mac)
+	got := runtimeFRPConfig(base, uuid)
+	want := identity.GenerateDeviceName(uuid)
 
 	if got.Name != want {
 		t.Fatalf("runtimeFRPConfig() name = %q, want %q", got.Name, want)

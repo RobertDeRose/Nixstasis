@@ -2,6 +2,8 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   use NixstasisWeb.ConnCase
 
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
+  alias Nixstasis.Scripts
 
   setup do
     {:ok, device} =
@@ -59,6 +61,54 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
 
     conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+  end
+
+  test "POST /api/v1/devices/:device_id/command_results completes script test runs", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "result-script",
+        front_matter: %{"name" => "result-script", "schema" => %{"type" => "object"}},
+        body: "def main():\n    return {}\n"
+      })
+
+    {:ok, version} =
+      Domain.create_script_version(%{
+        script_draft_id: draft.id,
+        version: "1",
+        status: :candidate,
+        front_matter: draft.front_matter,
+        body: draft.body,
+        rendered_content: Scripts.render_draft(draft)
+      })
+
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    %{id: command_id} =
+      device
+      |> Devices.pop_pending_commands()
+      |> Enum.find(&(&1.command_payload["type"] == "run_script"))
+
+    payload = %{
+      "results" => [
+        %{
+          "command_id" => command_id,
+          "status" => "OK",
+          "output" => %{"status" => "passed", "validation" => "valid"}
+        }
+      ]
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+
+    completed = Domain.list_script_test_runs() |> elem(1) |> Enum.find(&(&1.id == run.id))
+    assert completed.status == :passed
+    assert completed.completed_at
   end
 
   test "POST /api/v1/devices/:device_id/command_results rejects missing token", %{conn: conn, device: device} do

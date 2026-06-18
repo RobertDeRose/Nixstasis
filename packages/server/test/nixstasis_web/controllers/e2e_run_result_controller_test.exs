@@ -1,6 +1,8 @@
 defmodule NixstasisWeb.E2ERunResultControllerTest do
   use NixstasisWeb.ConnCase
 
+  import ExUnit.CaptureLog
+
   alias Nixstasis.E2E
   alias Nixstasis.E2E.LogStore
 
@@ -145,7 +147,9 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/e2e/runs/run-123/results", payload)
+    {conn, log} = with_log(fn -> post(conn, ~p"/e2e/runs/run-123/results", payload) end)
+
+    assert log =~ "Failed to update E2E results for run run-123"
 
     assert %{"error" => %{"code" => "database_error", "message" => "Failed to update results."} = error} =
              response = json_response(conn, 422)
