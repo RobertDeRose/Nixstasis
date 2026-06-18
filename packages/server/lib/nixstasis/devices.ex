@@ -712,6 +712,17 @@ defmodule Nixstasis.Devices do
 
   def command_succeeded?(_device_id, _command_id), do: false
 
+  def command_payload_for_result(%Device{} = device, result) when is_map(result) do
+    command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
+
+    case fetch_pending_command(device.id, command_id) do
+      %{command_payload: %{} = payload} -> {:ok, payload}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def command_payload_for_result(_device, _result), do: {:error, :not_found}
+
   @doc """
   Queues a best-effort `ssh_revoke` command so the client can drop the in-memory
   authorization for the given terminal session. Returns `:ok` even when the

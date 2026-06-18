@@ -2,6 +2,8 @@
    https://tailwindcss.com/docs/configuration */
 
 @import "../vendor/xterm.css";
+@import "../vendor/codemirror.min.css";
+@import "../vendor/material-darker.min.css";
 
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;600;700&display=swap');
@@ -231,4 +233,101 @@
   }
 }
 
-/* This file is for your main application CSS */
+/* CodeMirror base overrides — structural only; syntax colors come from the active theme */
+.CodeMirror {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  height: auto;
+  min-height: 120px;
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+}
+
+.CodeMirror-gutters {
+  background: var(--color-base-200);
+  border-right: 1px solid var(--color-base-300);
+}
+
+.CodeMirror-linenumber {
+  color: var(--color-base-content);
+  opacity: 0.5;
+}
+
+.CodeMirror-cursor {
+  border-left-color: var(--color-primary);
+}
+
+.CodeMirror-selected {
+  background: var(--color-primary) !important;
+  opacity: 0.2;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+  background: var(--color-primary) !important;
+  opacity: 0.3;
+}
+
+.CodeMirror-activeline-background {
+  background: var(--color-base-200);
+}
+
+.CodeMirror-matchingbracket {
+  color: var(--color-success) !important;
+  font-weight: bold;
+}
+
+/* Ensure material-darker theme background blends with daisyUI */
+.cm-s-material-darker.CodeMirror {
+  background: var(--color-base-100);
+}
+
+.cm-s-material-darker .CodeMirror-gutters {
+  background: var(--color-base-200);
+  border-right: 1px solid var(--color-base-300);
+}
+
+.cm-s-material-darker .CodeMirror-linenumber {
+  color: var(--color-base-content);
+  opacity: 0.5;
+}
+
+.cm-s-material-darker .CodeMirror-cursor {
+  border-left-color: var(--color-primary);
+}
+
+.cm-s-material-darker .CodeMirror-selected {
+  background: var(--color-primary) !important;
+  opacity: 0.2;
+}
+
+.cm-s-material-darker.CodeMirror-focused .CodeMirror-selected {
+  background: var(--color-primary) !important;
+  opacity: 0.3;
+}
+
+.cm-s-material-darker .CodeMirror-activeline-background {
+  background: var(--color-base-200);
+}
+
+.cm-s-material-darker .CodeMirror-matchingbracket {
+  color: var(--color-success) !important;
+  font-weight: bold;
+}
+
+/* CodeMirror readonly styling */
+.cm-readonly .CodeMirror {
+  opacity: 0.85;
+  cursor: default;
+}
+
+/* Schema field tree nesting */
+.schema-field-children {
+  position: relative;
+}
+
+.schema-field-children .schema-field-row > div:first-child {
+  border-left-color: transparent;
+}
+
+/* Ensure nested selects don't overflow */

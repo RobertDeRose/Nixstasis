@@ -1,261 +1,422 @@
-<div class="p-4 max-w-6xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <.link navigate={~p"/scripts"} class="text-sm text-base-content/60 hover:text-base-content">
-          ← Scripts
-        </.link>
-        <h1 class="text-2xl font-bold mt-1">{@draft.name}</h1>
-        <span class={"badge #{status_badge_class(@draft.status)} mt-2"}>{@draft.status}</span>
-      </div>
-    </div>
+<.header>
+  {@draft.name}
+  <:subtitle>
+    <span class={"badge #{status_badge_class(@draft.status)}"}>{@draft.status}</span>
+  </:subtitle>
+  <:actions>
+    <.link navigate={~p"/scripts"} class="btn btn-ghost btn-sm">
+      <.icon name="hero-arrow-left" class="size-4" /> Back to Scripts
+    </.link>
+  </:actions>
+</.header>
 
-    <div role="tablist" class="tabs tabs-boxed mb-6">
-      <button
-        role="tab"
-        class={"tab #{@active_tab == "editor" && "tab-active"}"}
-        phx-click="set_tab"
-        phx-value-tab="editor"
-      >
-        Editor
-      </button>
-      <button
-        role="tab"
-        class={"tab #{@active_tab == "validate" && "tab-active"}"}
-        phx-click="set_tab"
-        phx-value-tab="validate"
-      >
-        Validate
-      </button>
-      <button
-        role="tab"
-        class={"tab #{@active_tab == "test" && "tab-active"}"}
-        phx-click="set_tab"
-        phx-value-tab="test"
-      >
-        Test
-      </button>
-      <button
-        role="tab"
-        class={"tab #{@active_tab == "deploy" && "tab-active"}"}
-        phx-click="set_tab"
-        phx-value-tab="deploy"
-      >
-        Deploy
-      </button>
-      <button
-        role="tab"
-        class={"tab #{@active_tab == "history" && "tab-active"}"}
-        phx-click="set_tab"
-        phx-value-tab="history"
-      >
-        History
-      </button>
-    </div>
+<div role="tablist" class="tabs tabs-lifted mt-2">
+  <button
+    id="script-tab-editor"
+    role="tab"
+    class={"tab #{@active_tab == "editor" && "tab-active"}"}
+    aria-selected={@active_tab == "editor"}
+    aria-controls="script-tabpanel-editor"
+    phx-click="set_tab"
+    phx-value-tab="editor"
+  >
+    Editor
+  </button>
+  <button
+    id="script-tab-validate"
+    role="tab"
+    class={"tab #{@active_tab == "validate" && "tab-active"}"}
+    aria-selected={@active_tab == "validate"}
+    aria-controls="script-tabpanel-validate"
+    phx-click="set_tab"
+    phx-value-tab="validate"
+  >
+    Validate
+  </button>
+  <button
+    id="script-tab-test"
+    role="tab"
+    class={"tab #{@active_tab == "test" && "tab-active"}"}
+    aria-selected={@active_tab == "test"}
+    aria-controls="script-tabpanel-test"
+    phx-click="set_tab"
+    phx-value-tab="test"
+  >
+    Test
+  </button>
+  <button
+    :if={deploy_ready?(@front_matter_yaml, @versions, @test_runs)}
+    id="script-tab-deploy"
+    role="tab"
+    class={"tab #{@active_tab == "deploy" && "tab-active"}"}
+    aria-selected={@active_tab == "deploy"}
+    aria-controls="script-tabpanel-deploy"
+    phx-click="set_tab"
+    phx-value-tab="deploy"
+  >
+    Deploy
+  </button>
+  <button
+    id="script-tab-history"
+    role="tab"
+    class={"tab #{@active_tab == "history" && "tab-active"}"}
+    aria-selected={@active_tab == "history"}
+    aria-controls="script-tabpanel-history"
+    phx-click="set_tab"
+    phx-value-tab="history"
+  >
+    History
+  </button>
+</div>
 
-    <%= if @active_tab == "editor" do %>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box">
+  <%= if @active_tab == "editor" do %>
+    <div id="script-tabpanel-editor" role="tabpanel" aria-labelledby="script-tab-editor" class="space-y-6">
+      <%!-- Script metadata --%>
+      <div class="grid grid-cols-2 gap-4">
         <div>
-          <h2 class="text-lg font-semibold mb-3">Front Matter</h2>
-          <.form for={%{}} as={:front_matter} phx-submit="update_front_matter" class="space-y-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">Name</span></label>
-              <input type="text" name="front_matter[name]" value={@front_matter_yaml["name"]} class="input input-bordered" />
+          <label class="block text-xs text-base-content/70 mb-1">Script Name</label>
+          <input
+            type="text"
+            value={@front_matter_yaml["name"]}
+            placeholder="e.g. hello_world"
+            phx-blur="update_front_matter_field"
+            phx-value-key="name"
+            class="input input-sm input-bordered w-full"
+          />
+        </div>
+        <div>
+          <label class="block text-xs text-base-content/70 mb-1">Version</label>
+          <input
+            type="text"
+            value={@front_matter_yaml["version"]}
+            placeholder="e.g. 1.0.0"
+            phx-blur="update_front_matter_field"
+            phx-value-key="version"
+            class="input input-sm input-bordered w-full"
+          />
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <details
+        id="front-matter-section"
+        open={if @front_matter_open, do: "open", else: nil}
+        class="collapse collapse-arrow bg-base-200 border border-base-300"
+      >
+        <summary class="collapse-title text-sm font-semibold" phx-click="toggle_front_matter">Front Matter</summary>
+        <%= if @front_matter_open do %>
+          <div class="collapse-content">
+            <div role="tablist" class="tabs tabs-lift">
+              <label class="tab">
+                <input
+                  id="front-matter-tab-preview"
+                  type="radio"
+                  name="front-matter-tabs"
+                  checked={@front_matter_tab == "preview"}
+                  phx-click="set_front_matter_tab"
+                  phx-value-tab="preview"
+                  aria-controls="front-matter-preview"
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="size-4 me-2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.75 9.75c0 .62.56 1.125 1.25 1.125h.013c.691 0 1.251-.505 1.251-1.125 0-.621-.56-1.126-1.252-1.126S3.75 9.129 3.75 9.75Zm.25 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm6-3.75a2.25 2.25 0 0 1 4.5 0M2.25 12s3.75-6.75 9.75-6.75 9.75 6.75 9.75 6.75-3.75 6.75-9.75 6.75S2.25 12 2.25 12Zm9.75 4.5A4.5 4.5 0 1 0 10.5 7.5a4.5 4.5 0 0 0 1.5 8.5"
+                  />
+                </svg>
+                Preview
+              </label>
+              <div
+                id="front-matter-preview"
+                role="tabpanel"
+                class="tab-content bg-base-100 border-base-300 p-3"
+                aria-labelledby="front-matter-tab-preview"
+              >
+                <textarea
+                  id="front-matter-editor"
+                  phx-hook="CodeMirror"
+                  phx-update="ignore"
+                  data-mode="yaml"
+                  data-readonly="true"
+                  class="textarea textarea-bordered w-full min-h-[220px]"
+                >{@front_matter_yaml |> render_yaml_string()}</textarea>
+              </div>
+
+              <label class="tab">
+                <input
+                  id="front-matter-tab-schema"
+                  type="radio"
+                  name="front-matter-tabs"
+                  checked={@front_matter_tab == "schema"}
+                  phx-click="set_front_matter_tab"
+                  phx-value-tab="schema"
+                  aria-controls="front-matter-schema"
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="size-4 me-2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" /><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6 11.25l4.5 4.5L18 8.25"
+                  />
+                </svg>
+                Schema Editor
+              </label>
+              <div
+                id="front-matter-schema"
+                role="tabpanel"
+                class="tab-content bg-base-100 border-base-300 p-3"
+                aria-labelledby="front-matter-tab-schema"
+              >
+                <div data-schema-section="fields">
+                  <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold">Schema Fields</h2>
+                    <button
+                      id="schema-add-field"
+                      type="button"
+                      phx-click="add_schema_field"
+                      class="btn btn-sm"
+                    >
+                      + Add Field
+                    </button>
+                  </div>
+
+                  <form id="schema-fields-form" phx-change="update_schema_field">
+                    <div class="space-y-3">
+                      <%= for field <- @schema_fields do %>
+                        <.schema_field field={field} parent_path={:root} errors={@schema_field_errors} />
+                      <% end %>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Version</span></label>
-              <input type="text" name="front_matter[version]" value={@front_matter_yaml["version"] || ""} class="input input-bordered" placeholder="e.g. 1.0.0" />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Schema (YAML)</span></label>
-              <textarea name="front_matter[schema]" class="textarea textarea-bordered font-mono text-sm" rows="4">{@front_matter_yaml["schema"] |> Jason.encode!()}</textarea>
-            </div>
-            <button type="submit" class="btn btn-sm btn-primary">Save Front Matter</button>
-          </.form>
+          </div>
+        <% end %>
+      </details>
+
+      <%!-- Script body editor --%>
+      <.form for={%{}} as={:editor} phx-submit="update_body">
+        <div class="form-control">
+          <label class="label"><span class="label-text">Script Content</span></label>
+          <textarea
+            id="script-body-editor"
+            name="body"
+            phx-hook="CodeMirror"
+            phx-update="ignore"
+            data-mode="python"
+            class="textarea font-mono text-sm min-h-[300px]"
+          >{@body}</textarea>
         </div>
 
-        <div>
-          <h2 class="text-lg font-semibold mb-3">Script Body</h2>
-          <.form for={%{}} as={:editor} phx-submit="update_body" class="h-full flex flex-col">
-            <textarea
-              name="body"
-              class="textarea textarea-bordered font-mono text-sm flex-1 min-h-[400px]"
-              phx-debounce="500"
-            >{@body}</textarea>
-            <button type="submit" class="btn btn-sm btn-primary mt-3 self-start">Save Body</button>
-          </.form>
-        </div>
-      </div>
-
-      <div class="mt-6">
-        <h2 class="text-lg font-semibold mb-3">Rendered Preview</h2>
-        <pre class="bg-base-200 p-4 rounded-lg text-sm font-mono overflow-x-auto"><code>{@rendered}</code></pre>
-      </div>
-    <% end %>
-
-    <%= if @active_tab == "validate" do %>
-      <div class="space-y-4">
-        <div class="flex items-center gap-4">
-          <button phx-click="validate_script" class="btn btn-primary">
-            Run Validation
+        <div class="mt-2">
+          <button type="submit" class="btn btn-sm btn-primary">
+            Save Script
           </button>
-          <%= if @validation_result do %>
-            <%= if @validation_result.status == :passed do %>
-              <div class="alert alert-success">
-                <.icon name="hero-check-circle" class="size-5" />
-                <span>Validation passed</span>
-              </div>
-            <% else %>
-              <div class="alert alert-error">
-                <.icon name="hero-x-circle" class="size-5" />
-                <span>{@validation_result.reason}</span>
-              </div>
-            <% end %>
-          <% end %>
         </div>
+      </.form>
+    </div>
+  <% end %>
 
-        <%= if @validation_runs != [] do %>
-          <h3 class="text-md font-semibold mt-6">Validation History</h3>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Validated At</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={run <- @validation_runs}>
-                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
-                  <td class="text-sm">{Calendar.strftime(run.validated_at, "%Y-%m-%d %H:%M")}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
-
-    <%= if @active_tab == "test" do %>
-      <div class="space-y-4">
-        <div>
-          <h2 class="text-lg font-semibold mb-3">Select Devices</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
-              <input
-                type="checkbox"
-                class="checkbox checkbox-sm"
-                checked={device.id in @selected_device_ids}
-                phx-click="toggle_device"
-                phx-value-device_id={device.id}
-              />
-              <span class="text-sm">{device.product_name || device.mac_address}</span>
-            </label>
-          </div>
-        </div>
-
-        <button phx-click="queue_test" class="btn btn-primary" disabled={@selected_device_ids == []}>
-          Queue Test Run
+  <%= if @active_tab == "validate" do %>
+    <div id="script-tabpanel-validate" role="tabpanel" aria-labelledby="script-tab-validate" class="space-y-4">
+      <div class="flex items-center gap-4">
+        <button phx-click="validate_script" class="btn btn-primary">
+          <.icon name="hero-play" class="size-4" /> Run Validation
         </button>
-
-        <%= if @test_runs != [] do %>
-          <h3 class="text-md font-semibold mt-6">Test Runs</h3>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Targets</th>
-                  <th>Started</th>
-                  <th>Completed</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={run <- @test_runs}>
-                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
-                  <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
-                  <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
-                  <td class="text-sm">{if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
-
-    <%= if @active_tab == "deploy" do %>
-      <div class="space-y-4">
-        <div>
-          <h2 class="text-lg font-semibold mb-3">Select Devices</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
-              <input
-                type="checkbox"
-                class="checkbox checkbox-sm"
-                checked={device.id in @selected_device_ids}
-                phx-click="toggle_device"
-                phx-value-device_id={device.id}
-              />
-              <span class="text-sm">{device.product_name || device.mac_address}</span>
-            </label>
-          </div>
-        </div>
-
-        <button phx-click="queue_deployment" class="btn btn-warning" disabled={@selected_device_ids == []}>
-          Deploy to Selected Devices
-        </button>
-
-        <%= if @deployment_runs != [] do %>
-          <h3 class="text-md font-semibold mt-6">Deployment History</h3>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Targets</th>
-                  <th>Started</th>
-                  <th>Completed</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={run <- @deployment_runs}>
-                  <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
-                  <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
-                  <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
-                  <td class="text-sm">{if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
-
-    <%= if @active_tab == "history" do %>
-      <div class="space-y-6">
-        <div>
-          <h2 class="text-lg font-semibold mb-3">Versions</h2>
-          <%= if @versions == [] do %>
-            <p class="text-sm text-base-content/60">No versions created yet</p>
+        <%= if @validation_result do %>
+          <%= if @validation_result.status == :passed do %>
+            <div class="alert alert-success">
+              <.icon name="hero-check-circle" class="size-5" />
+              <span>Validation passed</span>
+            </div>
           <% else %>
-            <div class="overflow-x-auto">
-              <table class="table table-sm">
-                <thead>
-                  <tr>
-                    <th>Version</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr :for={v <- @versions}>
-                    <td class="font-mono">{v.version}</td>
-                    <td><span class={"badge #{status_badge_class(v.status)}"}>{v.status}</span></td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="alert alert-error">
+              <.icon name="hero-x-circle" class="size-5" />
+              <span>{@validation_result.reason}</span>
             </div>
           <% end %>
+        <% end %>
+      </div>
+
+      <%= if @validation_runs != [] do %>
+        <h3 class="text-sm font-semibold mt-6">Validation History</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Validated At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={run <- @validation_runs}>
+                <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                <td class="text-sm">{Calendar.strftime(run.validated_at, "%Y-%m-%d %H:%M")}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= if @active_tab == "test" do %>
+    <div id="script-tabpanel-test" role="tabpanel" aria-labelledby="script-tab-test" class="space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold mb-2">Select Devices</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              checked={device.id in @selected_device_ids}
+              phx-click="toggle_device"
+              phx-value-device_id={device.id}
+            />
+            <span class="text-sm">{device.product_name || device.mac_address}</span>
+          </label>
         </div>
       </div>
-    <% end %>
-  </div>
+
+      <button phx-click="queue_test" class="btn btn-primary" disabled={@selected_device_ids == []}>
+        <.icon name="hero-play" class="size-4" /> Queue Test Run
+      </button>
+
+      <%= if @test_runs != [] do %>
+        <h3 class="text-sm font-semibold mt-6">Test Runs</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Targets</th>
+                <th>Started</th>
+                <th>Completed</th>
+                <th>Clients</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={run <- @test_runs}>
+                <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
+                <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
+                <td class="text-sm">
+                  {if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}
+                </td>
+                <td class="text-xs">
+                  <div :for={action <- client_actions(@client_actions, :test, run.id)} class="mb-1">
+                    <span>{device_label(@devices, action.device_id)}</span>
+                    <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
+                    <pre :if={action.result_payload != %{}} class="mt-1 whitespace-pre-wrap">{inspect(action.result_payload)}</pre>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= if @active_tab == "deploy" do %>
+    <div id="script-tabpanel-deploy" role="tabpanel" aria-labelledby="script-tab-deploy" class="space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold mb-2">Select Devices</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              checked={device.id in @selected_device_ids}
+              phx-click="toggle_device"
+              phx-value-device_id={device.id}
+            />
+            <span class="text-sm">{device.product_name || device.mac_address}</span>
+          </label>
+        </div>
+      </div>
+
+      <button phx-click="queue_deployment" class="btn btn-warning" disabled={@selected_device_ids == []}>
+        <.icon name="hero-arrow-up-tray" class="size-4" /> Deploy to Selected Devices
+      </button>
+
+      <%= if @deployment_runs != [] do %>
+        <h3 class="text-sm font-semibold mt-6">Deployment History</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Targets</th>
+                <th>Started</th>
+                <th>Completed</th>
+                <th>Clients</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={run <- @deployment_runs}>
+                <td><span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span></td>
+                <td class="text-sm">{length(run.target_device_ids)} device(s)</td>
+                <td class="text-sm">{Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}</td>
+                <td class="text-sm">
+                  {if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}
+                </td>
+                <td class="text-xs">
+                  <div :for={action <- client_actions(@client_actions, :deploy, run.id)} class="mb-1">
+                    <span>{device_label(@devices, action.device_id)}</span>
+                    <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
+                    <pre :if={action.result_payload != %{}} class="mt-1 whitespace-pre-wrap">{inspect(action.result_payload)}</pre>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= if @active_tab == "history" do %>
+    <div id="script-tabpanel-history" role="tabpanel" aria-labelledby="script-tab-history" class="space-y-6">
+      <div>
+        <h3 class="text-sm font-semibold mb-2">Versions</h3>
+        <%= if @versions == [] do %>
+          <p class="text-sm text-base-content/60">No versions created yet</p>
+        <% else %>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={v <- @versions}>
+                  <td class="font-mono">{v.version}</td>
+                  <td><span class={"badge #{status_badge_class(v.status)}"}>{v.status}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

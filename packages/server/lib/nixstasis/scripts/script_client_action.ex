@@ -52,7 +52,16 @@ defmodule Nixstasis.Scripts.ScriptClientAction do
     end
 
     update :update do
-      accept [:status, :command_ref, :payload_ref, :payload, :result_payload, :delivered_at, :acknowledged_at, :failed_at]
+      accept [
+        :status,
+        :command_ref,
+        :payload_ref,
+        :payload,
+        :result_payload,
+        :delivered_at,
+        :acknowledged_at,
+        :failed_at
+      ]
     end
   end
 

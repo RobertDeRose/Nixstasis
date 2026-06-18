@@ -64,6 +64,20 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_validate?(session),
          rendered <- render_draft(draft),
          {:ok, payload} <- Nixstasis.Scripts.Validator.validate_content(rendered) do
+      version = draft.front_matter["version"] || "0.1.0"
+
+      {:ok, _version} =
+        Domain.create_script_version(%{
+          script_draft_id: draft.id,
+          version: version,
+          status: :validated,
+          front_matter: payload.front_matter,
+          body: draft.body,
+          rendered_content: payload.rendered_content
+        })
+
+      {:ok, _draft} = Domain.update_script_draft(draft, %{status: :validated})
+
       result =
         Domain.create_script_validation_run(%{
           script_draft_id: draft.id,
@@ -77,7 +91,9 @@ defmodule Nixstasis.Scripts do
       audit_result(result, :validation_passed, %{script_draft_id: draft.id})
       result
     else
-      false -> {:error, :unauthorized}
+      false ->
+        {:error, :unauthorized}
+
       {:error, reason} ->
         Audit.emit(:validation_failed, %{script_draft_id: draft.id, reason: reason})
         {:error, reason}
@@ -90,6 +106,7 @@ defmodule Nixstasis.Scripts do
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
       rendered = render_draft(draft)
+
       {:ok, test_run} =
         Domain.create_script_test_run(%{
           script_draft_id: draft.id,
@@ -122,7 +139,12 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      Audit.emit(:test_queued, %{script_draft_id: draft.id, script_version_id: version.id, target_device_ids: device_ids})
+      Audit.emit(:test_queued, %{
+        script_draft_id: draft.id,
+        script_version_id: version.id,
+        target_device_ids: device_ids
+      })
+
       {:ok, test_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -170,6 +192,7 @@ defmodule Nixstasis.Scripts do
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
       rendered = render_draft(draft)
+
       {:ok, deployment_run} =
         Domain.create_script_deployment_run(%{
           script_draft_id: draft.id,
@@ -202,7 +225,12 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      Audit.emit(:deployment_queued, %{script_draft_id: draft.id, script_version_id: version.id, target_device_ids: device_ids})
+      Audit.emit(:deployment_queued, %{
+        script_draft_id: draft.id,
+        script_version_id: version.id,
+        target_device_ids: device_ids
+      })
+
       {:ok, deployment_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -227,9 +255,21 @@ defmodule Nixstasis.Scripts do
             payload_ref: run.id
           })
 
-          Audit.emit(:deployment_client_result, %{script_deployment_run_id: run.id, device_id: device_id, status: status})
-          status
-        end)
+        upsert_client_action(attrs)
+
+        Audit.emit(:deployment_client_result, %{
+          script_deployment_run_id: run.id,
+          device_id: device_id,
+          status: status
+        })
+      end)
+
+      final_status = deployment_run_status(run)
+      attrs = run_update_attrs(final_status)
+      result = Domain.update_script_deployment_run(run, attrs)
+
+      if final_status != :running,
+        do: Audit.emit(:deployment_completed, %{script_deployment_run_id: run.id, status: final_status})
 
       result
     else

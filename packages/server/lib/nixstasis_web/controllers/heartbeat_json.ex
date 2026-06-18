@@ -26,7 +26,7 @@ defmodule NixstasisWeb.HeartbeatJSON do
   defp command_data(cmd) do
     payload = cmd.command_payload || %{}
     payload_ref = payload["payload_ref"] || payload[:payload_ref]
-    inline_payload = normalize_inline_payload(payload, payload_ref)
+    inline_payload = normalize_inline_payload(payload)
 
     %{
       command_id: cmd.id,
@@ -41,9 +41,7 @@ defmodule NixstasisWeb.HeartbeatJSON do
     |> Map.new()
   end
 
-  defp normalize_inline_payload(_payload, payload_ref) when not is_nil(payload_ref), do: nil
-
-  defp normalize_inline_payload(payload, _payload_ref) do
+  defp normalize_inline_payload(payload) do
     payload
     |> nested_payload()
     |> case do

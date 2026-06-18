@@ -28,6 +28,84 @@ import ApexChart from "./hooks/apex_charts"
 import IndeterminateCheckbox from "./hooks/indeterminate_checkbox"
 import TerminalHook from "./hooks/terminal"
 import Fullscreen from "./hooks/fullscreen"
+import CodeMirrorHook from "./hooks/code_mirror"
+
+const SchemaFieldInput = {
+  mounted() {
+    this.onKeydown = (event) => {
+      const fieldId = this.el.dataset.fieldId
+      const fieldLevel = this.el.dataset.fieldLevel || "0"
+      if (!fieldId) return
+
+      if (event.key === "Enter") {
+        event.preventDefault()
+        event.stopPropagation()
+        this.pushEvent("schema_field_name_keydown", {
+          id: fieldId,
+          key: "Enter",
+          value: this.el.value,
+          level: fieldLevel
+        })
+      } else if (event.key === "Backspace" && this.el.value === "") {
+        event.preventDefault()
+        event.stopPropagation()
+        this.pushEvent("schema_field_name_keydown", {
+          id: fieldId,
+          key: "Backspace",
+          value: "",
+          level: fieldLevel
+        })
+      } else if (event.key === "Tab" && event.shiftKey) {
+        event.preventDefault()
+        event.stopPropagation()
+        this.pushEvent("schema_field_name_keydown", {
+          id: fieldId,
+          key: "Tab",
+          shift_key: true,
+          value: this.el.value,
+          level: fieldLevel
+        })
+      }
+    }
+    this.el.addEventListener("keydown", this.onKeydown)
+  },
+
+  destroyed() {
+    if (this.onKeydown) {
+      this.el.removeEventListener("keydown", this.onKeydown)
+    }
+  }
+}
+
+const SchemaFieldSelect = {
+  mounted() {
+    this.onKeydown = (event) => {
+      const fieldId = this.el.dataset.fieldId
+      const fieldLevel = this.el.dataset.fieldLevel || "0"
+      if (!fieldId) return
+
+      if (event.key === "Enter") {
+        event.preventDefault()
+        const row = this.el.closest(".schema-field-row")
+        const nameValue = row?.querySelector("input[id^='sf-name-']")?.value || ""
+        this.pushEvent("schema_field_type_keydown", {
+          id: fieldId,
+          key: "Enter",
+          level: fieldLevel,
+          value: this.el.value,
+          name_value: nameValue
+        })
+      }
+    }
+    this.el.addEventListener("keydown", this.onKeydown)
+  },
+
+  destroyed() {
+    if (this.onKeydown) {
+      this.el.removeEventListener("keydown", this.onKeydown)
+    }
+  }
+}
 
 const ReportColumnTitle = {
   mounted() {
@@ -346,7 +424,10 @@ const liveSocket = new LiveSocket("/live", Socket, {
     ApexChart,
     TerminalHook,
     Fullscreen,
+    CodeMirror: CodeMirrorHook,
     IndeterminateCheckbox,
+    SchemaFieldInput,
+    SchemaFieldSelect,
     ReportColumnTitle,
     ReportFilterValue,
     ReportNameAutofocus,
@@ -380,6 +461,18 @@ window.addEventListener("phx:focus_schema_field", event => {
     if (!select) return
 
     select.focus()
+  })
+})
+window.addEventListener("phx:focus_schema_field_name", event => {
+  const id = event?.detail?.id
+  if (!id) return
+
+  requestAnimationFrame(() => {
+    const input = document.getElementById(id)
+    if (!input) return
+
+    input.focus()
+    input.select()
   })
 })
 window.addEventListener("phx:focus_filter_field", event => {

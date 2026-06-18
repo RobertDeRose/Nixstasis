@@ -63,12 +63,12 @@ defmodule Nixstasis.Scripts.ScriptDraft do
     timestamps()
   end
 
-  identities do
-    identity :unique_name, [:name]
-  end
-
   relationships do
     has_many :versions, Nixstasis.Scripts.ScriptVersion
     has_many :validation_runs, Nixstasis.Scripts.ScriptValidationRun
+  end
+
+  identities do
+    identity :unique_name, [:name]
   end
 end

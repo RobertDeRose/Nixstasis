@@ -28,6 +28,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
       add :rendered_content, :text, null: false, default: ""
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
+
       add :script_draft_id,
           references(:script_drafts,
             column: :id,
@@ -41,7 +42,10 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
 
     create index(:script_versions, [:script_draft_id])
     create index(:script_versions, [:status])
-    create unique_index(:script_versions, [:script_draft_id, :version], name: "script_versions_unique_draft_version_index")
+
+    create unique_index(:script_versions, [:script_draft_id, :version],
+             name: "script_versions_unique_draft_version_index"
+           )
 
     create table(:script_validation_runs, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
@@ -54,6 +58,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
       add :details, :map, null: false, default: %{}
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
+
       add :script_draft_id,
           references(:script_drafts,
             column: :id,
@@ -63,6 +68,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
             on_delete: :delete_all
           ),
           null: false
+
       add :script_version_id,
           references(:script_versions,
             column: :id,
@@ -87,6 +93,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
       add :notes, :map, null: false, default: %{}
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
+
       add :script_draft_id,
           references(:script_drafts,
             column: :id,
@@ -96,6 +103,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
             on_delete: :delete_all
           ),
           null: false
+
       add :script_version_id,
           references(:script_versions,
             column: :id,
@@ -120,6 +128,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
       add :notes, :map, null: false, default: %{}
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
+
       add :script_draft_id,
           references(:script_drafts,
             column: :id,
@@ -129,6 +138,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
             on_delete: :delete_all
           ),
           null: false
+
       add :script_version_id,
           references(:script_versions,
             column: :id,
@@ -156,6 +166,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
       add :failed_at, :utc_datetime
       add :inserted_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
       add :updated_at, :utc_datetime_usec, null: false, default: fragment("(now() AT TIME ZONE 'utc')")
+
       add :device_id,
           references(:devices,
             column: :id,
@@ -165,6 +176,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
             on_delete: :delete_all
           ),
           null: false
+
       add :script_test_run_id,
           references(:script_test_runs,
             column: :id,
@@ -173,6 +185,7 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
             prefix: "public",
             on_delete: :delete_all
           )
+
       add :script_deployment_run_id,
           references(:script_deployment_runs,
             column: :id,
@@ -213,7 +226,10 @@ defmodule Nixstasis.Repo.Migrations.CreateScriptWorkbenchTables do
     drop_if_exists index(:script_validation_runs, [:script_draft_id])
     drop table(:script_validation_runs)
 
-    drop_if_exists unique_index(:script_versions, [:script_draft_id, :version], name: "script_versions_unique_draft_version_index")
+    drop_if_exists unique_index(:script_versions, [:script_draft_id, :version],
+                     name: "script_versions_unique_draft_version_index"
+                   )
+
     drop_if_exists index(:script_versions, [:status])
     drop_if_exists index(:script_versions, [:script_draft_id])
     drop table(:script_versions)

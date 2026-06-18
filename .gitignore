@@ -66,3 +66,6 @@ vendor/
 # mdBook
 book/
 issues.md
+
+# Browser MCP artifacts
+.playwright-mcp/
