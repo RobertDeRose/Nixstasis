@@ -2,7 +2,7 @@
   <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
     <img src="/images/sad_little_toaster.png" alt="Sad Little Toaster" class="w-64 mb-8" />
     <h1 class="text-3xl font-bold mb-4">Device Offline</h1>
-    <p class="text-xl text-gray-600 mb-8">
+    <p class="text-xl text-base-content/70 mb-8">
       It looks like your device is not feeling well, it appears to be offline.
     </p>
     <.link navigate={~p"/devices"} class="btn btn-primary">
@@ -24,7 +24,7 @@
 
   <div class="mt-4">
     <div class={["grid grid-cols-1 md:grid-cols-3 gap-4", @maximized? && "hidden"]}>
-      <div class="card bg-base-100 shadow-xl">
+      <div class="ui-card-panel">
         <div class="card-body">
           <h2 class="card-title justify-center">CPU</h2>
           <div
@@ -37,7 +37,7 @@
           </div>
         </div>
       </div>
-      <div class="card bg-base-100 shadow-xl">
+      <div class="ui-card-panel">
         <div class="card-body">
           <h2 class="card-title justify-center">Memory</h2>
           <div
@@ -50,7 +50,7 @@
           </div>
         </div>
       </div>
-      <div class="card bg-base-100 shadow-xl">
+      <div class="ui-card-panel">
         <div class="card-body">
           <h2 class="card-title justify-center">Disk</h2>
           <div
@@ -193,7 +193,7 @@
                 data-closed={if(@terminal_closed?, do: "true", else: "false")}
                 class="h-full min-h-0 overflow-hidden font-mono relative"
               >
-                <div class="text-gray-500">
+                <div class="text-base-content/70">
                   <%= if @terminal_closed? do %>
                     Terminal session ended. Start a new session to reconnect.
                   <% else %>

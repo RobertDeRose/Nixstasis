@@ -341,9 +341,9 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:ssh_token, nil)
     |> assign(:terminal_socket_token, nil)
     |> assign(:terminal_closed?, false)
-    |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["#3B82F6"]))
-    |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["#10B981"]))
-    |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["#F59E0B"]))
+    |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["var(--color-primary)"]))
+    |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["var(--color-success)"]))
+    |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["var(--color-warning)"]))
     |> assign(:pcp_chart, pcp_chart_config(device))
   end
 
@@ -415,9 +415,9 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
       socket
       |> assign_new(:active_tab, fn -> "pcp" end)
-      |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["#3B82F6"]))
-      |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["#10B981"]))
-      |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["#F59E0B"]))
+      |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["var(--color-primary)"]))
+      |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["var(--color-success)"]))
+      |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["var(--color-warning)"]))
       |> assign(:pcp_chart, pcp_chart_config(device))
       |> assign_new(:ssh_session_started, fn -> false end)
       |> assign_new(:ssh_authorize_command_id, fn -> nil end)
@@ -489,6 +489,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     samples = pcp_samples(device.id)
 
     %{
+      colors: ["var(--color-primary)", "var(--color-success)", "var(--color-warning)"],
       chart: %{
         type: "area",
         height: 600,
@@ -606,14 +607,14 @@ defmodule NixstasisWeb.DeviceLive.Show do
         radialBar: %{
           hollow: %{size: "70%"},
           track: %{
-            background: "#e7e7e7",
+            background: "var(--color-base-200)",
             strokeWidth: "97%",
             margin: 5,
             dropShadow: %{
               enabled: true,
               top: 2,
               left: 0,
-              color: "#999",
+              color: "var(--color-base-300)",
               opacity: 1,
               blur: 2
             }

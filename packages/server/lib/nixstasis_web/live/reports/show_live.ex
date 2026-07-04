@@ -340,12 +340,12 @@ defmodule NixstasisWeb.ReportLive.Show do
       </div>
 
       <form phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
-        <select name="filter[column]" class="select select-bordered select-sm" value={@filter_column}>
+        <select name="filter[column]" class="ui-select-sm-plain" value={@filter_column}>
           <option :for={field <- @fields} value={field_key(field)} selected={@filter_column == field_key(field)}>
             {field_key(field)}
           </option>
         </select>
-        <select name="filter[operator]" class="select select-bordered select-sm" value={@filter_operator}>
+        <select name="filter[operator]" class="ui-select-sm-plain" value={@filter_operator}>
           <option :for={{label, value} <- @operators} value={value} selected={@filter_operator == value}>
             {label}
           </option>
@@ -353,7 +353,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         <input
           name="filter[value]"
           value={@filter_value}
-          class="input input-bordered input-sm"
+          class="ui-input"
           placeholder="Filter value"
         />
         <button type="button" phx-click="clear_filters" class="btn btn-sm btn-ghost">Clear</button>
@@ -390,7 +390,7 @@ defmodule NixstasisWeb.ReportLive.Show do
           </tbody>
         </table>
         <%= if Enum.empty?(@results) do %>
-          <div class="p-6 text-center text-gray-500">No data found matching report criteria.</div>
+          <div class="p-6 text-center text-base-content/60">No data found matching report criteria.</div>
         <% end %>
       </div>
     </div>

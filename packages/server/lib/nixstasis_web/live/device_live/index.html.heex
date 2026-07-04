@@ -8,7 +8,7 @@
           name="search"
           value={@search}
           placeholder="Search devices..."
-          class="input input-bordered input-sm"
+          class="ui-input"
           phx-debounce="300"
         />
       </.form>
@@ -106,7 +106,7 @@
           <th
             phx-click="sort"
             phx-value-sort_by="mac_address"
-            class="cursor-pointer hover:text-primary"
+            class="ui-sortable-header"
           >
             MAC Address {if @sort_by == :mac_address,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
@@ -114,7 +114,7 @@
           <th
             phx-click="sort"
             phx-value-sort_by="product_name"
-            class="cursor-pointer hover:text-primary"
+            class="ui-sortable-header"
           >
             Product {if @sort_by == :product_name,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
@@ -122,7 +122,7 @@
           <th
             phx-click="sort"
             phx-value-sort_by="account_number"
-            class="cursor-pointer hover:text-primary"
+            class="ui-sortable-header"
           >
             Account # {if @sort_by == :account_number,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
@@ -130,7 +130,7 @@
           <th
             phx-click="sort"
             phx-value-sort_by="ipv4_address"
-            class="cursor-pointer hover:text-primary"
+            class="ui-sortable-header"
           >
             IPv4 {if @sort_by == :ipv4_address,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
@@ -138,7 +138,7 @@
           <th
             phx-click="sort"
             phx-value-sort_by="approval_status"
-            class="cursor-pointer hover:text-primary"
+            class="ui-sortable-header"
           >
             Status {if @sort_by == :approval_status,
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
@@ -212,7 +212,7 @@
               class={"badge w-24 #{case device.approval_status do
                 :approved -> "badge-success text-success-content"
                 :rejected -> "badge-error text-error-content"
-                _ -> "bg-amber-200 text-amber-900 border-amber-300 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/40"
+                _ -> "badge-warning text-warning-content"
               end}"}
             >
               {device.approval_status}

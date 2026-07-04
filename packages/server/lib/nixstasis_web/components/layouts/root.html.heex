@@ -14,6 +14,7 @@
     </script>
     <script>
       (() => {
+        const defaultPalette = "coherent-current";
         const setTheme = (theme) => {
           if (theme === "system") {
             localStorage.removeItem("phx:theme");
@@ -23,12 +24,27 @@
             document.documentElement.setAttribute("data-theme", theme);
           }
         };
+        const setPalette = (palette) => {
+          const value = palette || defaultPalette;
+          localStorage.setItem("phx:palette", value);
+          document.documentElement.setAttribute("data-palette", value);
+          document.querySelectorAll("[data-palette-select]").forEach((select) => select.value = value);
+        };
         if (!document.documentElement.hasAttribute("data-theme")) {
           setTheme(localStorage.getItem("phx:theme") || "system");
         }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        if (!document.documentElement.hasAttribute("data-palette")) {
+          setPalette(localStorage.getItem("phx:palette") || defaultPalette);
+        }
+        window.addEventListener("storage", (e) => {
+          if (e.key === "phx:theme") setTheme(e.newValue || "system");
+          if (e.key === "phx:palette") setPalette(e.newValue || defaultPalette);
+        });
 
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+        window.addEventListener("change", (e) => e.target.matches("[data-palette-select]") && setPalette(e.target.value));
+        window.addEventListener("DOMContentLoaded", () => setPalette(localStorage.getItem("phx:palette") || defaultPalette));
+        window.addEventListener("phx:page-loading-stop", () => setPalette(localStorage.getItem("phx:palette") || defaultPalette));
       })();
     </script>
   </head>
