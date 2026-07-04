@@ -366,7 +366,7 @@ defmodule NixstasisWeb.ReportLive.Index do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-7xl">
+    <div class="ui-page-shell">
       <.header>
         Custom Reports
         <:actions>
@@ -386,13 +386,13 @@ defmodule NixstasisWeb.ReportLive.Index do
 
       <div class="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,420px)_minmax(320px,1fr)_auto] lg:items-start">
         <form phx-change="filter_reports" class="w-full">
-          <label class="mb-1 block text-xs font-medium text-base-content/70">Filter by report name</label>
+          <label class="ui-label-strong">Filter by report name</label>
           <input
             type="text"
             name="filters[name]"
             value={@filters["name"]}
             placeholder="Fuzzy match, case-insensitive"
-            class="input input-bordered input-sm w-full"
+            class="ui-input-sm"
           />
           <input type="hidden" name="filters[field_query]" value={@filters["field_query"]} />
           <%= for field <- @filters["field_queries"] do %>
@@ -401,11 +401,11 @@ defmodule NixstasisWeb.ReportLive.Index do
         </form>
 
         <div class="w-full">
-          <label class="mb-1 block text-xs font-medium text-base-content/70">
+          <label class="ui-label-strong">
             Filter by included schema fields
           </label>
           <form phx-change="add_field_filter_select" class="w-full">
-            <select name="field" class="select select-bordered select-sm w-full">
+            <select name="field" class="ui-select-sm">
               <option value="">Select a schema field…</option>
               <option
                 :for={option <- available_field_options(@schema_field_options, @filters["field_queries"])}
@@ -493,7 +493,7 @@ defmodule NixstasisWeb.ReportLive.Index do
       </div>
 
       <%= if Enum.empty?(@reports) do %>
-        <div class="p-6 text-center text-gray-500">
+        <div class="p-6 text-center text-base-content/60">
           No reports found. Create one to get started.
         </div>
       <% end %>

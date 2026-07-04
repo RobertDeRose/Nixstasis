@@ -75,25 +75,25 @@
       <%!-- Script metadata --%>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs text-base-content/70 mb-1">Script Name</label>
+          <label class="ui-form-label">Script Name</label>
           <input
             type="text"
             value={@front_matter_yaml["name"]}
             placeholder="e.g. hello_world"
             phx-blur="update_front_matter_field"
             phx-value-key="name"
-            class="input input-sm input-bordered w-full"
+            class="ui-input-sm"
           />
         </div>
         <div>
-          <label class="block text-xs text-base-content/70 mb-1">Version</label>
+          <label class="ui-form-label">Version</label>
           <input
             type="text"
             value={@front_matter_yaml["version"]}
             placeholder="e.g. 1.0.0"
             phx-blur="update_front_matter_field"
             phx-value-key="version"
-            class="input input-sm input-bordered w-full"
+            class="ui-input-sm"
           />
         </div>
       </div>
