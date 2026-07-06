@@ -154,7 +154,8 @@ defmodule Nixstasis.Scripts do
   end
 
   def ingest_test_results(session, %ScriptTestRun{} = test_run, results) when is_list(results) do
-    with true <- Authorization.can_test?(session) do
+    with true <- Authorization.can_test?(session),
+         %ScriptTestRun{status: :running} = current_run <- latest_test_run_by_id(test_run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -174,9 +175,9 @@ defmodule Nixstasis.Scripts do
         Audit.emit(:test_client_result, %{script_test_run_id: test_run.id, device_id: device_id, status: status})
       end)
 
-      final_status = test_run_status(test_run)
+      final_status = test_run_status(current_run)
       attrs = run_update_attrs(final_status)
-      result = Domain.update_script_test_run(test_run, attrs)
+      result = Domain.update_script_test_run(current_run, attrs)
 
       if final_status != :running,
         do: Audit.emit(:test_completed, %{script_test_run_id: test_run.id, status: final_status})
@@ -184,6 +185,7 @@ defmodule Nixstasis.Scripts do
       broadcast_script(test_run.script_draft_id)
       result
     else
+      %ScriptTestRun{} = run -> {:ok, run}
       _ -> {:error, :unauthorized}
     end
   end
@@ -242,7 +244,8 @@ defmodule Nixstasis.Scripts do
   end
 
   def ingest_deployment_results(session, %ScriptDeploymentRun{} = run, results) when is_list(results) do
-    with true <- Authorization.can_deploy?(session) do
+    with true <- Authorization.can_deploy?(session),
+         %ScriptDeploymentRun{status: :running} = current_run <- latest_deployment_run_by_id(run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -267,9 +270,9 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      final_status = deployment_run_status(run)
+      final_status = deployment_run_status(current_run)
       attrs = run_update_attrs(final_status)
-      result = Domain.update_script_deployment_run(run, attrs)
+      result = Domain.update_script_deployment_run(current_run, attrs)
 
       if final_status != :running,
         do: Audit.emit(:deployment_completed, %{script_deployment_run_id: run.id, status: final_status})
@@ -277,6 +280,7 @@ defmodule Nixstasis.Scripts do
       broadcast_script(run.script_draft_id)
       result
     else
+      %ScriptDeploymentRun{} = run -> {:ok, run}
       _ -> {:error, :unauthorized}
     end
   end
@@ -285,6 +289,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_test?(session),
          true <- run.status in [:pending, :running] do
       result = Domain.update_script_test_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:test, run.id)
       audit_result(result, :test_cancelled, %{script_test_run_id: run.id})
       broadcast_script(run.script_draft_id)
       result
@@ -298,6 +303,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_deploy?(session),
          true <- run.status in [:pending, :running] do
       result = Domain.update_script_deployment_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:deploy, run.id)
       audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id})
       broadcast_script(run.script_draft_id)
       result
@@ -394,11 +400,15 @@ defmodule Nixstasis.Scripts do
     |> Enum.find(&(&1.id == id))
   end
 
+  defp latest_test_run_by_id(id), do: get_test_run(id)
+
   defp get_deployment_run(id) do
     Domain.list_script_deployment_runs()
     |> elem(1)
     |> Enum.find(&(&1.id == id))
   end
+
+  defp latest_deployment_run_by_id(id), do: get_deployment_run(id)
 
   defp attach_device_id(%Device{id: device_id}, results) do
     Enum.map(results, &Map.put(&1, "device_id", device_id))
@@ -426,6 +436,22 @@ defmodule Nixstasis.Scripts do
   defp client_action_update_keys do
     [:status, :command_ref, :payload_ref, :payload, :result_payload, :delivered_at, :acknowledged_at, :failed_at]
   end
+
+  defp mark_client_actions_failed(:test, run_id) do
+    Domain.list_script_client_actions()
+    |> elem(1)
+    |> Enum.filter(&(&1.kind == :test and &1.script_test_run_id == run_id))
+    |> Enum.each(&Domain.update_script_client_action(&1, %{status: :failed}))
+  end
+
+  defp mark_client_actions_failed(:deploy, run_id) do
+    Domain.list_script_client_actions()
+    |> elem(1)
+    |> Enum.filter(&(&1.kind == :deploy and &1.script_deployment_run_id == run_id))
+    |> Enum.each(&Domain.update_script_client_action(&1, %{status: :failed}))
+  end
+
+  defp mark_client_actions_failed(_kind, _run_id), do: :ok
 
   defp find_client_action(%{kind: :test, script_test_run_id: run_id, device_id: device_id}) do
     Domain.list_script_client_actions()

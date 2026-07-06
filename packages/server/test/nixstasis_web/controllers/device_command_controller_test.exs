@@ -79,7 +79,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       Domain.create_script_version(%{
         script_draft_id: draft.id,
         version: "1",
-        status: :candidate,
+        status: :validated,
         front_matter: draft.front_matter,
         body: draft.body,
         rendered_content: Scripts.render_draft(draft)
