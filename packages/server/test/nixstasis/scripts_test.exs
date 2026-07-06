@@ -233,6 +233,34 @@ defmodule Nixstasis.ScriptsTest do
     assert final.status == :failed
   end
 
+  test "stale run cannot be canceled after completion", %{device: device, draft: draft, version: version} do
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert {:ok, passed} =
+             Scripts.ingest_test_results(%{"script_permissions" => %{"can_manage" => true}}, run, [
+               %{"device_id" => device.id, "command_id" => "cmd-pass", "status" => "OK"}
+             ])
+
+    assert passed.status == :passed
+    assert {:error, :not_running} = Scripts.cancel_test_run(%{"script_permissions" => %{"can_manage" => true}}, run)
+  end
+
+  test "stale deployment run cannot be canceled after completion", %{device: device, draft: draft, version: version} do
+    {:ok, run} =
+      Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert {:ok, deployed} =
+             Scripts.ingest_deployment_results(%{"script_permissions" => %{"can_manage" => true}}, run, [
+               %{"device_id" => device.id, "command_id" => "cmd-ok", "status" => "OK"}
+             ])
+
+    assert deployed.status == :deployed
+
+    assert {:error, :not_running} =
+             Scripts.cancel_deployment_run(%{"script_permissions" => %{"can_manage" => true}}, run)
+  end
+
   test "queue_deployment requires manage access", %{draft: draft, version: version, device: device} do
     assert {:error, :unauthorized} =
              Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => false}}, draft, version, [device])
