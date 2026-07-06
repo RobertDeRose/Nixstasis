@@ -287,28 +287,32 @@ defmodule Nixstasis.Scripts do
 
   def cancel_test_run(session, %ScriptTestRun{} = run) do
     with true <- Authorization.can_test?(session),
-         true <- run.status in [:pending, :running] do
-      result = Domain.update_script_test_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
-      mark_client_actions_failed(:test, run.id)
+         %ScriptTestRun{} = current_run <- latest_test_run_by_id(run.id),
+         true <- current_run.status in [:pending, :running] do
+      result = Domain.update_script_test_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:test, current_run.id)
       audit_result(result, :test_cancelled, %{script_test_run_id: run.id})
       broadcast_script(run.script_draft_id)
       result
     else
       false -> {:error, :not_running}
+      %ScriptTestRun{} -> {:error, :not_running}
       _ -> {:error, :unauthorized}
     end
   end
 
   def cancel_deployment_run(session, %ScriptDeploymentRun{} = run) do
     with true <- Authorization.can_deploy?(session),
-         true <- run.status in [:pending, :running] do
-      result = Domain.update_script_deployment_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
-      mark_client_actions_failed(:deploy, run.id)
+         %ScriptDeploymentRun{} = current_run <- latest_deployment_run_by_id(run.id),
+         true <- current_run.status in [:pending, :running] do
+      result = Domain.update_script_deployment_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:deploy, current_run.id)
       audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id})
       broadcast_script(run.script_draft_id)
       result
     else
       false -> {:error, :not_running}
+      %ScriptDeploymentRun{} -> {:error, :not_running}
       _ -> {:error, :unauthorized}
     end
   end
