@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -26,8 +27,12 @@ var afterCommandCommitHook = func() {}
 
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir   string
-	sshAuthStore *sshauth.Store
+	scriptsDir           string
+	sshAuthStore         *sshauth.Store
+	runtimeConfig        *script.RuntimeConfig
+	appliedPolicyVersion string
+	appliedCommandPolicy map[string]string
+	policyMu             sync.RWMutex
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -38,6 +43,18 @@ func NewHandler(scriptsDir string) *Handler {
 // NewHandlerWithSSHAuth constructs a Handler with in-memory SSH authorization support.
 func NewHandlerWithSSHAuth(scriptsDir string, store *sshauth.Store) *Handler {
 	return &Handler{scriptsDir: scriptsDir, sshAuthStore: store}
+}
+
+// NewHandlerWithSSHAuthAndRuntimeConfig constructs a Handler with in-memory SSH authorization
+// and command-policy runtime updates.
+func NewHandlerWithSSHAuthAndRuntimeConfig(scriptsDir string, store *sshauth.Store, cfg *script.RuntimeConfig) *Handler {
+	return &Handler{scriptsDir: scriptsDir, sshAuthStore: store, runtimeConfig: cfg}
+}
+
+// NewHandlerWithRuntimeConfig constructs a Handler and shares a runtime config pointer for
+// command-policy updates.
+func NewHandlerWithRuntimeConfig(scriptsDir string, cfg *script.RuntimeConfig) *Handler {
+	return &Handler{scriptsDir: scriptsDir, runtimeConfig: cfg}
 }
 
 // ExecuteBatch runs commands in parallel when possible and aggregates results.
@@ -121,6 +138,8 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Payload)
 	case "ssh_revoke":
 		return h.sshRevoke(ctx, cmd.CommandID, cmd.Payload)
+	case "apply_command_policy":
+		return h.applyCommandPolicy(ctx, cmd.CommandID, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
 	}
@@ -128,7 +147,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script":
+	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script", "apply_command_policy":
 		return true
 	default:
 		return false
@@ -328,7 +347,8 @@ func (h *Handler) runScript(ctx context.Context, commandID string, args []string
 		return failureResult(commandID, "timeout")
 	}
 
-	result, err := executeTestScript(ctx, content, args)
+	cfg := h.commandRuntimeConfig()
+	result, err := executeTestScript(ctx, cfg, content, args)
 	if err != nil {
 		return transport.CommandResult{
 			CommandID: commandID,
@@ -342,6 +362,57 @@ func (h *Handler) runScript(ctx context.Context, commandID string, args []string
 		CommandID: commandID,
 		Status:    transport.CommandStatusOK,
 		Output:    result,
+	}
+}
+
+func (h *Handler) commandRuntimeConfig() script.RuntimeConfig {
+	cfg := script.RuntimeConfig{}
+	if h.runtimeConfig != nil {
+		cfg = *h.runtimeConfig
+	}
+
+	h.policyMu.RLock()
+	defer h.policyMu.RUnlock()
+	if h.appliedCommandPolicy != nil {
+		cfg.ExecCommandAllowlist = copyCommandPolicy(h.appliedCommandPolicy)
+		cfg.CommandPolicyVersion = h.appliedPolicyVersion
+	}
+
+	return cfg
+}
+
+func (h *Handler) applyCommandPolicy(ctx context.Context, commandID string, payload *transport.CommandPayload) transport.CommandResult {
+	if payload == nil {
+		return failureResult(commandID, "missing apply_command_policy payload")
+	}
+
+	policy, err := parseApplyCommandPolicy(payload.Data)
+	if err != nil {
+		return failureResult(commandID, err.Error())
+	}
+	if ctx.Err() != nil {
+		return failureResult(commandID, "timeout")
+	}
+
+	applied := h.applyPolicy(policy)
+	if applied.Err != nil {
+		return failureResult(commandID, applied.Err.Error())
+	}
+	if h.runtimeConfig != nil {
+		h.runtimeConfig.ExecCommandAllowlist = copyCommandPolicy(applied.Commands)
+		h.runtimeConfig.CommandPolicyVersion = applied.Version
+	}
+
+	return transport.CommandResult{
+		CommandID: commandID,
+		Status:    transport.CommandStatusOK,
+		Output: map[string]any{
+			"mode":             "apply_command_policy",
+			"policy_version":   policy.Version,
+			"commands_applied": len(policy.Commands),
+			"already_applied":  applied.AlreadyApplied,
+			"previous_version": applied.PreviousVersion,
+		},
 	}
 }
 
@@ -419,10 +490,98 @@ func resolveRunScriptContent(payload *transport.CommandPayload, payloadRef strin
 	return "", fmt.Errorf("script payload is required")
 }
 
-func executeTestScript(ctx context.Context, content string, args []string) (map[string]any, error) {
+type applyCommandPolicyPayload struct {
+	Version  string            `json:"policy_version"`
+	Commands map[string]string `json:"commands"`
+}
+
+type appliedCommandPolicyResult struct {
+	Version         string
+	Commands        map[string]string
+	PreviousVersion string
+	AlreadyApplied  bool
+	Err             error
+}
+
+func (h *Handler) applyPolicy(policy applyCommandPolicyPayload) appliedCommandPolicyResult {
+	if h == nil {
+		return appliedCommandPolicyResult{Err: fmt.Errorf("handler is nil")}
+	}
+
+	h.policyMu.Lock()
+	defer h.policyMu.Unlock()
+
+	previousVersion := h.appliedPolicyVersion
+	if previousVersion != "" && policy.Version == previousVersion {
+		if commandPolicyEquals(policy.Commands, h.appliedCommandPolicy) {
+			return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(h.appliedCommandPolicy), AlreadyApplied: true, PreviousVersion: previousVersion}
+		}
+		return appliedCommandPolicyResult{Err: fmt.Errorf("policy version %q conflicts with existing policy", policy.Version)}
+	}
+
+	h.appliedPolicyVersion = policy.Version
+	h.appliedCommandPolicy = copyCommandPolicy(policy.Commands)
+
+	return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(policy.Commands), AlreadyApplied: false, PreviousVersion: previousVersion}
+}
+
+func commandPolicyEquals(left, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		rightValue, ok := right[key]
+		if !ok || rightValue != leftValue {
+			return false
+		}
+	}
+	return true
+}
+
+func copyCommandPolicy(source map[string]string) map[string]string {
+	copyMap := make(map[string]string, len(source))
+	maps.Copy(copyMap, source)
+	return copyMap
+}
+
+func parseApplyCommandPolicy(payload string) (applyCommandPolicyPayload, error) {
+	var req applyCommandPolicyPayload
+	if payload == "" {
+		return applyCommandPolicyPayload{}, fmt.Errorf("missing apply_command_policy payload data")
+	}
+	if err := json.Unmarshal([]byte(payload), &req); err != nil {
+		return applyCommandPolicyPayload{}, fmt.Errorf("invalid apply_command_policy payload: %w", err)
+	}
+	if req.Version == "" {
+		return applyCommandPolicyPayload{}, fmt.Errorf("missing policy version")
+	}
+	if len(req.Commands) == 0 {
+		return applyCommandPolicyPayload{}, fmt.Errorf("empty command policy")
+	}
+
+	resolved := make(map[string]string, len(req.Commands))
+	for name, path := range req.Commands {
+		name = strings.TrimSpace(name)
+		path = strings.TrimSpace(path)
+		if name == "" {
+			return applyCommandPolicyPayload{}, fmt.Errorf("command name must not be empty")
+		}
+		if path == "" {
+			return applyCommandPolicyPayload{}, fmt.Errorf("command path must not be empty for %s", name)
+		}
+		if !filepath.IsAbs(path) {
+			return applyCommandPolicyPayload{}, fmt.Errorf("command path must be absolute: %s", name)
+		}
+		resolved[name] = path
+	}
+
+	return applyCommandPolicyPayload{Version: req.Version, Commands: resolved}, nil
+}
+
+func executeTestScript(ctx context.Context, cfg script.RuntimeConfig, content string, args []string) (map[string]any, error) {
 	_ = args
-	rt := script.NewRuntime(script.RuntimeConfig{})
-	defer rt.Close()
+	rt := script.NewRuntime(cfg)
+	defer func() { _ = rt.Close() }() //nolint:errcheck // close is best-effort cleanup for runtime resources
 
 	fm, body, err := script.ParseStaryContent(content)
 	if err != nil {

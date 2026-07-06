@@ -62,7 +62,7 @@ func runPoll(cfg *config.Config) error {
 	// 2. Setup Components
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
-	executor := script.NewExecutor(script.RuntimeConfig{
+	runtimeCfg := script.RuntimeConfig{
 		Timeout:              5 * time.Second,
 		WarnAfter:            3 * time.Second,
 		MQTTBroker:           runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
@@ -71,7 +71,7 @@ func runPoll(cfg *config.Config) error {
 		ExecEnv:              cfg.Runtime.ExecEnv,
 		MQTTPublishTopics:    cfg.Runtime.MQTTPublishTopics,
 		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
-	})
+	}
 	frpManager := frp.NewManager()
 	sshAuthStore := sshauth.NewStore()
 	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
@@ -79,14 +79,14 @@ func runPoll(cfg *config.Config) error {
 		return fmt.Errorf("start ssh authorization server: %w", err)
 	}
 	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
-	cmdHandler := commands.NewHandlerWithSSHAuth(cfg.Scripts.Dir, sshAuthStore)
+	cmdHandler := commands.NewHandlerWithSSHAuthAndRuntimeConfig(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg)
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)
 	pollState := &remoteAccessPollState{}
 
 	// Run immediately once
-	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+	if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
@@ -100,7 +100,7 @@ func runPoll(cfg *config.Config) error {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return nil
 		case <-timer.C:
-			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+			if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
@@ -189,7 +189,7 @@ type remoteAccessPollState struct {
 }
 
 //nolint:gocyclo // Poll orchestration intentionally keeps telemetry, commands, and FRP decisions in one cycle.
-func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, executor scriptRunner, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
+func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtimeCfg *script.RuntimeConfig, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
@@ -212,6 +212,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, execut
 	if err != nil {
 		slog.Warn("Error discovering scripts", "error", err)
 	}
+	executor := script.NewExecutor(*runtimeCfg)
 	scriptReports, scriptErrors := runScripts(ctx, executor, scripts)
 
 	// Get FRP Status
