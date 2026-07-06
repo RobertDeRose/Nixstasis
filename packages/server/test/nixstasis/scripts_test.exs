@@ -18,7 +18,7 @@ defmodule Nixstasis.ScriptsTest do
     {:ok, draft} =
       Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
         name: "example",
-        front_matter: %{"name" => "example", "schema" => %{"type" => "object"}},
+        front_matter: %{"name" => "example", "schema" => %{"type" => "object"}, "version" => "1"},
         body: "def main():\n    return {\"value\": \"ok\"}\n"
       })
 
@@ -80,7 +80,14 @@ defmodule Nixstasis.ScriptsTest do
     assert completed.completed_at
   end
 
-  test "validate_draft succeeds for valid script", %{draft: draft} do
+  test "validate_draft succeeds for valid script" do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "valid-versioned",
+        front_matter: %{"name" => "valid-versioned", "schema" => %{"type" => "object"}, "version" => "2"},
+        body: "def main():\n    return {\"value\": \"ok\"}\n"
+      })
+
     assert {:ok, run} =
              Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
 
@@ -88,15 +95,40 @@ defmodule Nixstasis.ScriptsTest do
     assert run.validated_at
 
     {:ok, versions} = Domain.list_script_versions()
-    version = Enum.find(versions, &(&1.script_draft_id == draft.id and &1.version == "0.1.0"))
+    version = Enum.find(versions, &(&1.script_draft_id == draft.id and &1.version == "2"))
     assert version.status == :validated
+  end
+
+  test "validate_draft requires front matter version" do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "missing-version",
+        front_matter: %{"name" => "missing-version", "schema" => %{"type" => "object"}},
+        body: "def main():\n    return {}\n"
+      })
+
+    assert {:error, "front matter version is required"} =
+             Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
+  end
+
+  test "queue_test_run uses validated version content", %{device: device, draft: draft, version: version} do
+    {:ok, draft} =
+      Scripts.update_draft(%{"script_permissions" => %{"can_manage" => true}}, draft, %{
+        body: "def main():\n    return {\"value\": \"changed\"}\n"
+      })
+
+    assert {:ok, run} =
+             Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert run.command_payload["payload"]["data"] == version.rendered_content
+    refute run.command_payload["payload"]["data"] =~ "changed"
   end
 
   test "validate_draft rejects invalid starlark syntax" do
     {:ok, bad_draft} =
       Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
         name: "bad-syntax",
-        front_matter: %{"name" => "bad-syntax", "schema" => %{"type" => "object"}},
+        front_matter: %{"name" => "bad-syntax", "schema" => %{"type" => "object"}, "version" => "1"},
         body: "def main():\n    if :\n        return {}\n"
       })
 
@@ -110,7 +142,7 @@ defmodule Nixstasis.ScriptsTest do
     {:ok, bad_draft} =
       Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
         name: "bad",
-        front_matter: %{"name" => "bad", "schema" => %{"type" => "string"}},
+        front_matter: %{"name" => "bad", "schema" => %{"type" => "string"}, "version" => "1"},
         body: "def main():\n    return {}\n"
       })
 
@@ -167,6 +199,24 @@ defmodule Nixstasis.ScriptsTest do
              ])
 
     assert completed.status == :failed
+  end
+
+  test "cancel_test_run marks running run failed", %{device: device, draft: draft, version: version} do
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert {:ok, cancelled} = Scripts.cancel_test_run(%{"script_permissions" => %{"can_manage" => true}}, run)
+    assert cancelled.status == :failed
+    assert cancelled.completed_at
+  end
+
+  test "cancel_deployment_run marks running run failed", %{device: device, draft: draft, version: version} do
+    {:ok, run} =
+      Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert {:ok, cancelled} = Scripts.cancel_deployment_run(%{"script_permissions" => %{"can_manage" => true}}, run)
+    assert cancelled.status == :failed
+    assert cancelled.completed_at
   end
 
   test "queue_deployment requires manage access", %{draft: draft, version: version, device: device} do

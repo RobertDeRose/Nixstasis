@@ -849,7 +849,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### `server-stary-script-workbench`
 
-- Status: planned
+- Status: in-progress
 - Overview:
 - Add a server web interface for creating, editing, validating, testing, and
     deploying Stary scripts. The UI should include a structured front-matter
@@ -942,6 +942,16 @@ cohort instead of relying only on product, account, status, and search filters.
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`
 - `packages/server/lib/nixstasis/devices/`
 - `packages/server/lib/nixstasis/domain.ex`
+- Implementation status:
+- Server persistence, LiveView inventory/detail screens, structured front-matter
+    editing, CodeMirror body editing, validation, test queueing, deployment
+    queueing, per-device action display, live refresh, retry, and cancel/mark
+    failed controls are implemented.
+- Validation now requires an explicit front-matter version, and test/deploy
+    commands use the immutable validated version content rather than the mutable
+    draft body.
+- Remaining close-out work is documentation reconciliation and any final browser
+    smoke testing against the Compose dev lab.
 - Suggested validation:
 - Server tests for script draft persistence, status transitions, authorization,
     and audit event creation.
