@@ -219,6 +219,20 @@ defmodule Nixstasis.ScriptsTest do
     assert cancelled.completed_at
   end
 
+  test "late test results do not revive canceled test run", %{device: device, draft: draft, version: version} do
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    assert {:ok, _cancelled} = Scripts.cancel_test_run(%{"script_permissions" => %{"can_manage" => true}}, run)
+
+    assert {:ok, final} =
+             Scripts.ingest_test_results(%{"script_permissions" => %{"can_manage" => true}}, run, [
+               %{"device_id" => device.id, "command_id" => "cmd-late", "status" => "OK"}
+             ])
+
+    assert final.status == :failed
+  end
+
   test "queue_deployment requires manage access", %{draft: draft, version: version, device: device} do
     assert {:error, :unauthorized} =
              Scripts.queue_deployment(%{"script_permissions" => %{"can_manage" => false}}, draft, version, [device])
