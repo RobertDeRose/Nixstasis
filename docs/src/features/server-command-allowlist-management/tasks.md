@@ -6,7 +6,7 @@
 
 ## Phase 0: Scope Guard And Authorization
 
-- [ ] T000 Confirm this feature remains distinct from script workbench execution and dashboard device groups. Scope the feature to allowlist policy lifecycle only.
+- [X] T000 Confirm this feature remains distinct from script workbench execution and dashboard device groups. Scope the feature to allowlist policy lifecycle only.
 - [ ] T001 Require operator-level permission for creating/updating/deleting allowlists, categories, and assignments.
 - [ ] T002 Confirm device-level authorization/visibility rules are applied in all screens and assignment APIs.
 
@@ -29,7 +29,7 @@
 ## Phase 3: Policy Delivery Integration
 
 - [ ] T013 Add server command delivery path (likely `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` + command payload serialization) to push policy updates to selected devices.
-- [ ] T014 Implement idempotent delivery semantics using `packages/client/internal/commands/handler.go`, command IDs, and device command acknowledgements.
+- [X] T014 Implement idempotent delivery semantics using `packages/client/internal/commands/handler.go`, command IDs, and device command acknowledgements.
 - [ ] T015 Add command payload schema version marker and client persistence for received policy in `packages/client/internal/script/runtime.go`.
 - [ ] T016 Record client delivery outcomes and tie to assignment state in persistence and command result persistence.
 - [ ] T017 Handle unsupported/legacy clients with explicit failure/reporting path and operator-visible status.

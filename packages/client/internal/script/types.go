@@ -109,6 +109,7 @@ type RuntimeConfig struct {
 	WarnAfter            time.Duration
 	MQTTBroker           string
 	ExecCommandAllowlist map[string]string
+	CommandPolicyVersion string
 	ExecWorkDir          string
 	ExecEnv              []string
 	ExecUser             *ExecUser
