@@ -62,10 +62,9 @@ defmodule Nixstasis.Scripts do
 
   def validate_draft(session, %ScriptDraft{} = draft) do
     with true <- Authorization.can_validate?(session),
+         {:ok, version} <- draft_version(draft),
          rendered <- render_draft(draft),
-         {:ok, payload} <- Nixstasis.Scripts.Validator.validate_content(rendered) do
-      version = draft.front_matter["version"] || "0.1.0"
-
+         {:ok, payload} <- Validator.validate_content(rendered) do
       {:ok, _version} =
         Domain.create_script_version(%{
           script_draft_id: draft.id,
@@ -89,6 +88,7 @@ defmodule Nixstasis.Scripts do
         })
 
       audit_result(result, :validation_passed, %{script_draft_id: draft.id})
+      broadcast_script(draft.id)
       result
     else
       false ->
@@ -105,7 +105,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_test?(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
-      rendered = render_draft(draft)
+      rendered = version.rendered_content
 
       {:ok, test_run} =
         Domain.create_script_test_run(%{
@@ -145,6 +145,7 @@ defmodule Nixstasis.Scripts do
         target_device_ids: device_ids
       })
 
+      broadcast_script(draft.id)
       {:ok, test_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -180,6 +181,7 @@ defmodule Nixstasis.Scripts do
       if final_status != :running,
         do: Audit.emit(:test_completed, %{script_test_run_id: test_run.id, status: final_status})
 
+      broadcast_script(test_run.script_draft_id)
       result
     else
       _ -> {:error, :unauthorized}
@@ -191,7 +193,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_deploy?(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
-      rendered = render_draft(draft)
+      rendered = version.rendered_content
 
       {:ok, deployment_run} =
         Domain.create_script_deployment_run(%{
@@ -231,6 +233,7 @@ defmodule Nixstasis.Scripts do
         target_device_ids: device_ids
       })
 
+      broadcast_script(draft.id)
       {:ok, deployment_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -271,8 +274,35 @@ defmodule Nixstasis.Scripts do
       if final_status != :running,
         do: Audit.emit(:deployment_completed, %{script_deployment_run_id: run.id, status: final_status})
 
+      broadcast_script(run.script_draft_id)
       result
     else
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  def cancel_test_run(session, %ScriptTestRun{} = run) do
+    with true <- Authorization.can_test?(session),
+         true <- run.status in [:pending, :running] do
+      result = Domain.update_script_test_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
+      audit_result(result, :test_cancelled, %{script_test_run_id: run.id})
+      broadcast_script(run.script_draft_id)
+      result
+    else
+      false -> {:error, :not_running}
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  def cancel_deployment_run(session, %ScriptDeploymentRun{} = run) do
+    with true <- Authorization.can_deploy?(session),
+         true <- run.status in [:pending, :running] do
+      result = Domain.update_script_deployment_run(run, %{status: :failed, completed_at: DateTime.utc_now()})
+      audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id})
+      broadcast_script(run.script_draft_id)
+      result
+    else
+      false -> {:error, :not_running}
       _ -> {:error, :unauthorized}
     end
   end
@@ -284,6 +314,17 @@ defmodule Nixstasis.Scripts do
       result
     else
       {:error, :unauthorized}
+    end
+  end
+
+  defp draft_version(%ScriptDraft{front_matter: front_matter}) do
+    case Map.get(front_matter, "version") do
+      version when is_binary(version) ->
+        version = String.trim(version)
+        if version == "", do: {:error, "front matter version is required"}, else: {:ok, version}
+
+      _ ->
+        {:error, "front matter version is required"}
     end
   end
 
@@ -411,4 +452,8 @@ defmodule Nixstasis.Scripts do
   end
 
   defp audit_result(_, _action, _attrs), do: :ok
+
+  defp broadcast_script(draft_id) do
+    Phoenix.PubSub.broadcast(Nixstasis.PubSub, "scripts:#{draft_id}", {:script_runs_changed, draft_id})
+  end
 end

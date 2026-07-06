@@ -304,3 +304,17 @@ This project does not use `<Layouts.app>` inside LiveView templates. The
 `app.html.heex` root layout wraps `{@inner_content}` automatically via the
 router's `put_root_layout` plug. Templates render their content directly without
 the layout wrapper.
+
+### Validated Version Boundary
+
+Validation requires an explicit non-empty front-matter `version`. Test and
+deployment commands use the persisted `ScriptVersion.rendered_content`, not the
+current mutable draft body, so the client executes the exact artifact that passed
+validation.
+
+### Run Refresh And Stuck Runs
+
+The Script Workbench subscribes to script run PubSub events and also polls as a
+fallback while connected. Test and deployment runs expose retry actions for failed
+or partial runs. Active runs can be cancelled from the UI by marking the server
+run failed; already delivered client commands may still complete independently.

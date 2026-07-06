@@ -68,10 +68,12 @@ defmodule NixstasisWeb.ScriptLiveTest do
       assert html =~ "Editor"
       assert html =~ "Validate"
       assert html =~ "Test"
-      refute html =~ ~s(phx-value-tab="deploy")
+      assert html =~ ~s(phx-value-tab="deploy")
+      assert html =~ "Validate and pass a test before deploying"
+      assert html =~ "disabled"
     end
 
-    test "shows deploy tab only after version validation and passed test", %{conn: conn, draft: draft} do
+    test "enables deploy tab after version validation and passed test", %{conn: conn, draft: draft} do
       {:ok, version} =
         Domain.create_script_version(%{
           script_draft_id: draft.id,
@@ -96,6 +98,7 @@ defmodule NixstasisWeb.ScriptLiveTest do
 
       {:ok, _view, html} = live(conn, ~p"/scripts/#{draft.id}")
       assert html =~ ~s(phx-value-tab="deploy")
+      refute html =~ "Validate and pass a test before deploying"
     end
 
     test "redirects script detail without script view permission", %{conn: conn, draft: draft} do
@@ -132,10 +135,10 @@ defmodule NixstasisWeb.ScriptLiveTest do
       {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
 
       render_click(element(view, "button[phx-value-tab='validate']"))
-      assert render(view) =~ "Run Validation"
+      assert render(view) =~ "Validate script"
 
       render_click(element(view, "button[phx-value-tab='test']"))
-      assert render(view) =~ "Queue Test Run"
+      assert render(view) =~ "Test on selected devices"
 
       render_click(element(view, "button[phx-value-tab='history']"))
       assert render(view) =~ "Versions"
@@ -218,10 +221,10 @@ defmodule NixstasisWeb.ScriptLiveTest do
       {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
 
       render_click(element(view, "button[phx-value-tab='validate']"))
-      render_click(element(view, "button", "Run Validation"))
+      render_click(element(view, "button", "Validate script"))
       render_click(element(view, "button[phx-value-tab='test']"))
       render_click(element(view, "input[phx-value-device_id='#{device.id}']"))
-      html = render_click(element(view, "button", "Queue Test Run"))
+      html = render_click(element(view, "button", "Test on selected devices"))
 
       assert html =~ "Test queued for 1 device"
       refute html =~ "No script version available"

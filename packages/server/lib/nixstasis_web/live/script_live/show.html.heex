@@ -45,15 +45,26 @@
     Test
   </button>
   <button
-    :if={deploy_ready?(@front_matter_yaml, @versions, @test_runs)}
     id="script-tab-deploy"
     role="tab"
-    class={"tab #{@active_tab == "deploy" && "tab-active"}"}
+    class={[
+      "tab",
+      @active_tab == "deploy" && "tab-active",
+      !deploy_ready?(@front_matter_yaml, @versions, @test_runs) && "opacity-60"
+    ]}
     aria-selected={@active_tab == "deploy"}
     aria-controls="script-tabpanel-deploy"
+    aria-disabled={!deploy_ready?(@front_matter_yaml, @versions, @test_runs)}
+    disabled={!deploy_ready?(@front_matter_yaml, @versions, @test_runs)}
+    title={
+      if deploy_ready?(@front_matter_yaml, @versions, @test_runs),
+        do: "Deploy",
+        else: "Validate and pass a test before deploying"
+    }
     phx-click="set_tab"
     phx-value-tab="deploy"
   >
+    <.icon :if={!deploy_ready?(@front_matter_yaml, @versions, @test_runs)} name="hero-lock-closed" class="size-3" />
     Deploy
   </button>
   <button
@@ -69,190 +80,264 @@
   </button>
 </div>
 
-<div class="p-4 border-base-300 bg-base-100 border-x border-b rounded-b-box">
+<div class="mt-4 rounded-box border border-base-300 bg-base-100 p-3 shadow-sm">
+  <ul class="steps steps-vertical sm:steps-horizontal w-full text-xs">
+    <li class={step_class(identity_complete?(@front_matter_yaml))}>Identity</li>
+    <li class={step_class(validation_ready?(@front_matter_yaml, @versions))}>Validated</li>
+    <li class={step_class(deploy_ready?(@front_matter_yaml, @versions, @test_runs))}>Test passed</li>
+    <li class={step_class(deploy_ready?(@front_matter_yaml, @versions, @test_runs))}>Deploy ready</li>
+  </ul>
+</div>
+
+<div class="mt-4 grid gap-3 sm:grid-cols-3">
+  <div class="rounded-box border border-base-300 bg-base-100 p-3 shadow-sm">
+    <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Draft version</div>
+    <div class="mt-1 font-mono text-sm">{@front_matter_yaml["version"] || "—"}</div>
+  </div>
+  <div class="rounded-box border border-base-300 bg-base-100 p-3 shadow-sm sm:col-span-2">
+    <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">
+      Validated version selected for test/deploy
+    </div>
+    <%= if version = latest_validated_version(@versions) do %>
+      <div class="mt-1 flex flex-wrap items-center gap-2">
+        <span class="badge badge-info">{version.version}</span>
+        <span class="text-sm text-base-content/70">Tests and deployments use this immutable validated artifact.</span>
+      </div>
+    <% else %>
+      <div class="mt-1 text-sm text-base-content/70">
+        No validated version yet. Add a version and validate before testing.
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div class="mt-4 p-4 border-base-300 bg-base-100 border rounded-box shadow-sm">
   <%= if @active_tab == "editor" do %>
     <div id="script-tabpanel-editor" role="tabpanel" aria-labelledby="script-tab-editor" class="space-y-6">
       <%!-- Script metadata --%>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="ui-form-label">Script Name</label>
-          <input
-            type="text"
-            value={@front_matter_yaml["name"]}
-            placeholder="e.g. hello_world"
-            phx-blur="update_front_matter_field"
-            phx-value-key="name"
-            class="ui-input-sm"
-          />
+      <section class="rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold">Identity</h2>
+            <p class="text-sm text-base-content/70">Name and version become the deployable script identity.</p>
+          </div>
+          <span class={[
+            "badge",
+            identity_complete?(@front_matter_yaml) && "badge-success",
+            !identity_complete?(@front_matter_yaml) && "badge-warning"
+          ]}>
+            {if identity_complete?(@front_matter_yaml), do: "Complete", else: "Needs details"}
+          </span>
         </div>
-        <div>
-          <label class="ui-form-label">Version</label>
-          <input
-            type="text"
-            value={@front_matter_yaml["version"]}
-            placeholder="e.g. 1.0.0"
-            phx-blur="update_front_matter_field"
-            phx-value-key="version"
-            class="ui-input-sm"
-          />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="ui-form-label">Script Name</label>
+            <input
+              type="text"
+              value={@front_matter_yaml["name"]}
+              placeholder="e.g. hello_world"
+              phx-blur="update_front_matter_field"
+              phx-value-key="name"
+              class="ui-input-sm"
+            />
+          </div>
+          <div>
+            <label class="ui-form-label">Version</label>
+            <input
+              type="text"
+              value={@front_matter_yaml["version"]}
+              placeholder="e.g. 1.0.0"
+              phx-blur="update_front_matter_field"
+              phx-value-key="version"
+              class="ui-input-sm"
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="divider"></div>
-
-      <details
-        id="front-matter-section"
-        open={if @front_matter_open, do: "open", else: nil}
-        class="collapse collapse-arrow bg-base-200 border border-base-300"
-      >
-        <summary class="collapse-title text-sm font-semibold" phx-click="toggle_front_matter">Front Matter</summary>
-        <%= if @front_matter_open do %>
-          <div class="collapse-content">
-            <div role="tablist" class="tabs tabs-lift">
-              <label class="tab">
-                <input
-                  id="front-matter-tab-preview"
-                  type="radio"
-                  name="front-matter-tabs"
-                  checked={@front_matter_tab == "preview"}
-                  phx-click="set_front_matter_tab"
-                  phx-value-tab="preview"
-                  aria-controls="front-matter-preview"
-                />
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                  class="size-4 me-2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M3.75 9.75c0 .62.56 1.125 1.25 1.125h.013c.691 0 1.251-.505 1.251-1.125 0-.621-.56-1.126-1.252-1.126S3.75 9.129 3.75 9.75Zm.25 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm6-3.75a2.25 2.25 0 0 1 4.5 0M2.25 12s3.75-6.75 9.75-6.75 9.75 6.75 9.75 6.75-3.75 6.75-9.75 6.75S2.25 12 2.25 12Zm9.75 4.5A4.5 4.5 0 1 0 10.5 7.5a4.5 4.5 0 0 0 1.5 8.5"
+      <section class="rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="mb-4">
+          <h2 class="text-lg font-semibold">Input schema</h2>
+          <p class="text-sm text-base-content/70">Define the front matter clients need before the script runs.</p>
+        </div>
+        <details
+          id="front-matter-section"
+          open={if @front_matter_open, do: "open", else: nil}
+          class="collapse collapse-arrow bg-base-200 border border-base-300"
+        >
+          <summary class="collapse-title text-sm font-semibold" phx-click="toggle_front_matter">Front Matter</summary>
+          <%= if @front_matter_open do %>
+            <div class="collapse-content">
+              <div role="tablist" class="tabs tabs-lift">
+                <label class="tab">
+                  <input
+                    id="front-matter-tab-preview"
+                    type="radio"
+                    name="front-matter-tabs"
+                    checked={@front_matter_tab == "preview"}
+                    phx-click="set_front_matter_tab"
+                    phx-value-tab="preview"
+                    aria-controls="front-matter-preview"
                   />
-                </svg>
-                Preview
-              </label>
-              <div
-                id="front-matter-preview"
-                role="tabpanel"
-                class="tab-content bg-base-100 border-base-300 p-3"
-                aria-labelledby="front-matter-tab-preview"
-              >
-                <textarea
-                  id="front-matter-editor"
-                  phx-hook="CodeMirror"
-                  phx-update="ignore"
-                  data-mode="yaml"
-                  data-readonly="true"
-                  class="textarea textarea-bordered w-full min-h-[220px]"
-                >{@front_matter_yaml |> render_yaml_string()}</textarea>
-              </div>
-
-              <label class="tab">
-                <input
-                  id="front-matter-tab-schema"
-                  type="radio"
-                  name="front-matter-tabs"
-                  checked={@front_matter_tab == "schema"}
-                  phx-click="set_front_matter_tab"
-                  phx-value-tab="schema"
-                  aria-controls="front-matter-schema"
-                />
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                  class="size-4 me-2"
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="size-4 me-2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3.75 9.75c0 .62.56 1.125 1.25 1.125h.013c.691 0 1.251-.505 1.251-1.125 0-.621-.56-1.126-1.252-1.126S3.75 9.129 3.75 9.75Zm.25 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm6-3.75a2.25 2.25 0 0 1 4.5 0M2.25 12s3.75-6.75 9.75-6.75 9.75 6.75 9.75 6.75-3.75 6.75-9.75 6.75S2.25 12 2.25 12Zm9.75 4.5A4.5 4.5 0 1 0 10.5 7.5a4.5 4.5 0 0 0 1.5 8.5"
+                    />
+                  </svg>
+                  Preview
+                </label>
+                <div
+                  id="front-matter-preview"
+                  role="tabpanel"
+                  class="tab-content bg-base-100 border-base-300 p-3"
+                  aria-labelledby="front-matter-tab-preview"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" /><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M6 11.25l4.5 4.5L18 8.25"
-                  />
-                </svg>
-                Schema Editor
-              </label>
-              <div
-                id="front-matter-schema"
-                role="tabpanel"
-                class="tab-content bg-base-100 border-base-300 p-3"
-                aria-labelledby="front-matter-tab-schema"
-              >
-                <div data-schema-section="fields">
-                  <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold">Schema Fields</h2>
-                    <button
-                      id="schema-add-field"
-                      type="button"
-                      phx-click="add_schema_field"
-                      class="btn btn-sm"
-                    >
-                      + Add Field
-                    </button>
-                  </div>
+                  <textarea
+                    id="front-matter-editor"
+                    phx-hook="CodeMirror"
+                    phx-update="ignore"
+                    data-mode="yaml"
+                    data-readonly="true"
+                    class="textarea textarea-bordered w-full min-h-[220px]"
+                  >{@front_matter_yaml |> render_yaml_string()}</textarea>
+                </div>
 
-                  <form id="schema-fields-form" phx-change="update_schema_field">
-                    <div class="space-y-3">
-                      <%= for field <- @schema_fields do %>
-                        <.schema_field field={field} parent_path={:root} errors={@schema_field_errors} />
-                      <% end %>
+                <label class="tab">
+                  <input
+                    id="front-matter-tab-schema"
+                    type="radio"
+                    name="front-matter-tabs"
+                    checked={@front_matter_tab == "schema"}
+                    phx-click="set_front_matter_tab"
+                    phx-value-tab="schema"
+                    aria-controls="front-matter-schema"
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="size-4 me-2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" /><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 11.25l4.5 4.5L18 8.25"
+                    />
+                  </svg>
+                  Schema Editor
+                </label>
+                <div
+                  id="front-matter-schema"
+                  role="tabpanel"
+                  class="tab-content bg-base-100 border-base-300 p-3"
+                  aria-labelledby="front-matter-tab-schema"
+                >
+                  <div data-schema-section="fields">
+                    <div class="flex items-center justify-between mb-4">
+                      <h2 class="text-lg font-semibold">Schema Fields</h2>
+                      <button
+                        id="schema-add-field"
+                        type="button"
+                        phx-click="add_schema_field"
+                        class="btn btn-sm"
+                      >
+                        + Add Field
+                      </button>
                     </div>
-                  </form>
+
+                    <form id="schema-fields-form" phx-change="update_schema_field">
+                      <div class="space-y-3">
+                        <%= for field <- @schema_fields do %>
+                          <.schema_field field={field} parent_path={:root} errors={@schema_field_errors} />
+                        <% end %>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        <% end %>
-      </details>
+          <% end %>
+        </details>
+      </section>
 
       <%!-- Script body editor --%>
-      <.form for={%{}} as={:editor} phx-submit="update_body">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Script Content</span></label>
-          <textarea
-            id="script-body-editor"
-            name="body"
-            phx-hook="CodeMirror"
-            phx-update="ignore"
-            data-mode="python"
-            class="textarea font-mono text-sm min-h-[300px]"
-          >{@body}</textarea>
+      <section class="rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold">Script body</h2>
+            <p class="text-sm text-base-content/70">Edit the Python content that will run on selected devices.</p>
+          </div>
         </div>
+        <.form for={%{}} as={:editor} phx-submit="update_body">
+          <div class="form-control">
+            <label class="label"><span class="label-text">Script Content</span></label>
+            <textarea
+              id="script-body-editor"
+              name="body"
+              phx-hook="CodeMirror"
+              phx-update="ignore"
+              data-mode="python"
+              class="textarea font-mono text-sm min-h-[300px]"
+            >{@body}</textarea>
+          </div>
 
-        <div class="mt-2">
-          <button type="submit" class="btn btn-sm btn-primary">
-            Save Script
-          </button>
-        </div>
-      </.form>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-sm btn-primary">
+              Save Script
+            </button>
+          </div>
+        </.form>
+      </section>
     </div>
   <% end %>
 
   <%= if @active_tab == "validate" do %>
     <div id="script-tabpanel-validate" role="tabpanel" aria-labelledby="script-tab-validate" class="space-y-4">
-      <div class="flex items-center gap-4">
-        <button phx-click="validate_script" class="btn btn-primary">
-          <.icon name="hero-play" class="size-4" /> Run Validation
-        </button>
+      <div class="rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Validation</h2>
+            <p class="text-sm text-base-content/70">Create a versioned script artifact before testing.</p>
+          </div>
+          <button phx-click="validate_script" class="btn btn-primary">
+            <.icon name="hero-play" class="size-4" /> Validate script
+          </button>
+        </div>
         <%= if @validation_result do %>
           <%= if @validation_result.status == :passed do %>
-            <div class="alert alert-success">
+            <div class="alert alert-success mt-4">
               <.icon name="hero-check-circle" class="size-5" />
               <span>Validation passed</span>
             </div>
           <% else %>
-            <div class="alert alert-error">
+            <div class="alert alert-error mt-4">
               <.icon name="hero-x-circle" class="size-5" />
               <span>{@validation_result.reason}</span>
             </div>
           <% end %>
         <% end %>
       </div>
+
+      <%= if latest = latest_run(@validation_runs) do %>
+        <div class="rounded-box border border-base-300 bg-base-200 p-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Latest validation</div>
+          <div class="mt-2 flex items-center justify-between gap-4">
+            <span class={"badge #{status_badge_class(latest.status)}"}>{latest.status}</span>
+            <span class="text-sm text-base-content/70">{Calendar.strftime(latest.validated_at, "%Y-%m-%d %H:%M")}</span>
+          </div>
+        </div>
+      <% end %>
 
       <%= if @validation_runs != [] do %>
         <h3 class="text-sm font-semibold mt-6">Validation History</h3>
@@ -281,7 +366,10 @@
       <div>
         <h3 class="text-sm font-semibold mb-2">Select Devices</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+          <label
+            :for={device <- @devices}
+            class="flex items-center gap-2 rounded border border-base-300 p-2 hover:bg-base-200 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+          >
             <input
               type="checkbox"
               class="checkbox checkbox-sm"
@@ -295,8 +383,33 @@
       </div>
 
       <button phx-click="queue_test" class="btn btn-primary" disabled={@selected_device_ids == []}>
-        <.icon name="hero-play" class="size-4" /> Queue Test Run
+        <.icon name="hero-play" class="size-4" /> Test on selected devices
       </button>
+
+      <%= if latest = latest_run(@test_runs) do %>
+        <div class="rounded-box border border-base-300 bg-base-200 p-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Latest test run</div>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <span class={"badge #{status_badge_class(latest.status)}"}>{latest.status}</span>
+              <span class="text-sm text-base-content/70">{length(latest.target_device_ids)} device(s)</span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                :if={latest.status in [:pending, :running]}
+                class="btn btn-xs btn-outline"
+                phx-click="cancel_test"
+                phx-value-id={latest.id}
+              >
+                Cancel
+              </button>
+              <button :if={latest.status == :failed} class="btn btn-xs" phx-click="retry_test" phx-value-id={latest.id}>
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      <% end %>
 
       <%= if @test_runs != [] do %>
         <h3 class="text-sm font-semibold mt-6">Test Runs</h3>
@@ -320,10 +433,21 @@
                   {if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}
                 </td>
                 <td class="text-xs">
-                  <div :for={action <- client_actions(@client_actions, :test, run.id)} class="mb-1">
-                    <span>{device_label(@devices, action.device_id)}</span>
-                    <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
-                    <pre :if={action.result_payload != %{}} class="mt-1 whitespace-pre-wrap">{inspect(action.result_payload)}</pre>
+                  <div
+                    :for={action <- client_actions(@client_actions, :test, run.id)}
+                    class="mb-2 rounded border border-base-300 bg-base-100 p-2"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="font-medium">{device_label(@devices, action.device_id)}</span>
+                      <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
+                    </div>
+                    <div class="mt-1 text-[0.7rem] text-base-content/60">
+                      command: {action.command_ref || "pending"} · payload: {action.payload_ref || "—"}
+                    </div>
+                    <pre
+                      :if={action.result_payload != %{}}
+                      class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-base-300 bg-base-200 p-2 text-xs"
+                    >{inspect(action.result_payload, pretty: true)}</pre>
                   </div>
                 </td>
               </tr>
@@ -339,7 +463,10 @@
       <div>
         <h3 class="text-sm font-semibold mb-2">Select Devices</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <label :for={device <- @devices} class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+          <label
+            :for={device <- @devices}
+            class="flex items-center gap-2 rounded border border-base-300 p-2 hover:bg-base-200 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+          >
             <input
               type="checkbox"
               class="checkbox checkbox-sm"
@@ -355,6 +482,36 @@
       <button phx-click="queue_deployment" class="btn btn-warning" disabled={@selected_device_ids == []}>
         <.icon name="hero-arrow-up-tray" class="size-4" /> Deploy to Selected Devices
       </button>
+
+      <%= if latest = latest_run(@deployment_runs) do %>
+        <div class="rounded-box border border-base-300 bg-base-200 p-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Latest deployment</div>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <span class={"badge #{status_badge_class(latest.status)}"}>{latest.status}</span>
+              <span class="text-sm text-base-content/70">{length(latest.target_device_ids)} device(s)</span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                :if={latest.status in [:pending, :running]}
+                class="btn btn-xs btn-outline"
+                phx-click="cancel_deployment"
+                phx-value-id={latest.id}
+              >
+                Cancel
+              </button>
+              <button
+                :if={latest.status in [:failed, :partial]}
+                class="btn btn-xs"
+                phx-click="retry_deployment"
+                phx-value-id={latest.id}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      <% end %>
 
       <%= if @deployment_runs != [] do %>
         <h3 class="text-sm font-semibold mt-6">Deployment History</h3>
@@ -378,10 +535,21 @@
                   {if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}
                 </td>
                 <td class="text-xs">
-                  <div :for={action <- client_actions(@client_actions, :deploy, run.id)} class="mb-1">
-                    <span>{device_label(@devices, action.device_id)}</span>
-                    <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
-                    <pre :if={action.result_payload != %{}} class="mt-1 whitespace-pre-wrap">{inspect(action.result_payload)}</pre>
+                  <div
+                    :for={action <- client_actions(@client_actions, :deploy, run.id)}
+                    class="mb-2 rounded border border-base-300 bg-base-100 p-2"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="font-medium">{device_label(@devices, action.device_id)}</span>
+                      <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
+                    </div>
+                    <div class="mt-1 text-[0.7rem] text-base-content/60">
+                      command: {action.command_ref || "pending"} · payload: {action.payload_ref || "—"}
+                    </div>
+                    <pre
+                      :if={action.result_payload != %{}}
+                      class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-base-300 bg-base-200 p-2 text-xs"
+                    >{inspect(action.result_payload, pretty: true)}</pre>
                   </div>
                 </td>
               </tr>
