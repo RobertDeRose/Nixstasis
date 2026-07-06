@@ -12,27 +12,27 @@
 
 ## Phase 1: Policy Domain And Persistence
 
-- [ ] T003 Add persistence and Ash resources for command allowlist entries and versions.
-- [ ] T004 Add persistence and resources for allowlist categories and membership.
-- [ ] T005 Add persistence and resources for device policy assignments and effective policy snapshots.
-- [ ] T006 Add persistence and resources for policy delivery/client response history.
-- [ ] T007 Add database constraints to validate absolute paths and prevent conflicting command name entries within the same resolved policy.
-- [ ] T008 Add repository migrations and `ash.codegen` validation if resource shape changes.
+- [ ] T003 Add persistence and Ash resources for command allowlist entries and versions under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T004 Add persistence and resources for direct-only allowlist categories and membership under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T005 Add persistence and resources for device policy assignments and effective policy snapshots under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T006 Add persistence and resources for policy delivery/client response history under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T007 Add database/resource constraints to validate absolute paths and prevent conflicting command name entries within the same resolved policy.
+- [ ] T008 Add repository migrations with `mix ash.codegen <descriptive_name>` and verify with `mix ash.codegen --check` if resource shape changes.
 
 ## Phase 2: Validation And Resolution
 
-- [ ] T009 Implement input validation for command entries: name/path format, shell fragments, shell metacharacters, and path normalization in `packages/server/lib/nixstasis/command_allowlist/` resources and web validation layer for create/edit forms.
-- [ ] T010 Implement conflict detection and effective policy resolution for category composition in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service.
+- [ ] T009 Implement input validation for command entries: name/path format, shell fragments, shell metacharacters, and path normalization in `packages/server/lib/nixstasis/command_allowlists/` resources and web validation layer for create/edit forms.
+- [ ] T010 Implement conflict detection and effective policy resolution for direct category composition in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service.
 - [ ] T011 Add server-side preview generation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint.
-- [ ] T012 Add audit events for create/update/delete and assignment state changes in policy resources and `packages/server/lib/nixstasis_web/live/`.
+- [ ] T012 Add audit events for create/update/delete, assignment state changes, and revoke/narrow deliveries in policy resources and `packages/server/lib/nixstasis_web/live/`.
 
 ## Phase 3: Policy Delivery Integration
 
-- [ ] T013 Add server command delivery path (likely `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` + command payload serialization) to push policy updates to selected devices.
-- [X] T014 Implement idempotent delivery semantics using `packages/client/internal/commands/handler.go`, command IDs, and device command acknowledgements.
-- [ ] T015 Add command payload schema version marker and client persistence for received policy in `packages/client/internal/script/runtime.go`.
-- [ ] T016 Record client delivery outcomes and tie to assignment state in persistence and command result persistence.
-- [ ] T017 Handle unsupported/legacy clients with explicit failure/reporting path and operator-visible status.
+- [ ] T013 Add server command delivery path using `packages/server/lib/nixstasis/devices.ex`, `packages/server/lib/nixstasis/devices/pending_command.ex`, and command payload serialization to push `apply_command_policy` updates to selected devices.
+- [X] T014 Implement idempotent client command application using `packages/client/internal/commands/handler.go`, command IDs, and device command acknowledgements.
+- [ ] T015 Add client persistence for received policy and reload into `packages/client/internal/script.RuntimeConfig` from `packages/client/cmd/nixstasis/poll.go`.
+- [ ] T016 Record client delivery outcomes from `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` and tie them to assignment state in persistence.
+- [ ] T017 Handle unsupported/legacy clients with explicit command-result failure/reporting path and operator-visible assignment status.
 
 ## Phase 4: LiveView Workbench
 
@@ -44,9 +44,9 @@
 
 ## Phase 5: Verification And Close-Out
 
-- [ ] T023 Add server tests for policy persistence, conflict detection, assignment authorization, and audit events.
-- [ ] T024 Add client tests for policy ingestion and `exec_cmd` gating with policy presence/absence.
-- [ ] T025 Add integration test covering add policy, assign to one+ devices, resolve, and verify command behavior.
+- [ ] T023 Add server tests for policy persistence, conflict detection, assignment authorization, command queueing, result acknowledgement, revoke/narrow behavior, and audit events.
+- [ ] T024 Add client tests for policy ingestion, persistence/reload, idempotency, and `exec_cmd` gating with policy presence/absence.
+- [ ] T025 Add integration test covering add policy, assign to one+ devices, resolve, verify command behavior, revoke assignment, and verify rejection.
 - [ ] T026 Run `hk check -a` and required focused test suites after implementation changes.
-- [ ] T027 Update user-facing docs in affected sections and run doc build checks.
+- [ ] T027 Update user-facing docs in affected sections listed in `design.md` and run doc build checks.
 - [ ] T999 Complete close-out by reconciling implementation, feature specs, and planned docs status.
