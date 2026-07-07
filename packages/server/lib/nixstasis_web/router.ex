@@ -54,6 +54,9 @@ defmodule NixstasisWeb.Router do
     live("/reports/:id", ReportLive.Show, :show)
     live("/settings", SettingsLive, :index)
     live("/scripts", ScriptLive.Index, :index)
+    live("/scripts/command-policies", CommandPolicyLive.Index, :index)
+    live("/scripts/command-policies/new", CommandPolicyLive.Index, :new)
+    live("/scripts/command-policies/:id/edit", CommandPolicyLive.Index, :edit)
     live("/scripts/:id", ScriptLive.Show, :show)
     post("/scripts/command-policies/preview", CommandPolicyController, :preview)
 

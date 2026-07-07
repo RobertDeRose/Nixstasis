@@ -19,6 +19,8 @@
 - `packages/server/lib/nixstasis_web/endpoint.ex`
 - `packages/server/lib/nixstasis_web/controllers/*.ex`
 - `packages/server/lib/nixstasis_web/live/**/*.ex`
+- `packages/server/lib/nixstasis_web/live/command_policy_live/index.ex`
+- `packages/server/lib/nixstasis_web/live/command_policy_live/form_component.ex`
 - `packages/server/lib/nixstasis_web/channels/user_socket.ex`
 - `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`
 - `packages/server/lib/nixstasis_web/components/*.ex`
@@ -44,6 +46,9 @@
 - `/reports/:id`
 - `/settings`
 - `/scripts`
+- `/scripts/command-policies`
+- `/scripts/command-policies/new`
+- `/scripts/command-policies/:id/edit`
 - `/scripts/:id`
 - `POST /scripts/command-policies/preview`
 

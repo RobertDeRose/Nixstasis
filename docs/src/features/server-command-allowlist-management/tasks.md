@@ -21,7 +21,7 @@
 
 ## Phase 2: Validation And Resolution
 
-- [ ] T009 Implement input validation for command entries: strict lowercase name format, absolute path syntax, no whitespace/shell metacharacters, no server-side existence check, and web validation layer for create/edit forms.
+- [X] T009 Implement input validation for command entries: strict lowercase name format, absolute path syntax, no whitespace/shell metacharacters, no server-side existence check, and web validation layer for create/edit forms.
 - [X] T010 Implement conflict detection and effective policy resolution for selected command entries and category tags in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service; same name/same path deduplicates with provenance, same name/different path blocks the affected target assignment.
 - [X] T011 Add server-side preview generation and mandatory confirmation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint, including combined policy, provenance, diff, conflicts, affected devices, and raw payload preview.
 - [ ] T012 Add audit events for create/update/delete, assignment state changes, and revoke/narrow deliveries in policy resources and `packages/server/lib/nixstasis_web/live/`.
@@ -36,7 +36,7 @@
 
 ## Phase 4: LiveView Workbench
 
-- [ ] T018 Add Scripts → Command Policies LiveView entry inventory under `packages/server/lib/nixstasis_web/live/` with modal create/edit, category tags, filters, copy path, assignment counts, disable/duplicate, and assign shortcut.
+- [X] T018 Add Scripts → Command Policies LiveView entry inventory under `packages/server/lib/nixstasis_web/live/` with modal create/edit, category tags, filters, copy path, assignment counts, disable/duplicate, and assign shortcut.
 - [ ] T019 Add category tag management UI with modal create/edit, command-entry count, active device-assignment count, delete blocking only when active assignments select the category, and assign shortcut.
 - [ ] T020 Add approved-device assignment wizard with scoped device selection, entry/category selection, preview/confirm, batch handling that excludes conflicted devices, and simple revoke-all confirmation.
 - [ ] T021 Add assignment result/status display and retry/resend, remove selected sources, revoke all, rollback-as-new-revision, raw payload debug for operators/admins, pending-offline state, unsupported-client guidance, activity events, and optional drift warning controls.
