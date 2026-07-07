@@ -23,7 +23,7 @@
 
 - [ ] T009 Implement input validation for command entries: strict lowercase name format, absolute path syntax, no whitespace/shell metacharacters, no server-side existence check, and web validation layer for create/edit forms.
 - [X] T010 Implement conflict detection and effective policy resolution for selected command entries and category tags in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service; same name/same path deduplicates with provenance, same name/different path blocks the affected target assignment.
-- [ ] T011 Add server-side preview generation and mandatory confirmation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint, including combined policy, provenance, diff, conflicts, affected devices, and raw payload preview.
+- [X] T011 Add server-side preview generation and mandatory confirmation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint, including combined policy, provenance, diff, conflicts, affected devices, and raw payload preview.
 - [ ] T012 Add audit events for create/update/delete, assignment state changes, and revoke/narrow deliveries in policy resources and `packages/server/lib/nixstasis_web/live/`.
 
 ## Phase 3: Policy Delivery Integration

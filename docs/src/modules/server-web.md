@@ -43,6 +43,9 @@
 - `/reports/:id/edit`
 - `/reports/:id`
 - `/settings`
+- `/scripts`
+- `/scripts/:id`
+- `POST /scripts/command-policies/preview`
 
 ### JSON API Routes
 
