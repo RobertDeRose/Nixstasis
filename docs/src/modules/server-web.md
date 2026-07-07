@@ -137,7 +137,9 @@ remains an ingress workflow boundary called by Caddy.
   trusted Caddy/AuthCrunch role claim headers when present. Supported production
   role values are normalized by Caddy to `nixstasis/viewer`,
   `nixstasis/operator`, and `nixstasis/admin`; missing or unknown production
-  roles fail closed for device, report, and JSON:API permissions. Requests
+  roles fail closed for device, report, command-policy, and JSON:API
+  permissions. Command-policy permissions intentionally split viewer status
+  access from operator/admin access to full command paths and mutation. Requests
   without `X-Token-*` claim headers keep local-development defaults only in dev
   and test; they are not production authorization.
 - The generated `/api/json` resource surface is an operator/developer API, not

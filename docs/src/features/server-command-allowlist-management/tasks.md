@@ -7,8 +7,8 @@
 ## Phase 0: Scope Guard And Authorization
 
 - [X] T000 Confirm this feature remains distinct from script workbench execution and dashboard device groups. Scope the feature to allowlist policy lifecycle only.
-- [ ] T001 Require operator-level permission for creating/updating/deleting command entries, categories, and assignments; restrict viewers to policy status only.
-- [ ] T002 Confirm device-level authorization/visibility rules are applied in all screens and assignment APIs, with assignments limited to approved devices.
+- [X] T001 Require operator-level permission for creating/updating/deleting command entries, categories, and assignments; restrict viewers to policy status only.
+- [X] T002 Confirm device-level authorization/visibility rules are applied in all screens and assignment APIs, with assignments limited to approved devices.
 
 ## Phase 1: Policy Domain And Persistence
 
