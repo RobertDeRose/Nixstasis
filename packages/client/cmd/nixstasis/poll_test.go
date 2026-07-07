@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commandpolicy"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
@@ -28,6 +30,24 @@ func TestPollIntervalUsesConfiguredValue(t *testing.T) {
 
 	if got := pollInterval(&config.Config{}); got != 30*time.Second {
 		t.Fatalf("pollInterval() fallback = %s", got)
+	}
+}
+
+func TestInitialCommandPolicyUsesPersistedServerPolicyBeforeLocalConfig(t *testing.T) {
+	store := commandpolicy.NewStore(filepath.Join(t.TempDir(), "command-policy.json"))
+	if err := store.Save(commandpolicy.State{Version: "server-v1", Commands: map[string]string{"safe": "/bin/echo"}}); err != nil {
+		t.Fatalf("store.Save() error = %v", err)
+	}
+	cfg := &config.Config{Runtime: config.RuntimeConfig{ExecCommands: map[string]string{"local": "/bin/true"}}}
+	commands, version := initialCommandPolicy(cfg, store)
+	if version != "server-v1" {
+		t.Fatalf("initialCommandPolicy() version = %q", version)
+	}
+	if _, ok := commands["local"]; ok {
+		t.Fatalf("initialCommandPolicy() leaked local fallback when persisted server policy exists: %+v", commands)
+	}
+	if commands["safe"] != "/bin/echo" {
+		t.Fatalf("initialCommandPolicy() commands = %+v", commands)
 	}
 }
 

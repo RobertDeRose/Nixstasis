@@ -77,12 +77,13 @@
 ## Client-Server Interaction Details
 
 - Script outputs are transformed into telemetry reports during `pollOnce` and sent inside the heartbeat `telemetry` object.
-- Server-issued commands can install or remove scripts through `internal/commands.Handler`.
+- Server-issued commands can install/remove scripts and can replace the effective `exec_cmd` allowlist through `internal/commands.Handler`.
 - `.stary` scripts contain YAML front matter plus a Starlark body. Validation
   compiles front matter schemas before installed scripts can contribute
   telemetry.
 - Script execution is bounded: executions have a five-second timeout and emit a
   slow-script warning after three seconds.
+- When a persisted server command policy exists, it overrides locally configured `runtime.exec_commands`; local config is fallback only before the first successful server policy write.
 - `script test` prints normalized YAML output on success and exits non-zero
   without telemetry output when validation or execution fails.
 - Server command batches are correlated by command ID. Duplicate command IDs in a

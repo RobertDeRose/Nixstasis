@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commandpolicy"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commands"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
@@ -62,11 +64,14 @@ func runPoll(cfg *config.Config) error {
 	// 2. Setup Components
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
+	policyStore := commandpolicy.NewStore(config.CommandPolicyPath())
+	execCommandAllowlist, commandPolicyVersion := initialCommandPolicy(cfg, policyStore)
 	runtimeCfg := script.RuntimeConfig{
 		Timeout:              5 * time.Second,
 		WarnAfter:            3 * time.Second,
 		MQTTBroker:           runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
-		ExecCommandAllowlist: cfg.Runtime.ExecCommands,
+		ExecCommandAllowlist: execCommandAllowlist,
+		CommandPolicyVersion: commandPolicyVersion,
 		ExecWorkDir:          cfg.Runtime.ExecWorkDir,
 		ExecEnv:              cfg.Runtime.ExecEnv,
 		MQTTPublishTopics:    cfg.Runtime.MQTTPublishTopics,
@@ -79,7 +84,7 @@ func runPoll(cfg *config.Config) error {
 		return fmt.Errorf("start ssh authorization server: %w", err)
 	}
 	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
-	cmdHandler := commands.NewHandlerWithSSHAuthAndRuntimeConfig(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg)
+	cmdHandler := commands.NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg, policyStore)
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)
@@ -113,6 +118,22 @@ func runPoll(cfg *config.Config) error {
 			timer.Reset(nextDelay)
 		}
 	}
+}
+
+func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string) {
+	if store != nil {
+		state, err := store.Load()
+		if err == nil {
+			return state.Commands, state.Version
+		}
+		if !errors.Is(err, commandpolicy.ErrNoPolicy) {
+			slog.Warn("Failed to load persisted command policy", "error", err)
+		}
+	}
+	if cfg == nil {
+		return nil, ""
+	}
+	return cfg.Runtime.ExecCommands, ""
 }
 
 func runtimeMQTTBroker(configured string) string {
@@ -312,7 +333,7 @@ func runtimeFRPConfig(base config.FRPConfig, uuid string) config.FRPConfig {
 	return frpConfig
 }
 
-func runScripts(ctx context.Context, executor scriptRunner, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
+func runScripts(ctx context.Context, executor scriptRunner, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errorMessages []string) {
 	scripts = script.SelectLatestScripts(scripts)
 
 	scriptStart := time.Now()
