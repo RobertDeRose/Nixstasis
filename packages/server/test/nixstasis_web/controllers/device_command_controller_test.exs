@@ -149,6 +149,40 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     assert assignment_id == assignment.id
   end
 
+  test "POST /api/v1/devices/:device_id/command_results records stale command policy delivery", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: device.id,
+        revision: 3,
+        version: "policy-3",
+        resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+      })
+
+    {:ok, command} = Devices.queue_command_policy_assignment(assignment)
+
+    payload = %{
+      "results" => [
+        %{
+          "command_id" => command.id,
+          "status" => "FAILED",
+          "error" => "policy revision 2 is older than current revision 3"
+        }
+      ]
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+
+    [result] =
+      Domain.list_command_policy_delivery_results() |> elem(1) |> Enum.filter(&(&1.assignment_id == assignment.id))
+
+    assert result.status == :stale
+  end
+
   test "POST /api/v1/devices/:device_id/command_results records unsupported command policy delivery", %{
     conn: conn,
     device: device,

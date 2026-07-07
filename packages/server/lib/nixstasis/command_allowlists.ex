@@ -83,11 +83,21 @@ defmodule Nixstasis.CommandAllowlists do
     # ponytail: client/server currently share failure meaning by stable error substrings;
     # switch to explicit error codes when the client result contract grows.
     cond do
-      String.contains?(error, "unsupported command") -> {:unsupported, error}
-      String.contains?(error, "conflicts with existing policy") -> {:conflict, error}
-      String.contains?(error, "stale") or String.contains?(error, "lower revision") -> {:stale, error}
-      String.contains?(error, "persist") -> {:persistence_failed, error}
-      true -> {:failed, error}
+      String.contains?(error, "unsupported command") ->
+        {:unsupported, error}
+
+      String.contains?(error, "conflicts with existing policy") ->
+        {:conflict, error}
+
+      String.contains?(error, "stale") or String.contains?(error, "lower revision") or
+          String.contains?(error, "older than current revision") ->
+        {:stale, error}
+
+      String.contains?(error, "persist") ->
+        {:persistence_failed, error}
+
+      true ->
+        {:failed, error}
     end
   end
 

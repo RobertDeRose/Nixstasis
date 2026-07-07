@@ -97,6 +97,33 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert html =~ ~s(autocorrect="off")
   end
 
+  test "assignment actions are scoped to authorized devices", %{conn: conn} do
+    {:ok, device} = Nixstasis.Devices.register_device(%{mac_address: "AA:BB:CC:AA:BB:03", product_name: "allowed"})
+    {:ok, device} = Nixstasis.Devices.approve_device(device)
+
+    {:ok, other_device} =
+      Nixstasis.Devices.register_device(%{mac_address: "AA:BB:CC:AA:BB:04", product_name: "blocked"})
+
+    {:ok, other_device} = Nixstasis.Devices.approve_device(other_device)
+
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: other_device.id,
+        revision: 1,
+        version: "policy-1",
+        resolved_policy: %{"commands" => %{}}
+      })
+
+    conn =
+      put_session(conn, "device_permissions", %{"can_view" => true, "can_manage" => true, "device_ids" => [device.id]})
+
+    {:ok, view, html} = live(conn, ~p"/scripts/command-policies")
+
+    refute html =~ other_device.id
+    assert render_click(view, "retry_assignment", %{"id" => assignment.id}) =~ "Failed to resend assignment"
+    assert render_click(view, "toggle_drift_warning", %{"id" => assignment.id}) =~ "Failed to update drift warning"
+  end
+
   test "category form saves category", %{conn: conn} do
     Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
     {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/new")
