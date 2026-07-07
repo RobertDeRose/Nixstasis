@@ -30,6 +30,7 @@
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment.ex`
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment_source.ex`
 - `packages/server/lib/nixstasis/command_allowlists/policy_delivery_result.ex`
+- `packages/server/lib/nixstasis/command_allowlists.ex`
 - `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex`
 - `packages/server/lib/nixstasis_web/ash_json_api_router.ex`
 - `packages/server/priv/static/openapi.yaml`

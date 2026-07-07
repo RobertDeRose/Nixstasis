@@ -45,6 +45,10 @@ defmodule Nixstasis.CommandAllowlists.DevicePolicyAssignment do
         :revoked_at
       ]
     end
+
+    update :update do
+      accept [:status, :drift_warning, :queued_at, :acknowledged_at, :failed_at, :revoked_at]
+    end
   end
 
   attributes do

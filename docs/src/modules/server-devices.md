@@ -84,7 +84,7 @@
 - `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
-- `POST /api/v1/devices/:device_id/command_results` calls `Devices.acknowledge_command_results/2`.
+- `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
 - Terminal session startup creates an opaque session ref **before** queueing
   `ssh_authorize`, so the queued command carries the ref. See
