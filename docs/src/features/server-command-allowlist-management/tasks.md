@@ -28,7 +28,7 @@
 
 ## Phase 3: Policy Delivery Integration
 
-- [ ] T013 Add server command delivery path using `packages/server/lib/nixstasis/devices.ex`, `packages/server/lib/nixstasis/devices/pending_command.ex`, versioned content type, inline-first/deferred-ref payload serialization, and superseding of older undelivered policy commands for a device.
+- [X] T013 Add server command delivery path using `packages/server/lib/nixstasis/devices.ex`, `packages/server/lib/nixstasis/devices/pending_command.ex`, versioned content type, inline-first/deferred-ref payload serialization, and superseding of older undelivered policy commands for a device.
 - [X] T014 Implement idempotent client command application using `packages/client/internal/commands/handler.go`, command IDs, device command acknowledgements, and same-revision conflict rejection.
 - [ ] T015 Add client persistence for received policy outside the script directory, reload into `packages/client/internal/script.RuntimeConfig` from `packages/client/cmd/nixstasis/poll.go`, and server-policy-overrides-local-config behavior.
 - [ ] T016 Record client delivery outcomes from `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` and tie them to assignment state in persistence, including durable ack, unsupported, stale, conflict, and persistence failure reasons.
