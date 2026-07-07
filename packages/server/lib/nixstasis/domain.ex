@@ -183,6 +183,11 @@ defmodule Nixstasis.Domain do
       define :create_command_policy_assignment_source, action: :create
     end
 
+    resource Nixstasis.CommandAllowlists.PolicyDeliveryResult do
+      define :list_command_policy_delivery_results, action: :read
+      define :create_command_policy_delivery_result, action: :create
+    end
+
     resource Nixstasis.Scripts.ScriptDraft do
       define :list_script_drafts, action: :read
       define :get_script_draft, action: :read, get_by: [:id]
