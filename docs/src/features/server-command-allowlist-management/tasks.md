@@ -7,46 +7,46 @@
 ## Phase 0: Scope Guard And Authorization
 
 - [X] T000 Confirm this feature remains distinct from script workbench execution and dashboard device groups. Scope the feature to allowlist policy lifecycle only.
-- [ ] T001 Require operator-level permission for creating/updating/deleting allowlists, categories, and assignments.
-- [ ] T002 Confirm device-level authorization/visibility rules are applied in all screens and assignment APIs.
+- [ ] T001 Require operator-level permission for creating/updating/deleting command entries, categories, and assignments; restrict viewers to policy status only.
+- [ ] T002 Confirm device-level authorization/visibility rules are applied in all screens and assignment APIs, with assignments limited to approved devices.
 
 ## Phase 1: Policy Domain And Persistence
 
-- [ ] T003 Add persistence and Ash resources for command allowlist entries and versions under `packages/server/lib/nixstasis/command_allowlists/`.
-- [ ] T004 Add persistence and resources for direct-only allowlist categories and membership under `packages/server/lib/nixstasis/command_allowlists/`.
-- [ ] T005 Add persistence and resources for device policy assignments and effective policy snapshots under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T003 Add persistence and Ash resources for command entries, immutable versions, archive state, and case-insensitive names under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T004 Add persistence and resources for direct-only categories, immutable membership versions, archive state, and version-pinned command-entry membership under `packages/server/lib/nixstasis/command_allowlists/`.
+- [ ] T005 Add persistence and resources for per-device policy assignments, version-pinned sources, resolved effective policy snapshots, monotonic per-device revisions, and optional drift warning state under `packages/server/lib/nixstasis/command_allowlists/`.
 - [ ] T006 Add persistence and resources for policy delivery/client response history under `packages/server/lib/nixstasis/command_allowlists/`.
 - [ ] T007 Add database/resource constraints to validate absolute paths and prevent conflicting command name entries within the same resolved policy.
 - [ ] T008 Add repository migrations with `mix ash.codegen <descriptive_name>` and verify with `mix ash.codegen --check` if resource shape changes.
 
 ## Phase 2: Validation And Resolution
 
-- [ ] T009 Implement input validation for command entries: name/path format, shell fragments, shell metacharacters, and path normalization in `packages/server/lib/nixstasis/command_allowlists/` resources and web validation layer for create/edit forms.
-- [ ] T010 Implement conflict detection and effective policy resolution for direct category composition in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service.
-- [ ] T011 Add server-side preview generation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint.
+- [ ] T009 Implement input validation for command entries: strict lowercase name format, absolute path syntax, no whitespace/shell metacharacters, no server-side existence check, and web validation layer for create/edit forms.
+- [ ] T010 Implement conflict detection and effective policy resolution for direct category composition in `packages/server/lib/nixstasis/domain.ex` and allowlist resolution service; same name/same path deduplicates with provenance, same name/different path blocks the whole target assignment.
+- [ ] T011 Add server-side preview generation and mandatory confirmation for effective policy before assignment in `packages/server/lib/nixstasis/domain.ex` and command-preview UX endpoint.
 - [ ] T012 Add audit events for create/update/delete, assignment state changes, and revoke/narrow deliveries in policy resources and `packages/server/lib/nixstasis_web/live/`.
 
 ## Phase 3: Policy Delivery Integration
 
-- [ ] T013 Add server command delivery path using `packages/server/lib/nixstasis/devices.ex`, `packages/server/lib/nixstasis/devices/pending_command.ex`, and command payload serialization to push `apply_command_policy` updates to selected devices.
-- [X] T014 Implement idempotent client command application using `packages/client/internal/commands/handler.go`, command IDs, and device command acknowledgements.
-- [ ] T015 Add client persistence for received policy and reload into `packages/client/internal/script.RuntimeConfig` from `packages/client/cmd/nixstasis/poll.go`.
-- [ ] T016 Record client delivery outcomes from `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` and tie them to assignment state in persistence.
+- [ ] T013 Add server command delivery path using `packages/server/lib/nixstasis/devices.ex`, `packages/server/lib/nixstasis/devices/pending_command.ex`, versioned content type, inline-first/deferred-ref payload serialization, and superseding of older undelivered policy commands for a device.
+- [X] T014 Implement idempotent client command application using `packages/client/internal/commands/handler.go`, command IDs, device command acknowledgements, and same-revision conflict rejection.
+- [ ] T015 Add client persistence for received policy outside the script directory, reload into `packages/client/internal/script.RuntimeConfig` from `packages/client/cmd/nixstasis/poll.go`, and server-policy-overrides-local-config behavior.
+- [ ] T016 Record client delivery outcomes from `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex` and tie them to assignment state in persistence, including durable ack, unsupported, stale, conflict, and persistence failure reasons.
 - [ ] T017 Handle unsupported/legacy clients with explicit command-result failure/reporting path and operator-visible assignment status.
 
 ## Phase 4: LiveView Workbench
 
-- [ ] T018 Add command allowlist inventory and CRUD UI screens under `packages/server/lib/nixstasis_web/live/`.
-- [ ] T019 Add category management screen with conflict-aware effective policy preview.
-- [ ] T020 Add device assignment screen with visibility by authorization scope.
-- [ ] T021 Add assignment result/status display and retry/resend controls.
+- [ ] T018 Add command entry inventory and CRUD/archive/duplicate UI screens under `packages/server/lib/nixstasis_web/live/`.
+- [ ] T019 Add category management screen with versioned membership and conflict-aware effective policy preview.
+- [ ] T020 Add approved-device assignment screen with visibility by authorization scope, per-device preview, and simple confirmation.
+- [ ] T021 Add assignment result/status display and retry/resend, revoke, rollback-as-new-revision, raw payload debug for operators/admins, and optional drift warning controls.
 - [ ] T022 Add live refresh for policy and assignment statuses where useful.
 
 ## Phase 5: Verification And Close-Out
 
-- [ ] T023 Add server tests for policy persistence, conflict detection, assignment authorization, command queueing, result acknowledgement, revoke/narrow behavior, and audit events.
-- [ ] T024 Add client tests for policy ingestion, persistence/reload, idempotency, and `exec_cmd` gating with policy presence/absence.
-- [ ] T025 Add integration test covering add policy, assign to one+ devices, resolve, verify command behavior, revoke assignment, and verify rejection.
+- [ ] T023 Add server tests for policy persistence, version pinning, archive behavior, conflict detection, assignment authorization, approved-device-only assignment, command queueing, result acknowledgement, superseding, revoke/narrow behavior, rollback, optional drift warning, and audit events.
+- [ ] T024 Add client tests for policy ingestion, persistence/reload, server-policy-overrides-local behavior, revision ordering, idempotency, and `exec_cmd` gating with policy presence/absence.
+- [ ] T025 Add integration test covering add policy, assign to one+ devices, resolve, verify command behavior, revoke assignment, and verify rejection on the next poll cycle.
 - [ ] T026 Run `hk check -a` and required focused test suites after implementation changes.
 - [ ] T027 Update user-facing docs in affected sections listed in `design.md` and run doc build checks.
 - [ ] T999 Complete close-out by reconciling implementation, feature specs, and planned docs status.
