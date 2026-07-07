@@ -1,6 +1,7 @@
 defmodule NixstasisWeb.CommandPolicyLive.FormComponent do
   use NixstasisWeb, :live_component
 
+  alias Nixstasis.CommandAllowlists.Audit
   alias Nixstasis.CommandAllowlists.CommandEntry
   alias Nixstasis.Domain
 
@@ -70,21 +71,28 @@ defmodule NixstasisWeb.CommandPolicyLive.FormComponent do
       entry_params = params["command_entry"] || params["form"] || %{}
 
       case AshPhoenix.Form.submit(socket.assigns.form, params: Map.delete(entry_params, "category_ids")) do
-        {:ok, entry} ->
-          with :ok <- replace_categories(entry.id, entry_params["category_ids"] || []) do
-            notify_parent({:saved, entry})
-            {:noreply, push_patch(socket, to: socket.assigns.patch)}
-          else
-            _ -> {:noreply, put_flash(socket, :error, "Failed to update categories")}
-          end
-
-        {:error, form} ->
-          {:noreply, assign_form(socket, form)}
+        {:ok, entry} -> handle_saved_entry(socket, entry, entry_params["category_ids"] || [])
+        {:error, form} -> {:noreply, assign_form(socket, form)}
       end
     else
       {:noreply, socket |> put_flash(:error, "Not authorized") |> push_patch(to: socket.assigns.patch)}
     end
   end
+
+  defp handle_saved_entry(socket, entry, category_ids) do
+    case replace_categories(entry.id, category_ids) do
+      :ok ->
+        Audit.emit(audit_action(socket.assigns.action), %{command_entry_id: entry.id, name: entry.name})
+        notify_parent({:saved, entry})
+        {:noreply, push_patch(socket, to: socket.assigns.patch)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Failed to update categories")}
+    end
+  end
+
+  defp audit_action(:edit), do: :command_entry_updated
+  defp audit_action(_), do: :command_entry_created
 
   defp replace_categories(entry_id, category_ids) do
     existing =

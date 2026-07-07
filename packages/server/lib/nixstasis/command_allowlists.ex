@@ -3,6 +3,7 @@ defmodule Nixstasis.CommandAllowlists do
   Command policy workflow helpers.
   """
 
+  alias Nixstasis.CommandAllowlists.Audit
   alias Nixstasis.CommandAllowlists.DevicePolicyAssignment
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
@@ -32,6 +33,7 @@ defmodule Nixstasis.CommandAllowlists do
         })
 
       update_assignment_status(assignment, delivery_status)
+      Audit.emit(:assignment_delivery_result, %{assignment_id: assignment.id, status: delivery_status})
     else
       _ -> :ok
     end
@@ -40,6 +42,8 @@ defmodule Nixstasis.CommandAllowlists do
   defp ingest_result(_device, _result), do: :ok
 
   defp update_assignment_status(%DevicePolicyAssignment{} = assignment, :acknowledged) do
+    Audit.emit(:assignment_acknowledged, %{assignment_id: assignment.id, device_id: assignment.device_id})
+
     assignment
     |> Ash.Changeset.for_update(:update, %{
       status: :acknowledged,
@@ -50,6 +54,8 @@ defmodule Nixstasis.CommandAllowlists do
   end
 
   defp update_assignment_status(%DevicePolicyAssignment{} = assignment, _delivery_status) do
+    Audit.emit(:assignment_failed, %{assignment_id: assignment.id, device_id: assignment.device_id})
+
     assignment
     |> Ash.Changeset.for_update(:update, %{
       status: :failed,

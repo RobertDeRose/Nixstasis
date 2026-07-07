@@ -64,6 +64,59 @@
     </div>
   <% end %>
 
+  <section class="rounded-box border border-base-300 bg-base-100 p-4">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">Categories</h2>
+      <%= if @can_manage do %>
+        <.link patch={~p"/scripts/command-policies/categories/new?#{@current_params}"} class="btn btn-sm btn-ghost">
+          New Category
+        </.link>
+      <% end %>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div :for={category <- @categories} class="rounded-box border border-base-300 p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-medium">{category.display_name}</div>
+            <div class="text-xs text-base-content/60">{category.slug}</div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-xs btn-ghost"
+            phx-click="assign_category_shortcut"
+            phx-value-id={category.id}
+          >
+            Assign
+          </button>
+        </div>
+        <p class="mt-2 text-sm text-base-content/70">{category.description}</p>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs text-base-content/60">
+          <span>{category_entry_count(category.id)} entries</span>
+          <span>{category_assignment_count(category.id)} active assignments</span>
+        </div>
+        <%= if @can_manage do %>
+          <div class="mt-3 flex gap-2">
+            <.link
+              patch={~p"/scripts/command-policies/categories/#{category.id}/edit?#{@current_params}"}
+              class="btn btn-xs btn-ghost"
+            >
+              Edit
+            </.link>
+            <button
+              type="button"
+              class="btn btn-xs btn-ghost text-error"
+              phx-click="delete_category"
+              phx-value-id={category.id}
+              data-confirm={"Delete #{category.display_name}? This removes the tag from command entries."}
+            >
+              Delete
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </section>
+
   <%= if @entries == [] do %>
     <div class="rounded-box border border-dashed border-base-300 bg-base-100 p-10 text-center text-base-content/60">
       No command entries found.
@@ -168,6 +221,22 @@
     action={@live_action}
     entry={@entry}
     can_manage={@can_manage}
+    patch={~p"/scripts/command-policies?#{@current_params}"}
+  />
+</.modal>
+
+<.modal
+  :if={@live_action in [:new_category, :edit_category]}
+  id="category-modal"
+  show
+  on_cancel={JS.patch(~p"/scripts/command-policies?#{@current_params}")}
+>
+  <.live_component
+    module={NixstasisWeb.CommandPolicyLive.CategoryFormComponent}
+    id={@category[:id] || :new_category}
+    title={@page_title}
+    action={@live_action}
+    category={@category}
     patch={~p"/scripts/command-policies?#{@current_params}"}
   />
 </.modal>

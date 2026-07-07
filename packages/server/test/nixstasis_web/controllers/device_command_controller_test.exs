@@ -116,6 +116,8 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     device: device,
     token: token
   } do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
+
     {:ok, assignment} =
       Domain.create_command_policy_assignment(%{
         device_id: device.id,
@@ -143,6 +145,8 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       Domain.list_command_policy_delivery_results() |> elem(1) |> Enum.filter(&(&1.assignment_id == assignment.id))
 
     assert result.status == :acknowledged
+    assert_receive {:command_policy_audit, %{action: :assignment_acknowledged, assignment_id: assignment_id}}
+    assert assignment_id == assignment.id
   end
 
   test "POST /api/v1/devices/:device_id/command_results records unsupported command policy delivery", %{

@@ -46,7 +46,22 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert {:error, {:live_redirect, %{to: "/"}}} = live(conn, ~p"/scripts/command-policies")
   end
 
-  test "create form validates and saves command entry", %{conn: conn} do
+  test "category form saves category", %{conn: conn} do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/new")
+
+    view
+    |> form("#category-form", form: %{slug: "storage", display_name: "Storage", description: "Disk commands"})
+    |> render_submit()
+
+    categories = Domain.list_command_allowlist_categories() |> elem(1)
+    assert Enum.any?(categories, &(&1.slug == "storage"))
+    assert_receive {:command_policy_audit, %{action: :category_created, slug: "storage"}}
+  end
+
+  test "create form validates, saves, and emits audit event", %{conn: conn} do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
+
     {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/new")
 
     invalid_html =
@@ -65,5 +80,6 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     entries = Domain.list_command_allowlist_entries() |> elem(1)
     assert Enum.any?(entries, &(&1.name == "uptime"))
+    assert_receive {:command_policy_audit, %{action: :command_entry_created, name: "uptime"}}
   end
 end
