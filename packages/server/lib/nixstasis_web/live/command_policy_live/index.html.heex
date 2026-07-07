@@ -1,0 +1,173 @@
+<div class="p-4 space-y-4">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">Command Policies</h1>
+      <p class="text-sm text-base-content/60">
+        Manage allowed command names and absolute paths for device policy delivery.
+      </p>
+    </div>
+
+    <div class="flex gap-2">
+      <.link navigate={~p"/scripts"} class="btn btn-sm btn-ghost">Back to Scripts</.link>
+      <%= if @can_manage do %>
+        <.link patch={~p"/scripts/command-policies/new?#{@current_params}"} class="btn btn-sm btn-primary">
+          New Command Entry
+        </.link>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 md:grid-cols-5">
+    <input
+      type="text"
+      name="search"
+      value={@current_params["search"]}
+      placeholder="Search name, path, description"
+      class="input input-bordered md:col-span-2"
+      phx-change="filter"
+    />
+
+    <select name="category_id" class="select select-bordered" phx-change="filter">
+      <option value="">All categories</option>
+      <option
+        :for={category <- @categories}
+        value={category.id}
+        selected={@current_params["category_id"] == category.id}
+      >
+        {category.display_name}
+      </option>
+    </select>
+
+    <select name="status" class="select select-bordered" phx-change="filter">
+      <option value="">All statuses</option>
+      <option value="enabled" selected={@current_params["status"] == "enabled"}>Enabled</option>
+      <option value="archived" selected={@current_params["status"] == "archived"}>Disabled</option>
+    </select>
+
+    <div class="flex gap-2">
+      <select name="assigned" class="select select-bordered flex-1" phx-change="filter">
+        <option value="">All assignment states</option>
+        <option value="assigned" selected={@current_params["assigned"] == "assigned"}>Assigned</option>
+        <option value="unassigned" selected={@current_params["assigned"] == "unassigned"}>Unassigned</option>
+      </select>
+      <button type="button" class="btn btn-ghost" phx-click="clear_filters">Clear</button>
+    </div>
+  </div>
+
+  <%= if @selected_assignment_entry_id do %>
+    <div class="alert alert-info">
+      <.icon name="hero-arrow-right-circle" class="size-5" />
+      <span>
+        Entry preselected for the upcoming assignment wizard:
+        <span class="font-semibold">{@selected_assignment_entry_id}</span>
+      </span>
+    </div>
+  <% end %>
+
+  <%= if @entries == [] do %>
+    <div class="rounded-box border border-dashed border-base-300 bg-base-100 p-10 text-center text-base-content/60">
+      No command entries found.
+    </div>
+  <% else %>
+    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+      <table class="table table-zebra">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Categories</th>
+            <th>Assignments</th>
+            <th>Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={row <- @entries}>
+            <td class="font-medium">{row.entry.name}</td>
+            <td>
+              <code class="text-xs">{row.entry.command_path}</code>
+            </td>
+            <td>
+              <span class={"badge #{if is_nil(row.entry.archived_at), do: "badge-success", else: "badge-ghost"}"}>
+                {if is_nil(row.entry.archived_at), do: "enabled", else: "disabled"}
+              </span>
+            </td>
+            <td>
+              <div class="flex flex-wrap gap-1">
+                <span :for={category <- row.categories} class="badge badge-outline badge-sm">
+                  {category.display_name}
+                </span>
+              </div>
+            </td>
+            <td>{row.assignment_count}</td>
+            <td class="text-sm text-base-content/60">{Calendar.strftime(row.entry.updated_at, "%Y-%m-%d %H:%M")}</td>
+            <td>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="btn btn-xs btn-ghost"
+                  onclick={"navigator.clipboard.writeText('#{row.entry.command_path}')"}
+                >
+                  Copy path
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-ghost"
+                  phx-click="assign_shortcut"
+                  phx-value-id={row.entry.id}
+                >
+                  Assign
+                </button>
+                <%= if @can_manage do %>
+                  <.link
+                    patch={~p"/scripts/command-policies/#{row.entry.id}/edit?#{@current_params}"}
+                    class="btn btn-xs btn-ghost"
+                  >
+                    Edit
+                  </.link>
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-ghost"
+                    phx-click="duplicate_entry"
+                    phx-value-id={row.entry.id}
+                  >
+                    Duplicate
+                  </button>
+                  <%= if is_nil(row.entry.archived_at) do %>
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-ghost text-error"
+                      phx-click="archive_entry"
+                      phx-value-id={row.entry.id}
+                      data-confirm="Disable this command entry?"
+                    >
+                      Disable
+                    </button>
+                  <% end %>
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>
+
+<.modal
+  :if={@live_action in [:new, :edit]}
+  id="command-entry-modal"
+  show
+  on_cancel={JS.patch(~p"/scripts/command-policies?#{@current_params}")}
+>
+  <.live_component
+    module={NixstasisWeb.CommandPolicyLive.FormComponent}
+    id={@entry[:id] || :new}
+    title={@page_title}
+    action={@live_action}
+    entry={@entry}
+    can_manage={@can_manage}
+    patch={~p"/scripts/command-policies?#{@current_params}"}
+  />
+</.modal>
