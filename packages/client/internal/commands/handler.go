@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/commandpolicy"
+
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
@@ -30,6 +32,7 @@ type Handler struct {
 	scriptsDir           string
 	sshAuthStore         *sshauth.Store
 	runtimeConfig        *script.RuntimeConfig
+	policyStore          *commandpolicy.Store
 	appliedPolicyVersion string
 	appliedCommandPolicy map[string]string
 	policyMu             sync.RWMutex
@@ -49,6 +52,17 @@ func NewHandlerWithSSHAuth(scriptsDir string, store *sshauth.Store) *Handler {
 // and command-policy runtime updates.
 func NewHandlerWithSSHAuthAndRuntimeConfig(scriptsDir string, store *sshauth.Store, cfg *script.RuntimeConfig) *Handler {
 	return &Handler{scriptsDir: scriptsDir, sshAuthStore: store, runtimeConfig: cfg}
+}
+
+// NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore constructs a Handler that can
+// update in-memory runtime config and durably persist server-delivered command policies.
+func NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(scriptsDir string, sshStore *sshauth.Store, cfg *script.RuntimeConfig, policyStore *commandpolicy.Store) *Handler {
+	handler := &Handler{scriptsDir: scriptsDir, sshAuthStore: sshStore, runtimeConfig: cfg, policyStore: policyStore}
+	if cfg != nil {
+		handler.appliedPolicyVersion = cfg.CommandPolicyVersion
+		handler.appliedCommandPolicy = copyCommandPolicy(cfg.ExecCommandAllowlist)
+	}
+	return handler
 }
 
 // NewHandlerWithRuntimeConfig constructs a Handler and shares a runtime config pointer for
@@ -402,6 +416,12 @@ func (h *Handler) applyCommandPolicy(ctx context.Context, commandID string, payl
 		h.runtimeConfig.ExecCommandAllowlist = copyCommandPolicy(applied.Commands)
 		h.runtimeConfig.CommandPolicyVersion = applied.Version
 	}
+	if h.policyStore != nil {
+		if err := h.policyStore.Save(commandpolicy.State{Version: applied.Version, Commands: applied.Commands}); err != nil {
+			h.restorePreviousPolicy(applied)
+			return failureResult(commandID, "persist policy: "+err.Error())
+		}
+	}
 
 	return transport.CommandResult{
 		CommandID: commandID,
@@ -496,11 +516,12 @@ type applyCommandPolicyPayload struct {
 }
 
 type appliedCommandPolicyResult struct {
-	Version         string
-	Commands        map[string]string
-	PreviousVersion string
-	AlreadyApplied  bool
-	Err             error
+	Version          string
+	Commands         map[string]string
+	PreviousVersion  string
+	PreviousCommands map[string]string
+	AlreadyApplied   bool
+	Err              error
 }
 
 func (h *Handler) applyPolicy(policy applyCommandPolicyPayload) appliedCommandPolicyResult {
@@ -512,9 +533,18 @@ func (h *Handler) applyPolicy(policy applyCommandPolicyPayload) appliedCommandPo
 	defer h.policyMu.Unlock()
 
 	previousVersion := h.appliedPolicyVersion
+	previousCommands := copyCommandPolicy(h.appliedCommandPolicy)
+	if h.runtimeConfig != nil {
+		if previousVersion == "" {
+			previousVersion = h.runtimeConfig.CommandPolicyVersion
+		}
+		if len(previousCommands) == 0 {
+			previousCommands = copyCommandPolicy(h.runtimeConfig.ExecCommandAllowlist)
+		}
+	}
 	if previousVersion != "" && policy.Version == previousVersion {
 		if commandPolicyEquals(policy.Commands, h.appliedCommandPolicy) {
-			return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(h.appliedCommandPolicy), AlreadyApplied: true, PreviousVersion: previousVersion}
+			return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(h.appliedCommandPolicy), AlreadyApplied: true, PreviousVersion: previousVersion, PreviousCommands: previousCommands}
 		}
 		return appliedCommandPolicyResult{Err: fmt.Errorf("policy version %q conflicts with existing policy", policy.Version)}
 	}
@@ -522,7 +552,19 @@ func (h *Handler) applyPolicy(policy applyCommandPolicyPayload) appliedCommandPo
 	h.appliedPolicyVersion = policy.Version
 	h.appliedCommandPolicy = copyCommandPolicy(policy.Commands)
 
-	return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(policy.Commands), AlreadyApplied: false, PreviousVersion: previousVersion}
+	return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(policy.Commands), AlreadyApplied: false, PreviousVersion: previousVersion, PreviousCommands: previousCommands}
+}
+
+func (h *Handler) restorePreviousPolicy(applied appliedCommandPolicyResult) {
+	h.policyMu.Lock()
+	defer h.policyMu.Unlock()
+
+	h.appliedPolicyVersion = applied.PreviousVersion
+	h.appliedCommandPolicy = copyCommandPolicy(applied.PreviousCommands)
+	if h.runtimeConfig != nil {
+		h.runtimeConfig.ExecCommandAllowlist = copyCommandPolicy(applied.PreviousCommands)
+		h.runtimeConfig.CommandPolicyVersion = applied.PreviousVersion
+	}
 }
 
 func commandPolicyEquals(left, right map[string]string) bool {

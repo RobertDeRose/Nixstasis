@@ -19,6 +19,7 @@ const (
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 	defaultSSHAuthoritySocket = "/run/nixstasis/ssh-authority.sock"
+	defaultCommandPolicyPath  = "/etc/nixstasis/command-policy.json"
 )
 
 // Config holds the top-level configuration structure.
@@ -175,4 +176,13 @@ func FRPCBinaryPath() string {
 // DefaultScriptsDir returns the canonical scripts directory.
 func DefaultScriptsDir() string {
 	return defaultScriptsDir
+}
+
+// CommandPolicyPath returns the canonical persisted server-command-policy path.
+func CommandPolicyPath() string {
+	if path := os.Getenv("NIXSTASIS_COMMAND_POLICY_PATH"); path != "" {
+		return path
+	}
+
+	return defaultCommandPolicyPath
 }

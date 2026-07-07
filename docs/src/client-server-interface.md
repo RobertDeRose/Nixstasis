@@ -704,6 +704,7 @@ Traceable references:
   - socket token signed for `terminal_socket`.
   - join payload contains an opaque server-side terminal session ref.
 - Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as an `api_key` query parameter.
+- `apply_command_policy` uses the same heartbeat + optional command-payload-ref transport as other runtime commands; clients persist the accepted policy outside the script directory and use it to override local `runtime.exec_commands` until a newer server policy replaces it.
 - E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled`.
 - Initial device registration does not attach a device API key because it is the credential issuance step.
 

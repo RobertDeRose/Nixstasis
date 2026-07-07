@@ -17,6 +17,7 @@
 - `packages/client/internal/commands/handler.go`
 - `packages/client/internal/commands/fs.go`
 - `packages/client/internal/commands/handler_test.go`
+- `packages/client/internal/commandpolicy/store.go`
 - `packages/client/cmd/nixstasis/poll.go`
 - `packages/client/internal/transport/client.go`
 
@@ -45,8 +46,9 @@
 
 - Commands originate in `PollResponse.Commands` from `POST /api/v1/devices/:device_id/heartbeat`.
 - Supported command types are `list_scripts`, `install_script`, `remove_script`,
-  and `ssh_authorize`.
+  `ssh_authorize`, `ssh_revoke`, and `apply_command_policy`.
 - Commands with deferred payload references are hydrated through `FetchCommandPayload` before execution.
+- `apply_command_policy` succeeds only after the client updates runtime config and durably writes the persisted server policy outside the script directory.
 - Results are sent to `POST /api/v1/devices/:device_id/command_results`.
 
 Traceable references:
