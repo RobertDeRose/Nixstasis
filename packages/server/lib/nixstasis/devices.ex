@@ -688,6 +688,9 @@ defmodule Nixstasis.Devices do
     |> AshPhoenix.Form.for_update(:update, domain: Domain, params: attrs)
   end
 
+  @command_policy_content_type "application/vnd.nixstasis.command-policy+json;version=1"
+  @inline_command_policy_payload_limit 4096
+
   def queue_command(%Device{} = device, payload) do
     Domain.create_pending_command(%{
       device_id: device.id,
@@ -695,6 +698,44 @@ defmodule Nixstasis.Devices do
       status: :queued,
       queued_at: DateTime.utc_now()
     })
+  end
+
+  def queue_command_policy_assignment(%Nixstasis.CommandAllowlists.DevicePolicyAssignment{} = assignment) do
+    with {:ok, device} <- Domain.get_device(assignment.device_id),
+         payload <- command_policy_command_payload(assignment) do
+      replace_queued_command_policy(device, payload)
+    end
+  end
+
+  defp replace_queued_command_policy(device, payload) do
+    Repo.transaction(fn -> create_replacement_command_policy(device, payload) end)
+    |> case do
+      {:ok, {command, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        {:ok, command}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp create_replacement_command_policy(device, payload) do
+    :ok = supersede_queued_command_policies(device.id)
+
+    pending_command_attrs = %{
+      device_id: device.id,
+      command_payload: payload,
+      status: :queued,
+      queued_at: DateTime.utc_now()
+    }
+
+    PendingCommand
+    |> Ash.Changeset.for_create(:create, pending_command_attrs)
+    |> Ash.create(domain: Domain, return_notifications?: true)
+    |> case do
+      {:ok, command, notifications} -> {command, notifications}
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   def command_result_status(device_id, command_id) when is_binary(device_id) and is_binary(command_id) do
@@ -1004,6 +1045,41 @@ defmodule Nixstasis.Devices do
       _ ->
         :pending
     end
+  end
+
+  defp command_policy_command_payload(assignment) do
+    payload_data =
+      Jason.encode!(%{
+        assignment_id: assignment.id,
+        version: assignment.version,
+        revision: assignment.revision,
+        commands: Map.get(assignment.resolved_policy, "commands", %{})
+      })
+
+    deferred? = byte_size(payload_data) > @inline_command_policy_payload_limit
+
+    %{
+      "type" => "apply_command_policy",
+      "payload_ref" => assignment.id,
+      "defer_payload" => deferred?,
+      "payload" => %{
+        "content_type" => @command_policy_content_type,
+        "name" => assignment.version,
+        "data" => payload_data
+      }
+    }
+  end
+
+  defp supersede_queued_command_policies(device_id) do
+    Repo.delete_all(
+      from(command in PendingCommand,
+        where: command.device_id == ^device_id,
+        where: command.status == :queued,
+        where: fragment("?->>? = ?", command.command_payload, "type", "apply_command_policy")
+      )
+    )
+
+    :ok
   end
 
   defp command_result_status(result) do

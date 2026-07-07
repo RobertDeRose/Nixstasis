@@ -89,6 +89,33 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     assert command["payload"]["data"] =~ "def main"
   end
 
+  test "heartbeat defers oversized command policy payloads behind payload_ref", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    commands =
+      1..250
+      |> Map.new(fn index -> {"cmd#{index}", "/usr/bin/tool#{index}"} end)
+
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: device.id,
+        revision: 7,
+        version: "policy-large",
+        resolved_policy: %{"commands" => commands}
+      })
+
+    assert {:ok, _} = Devices.queue_command_policy_assignment(assignment)
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"commands" => [command]} = json_response(conn, 200)["data"]
+    assert command["type"] == "apply_command_policy"
+    assert command["payload_ref"] == assignment.id
+    refute Map.has_key?(command, "payload")
+  end
+
   test "heartbeat omits remote_access_token when remote access is not requested", %{
     conn: conn,
     device: device,

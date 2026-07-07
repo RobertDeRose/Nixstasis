@@ -42,16 +42,25 @@ defmodule NixstasisWeb.HeartbeatJSON do
   end
 
   defp normalize_inline_payload(payload) do
-    payload
-    |> nested_payload()
-    |> case do
-      %{} = nested -> nested
-      _ -> fallback_inline_payload(payload)
+    if deferred_payload?(payload) do
+      nil
+    else
+      payload
+      |> nested_payload()
+      |> case do
+        %{} = nested -> nested
+        _ -> fallback_inline_payload(payload)
+      end
     end
   end
 
   defp nested_payload(payload) do
     payload["payload"] || payload[:payload]
+  end
+
+  defp deferred_payload?(payload) do
+    (payload["defer_payload"] || payload[:defer_payload]) == true and
+      not is_nil(payload["payload_ref"] || payload[:payload_ref])
   end
 
   defp fallback_inline_payload(payload) do

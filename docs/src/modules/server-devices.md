@@ -47,6 +47,7 @@
   - `Nixstasis.Devices.delete_device/1`
   - `Nixstasis.Devices.change_device/2`
   - `Nixstasis.Devices.queue_command/2`
+  - `Nixstasis.Devices.queue_command_policy_assignment/1`
   - `Nixstasis.Devices.pop_pending_commands/1`
   - `Nixstasis.Devices.acknowledge_command_results/2`
   - `Nixstasis.Devices.get_command_payload/2`
@@ -82,6 +83,7 @@
   acknowledgement, deferred payload retrieval, and status-code semantics.
 - `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands.
+- Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` calls `Devices.acknowledge_command_results/2`.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
 - Terminal session startup creates an opaque session ref **before** queueing
