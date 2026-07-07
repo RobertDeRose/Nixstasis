@@ -9,9 +9,12 @@ defmodule NixstasisWeb.Permissions do
   session map and extract report permissions internally.
   """
 
+  alias Nixstasis.Devices.Device
+
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
   def script_permissions(session), do: permission_map(session, "script_permissions")
+  def command_policy_permissions(session), do: permission_map(session, "command_policy_permissions")
 
   def can_view_device_details?(permissions, device_id \\ nil)
 
@@ -80,6 +83,33 @@ defmodule NixstasisWeb.Permissions do
 
   def can_manage_scripts?(session) when is_map(session), do: script_permissions(session)["can_manage"] == true
   def can_manage_scripts?(_session), do: false
+
+  def can_view_command_policy_status?(session) when is_map(session),
+    do: command_policy_permissions(session)["can_view_status"] == true
+
+  def can_view_command_policy_status?(_session), do: false
+
+  def can_view_command_policy_details?(session) when is_map(session),
+    do: command_policy_permissions(session)["can_view_details"] == true
+
+  def can_view_command_policy_details?(_session), do: false
+
+  def can_manage_command_policies?(session) when is_map(session),
+    do: command_policy_permissions(session)["can_manage"] == true
+
+  def can_manage_command_policies?(_session), do: false
+
+  def can_manage_command_policy_for_device?(session, device_id) when is_map(session) do
+    can_manage_command_policies?(session) and can_manage_device?(device_permissions(session), device_id)
+  end
+
+  def can_manage_command_policy_for_device?(_session, _device_id), do: false
+
+  def can_assign_command_policy_to_device?(session, %Device{id: id, approval_status: :approved}) do
+    can_manage_command_policy_for_device?(session, id)
+  end
+
+  def can_assign_command_policy_to_device?(_session, _device), do: false
 
   defp permission_map(session, key) when is_map(session) do
     case Map.get(session, key) do

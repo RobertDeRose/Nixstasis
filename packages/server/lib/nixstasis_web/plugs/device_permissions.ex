@@ -22,7 +22,12 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
         conn
         |> put_session(
           "operator_context",
-          Map.drop(operator_context, ["device_permissions", "report_permissions", "script_permissions"])
+          Map.drop(operator_context, [
+            "device_permissions",
+            "report_permissions",
+            "script_permissions",
+            "command_policy_permissions"
+          ])
         )
         |> put_permissions(operator_context)
 
