@@ -158,6 +158,20 @@ defmodule Nixstasis.Domain do
       define :create_command_allowlist_entry_version, action: :create
     end
 
+    resource Nixstasis.CommandAllowlists.Category do
+      define :list_command_allowlist_categories, action: :read
+      define :get_command_allowlist_category, action: :read, get_by: [:id]
+      define :create_command_allowlist_category, action: :create
+      define :update_command_allowlist_category, action: :update
+      define :destroy_command_allowlist_category, action: :destroy
+    end
+
+    resource Nixstasis.CommandAllowlists.CommandEntryCategory do
+      define :list_command_allowlist_entry_categories, action: :read
+      define :create_command_allowlist_entry_category, action: :create
+      define :destroy_command_allowlist_entry_category, action: :destroy
+    end
+
     resource Nixstasis.Scripts.ScriptDraft do
       define :list_script_drafts, action: :read
       define :get_script_draft, action: :read, get_by: [:id]

@@ -76,6 +76,7 @@ defmodule Nixstasis.CommandAllowlists.CommandEntry do
 
   relationships do
     has_many :versions, Nixstasis.CommandAllowlists.CommandEntryVersion
+    has_many :entry_categories, Nixstasis.CommandAllowlists.CommandEntryCategory
   end
 
   identities do
