@@ -41,6 +41,44 @@ defmodule Nixstasis.CommandAllowlists.CommandEntryTest do
     assert archived.current_version == 2
   end
 
+  test "command entry names and paths reject shell-shaped input" do
+    invalid_entries = [
+      %{name: "Disk_Usage", command_path: "/usr/bin/df"},
+      %{name: "disk usage", command_path: "/usr/bin/df"},
+      %{name: "disk_usage", command_path: "usr/bin/df"},
+      %{name: "disk_usage", command_path: "/usr/bin/df -h"},
+      %{name: "disk_usage", command_path: "/usr/bin/df;rm"}
+    ]
+
+    for attrs <- invalid_entries do
+      assert {:error, _} = Domain.create_command_allowlist_entry(attrs)
+    end
+  end
+
+  test "entry versions reuse command entry validation" do
+    assert {:ok, entry} =
+             Domain.create_command_allowlist_entry(%{
+               name: "uptime",
+               command_path: "/usr/bin/uptime"
+             })
+
+    assert {:error, _} =
+             Domain.create_command_allowlist_entry_version(%{
+               command_entry_id: entry.id,
+               version: 1,
+               name: "UpTime",
+               command_path: "/usr/bin/uptime"
+             })
+
+    assert {:error, _} =
+             Domain.create_command_allowlist_entry_version(%{
+               command_entry_id: entry.id,
+               version: 1,
+               name: "uptime",
+               command_path: "/usr/bin/uptime;rm"
+             })
+  end
+
   test "entry versions are immutable through the public domain" do
     assert {:ok, entry} =
              Domain.create_command_allowlist_entry(%{

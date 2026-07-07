@@ -43,6 +43,7 @@ defmodule Nixstasis.CommandAllowlists.CommandEntry do
 
     attribute :name, :string do
       allow_nil? false
+      constraints match: ~r/^[a-z0-9_.-]+$/
       public? true
     end
 
@@ -58,6 +59,7 @@ defmodule Nixstasis.CommandAllowlists.CommandEntry do
 
     attribute :command_path, :string do
       allow_nil? false
+      constraints match: ~r/^\/[^\s;&|`$<>(){}\[\]*?!'\"]+$/
       public? true
     end
 
