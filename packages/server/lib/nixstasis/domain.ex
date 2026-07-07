@@ -172,6 +172,17 @@ defmodule Nixstasis.Domain do
       define :destroy_command_allowlist_entry_category, action: :destroy
     end
 
+    resource Nixstasis.CommandAllowlists.DevicePolicyAssignment do
+      define :list_command_policy_assignments, action: :read
+      define :get_command_policy_assignment, action: :read, get_by: [:id]
+      define :create_command_policy_assignment, action: :create
+    end
+
+    resource Nixstasis.CommandAllowlists.DevicePolicyAssignmentSource do
+      define :list_command_policy_assignment_sources, action: :read
+      define :create_command_policy_assignment_source, action: :create
+    end
+
     resource Nixstasis.Scripts.ScriptDraft do
       define :list_script_drafts, action: :read
       define :get_script_draft, action: :read, get_by: [:id]
