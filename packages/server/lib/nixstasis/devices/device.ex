@@ -158,6 +158,10 @@ defmodule Nixstasis.Devices.Device do
     has_many :alerts, Nixstasis.Monitoring.Alert do
       public? true
     end
+
+    has_many :command_policy_assignments, Nixstasis.CommandAllowlists.DevicePolicyAssignment do
+      public? true
+    end
   end
 
   identities do
