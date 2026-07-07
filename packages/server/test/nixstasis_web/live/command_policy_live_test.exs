@@ -46,6 +46,25 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert {:error, {:live_redirect, %{to: "/"}}} = live(conn, ~p"/scripts/command-policies")
   end
 
+  test "assignment wizard previews and queues policy", %{conn: conn, entry: entry} do
+    {:ok, device} = Nixstasis.Devices.register_device(%{mac_address: "AA:BB:CC:AA:BB:01", product_name: "target"})
+    {:ok, device} = Nixstasis.Devices.approve_device(device)
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    view
+    |> form("form[phx-submit='preview_assignment']",
+      assignment: %{device_ids: [device.id], entry_ids: [entry.id], category_ids: []}
+    )
+    |> render_submit()
+
+    assert render(view) =~ "Confirm and queue"
+    render_click(element(view, "button", "Confirm and queue"))
+
+    assignments = Domain.list_command_policy_assignments() |> elem(1)
+    assert Enum.any?(assignments, &(&1.device_id == device.id and &1.status == :queued))
+  end
+
   test "category form saves category", %{conn: conn} do
     Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
     {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/new")

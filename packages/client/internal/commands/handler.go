@@ -597,10 +597,6 @@ func parseApplyCommandPolicy(payload string) (applyCommandPolicyPayload, error) 
 	if req.Version == "" {
 		return applyCommandPolicyPayload{}, fmt.Errorf("missing policy version")
 	}
-	if len(req.Commands) == 0 {
-		return applyCommandPolicyPayload{}, fmt.Errorf("empty command policy")
-	}
-
 	resolved := make(map[string]string, len(req.Commands))
 	for name, path := range req.Commands {
 		name = strings.TrimSpace(name)
