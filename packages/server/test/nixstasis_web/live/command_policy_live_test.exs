@@ -46,11 +46,21 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert {:error, {:live_redirect, %{to: "/"}}} = live(conn, ~p"/scripts/command-policies")
   end
 
-  test "assignment wizard previews and queues policy", %{conn: conn, entry: entry} do
+  test "assignment wizard only queues authorized approved devices", %{conn: conn, entry: entry} do
     {:ok, device} = Nixstasis.Devices.register_device(%{mac_address: "AA:BB:CC:AA:BB:01", product_name: "target"})
     {:ok, device} = Nixstasis.Devices.approve_device(device)
 
-    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+    {:ok, other_device} =
+      Nixstasis.Devices.register_device(%{mac_address: "AA:BB:CC:AA:BB:02", product_name: "blocked"})
+
+    {:ok, other_device} = Nixstasis.Devices.approve_device(other_device)
+
+    conn =
+      put_session(conn, "device_permissions", %{"can_view" => true, "can_manage" => true, "device_ids" => [device.id]})
+
+    {:ok, view, html} = live(conn, ~p"/scripts/command-policies")
+    assert html =~ "target"
+    refute html =~ "blocked"
 
     view
     |> form("form[phx-submit='preview_assignment']",
@@ -63,6 +73,7 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     assignments = Domain.list_command_policy_assignments() |> elem(1)
     assert Enum.any?(assignments, &(&1.device_id == device.id and &1.status == :queued))
+    refute Enum.any?(assignments, &(&1.device_id == other_device.id))
   end
 
   test "periodic refresh keeps command entry modal open", %{conn: conn} do

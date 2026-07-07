@@ -16,6 +16,7 @@ var ErrNoPolicy = errors.New("no command policy file found")
 // State is the persisted server-delivered command policy.
 type State struct {
 	Version  string            `json:"version"`
+	Revision int               `json:"revision,omitempty"`
 	Commands map[string]string `json:"commands"`
 }
 
@@ -116,10 +117,6 @@ func normalize(state State) (State, error) {
 	if state.Version == "" {
 		return State{}, errors.New("policy version is required")
 	}
-	if len(state.Commands) == 0 {
-		return State{}, errors.New("command policy is empty")
-	}
-
 	normalized := make(map[string]string, len(state.Commands))
 	for name, path := range state.Commands {
 		name = strings.TrimSpace(name)

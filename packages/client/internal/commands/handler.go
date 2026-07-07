@@ -29,13 +29,14 @@ var afterCommandCommitHook = func() {}
 
 // Handler executes supported command types.
 type Handler struct {
-	scriptsDir           string
-	sshAuthStore         *sshauth.Store
-	runtimeConfig        *script.RuntimeConfig
-	policyStore          *commandpolicy.Store
-	appliedPolicyVersion string
-	appliedCommandPolicy map[string]string
-	policyMu             sync.RWMutex
+	scriptsDir            string
+	sshAuthStore          *sshauth.Store
+	runtimeConfig         *script.RuntimeConfig
+	policyStore           *commandpolicy.Store
+	appliedPolicyVersion  string
+	appliedPolicyRevision int
+	appliedCommandPolicy  map[string]string
+	policyMu              sync.RWMutex
 }
 
 // NewHandler constructs a Handler with a scripts discovery directory.
@@ -60,6 +61,7 @@ func NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(scriptsDir string, sshStor
 	handler := &Handler{scriptsDir: scriptsDir, sshAuthStore: sshStore, runtimeConfig: cfg, policyStore: policyStore}
 	if cfg != nil {
 		handler.appliedPolicyVersion = cfg.CommandPolicyVersion
+		handler.appliedPolicyRevision = cfg.CommandPolicyRevision
 		handler.appliedCommandPolicy = copyCommandPolicy(cfg.ExecCommandAllowlist)
 	}
 	return handler
@@ -390,6 +392,7 @@ func (h *Handler) commandRuntimeConfig() script.RuntimeConfig {
 	if h.appliedCommandPolicy != nil {
 		cfg.ExecCommandAllowlist = copyCommandPolicy(h.appliedCommandPolicy)
 		cfg.CommandPolicyVersion = h.appliedPolicyVersion
+		cfg.CommandPolicyRevision = h.appliedPolicyRevision
 	}
 
 	return cfg
@@ -415,9 +418,10 @@ func (h *Handler) applyCommandPolicy(ctx context.Context, commandID string, payl
 	if h.runtimeConfig != nil {
 		h.runtimeConfig.ExecCommandAllowlist = copyCommandPolicy(applied.Commands)
 		h.runtimeConfig.CommandPolicyVersion = applied.Version
+		h.runtimeConfig.CommandPolicyRevision = applied.Revision
 	}
 	if h.policyStore != nil {
-		if err := h.policyStore.Save(commandpolicy.State{Version: applied.Version, Commands: applied.Commands}); err != nil {
+		if err := h.policyStore.Save(commandpolicy.State{Version: applied.Version, Revision: applied.Revision, Commands: applied.Commands}); err != nil {
 			h.restorePreviousPolicy(applied)
 			return failureResult(commandID, "persist policy: "+err.Error())
 		}
@@ -511,14 +515,18 @@ func resolveRunScriptContent(payload *transport.CommandPayload, payloadRef strin
 }
 
 type applyCommandPolicyPayload struct {
-	Version  string            `json:"policy_version"`
-	Commands map[string]string `json:"commands"`
+	Version       string            `json:"version"`
+	PolicyVersion string            `json:"policy_version"`
+	Revision      int               `json:"revision"`
+	Commands      map[string]string `json:"commands"`
 }
 
 type appliedCommandPolicyResult struct {
 	Version          string
+	Revision         int
 	Commands         map[string]string
 	PreviousVersion  string
+	PreviousRevision int
 	PreviousCommands map[string]string
 	AlreadyApplied   bool
 	Err              error
@@ -533,26 +541,34 @@ func (h *Handler) applyPolicy(policy applyCommandPolicyPayload) appliedCommandPo
 	defer h.policyMu.Unlock()
 
 	previousVersion := h.appliedPolicyVersion
+	previousRevision := h.appliedPolicyRevision
 	previousCommands := copyCommandPolicy(h.appliedCommandPolicy)
 	if h.runtimeConfig != nil {
 		if previousVersion == "" {
 			previousVersion = h.runtimeConfig.CommandPolicyVersion
 		}
+		if previousRevision == 0 {
+			previousRevision = h.runtimeConfig.CommandPolicyRevision
+		}
 		if len(previousCommands) == 0 {
 			previousCommands = copyCommandPolicy(h.runtimeConfig.ExecCommandAllowlist)
 		}
 	}
+	if policy.Revision > 0 && previousRevision > 0 && policy.Revision < previousRevision {
+		return appliedCommandPolicyResult{Err: fmt.Errorf("policy revision %d is older than current revision %d", policy.Revision, previousRevision)}
+	}
 	if previousVersion != "" && policy.Version == previousVersion {
 		if commandPolicyEquals(policy.Commands, h.appliedCommandPolicy) {
-			return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(h.appliedCommandPolicy), AlreadyApplied: true, PreviousVersion: previousVersion, PreviousCommands: previousCommands}
+			return appliedCommandPolicyResult{Version: policy.Version, Revision: policy.Revision, Commands: copyCommandPolicy(h.appliedCommandPolicy), AlreadyApplied: true, PreviousVersion: previousVersion, PreviousRevision: previousRevision, PreviousCommands: previousCommands}
 		}
 		return appliedCommandPolicyResult{Err: fmt.Errorf("policy version %q conflicts with existing policy", policy.Version)}
 	}
 
 	h.appliedPolicyVersion = policy.Version
+	h.appliedPolicyRevision = policy.Revision
 	h.appliedCommandPolicy = copyCommandPolicy(policy.Commands)
 
-	return appliedCommandPolicyResult{Version: policy.Version, Commands: copyCommandPolicy(policy.Commands), AlreadyApplied: false, PreviousVersion: previousVersion, PreviousCommands: previousCommands}
+	return appliedCommandPolicyResult{Version: policy.Version, Revision: policy.Revision, Commands: copyCommandPolicy(policy.Commands), AlreadyApplied: false, PreviousVersion: previousVersion, PreviousRevision: previousRevision, PreviousCommands: previousCommands}
 }
 
 func (h *Handler) restorePreviousPolicy(applied appliedCommandPolicyResult) {
@@ -560,10 +576,12 @@ func (h *Handler) restorePreviousPolicy(applied appliedCommandPolicyResult) {
 	defer h.policyMu.Unlock()
 
 	h.appliedPolicyVersion = applied.PreviousVersion
+	h.appliedPolicyRevision = applied.PreviousRevision
 	h.appliedCommandPolicy = copyCommandPolicy(applied.PreviousCommands)
 	if h.runtimeConfig != nil {
 		h.runtimeConfig.ExecCommandAllowlist = copyCommandPolicy(applied.PreviousCommands)
 		h.runtimeConfig.CommandPolicyVersion = applied.PreviousVersion
+		h.runtimeConfig.CommandPolicyRevision = applied.PreviousRevision
 	}
 }
 
@@ -595,6 +613,9 @@ func parseApplyCommandPolicy(payload string) (applyCommandPolicyPayload, error) 
 		return applyCommandPolicyPayload{}, fmt.Errorf("invalid apply_command_policy payload: %w", err)
 	}
 	if req.Version == "" {
+		req.Version = req.PolicyVersion
+	}
+	if req.Version == "" {
 		return applyCommandPolicyPayload{}, fmt.Errorf("missing policy version")
 	}
 	resolved := make(map[string]string, len(req.Commands))
@@ -613,7 +634,7 @@ func parseApplyCommandPolicy(payload string) (applyCommandPolicyPayload, error) 
 		resolved[name] = path
 	}
 
-	return applyCommandPolicyPayload{Version: req.Version, Commands: resolved}, nil
+	return applyCommandPolicyPayload{Version: req.Version, Revision: req.Revision, Commands: resolved}, nil
 }
 
 func executeTestScript(ctx context.Context, cfg script.RuntimeConfig, content string, args []string) (map[string]any, error) {

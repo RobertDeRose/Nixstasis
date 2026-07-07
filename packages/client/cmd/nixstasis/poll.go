@@ -65,17 +65,18 @@ func runPoll(cfg *config.Config) error {
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
 	policyStore := commandpolicy.NewStore(config.CommandPolicyPath())
-	execCommandAllowlist, commandPolicyVersion := initialCommandPolicy(cfg, policyStore)
+	execCommandAllowlist, commandPolicyVersion, commandPolicyRevision := initialCommandPolicy(cfg, policyStore)
 	runtimeCfg := script.RuntimeConfig{
-		Timeout:              5 * time.Second,
-		WarnAfter:            3 * time.Second,
-		MQTTBroker:           runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
-		ExecCommandAllowlist: execCommandAllowlist,
-		CommandPolicyVersion: commandPolicyVersion,
-		ExecWorkDir:          cfg.Runtime.ExecWorkDir,
-		ExecEnv:              cfg.Runtime.ExecEnv,
-		MQTTPublishTopics:    cfg.Runtime.MQTTPublishTopics,
-		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
+		Timeout:               5 * time.Second,
+		WarnAfter:             3 * time.Second,
+		MQTTBroker:            runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
+		ExecCommandAllowlist:  execCommandAllowlist,
+		CommandPolicyVersion:  commandPolicyVersion,
+		CommandPolicyRevision: commandPolicyRevision,
+		ExecWorkDir:           cfg.Runtime.ExecWorkDir,
+		ExecEnv:               cfg.Runtime.ExecEnv,
+		MQTTPublishTopics:     cfg.Runtime.MQTTPublishTopics,
+		MQTTSubscribeTopics:   cfg.Runtime.MQTTSubscribeTopics,
 	}
 	frpManager := frp.NewManager()
 	sshAuthStore := sshauth.NewStore()
@@ -120,20 +121,20 @@ func runPoll(cfg *config.Config) error {
 	}
 }
 
-func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string) {
+func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string, revision int) {
 	if store != nil {
 		state, err := store.Load()
 		if err == nil {
-			return state.Commands, state.Version
+			return state.Commands, state.Version, state.Revision
 		}
 		if !errors.Is(err, commandpolicy.ErrNoPolicy) {
 			slog.Warn("Failed to load persisted command policy", "error", err)
 		}
 	}
 	if cfg == nil {
-		return nil, ""
+		return nil, "", 0
 	}
-	return cfg.Runtime.ExecCommands, ""
+	return cfg.Runtime.ExecCommands, "", 0
 }
 
 func runtimeMQTTBroker(configured string) string {

@@ -35,13 +35,16 @@ func TestPollIntervalUsesConfiguredValue(t *testing.T) {
 
 func TestInitialCommandPolicyUsesPersistedServerPolicyBeforeLocalConfig(t *testing.T) {
 	store := commandpolicy.NewStore(filepath.Join(t.TempDir(), "command-policy.json"))
-	if err := store.Save(commandpolicy.State{Version: "server-v1", Commands: map[string]string{"safe": "/bin/echo"}}); err != nil {
+	if err := store.Save(commandpolicy.State{Version: "server-v1", Revision: 7, Commands: map[string]string{"safe": "/bin/echo"}}); err != nil {
 		t.Fatalf("store.Save() error = %v", err)
 	}
 	cfg := &config.Config{Runtime: config.RuntimeConfig{ExecCommands: map[string]string{"local": "/bin/true"}}}
-	commands, version := initialCommandPolicy(cfg, store)
+	commands, version, revision := initialCommandPolicy(cfg, store)
 	if version != "server-v1" {
 		t.Fatalf("initialCommandPolicy() version = %q", version)
+	}
+	if revision != 7 {
+		t.Fatalf("initialCommandPolicy() revision = %d", revision)
 	}
 	if _, ok := commands["local"]; ok {
 		t.Fatalf("initialCommandPolicy() leaked local fallback when persisted server policy exists: %+v", commands)

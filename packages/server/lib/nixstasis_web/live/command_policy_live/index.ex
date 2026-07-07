@@ -46,7 +46,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
         |> assign(:current_params, params)
         |> assign(:selected_assignment_entry_id, params["assign_entry_id"])
         |> assign(:selected_assignment_category_id, params["assign_category_id"])
-        |> assign(:devices, approved_devices())
+        |> assign(:devices, approved_devices(socket.assigns.session))
         |> assign(:assignments, Domain.list_command_policy_assignments() |> elem(1))
         |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
         |> assign(:assignment_form, %{
@@ -160,7 +160,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
         {:noreply, put_flash(socket, :error, "Preview must be conflict-free before assignment")}
 
       true ->
-        {ok_count, error_count} = queue_assignments(form, preview)
+        {ok_count, error_count} = queue_assignments(socket, form, preview)
 
         {:noreply,
          socket
@@ -179,9 +179,13 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   end
 
   def handle_event("revoke_all", %{"device-id" => device_id}, socket) do
-    case queue_revoke_all(device_id) do
-      {:ok, _} -> {:noreply, put_flash(socket, :info, "Revoke-all policy queued")}
-      _ -> {:noreply, put_flash(socket, :error, "Failed to queue revoke-all policy")}
+    if Enum.any?(socket.assigns.devices, &(&1.id == device_id)) do
+      case queue_revoke_all(device_id) do
+        {:ok, _} -> {:noreply, put_flash(socket, :info, "Revoke-all policy queued")}
+        _ -> {:noreply, put_flash(socket, :error, "Failed to queue revoke-all policy")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Not authorized")}
     end
   end
 
@@ -247,7 +251,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     socket
     |> assign(:categories, categories)
     |> assign(:entries, entries)
-    |> assign(:devices, approved_devices())
+    |> assign(:devices, approved_devices(socket.assigns.session))
     |> assign(:assignments, Domain.list_command_policy_assignments() |> elem(1))
     |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
     |> assign(:entry, current_entry(socket.assigns.live_action, params, entries))
@@ -274,10 +278,10 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   defp selected_ids(""), do: []
   defp selected_ids(id) when is_binary(id), do: [id]
 
-  defp approved_devices do
+  defp approved_devices(session) do
     Domain.list_devices()
     |> elem(1)
-    |> Enum.filter(&(&1.approval_status == :approved))
+    |> Enum.filter(&Permissions.can_assign_command_policy_to_device?(session, &1))
   end
 
   defp normalize_assignment_attrs(attrs) do
@@ -292,8 +296,12 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   defp list_param(value) when is_binary(value) and value != "", do: [value]
   defp list_param(_), do: []
 
-  defp queue_assignments(form, preview) do
-    Enum.reduce(form["device_ids"], {0, 0}, fn device_id, {ok_count, error_count} ->
+  defp queue_assignments(socket, form, preview) do
+    allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
+
+    form["device_ids"]
+    |> Enum.filter(&MapSet.member?(allowed_device_ids, &1))
+    |> Enum.reduce({0, 0}, fn device_id, {ok_count, error_count} ->
       case queue_assignment(device_id, form, preview) do
         {:ok, _} -> {ok_count + 1, error_count}
         _ -> {ok_count, error_count + 1}

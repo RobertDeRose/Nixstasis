@@ -105,16 +105,17 @@ type FrontMatter struct {
 
 // RuntimeConfig configures script execution behavior.
 type RuntimeConfig struct {
-	Timeout              time.Duration
-	WarnAfter            time.Duration
-	MQTTBroker           string
-	ExecCommandAllowlist map[string]string
-	CommandPolicyVersion string
-	ExecWorkDir          string
-	ExecEnv              []string
-	ExecUser             *ExecUser
-	MQTTPublishTopics    []string
-	MQTTSubscribeTopics  []string
+	Timeout               time.Duration
+	WarnAfter             time.Duration
+	MQTTBroker            string
+	ExecCommandAllowlist  map[string]string
+	CommandPolicyVersion  string
+	CommandPolicyRevision int
+	ExecWorkDir           string
+	ExecEnv               []string
+	ExecUser              *ExecUser
+	MQTTPublishTopics     []string
+	MQTTSubscribeTopics   []string
 }
 
 // ExecUser specifies a restricted UID/GID for exec_cmd.

@@ -149,7 +149,7 @@ def main():
 
 func TestGivenApplyCommandPolicy_WhenExecuteBatch_ThenAppliesPolicy(t *testing.T) {
 	handler := NewHandler("")
-	payload := `{"policy_version":"v1","commands":{"safe":"/bin/echo"}}`
+	payload := `{"version":"v1","revision":1,"commands":{"safe":"/bin/echo"}}`
 
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
@@ -222,6 +222,27 @@ func TestGivenPreloadedRuntimePolicy_WhenExecuteBatch_ThenSameVersionReplayIsIde
 	}
 }
 
+func TestGivenOlderApplyCommandPolicyRevision_WhenExecuteBatch_ThenRejectsStalePolicy(t *testing.T) {
+	runtimeCfg := script.RuntimeConfig{
+		ExecCommandAllowlist:  map[string]string{"new": "/bin/true"},
+		CommandPolicyVersion:  "v2",
+		CommandPolicyRevision: 2,
+	}
+	handler := NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore("", nil, &runtimeCfg, nil)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-policy",
+		Type:      "apply_command_policy",
+		Payload:   &transport.CommandPayload{Data: `{"version":"v1","revision":1,"commands":{"old":"/bin/echo"}}`},
+	}})[0]
+	if result.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected stale policy failure, got %s", result.Status)
+	}
+	if runtimeCfg.CommandPolicyVersion != "v2" || runtimeCfg.ExecCommandAllowlist["new"] != "/bin/true" {
+		t.Fatalf("stale policy mutated runtime config: %+v", runtimeCfg)
+	}
+}
+
 func TestGivenApplyCommandPolicyStore_WhenExecuteBatch_ThenPersistsPolicy(t *testing.T) {
 	store := commandpolicy.NewStore(filepath.Join(t.TempDir(), "command-policy.json"))
 	handler := &Handler{policyStore: store}
@@ -229,7 +250,7 @@ func TestGivenApplyCommandPolicyStore_WhenExecuteBatch_ThenPersistsPolicy(t *tes
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
 		Type:      "apply_command_policy",
-		Payload:   &transport.CommandPayload{Data: `{"policy_version":"v1","commands":{"safe":"/bin/echo"}}`},
+		Payload:   &transport.CommandPayload{Data: `{"version":"v1","revision":3,"commands":{"safe":"/bin/echo"}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusOK {
 		t.Fatalf("expected apply_command_policy to succeed, got %s: %s", result.Status, result.Error)
@@ -238,7 +259,7 @@ func TestGivenApplyCommandPolicyStore_WhenExecuteBatch_ThenPersistsPolicy(t *tes
 	if err != nil {
 		t.Fatalf("store.Load() error = %v", err)
 	}
-	if state.Version != "v1" || state.Commands["safe"] != "/bin/echo" {
+	if state.Version != "v1" || state.Revision != 3 || state.Commands["safe"] != "/bin/echo" {
 		t.Fatalf("persisted state = %+v", state)
 	}
 }
@@ -265,7 +286,8 @@ func TestGivenApplyCommandPolicyPersistFailure_WhenExecuteBatch_ThenFailsClosed(
 
 func TestGivenEmptyApplyCommandPolicy_WhenExecuteBatch_ThenAppliesDenyAll(t *testing.T) {
 	runtimeCfg := script.RuntimeConfig{ExecCommandAllowlist: map[string]string{"local": "/bin/true"}}
-	handler := &Handler{runtimeConfig: &runtimeCfg}
+	store := commandpolicy.NewStore(filepath.Join(t.TempDir(), "command-policy.json"))
+	handler := &Handler{runtimeConfig: &runtimeCfg, policyStore: store}
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-empty-policy",
 		Type:      "apply_command_policy",
@@ -276,6 +298,13 @@ func TestGivenEmptyApplyCommandPolicy_WhenExecuteBatch_ThenAppliesDenyAll(t *tes
 	}
 	if len(runtimeCfg.ExecCommandAllowlist) != 0 {
 		t.Fatalf("expected deny-all empty allowlist, got %+v", runtimeCfg.ExecCommandAllowlist)
+	}
+	state, err := store.Load()
+	if err != nil {
+		t.Fatalf("store.Load() error = %v", err)
+	}
+	if state.Version != "deny-all" || len(state.Commands) != 0 {
+		t.Fatalf("persisted deny-all state = %+v", state)
 	}
 }
 
