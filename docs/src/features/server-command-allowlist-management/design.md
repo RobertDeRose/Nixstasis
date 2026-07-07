@@ -14,8 +14,8 @@ Operators need a controlled server-side workflow to grant Stary `exec_cmd` capab
   - command name (stable identifier)
   - absolute executable path
   - optional metadata/description
-- Group command entries into reusable collections (categories).
-- Keep first-version category composition direct-only: categories may include command entries, not other categories.
+- Group command entries with first-class category tags. Categories have a slug/display name/description and command entries may carry multiple categories.
+- Device assignment may select individual command entries and/or category tags; category resolution selects enabled command entries with matching tags.
 - Enforce validation rules for entries:
   - command name must be present, normalized, case-insensitively unique, and limited to lowercase letters, digits, `_`, `-`, and `.`
   - path must be absolute and syntactically valid without whitespace or shell metacharacters
@@ -63,12 +63,11 @@ Operators need a controlled server-side workflow to grant Stary `exec_cmd` capab
   - archived/read-only state instead of hard-delete when referenced
   - actor/timestamps
 - Category
-  - name
+  - slug used by policy resolution, lowercase and unique
+  - display name
   - description
-  - member command entry refs pinned to versions
-  - immutable version/revision per membership change
-  - archived/read-only state instead of hard-delete when referenced
-  - no nested category membership in first increment (direct members only)
+  - referenced as tags from command entries rather than owning membership rows
+  - deletion blocked only while an active device assignment selects the category; otherwise deletion removes the tag from command entries after confirmation
 - Device Policy Assignment
   - device_id for an approved device
   - assigned command entry/category refs pinned to versions
@@ -100,16 +99,23 @@ Operators need a controlled server-side workflow to grant Stary `exec_cmd` capab
 
 ## Suggested UX
 
-- New admin screen for command entries (CRUD/archive/duplicate; archived records are read-only).
-- New admin screen for categories with conflict-aware effective-policy preview.
-- Device policy assignment screen with per-device effective policy preview and simple confirmation.
-- Assignment detail/status screen with delivery result, retry, revoke, rollback-as-new-revision, raw payload debug for operators/admins, and optional drift warning.
+- Place the feature under Scripts as **Scripts → Command Policies**; keep device detail to status summaries and shortcuts.
+- Use LiveView pages with periodic/manual refresh in v1.
+- Provide three main sections: Command Entries, Categories, and Device Assignments.
+- Command Entries: table shows name, path, enabled/disabled state, latest version, categories, assignment counts, updated by/at, filters for category/status/assignment/text, copy-path action, and modal create/edit with name, path, description, and category tags.
+- Categories: first-class slug/display name/description records with modal create/edit, counts for command entries and active device assignments, delete blocked only by active device assignments, and delete confirmation showing affected command entries.
+- Device Assignments: lightweight wizard: select devices within scope, select entries/categories, then preview/confirm. Row shortcuts from command entry/category preselect assignment sources.
+- Preview: show combined resolved policy, expandable provenance by source, added/unchanged/removed diff against current active policy, affected devices, conflict table, and collapsed raw payload for operators/admins.
+- Conflicts block confirmation for conflicted devices; batch assignment can proceed only for non-conflicted devices after the operator excludes conflicted targets.
+- Assignment detail/status: show delivery result, retry/resend, remove selected sources, revoke all, rollback-as-new-revision, raw payload debug for operators/admins, command result failure details, optional drift warning, pending-offline state, and unsupported-client upgrade guidance.
 - Clear statuses for `pending`, `queued`, `acknowledged`, `failed`, and `revoked` assignment states.
+- Show policy status in both Command Policies and device detail; full resolved policy is operator/admin-only, viewers see status only.
+- Include activity/events with actor, timestamp, target devices, source entries/categories, and result. CSV export is out of scope for v1.
 
 ## Future considerations
 
 - Script workbench/test orchestration should later account for effective command policy when a script uses `exec_cmd`; this feature does not block tests on policy assignment in v1.
-- Typed confirmation, device-group assignment, argument allowlisting, nested categories, and heartbeat drift remediation are deferred until concrete need appears.
+- Typed confirmation, device-group assignment, argument allowlisting, nested categories, real-time PubSub refresh, policy/audit CSV export, and heartbeat drift remediation are deferred until concrete need appears.
 
 ## Risks
 
