@@ -146,6 +146,18 @@ defmodule Nixstasis.Domain do
       define :destroy_pending_command, action: :destroy
     end
 
+    resource Nixstasis.CommandAllowlists.CommandEntry do
+      define :list_command_allowlist_entries, action: :read
+      define :get_command_allowlist_entry, action: :read, get_by: [:id]
+      define :create_command_allowlist_entry, action: :create
+      define :update_command_allowlist_entry, action: :update
+    end
+
+    resource Nixstasis.CommandAllowlists.CommandEntryVersion do
+      define :list_command_allowlist_entry_versions, action: :read
+      define :create_command_allowlist_entry_version, action: :create
+    end
+
     resource Nixstasis.Scripts.ScriptDraft do
       define :list_script_drafts, action: :read
       define :get_script_draft, action: :read, get_by: [:id]

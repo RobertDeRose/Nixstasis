@@ -23,6 +23,8 @@
 - `packages/server/lib/nixstasis/monitoring/telemetry.ex`
 - `packages/server/lib/nixstasis/reporting/custom_report.ex`
 - `packages/server/lib/nixstasis/system_setting.ex`
+- `packages/server/lib/nixstasis/command_allowlists/command_entry.ex`
+- `packages/server/lib/nixstasis/command_allowlists/command_entry_version.ex`
 - `packages/server/lib/nixstasis_web/ash_json_api_router.ex`
 - `packages/server/priv/static/openapi.yaml`
 
@@ -59,12 +61,18 @@
   - `get_setting_by_key`
   - `create_setting`
   - `update_setting`
+  - `list_command_allowlist_entries`
+  - `get_command_allowlist_entry`
+  - `create_command_allowlist_entry`
+  - `update_command_allowlist_entry`
+  - `list_command_allowlist_entry_versions`
+  - `create_command_allowlist_entry_version`
 
 ## Dependencies
 
 ### Internal
 
-- Ash resources under `Nixstasis.Devices`, `Nixstasis.Monitoring`, `Nixstasis.Reporting`, and `Nixstasis.SystemSetting`.
+- Ash resources under `Nixstasis.Devices`, `Nixstasis.Monitoring`, `Nixstasis.Reporting`, `Nixstasis.CommandAllowlists`, and `Nixstasis.SystemSetting`.
 - `NixstasisWeb.AshJsonApiRouter`.
 
 ### External
