@@ -1,6 +1,7 @@
 defmodule NixstasisWeb.CommandPolicyLive.Index do
   use NixstasisWeb, :live_view
 
+  alias Nixstasis.CommandAllowlists.Audit
   alias Nixstasis.Domain
   alias NixstasisWeb.Permissions
 
@@ -20,6 +21,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
       |> assign(:current_params, %{})
       |> assign(:selected_assignment_entry_id, nil)
       |> assign(:entry, nil)
+      |> assign(:category, nil)
 
     if can_view do
       {:ok, socket}
@@ -42,6 +44,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
         |> assign(:current_params, params)
         |> assign(:selected_assignment_entry_id, params["assign_entry_id"])
         |> assign(:entry, current_entry(socket.assigns.live_action, params, entries))
+        |> assign(:category, current_category(socket.assigns.live_action, params, categories))
 
       {:noreply, socket}
     else
@@ -73,6 +76,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
                archived_at: DateTime.utc_now() |> DateTime.truncate(:second),
                current_version: entry.current_version + 1
              }) do
+        Audit.emit(:command_entry_disabled, %{command_entry_id: entry.id, name: entry.name})
         {:noreply, put_flash(socket, :info, "Command entry disabled")}
       else
         _ -> {:noreply, put_flash(socket, :error, "Failed to disable command entry")}
@@ -110,9 +114,46 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     {:noreply, push_patch(socket, to: ~p"/scripts/command-policies?#{params}")}
   end
 
+  def handle_event("assign_category_shortcut", %{"id" => id}, socket) do
+    params = Map.put(socket.assigns.current_params, "assign_category_id", id)
+    {:noreply, push_patch(socket, to: ~p"/scripts/command-policies?#{params}")}
+  end
+
+  def handle_event("delete_category", %{"id" => id}, socket) do
+    category = Enum.find(socket.assigns.categories, &(&1.id == id))
+    active_assignment_count = category_assignment_count(id)
+
+    cond do
+      not socket.assigns.can_manage ->
+        {:noreply, put_flash(socket, :error, "Not authorized")}
+
+      active_assignment_count > 0 ->
+        {:noreply, put_flash(socket, :error, "Category has active assignments")}
+
+      category ->
+        remove_category_tags(id)
+
+        case Domain.destroy_command_allowlist_category(category) do
+          {:ok, _} ->
+            Audit.emit(:category_deleted, %{category_id: id, slug: category.slug})
+            {:noreply, put_flash(socket, :info, "Category deleted")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Failed to delete category")}
+        end
+
+      true ->
+        {:noreply, put_flash(socket, :error, "Category not found")}
+    end
+  end
+
   @impl true
   def handle_info({NixstasisWeb.CommandPolicyLive.FormComponent, {:saved, _entry}}, socket) do
     {:noreply, put_flash(socket, :info, "Command entry saved")}
+  end
+
+  def handle_info({NixstasisWeb.CommandPolicyLive.CategoryFormComponent, {:category_saved, _category}}, socket) do
+    {:noreply, put_flash(socket, :info, "Category saved")}
   end
 
   defp current_entry(:edit, %{"id" => id}, rows) do
@@ -127,7 +168,13 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
 
   defp title(:new), do: "New Command Entry"
   defp title(:edit), do: "Edit Command Entry"
+  defp title(:new_category), do: "New Category"
+  defp title(:edit_category), do: "Edit Category"
   defp title(_), do: "Command Policies"
+
+  defp current_category(:edit_category, %{"id" => id}, categories), do: Enum.find(categories, &(&1.id == id))
+  defp current_category(:new_category, _params, _categories), do: %{id: nil}
+  defp current_category(_, _params, _categories), do: nil
 
   defp inventory_rows(params, categories) do
     entries = Domain.list_command_allowlist_entries() |> elem(1)
@@ -192,6 +239,25 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   defp maybe_filter_assigned(rows, _), do: rows
 
   defp duplicate_name(name), do: name <> "-copy"
+
+  defp category_entry_count(category_id) do
+    Domain.list_command_allowlist_entry_categories()
+    |> elem(1)
+    |> Enum.count(&(&1.category_id == category_id))
+  end
+
+  defp category_assignment_count(category_id) do
+    Domain.list_command_policy_assignment_sources()
+    |> elem(1)
+    |> Enum.count(&(&1.source_kind == "category" and &1.source_id == category_id))
+  end
+
+  defp remove_category_tags(category_id) do
+    Domain.list_command_allowlist_entry_categories()
+    |> elem(1)
+    |> Enum.filter(&(&1.category_id == category_id))
+    |> Enum.each(&Domain.destroy_command_allowlist_entry_category/1)
+  end
 
   defp attach_categories(entry_id, categories) do
     Enum.reduce_while(categories, :ok, fn category, :ok ->
