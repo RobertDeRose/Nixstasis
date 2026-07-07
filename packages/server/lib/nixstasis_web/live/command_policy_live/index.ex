@@ -236,7 +236,22 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
 
   def handle_info(:refresh_command_policies, socket) do
     Process.send_after(self(), :refresh_command_policies, 15_000)
-    {:noreply, push_patch(socket, to: ~p"/scripts/command-policies?#{socket.assigns.current_params}")}
+    {:noreply, refresh_policy_assigns(socket)}
+  end
+
+  defp refresh_policy_assigns(socket) do
+    params = socket.assigns.current_params
+    categories = Domain.list_command_allowlist_categories() |> elem(1)
+    entries = inventory_rows(params, categories)
+
+    socket
+    |> assign(:categories, categories)
+    |> assign(:entries, entries)
+    |> assign(:devices, approved_devices())
+    |> assign(:assignments, Domain.list_command_policy_assignments() |> elem(1))
+    |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
+    |> assign(:entry, current_entry(socket.assigns.live_action, params, entries))
+    |> assign(:category, current_category(socket.assigns.live_action, params, categories))
   end
 
   defp current_entry(:edit, %{"id" => id}, rows) do

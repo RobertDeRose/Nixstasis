@@ -65,6 +65,27 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert Enum.any?(assignments, &(&1.device_id == device.id and &1.status == :queued))
   end
 
+  test "periodic refresh keeps command entry modal open", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/new")
+
+    send(view.pid, :refresh_command_policies)
+
+    html = render(view)
+    assert html =~ "New Command Entry"
+    assert html =~ ~s(autocomplete="off")
+    assert html =~ ~s(autocorrect="off")
+  end
+
+  test "periodic refresh keeps category modal open", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/new")
+
+    send(view.pid, :refresh_command_policies)
+
+    html = render(view)
+    assert html =~ "New Category"
+    assert html =~ ~s(autocorrect="off")
+  end
+
   test "category form saves category", %{conn: conn} do
     Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
     {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/new")
