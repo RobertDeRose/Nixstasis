@@ -263,6 +263,22 @@ func TestGivenApplyCommandPolicyPersistFailure_WhenExecuteBatch_ThenFailsClosed(
 	}
 }
 
+func TestGivenEmptyApplyCommandPolicy_WhenExecuteBatch_ThenAppliesDenyAll(t *testing.T) {
+	runtimeCfg := script.RuntimeConfig{ExecCommandAllowlist: map[string]string{"local": "/bin/true"}}
+	handler := &Handler{runtimeConfig: &runtimeCfg}
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-empty-policy",
+		Type:      "apply_command_policy",
+		Payload:   &transport.CommandPayload{Data: `{"policy_version":"deny-all","commands":{}}`},
+	}})[0]
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected empty policy success, got %s: %s", result.Status, result.Error)
+	}
+	if len(runtimeCfg.ExecCommandAllowlist) != 0 {
+		t.Fatalf("expected deny-all empty allowlist, got %+v", runtimeCfg.ExecCommandAllowlist)
+	}
+}
+
 func TestGivenBadApplyCommandPolicyPayload_WhenExecuteBatch_ThenFails(t *testing.T) {
 	handler := NewHandler("")
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{

@@ -42,6 +42,7 @@
   - [Backup And Restore](operations/backup-restore.md)
   - [Secret Rotation](operations/secret-rotation.md)
   - [Health Checks](operations/health-checks.md)
+  - [Command Policies](operations/command-policies.md)
   - [Incident Response](operations/incidents.md)
   - [Upgrades And Rollbacks](operations/upgrades-rollbacks.md)
   - [HA And Scaling](operations/ha-scaling.md)

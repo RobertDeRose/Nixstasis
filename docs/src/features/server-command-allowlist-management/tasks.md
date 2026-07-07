@@ -38,15 +38,15 @@
 
 - [X] T018 Add Scripts → Command Policies LiveView entry inventory under `packages/server/lib/nixstasis_web/live/` with modal create/edit, category tags, filters, copy path, assignment counts, disable/duplicate, and assign shortcut.
 - [X] T019 Add category tag management UI with modal create/edit, command-entry count, active device-assignment count, delete blocking only when active assignments select the category, and assign shortcut.
-- [ ] T020 Add approved-device assignment wizard with scoped device selection, entry/category selection, preview/confirm, batch handling that excludes conflicted devices, and simple revoke-all confirmation.
-- [ ] T021 Add assignment result/status display and retry/resend, remove selected sources, revoke all, rollback-as-new-revision, raw payload debug for operators/admins, pending-offline state, unsupported-client guidance, activity events, and optional drift warning controls.
-- [ ] T022 Add periodic/manual refresh for policy and assignment statuses where useful; real-time PubSub is out of scope for v1.
+- [X] T020 Add approved-device assignment wizard with scoped device selection, entry/category selection, preview/confirm, batch handling that excludes conflicted devices, and simple revoke-all confirmation.
+- [X] T021 Add assignment result/status display and retry/resend, remove selected sources, revoke all, rollback-as-new-revision, raw payload debug for operators/admins, pending-offline state, unsupported-client guidance, activity events, and optional drift warning controls.
+- [X] T022 Add periodic/manual refresh for policy and assignment statuses where useful; real-time PubSub is out of scope for v1.
 
 ## Phase 5: Verification And Close-Out
 
-- [ ] T023 Add server tests for policy persistence, category tags, delete/disable rules, version pinning, conflict detection, assignment authorization, approved-device-only assignment, command queueing, result acknowledgement, superseding, revoke/narrow behavior, rollback, optional drift warning, and audit events.
-- [ ] T024 Add client tests for policy ingestion, persistence/reload, server-policy-overrides-local behavior, revision ordering, idempotency, and `exec_cmd` gating with policy presence/absence.
-- [ ] T025 Add integration test covering add policy, assign to one+ devices, resolve, verify command behavior, revoke assignment, and verify rejection on the next poll cycle.
-- [ ] T026 Run `hk check -a` and required focused test suites after implementation changes.
-- [ ] T027 Update user-facing docs in affected sections listed in `design.md` and run doc build checks.
-- [ ] T999 Complete close-out by reconciling implementation, feature specs, and planned docs status.
+- [X] T023 Add server tests for policy persistence, category tags, delete/disable rules, version pinning, conflict detection, assignment authorization, approved-device-only assignment, command queueing, result acknowledgement, superseding, revoke/narrow behavior, rollback, optional drift warning, and audit events.
+- [X] T024 Add client tests for policy ingestion, persistence/reload, server-policy-overrides-local behavior, revision ordering, idempotency, and `exec_cmd` gating with policy presence/absence.
+- [X] T025 Add integration test covering add policy, assign to one+ devices, resolve, verify command behavior, revoke assignment, and verify rejection on the next poll cycle.
+- [X] T026 Run `hk check -a` and required focused test suites after implementation changes.
+- [X] T027 Update user-facing docs in affected sections listed in `design.md` and run doc build checks.
+- [X] T999 Complete close-out by reconciling implementation, feature specs, and planned docs status.

@@ -16,6 +16,25 @@ the retired spec-kit contract files.
 - [Server E2E](../modules/server-e2e.md): E2E run/result behavior and protocol
   expectations.
 
+## Command Policy Contract
+
+`apply_command_policy` is delivered in heartbeat `commands` using payload content type `application/vnd.nixstasis.command-policy+json;version=1`.
+
+Payload shape:
+
+```json
+{
+  "assignment_id": "uuid",
+  "version": "policy-123",
+  "revision": 123,
+  "commands": {
+    "name": "/absolute/path"
+  }
+}
+```
+
+Clients durably persist accepted server policies outside the scripts directory. A persisted server policy overrides local `runtime.exec_commands`; when no persisted server policy exists, local config is the fallback. An empty `commands` object is valid and means deny all.
+
 ## Client Contracts
 
 - [Client Transport](../modules/client-transport.md): typed Go client HTTP

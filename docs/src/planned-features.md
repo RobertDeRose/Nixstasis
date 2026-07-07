@@ -972,7 +972,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### `server-command-allowlist-management`
 
-- Status: planned
+- Status: implemented
 - Overview:
 - Add a server web interface for defining `exec_cmd` command allowlists,
     grouping allowlists into reusable categories, and assigning the resulting
