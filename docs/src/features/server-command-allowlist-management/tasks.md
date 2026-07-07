@@ -12,7 +12,7 @@
 
 ## Phase 1: Policy Domain And Persistence
 
-- [ ] T003 Add persistence and Ash resources for command entries, immutable versions, archive state, and case-insensitive names under `packages/server/lib/nixstasis/command_allowlists/`.
+- [X] T003 Add persistence and Ash resources for command entries, immutable versions, archive state, and case-insensitive names under `packages/server/lib/nixstasis/command_allowlists/`.
 - [ ] T004 Add persistence and resources for first-class category tags with slug/display name/description under `packages/server/lib/nixstasis/command_allowlists/`, plus command-entry category associations.
 - [ ] T005 Add persistence and resources for per-device policy assignments, version-pinned sources, resolved effective policy snapshots, monotonic per-device revisions, and optional drift warning state under `packages/server/lib/nixstasis/command_allowlists/`.
 - [ ] T006 Add persistence and resources for policy delivery/client response history under `packages/server/lib/nixstasis/command_allowlists/`.
