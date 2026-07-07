@@ -29,6 +29,7 @@
 - `packages/server/lib/nixstasis/command_allowlists/command_entry_category.ex`
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment.ex`
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment_source.ex`
+- `packages/server/lib/nixstasis/command_allowlists/policy_delivery_result.ex`
 - `packages/server/lib/nixstasis_web/ash_json_api_router.ex`
 - `packages/server/priv/static/openapi.yaml`
 
@@ -84,6 +85,8 @@
   - `create_command_policy_assignment`
   - `list_command_policy_assignment_sources`
   - `create_command_policy_assignment_source`
+  - `list_command_policy_delivery_results`
+  - `create_command_policy_delivery_result`
 
 ## Dependencies
 

@@ -114,5 +114,9 @@ defmodule Nixstasis.CommandAllowlists.DevicePolicyAssignment do
     has_many :sources, Nixstasis.CommandAllowlists.DevicePolicyAssignmentSource do
       destination_attribute :assignment_id
     end
+
+    has_many :delivery_results, Nixstasis.CommandAllowlists.PolicyDeliveryResult do
+      destination_attribute :assignment_id
+    end
   end
 end
