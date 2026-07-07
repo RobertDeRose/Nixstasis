@@ -128,6 +128,8 @@ defmodule Nixstasis.Domain do
     end
   end
 
+  def preview_command_policy(attrs), do: PolicyResolver.preview(attrs)
+
   resources do
     resource Nixstasis.Devices.Device do
       define :list_devices, action: :read

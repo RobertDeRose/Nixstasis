@@ -30,12 +30,14 @@
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment.ex`
 - `packages/server/lib/nixstasis/command_allowlists/device_policy_assignment_source.ex`
 - `packages/server/lib/nixstasis/command_allowlists/policy_delivery_result.ex`
+- `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex`
 - `packages/server/lib/nixstasis_web/ash_json_api_router.ex`
 - `packages/server/priv/static/openapi.yaml`
 
 ## Public Interfaces
 
 - Command allowlist entries validate lowercase command names and absolute command paths without whitespace or shell metacharacters at the resource and database layers.
+- `Nixstasis.Domain.preview_command_policy/1` resolves selected command entries and category tags into a preview containing commands, provenance, conflicts, diff, and the raw v1 payload body.
 - Ash domain APIs defined in `Nixstasis.Domain`:
   - `list_devices`
   - `get_device`
@@ -88,6 +90,7 @@
   - `create_command_policy_assignment_source`
   - `list_command_policy_delivery_results`
   - `create_command_policy_delivery_result`
+  - `preview_command_policy`
 
 ## Dependencies
 
