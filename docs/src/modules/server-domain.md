@@ -35,6 +35,7 @@
 
 ## Public Interfaces
 
+- Command allowlist entries validate lowercase command names and absolute command paths without whitespace or shell metacharacters at the resource and database layers.
 - Ash domain APIs defined in `Nixstasis.Domain`:
   - `list_devices`
   - `get_device`
