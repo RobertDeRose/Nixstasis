@@ -1163,3 +1163,77 @@ cohort instead of relying only on product, account, status, and search filters.
     connectivity, search, and sort filters continue to compose correctly.
 - `mix ash.codegen --check` if Ash resources or relationships change.
 - Suggested first workflow command: `/start-feature dashboard-device-groups`
+
+### `server-curated-command-package-catalog`
+
+- Status: planned
+- Overview:
+- Add a server-curated package and command catalog for command policy authoring.
+    Operators choose approved package-backed commands from the server catalog
+    instead of manually typing absolute executable paths. Device-reported
+    inventory is evidence only; the catalog remains the policy authority.
+- Requirements:
+- During device registration or heartbeat, clients report `/etc/os-release`,
+    architecture, detected package manager, and enough package/command inventory
+    to verify catalog compatibility.
+- Keep the server catalog as the source of truth for package names, supported OS
+    families, command names, descriptions, categories, and risk/installation
+    guidance.
+- Let operators create command policies from catalog commands or catalog
+    categories without manually entering absolute paths.
+- Resolve the final executable path per device before enforcement, then continue
+    delivering exact absolute-path allowlists to clients.
+- Show compatibility status per target device: supported, package installed,
+    command path resolved, missing package, unsupported OS, or conflict.
+- Treat device-discovered commands and paths as untrusted verification data, not
+    as automatic allowlist authority.
+- Keep package installation as an explicit operator-approved action if added;
+    policy assignment must not silently install software.
+- Constraints:
+- The existing client runtime must remain deny-by-default.
+- The final execution boundary remains command-name to absolute-path allowlists;
+    package catalog entries are an authoring and resolution layer, not a looser
+    runtime permission model.
+- Catalog package mappings must be OS-aware, with separate names or unsupported
+    states for Debian/Ubuntu, Fedora/RHEL, NixOS, and other distributions.
+- Clients must not be able to expand their own permissions by advertising extra
+    commands, alternate paths, or package names.
+- Non-goals:
+- Arbitrary package search/install from public repositories in the first
+    increment.
+- Silent or automatic package installation during policy assignment.
+- Argument allowlisting or shell-fragment policies.
+- Trusting discovered commands as server-approved policy entries.
+- Success criteria:
+- An operator can select a catalog-backed command such as `df` without knowing
+    `/usr/bin/df`.
+- The server shows whether selected devices support the catalog entry before
+    assignment.
+- A client receives and enforces the same absolute-path policy shape used by the
+    existing command allowlist system.
+- A compromised or incorrect client inventory report cannot create new approved
+    catalog commands by itself.
+- Risks and tradeoffs:
+- A curated catalog is safer than discovered-command authoring, but it requires
+    maintenance as package names and distro behavior change.
+- Per-device path resolution improves usability, but the server must make stale
+    or missing inventory obvious before assignment.
+- Package installation support crosses a stronger trust boundary than command
+    allowlisting and should be separately approved, audited, and reversible.
+- Dependencies:
+- `docs/src/features/server-command-allowlist-management/design.md`
+- `packages/client/cmd/nixstasis/poll.go`
+- `packages/client/internal/commands/handler.go`
+- `packages/server/lib/nixstasis/command_allowlists.ex`
+- `packages/server/lib/nixstasis_web/live/command_policy_live/index.ex`
+- `packages/server/lib/nixstasis/devices/device.ex`
+- Suggested validation:
+- Client tests for OS-release parsing, package-manager detection, and command
+    path resolution reporting.
+- Server tests proving catalog entries, OS mappings, compatibility checks, and
+    resolved absolute-path policy delivery.
+- LiveView tests for catalog command selection, missing-package warnings,
+    unsupported-device states, and conflict handling.
+- Security tests proving untrusted device inventory cannot authorize commands not
+    present in the server catalog.
+- Suggested first workflow command: `/start-feature server-curated-command-package-catalog`
