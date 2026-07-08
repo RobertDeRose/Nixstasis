@@ -47,7 +47,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
         |> assign(:selected_assignment_entry_id, params["assign_entry_id"])
         |> assign(:selected_assignment_category_id, params["assign_category_id"])
         |> assign(:devices, approved_devices(socket.assigns.session))
-        |> assign(:assignments, Domain.list_command_policy_assignments() |> elem(1))
+        |> assign_scoped_assignments()
         |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
         |> assign(:assignment_form, %{
           "device_ids" => [],
@@ -170,7 +170,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   end
 
   def handle_event("retry_assignment", %{"id" => id}, socket) do
-    assignment = Enum.find(socket.assigns.assignments, &(&1.id == id))
+    assignment = scoped_assignment(socket, id)
 
     case assignment && Devices.queue_command_policy_assignment(assignment) do
       {:ok, _} -> {:noreply, put_flash(socket, :info, "Assignment resent")}
@@ -190,7 +190,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   end
 
   def handle_event("toggle_drift_warning", %{"id" => id}, socket) do
-    with assignment when not is_nil(assignment) <- Enum.find(socket.assigns.assignments, &(&1.id == id)),
+    with assignment when not is_nil(assignment) <- scoped_assignment(socket, id),
          {:ok, _} <-
            Ash.update(Ash.Changeset.for_update(assignment, :update, %{drift_warning: !assignment.drift_warning}),
              domain: Domain
@@ -252,7 +252,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     |> assign(:categories, categories)
     |> assign(:entries, entries)
     |> assign(:devices, approved_devices(socket.assigns.session))
-    |> assign(:assignments, Domain.list_command_policy_assignments() |> elem(1))
+    |> assign_scoped_assignments()
     |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
     |> assign(:entry, current_entry(socket.assigns.live_action, params, entries))
     |> assign(:category, current_category(socket.assigns.live_action, params, categories))
@@ -282,6 +282,21 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     Domain.list_devices()
     |> elem(1)
     |> Enum.filter(&Permissions.can_assign_command_policy_to_device?(session, &1))
+  end
+
+  defp assign_scoped_assignments(socket) do
+    allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
+
+    assignments =
+      Domain.list_command_policy_assignments()
+      |> elem(1)
+      |> Enum.filter(&MapSet.member?(allowed_device_ids, &1.device_id))
+
+    assign(socket, :assignments, assignments)
+  end
+
+  defp scoped_assignment(socket, assignment_id) do
+    Enum.find(socket.assigns.assignments, &(&1.id == assignment_id))
   end
 
   defp normalize_assignment_attrs(attrs) do
