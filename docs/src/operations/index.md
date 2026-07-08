@@ -24,6 +24,7 @@ Use these runbooks with the deployment contract in
 - [Backup And Restore](backup-restore.md)
 - [Secret Rotation](secret-rotation.md)
 - [Health Checks](health-checks.md)
+- [Command Policies](command-policies.md)
 - [Incident Response](incidents.md)
 - [Upgrades And Rollbacks](upgrades-rollbacks.md)
 - [HA And Scaling](ha-scaling.md)
