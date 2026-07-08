@@ -68,7 +68,7 @@
     <div class="mb-3 flex items-center justify-between">
       <h2 class="text-lg font-semibold">Categories</h2>
       <%= if @can_manage do %>
-        <.link patch={~p"/scripts/command-policies/categories/new?#{@current_params}"} class="btn btn-sm btn-ghost">
+        <.link patch={~p"/scripts/command-policies/categories/new?#{@current_params}"} class="btn btn-sm btn-primary">
           New Category
         </.link>
       <% end %>

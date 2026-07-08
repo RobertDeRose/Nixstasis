@@ -189,8 +189,11 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:class, :string, default: nil, doc: "the input class to use over defaults")
   attr(:error_class, :string, default: nil, doc: "the input error class to use over defaults")
 
-  attr(:rest, :global, include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size step))
+  attr(:rest, :global,
+    include:
+      ~w(accept autocomplete autocapitalize autocorrect capture cols disabled form inputmode list max maxlength min minlength
+                multiple pattern placeholder readonly required rows size spellcheck step)
+  )
 
   def input(%{field: %FormField{} = field} = assigns) do
     errors = if Component.used_input?(field), do: field.errors, else: []

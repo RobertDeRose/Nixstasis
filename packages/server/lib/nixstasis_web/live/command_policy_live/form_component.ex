@@ -22,8 +22,24 @@ defmodule NixstasisWeb.CommandPolicyLive.FormComponent do
         phx-change="validate"
         phx-submit="save"
       >
-        <.input field={@form[:name]} type="text" label="Command Name" />
-        <.input field={@form[:command_path]} type="text" label="Absolute Path" />
+        <.input
+          field={@form[:name]}
+          type="text"
+          label="Command Name"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+        />
+        <.input
+          field={@form[:command_path]}
+          type="text"
+          label="Absolute Path"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+        />
         <.input field={@form[:description]} type="text" label="Description" />
         <.input
           field={@form[:category_ids]}

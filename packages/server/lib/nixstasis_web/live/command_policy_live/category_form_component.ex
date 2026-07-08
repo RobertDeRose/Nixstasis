@@ -18,8 +18,24 @@ defmodule NixstasisWeb.CommandPolicyLive.CategoryFormComponent do
         phx-change="validate"
         phx-submit="save"
       >
-        <.input field={@form[:slug]} type="text" label="Slug" />
-        <.input field={@form[:display_name]} type="text" label="Display Name" />
+        <.input
+          field={@form[:slug]}
+          type="text"
+          label="Slug"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+        />
+        <.input
+          field={@form[:display_name]}
+          type="text"
+          label="Display Name"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+        />
         <.input field={@form[:description]} type="text" label="Description" />
         <:actions><.button phx-disable-with="Saving...">Save Category</.button></:actions>
       </.simple_form>
