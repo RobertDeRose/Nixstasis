@@ -8,6 +8,7 @@ ENV_EXAMPLE="$COMPOSE_DIR/.env.example"
 CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile"
 DEV_CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile.dev"
 FRPS_TOML="$COMPOSE_DIR/frps/frps.toml"
+LAPTOP_CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile.laptop"
 COMPOSE_README="$COMPOSE_DIR/README.md"
 DEV_LAB_SCRIPT="$ROOT_DIR/.mise/tasks/deploy/dev.sh"
 SERVER_RUNTIME="$ROOT_DIR/packages/server/config/runtime.exs"
@@ -269,6 +270,7 @@ require_text "$CLIENT_CONTAINER_ENTRYPOINT" '/usr/lib/pcp/bin/pmcd -A'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pmlogger -L -P'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pcp-metrics'
 require_literal "$DEV_LAB_SCRIPT" '[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]])'
+require_text "$LAPTOP_CADDYFILE" 'Content-Security-Policy.*frame-ancestors .self. https://nixstasis\.\{\$BASE_DOMAIN\}'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_FRP_HTTP_LOCAL_ADDR'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$CLIENT_DOCKERFILE" 'container-entrypoint'
