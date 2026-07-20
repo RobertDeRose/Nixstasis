@@ -139,7 +139,8 @@ seed_client_devices() {
   separator=""
   for mac_address in $client_macs; do
     case "$mac_address" in
-      *[!0-9a-fA-F:]*|'') fail "unexpected client MAC address: $mac_address" ;;
+      [[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]) ;;
+      *) fail "unexpected client MAC address: $mac_address" ;;
     esac
 
     elixir_macs="$elixir_macs$separator\"$mac_address\""

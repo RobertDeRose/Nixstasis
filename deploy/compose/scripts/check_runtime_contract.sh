@@ -37,6 +37,13 @@ require_text() {
   grep -Eq -- "$pattern" "$file" || fail "missing contract text in $file: $pattern"
 }
 
+require_literal() {
+  file="$1"
+  text="$2"
+
+  grep -Fq -- "$text" "$file" || fail "missing contract text in $file: $text"
+}
+
 reject_text() {
   file="$1"
   pattern="$2"
@@ -261,6 +268,7 @@ require_text "$CLIENT_CONTAINER_ENTRYPOINT" '/var/lib/pcp/pmns/Rebuild'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" '/usr/lib/pcp/bin/pmcd -A'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pmlogger -L -P'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pcp-metrics'
+require_literal "$DEV_LAB_SCRIPT" '[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]])'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_FRP_HTTP_LOCAL_ADDR'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$CLIENT_DOCKERFILE" 'container-entrypoint'
