@@ -22,8 +22,10 @@ defmodule Nixstasis.E2E.Reset do
       {:ok, env} ->
         seed = Map.get(env, :seed_script)
 
-        if seed && File.exists?(Path.expand(seed, File.cwd!())) do
-          {:ok, Path.expand(seed, File.cwd!())}
+        path = seed && Path.join(Application.app_dir(:nixstasis, "priv"), seed)
+
+        if path && File.exists?(path) do
+          {:ok, path}
         else
           {:error, "Seed script not found for #{environment_label}"}
         end

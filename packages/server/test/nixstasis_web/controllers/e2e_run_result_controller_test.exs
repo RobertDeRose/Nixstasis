@@ -12,7 +12,7 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
 
     Application.put_env(:nixstasis, :e2e,
       allowed_env_labels: ["local"],
-      environments: %{"local" => %{seed_script: "priv/e2e/seed.exs"}},
+      environments: %{"local" => %{seed_script: "e2e/seed.exs"}},
       suites: %{"full" => ["auth"]},
       log_dir: "tmp/e2e-logs"
     )

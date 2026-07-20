@@ -81,7 +81,8 @@ defmodule Nixstasis.E2E.ExpectationRegistry do
   end
 
   defp journey_dir do
-    Path.expand("../client/scripts/e2e/journeys", File.cwd!())
+    Application.get_env(:nixstasis, :e2e_journey_dir) ||
+      Path.join(Application.app_dir(:nixstasis, "priv"), "e2e/journeys")
   end
 
   defp parse_steps(content) do

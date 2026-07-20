@@ -59,6 +59,33 @@ if config_env() == :prod do
   ssh_client_frp_host = Deployment.optional_env("NIXSTASIS_SSH_FRP_HOST", "frps")
   ssh_client_frp_port = Deployment.optional_env("FRPS_TCPMUX_PORT", "2022")
 
+  e2e_priv_dir = Application.app_dir(:nixstasis, "priv")
+
+  config :nixstasis, :e2e,
+    allowed_env_labels: ["local"],
+    protocol_versions: ["1"],
+    environments: %{
+      "local" => %{
+        base_url: "http://localhost:#{port}",
+        seed_script: "e2e/seed.exs"
+      }
+    },
+    suites: %{
+      "full" => ["auth", "dashboard", "create_record", "update_record", "logout"],
+      "runtime" => ["runtime_linux_telemetry", "runtime_transport_contract", "runtime_transport_negative"],
+      "runtime_step_labels" => ["runtime_step_labels"]
+    },
+    log_dir: Path.join(e2e_priv_dir, "e2e/logs"),
+    report_dir: Path.join(e2e_priv_dir, "e2e/reports"),
+    retention: [
+      enabled: true,
+      retention_days: 14,
+      max_run_count: 2000,
+      max_log_bytes: 1_000_000_000,
+      check_interval_ms: 60_000
+    ]
+
+  config :nixstasis, :e2e_journey_dir, Path.join(e2e_priv_dir, "e2e/journeys")
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain
   config :nixstasis, :ssh_client, frp_host: ssh_client_frp_host, frp_port: ssh_client_frp_port

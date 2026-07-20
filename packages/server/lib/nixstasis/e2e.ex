@@ -368,7 +368,7 @@ defmodule Nixstasis.E2E do
   defp fetch_seed_path(env, environment_label) do
     case Map.get(env, :seed_script) do
       seed_script when is_binary(seed_script) ->
-        seed_path = Path.expand(seed_script, File.cwd!())
+        seed_path = Path.join(Application.app_dir(:nixstasis, "priv"), seed_script)
 
         if File.exists?(seed_path) do
           {:ok, seed_path}
