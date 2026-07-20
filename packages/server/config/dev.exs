@@ -66,13 +66,15 @@ config :nixstasis, NixstasisWeb.Endpoint,
     ]
   ]
 
+config :nixstasis, :e2e_journey_dir, Path.expand("../../client/scripts/e2e/journeys", __DIR__)
+
 config :nixstasis, :e2e,
   allowed_env_labels: ["local"],
   protocol_versions: ["1"],
   environments: %{
     "local" => %{
       base_url: "http://localhost:4000",
-      seed_script: "priv/e2e/seed.exs"
+      seed_script: "e2e/seed.exs"
     }
   },
   suites: %{

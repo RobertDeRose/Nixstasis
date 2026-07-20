@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/RobertDeRose/nixstasis/packages/client/internal/commandpolicy"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/commands"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/frp"
@@ -62,16 +64,20 @@ func runPoll(cfg *config.Config) error {
 	// 2. Setup Components
 	client := transport.NewClient(cfg.API)
 	client.SetAPIKey(credentials.Token)
-	executor := script.NewExecutor(script.RuntimeConfig{
-		Timeout:              5 * time.Second,
-		WarnAfter:            3 * time.Second,
-		MQTTBroker:           runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
-		ExecCommandAllowlist: cfg.Runtime.ExecCommands,
-		ExecWorkDir:          cfg.Runtime.ExecWorkDir,
-		ExecEnv:              cfg.Runtime.ExecEnv,
-		MQTTPublishTopics:    cfg.Runtime.MQTTPublishTopics,
-		MQTTSubscribeTopics:  cfg.Runtime.MQTTSubscribeTopics,
-	})
+	policyStore := commandpolicy.NewStore(config.CommandPolicyPath())
+	execCommandAllowlist, commandPolicyVersion, commandPolicyRevision := initialCommandPolicy(cfg, policyStore)
+	runtimeCfg := script.RuntimeConfig{
+		Timeout:               5 * time.Second,
+		WarnAfter:             3 * time.Second,
+		MQTTBroker:            runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
+		ExecCommandAllowlist:  execCommandAllowlist,
+		CommandPolicyVersion:  commandPolicyVersion,
+		CommandPolicyRevision: commandPolicyRevision,
+		ExecWorkDir:           cfg.Runtime.ExecWorkDir,
+		ExecEnv:               cfg.Runtime.ExecEnv,
+		MQTTPublishTopics:     cfg.Runtime.MQTTPublishTopics,
+		MQTTSubscribeTopics:   cfg.Runtime.MQTTSubscribeTopics,
+	}
 	frpManager := frp.NewManager()
 	sshAuthStore := sshauth.NewStore()
 	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
@@ -79,14 +85,14 @@ func runPoll(cfg *config.Config) error {
 		return fmt.Errorf("start ssh authorization server: %w", err)
 	}
 	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
-	cmdHandler := commands.NewHandlerWithSSHAuth(cfg.Scripts.Dir, sshAuthStore)
+	cmdHandler := commands.NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg, policyStore)
 
 	var consecutiveFailures int
 	interval := pollInterval(cfg)
 	pollState := &remoteAccessPollState{}
 
 	// Run immediately once
-	if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+	if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
@@ -100,7 +106,7 @@ func runPoll(cfg *config.Config) error {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return nil
 		case <-timer.C:
-			if err := pollOnce(ctx, cfg, client, executor, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+			if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
@@ -113,6 +119,22 @@ func runPoll(cfg *config.Config) error {
 			timer.Reset(nextDelay)
 		}
 	}
+}
+
+func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string, revision int) {
+	if store != nil {
+		state, err := store.Load()
+		if err == nil {
+			return state.Commands, state.Version, state.Revision
+		}
+		if !errors.Is(err, commandpolicy.ErrNoPolicy) {
+			slog.Warn("Failed to load persisted command policy", "error", err)
+		}
+	}
+	if cfg == nil {
+		return nil, "", 0
+	}
+	return cfg.Runtime.ExecCommands, "", 0
 }
 
 func runtimeMQTTBroker(configured string) string {
@@ -189,7 +211,7 @@ type remoteAccessPollState struct {
 }
 
 //nolint:gocyclo // Poll orchestration intentionally keeps telemetry, commands, and FRP decisions in one cycle.
-func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, executor scriptRunner, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
+func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtimeCfg *script.RuntimeConfig, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
@@ -212,6 +234,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, execut
 	if err != nil {
 		slog.Warn("Error discovering scripts", "error", err)
 	}
+	executor := script.NewExecutor(*runtimeCfg)
 	scriptReports, scriptErrors := runScripts(ctx, executor, scripts)
 
 	// Get FRP Status
@@ -311,7 +334,7 @@ func runtimeFRPConfig(base config.FRPConfig, uuid string) config.FRPConfig {
 	return frpConfig
 }
 
-func runScripts(ctx context.Context, executor scriptRunner, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errors []string) {
+func runScripts(ctx context.Context, executor scriptRunner, scripts []script.ScriptInfo) (reports map[string]telemetry.Report, errorMessages []string) {
 	scripts = script.SelectLatestScripts(scripts)
 
 	scriptStart := time.Now()

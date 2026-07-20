@@ -52,7 +52,7 @@ defmodule NixstasisWeb.AlertLive.Rules do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-7xl">
+    <div class="ui-page-shell">
       <.header>
         Alert Rules
         <:subtitle>Manage automation rules for generating alerts.</:subtitle>
@@ -63,7 +63,7 @@ defmodule NixstasisWeb.AlertLive.Rules do
         </:actions>
       </.header>
 
-      <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="ui-card-panel mb-8">
         <div class="card-body">
           <h2 class="card-title">Create New Rule</h2>
           <.simple_form for={@form} as={:alert_rule} phx-change="validate" phx-submit="save">
@@ -97,7 +97,7 @@ defmodule NixstasisWeb.AlertLive.Rules do
         </div>
       </div>
 
-      <div class="card bg-base-100 shadow-xl">
+      <div class="ui-card-panel">
         <div class="card-body p-0">
           <.table id="rules" rows={@rules}>
             <:col :let={rule} label="Product Name">{rule.product_name}</:col>

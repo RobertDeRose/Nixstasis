@@ -9,6 +9,7 @@ defmodule NixstasisWeb.SettingsLive do
     socket =
       socket
       |> assign(:offline_window, window)
+      |> assign(:palette_options, palette_options())
       |> assign(
         :form,
         to_form(%{
@@ -23,13 +24,33 @@ defmodule NixstasisWeb.SettingsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-2xl">
+    <div class="ui-page-shell-narrow">
       <.header>
         Settings
         <:subtitle>System configuration</:subtitle>
       </.header>
 
       <div class="mt-6 space-y-8">
+        <section class="ui-card-panel p-6">
+          <h3 class="text-lg font-medium">Appearance</h3>
+          <p class="mt-1 text-sm text-base-content/70">
+            Choose the app color palette. Light, dark, and system mode still use the theme toggle.
+          </p>
+          <div id="palette-select-wrapper" class="ui-fieldset mt-4" phx-update="ignore">
+            <label for="palette-select" class="ui-label">Color Palette</label>
+            <select id="palette-select" class="select w-full" data-palette-select>
+              <option
+                :for={{label, value} <- @palette_options}
+                value={value}
+                selected={value == "coherent-current"}
+              >
+                {label}
+              </option>
+            </select>
+            <p class="ui-help-text mt-2">Default: Coherent Current</p>
+          </div>
+        </section>
+
         <div>
           <h3 class="text-lg font-medium">Monitoring</h3>
           <.simple_form for={@form} phx-submit="save_monitoring">
@@ -53,6 +74,21 @@ defmodule NixstasisWeb.SettingsLive do
       </div>
     </div>
     """
+  end
+
+  defp palette_options do
+    [
+      {"Coherent Current", "coherent-current"},
+      {"Glacier Console", "glacier-console"},
+      {"Signal Slate", "signal-slate"},
+      {"Deepwater Operations", "deepwater-operations"},
+      {"Mineral Glass", "mineral-glass"},
+      {"Northstar Amber", "northstar-amber"},
+      {"Electric Fjord", "electric-fjord"},
+      {"Quiet Instrument", "quiet-instrument"},
+      {"Aurora Control", "aurora-control"},
+      {"Maglev Neon", "maglev-neon"}
+    ]
   end
 
   def handle_event("save_monitoring", %{"minutes" => minutes}, socket) do

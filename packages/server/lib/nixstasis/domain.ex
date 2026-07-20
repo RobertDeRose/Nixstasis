@@ -128,6 +128,8 @@ defmodule Nixstasis.Domain do
     end
   end
 
+  def preview_command_policy(attrs), do: PolicyResolver.preview(attrs)
+
   resources do
     resource Nixstasis.Devices.Device do
       define :list_devices, action: :read
@@ -144,6 +146,48 @@ defmodule Nixstasis.Domain do
       define :create_pending_command, action: :create
       define :update_pending_command, action: :update
       define :destroy_pending_command, action: :destroy
+    end
+
+    resource Nixstasis.CommandAllowlists.CommandEntry do
+      define :list_command_allowlist_entries, action: :read
+      define :get_command_allowlist_entry, action: :read, get_by: [:id]
+      define :create_command_allowlist_entry, action: :create
+      define :update_command_allowlist_entry, action: :update
+    end
+
+    resource Nixstasis.CommandAllowlists.CommandEntryVersion do
+      define :list_command_allowlist_entry_versions, action: :read
+      define :create_command_allowlist_entry_version, action: :create
+    end
+
+    resource Nixstasis.CommandAllowlists.Category do
+      define :list_command_allowlist_categories, action: :read
+      define :get_command_allowlist_category, action: :read, get_by: [:id]
+      define :create_command_allowlist_category, action: :create
+      define :update_command_allowlist_category, action: :update
+      define :destroy_command_allowlist_category, action: :destroy
+    end
+
+    resource Nixstasis.CommandAllowlists.CommandEntryCategory do
+      define :list_command_allowlist_entry_categories, action: :read
+      define :create_command_allowlist_entry_category, action: :create
+      define :destroy_command_allowlist_entry_category, action: :destroy
+    end
+
+    resource Nixstasis.CommandAllowlists.DevicePolicyAssignment do
+      define :list_command_policy_assignments, action: :read
+      define :get_command_policy_assignment, action: :read, get_by: [:id]
+      define :create_command_policy_assignment, action: :create
+    end
+
+    resource Nixstasis.CommandAllowlists.DevicePolicyAssignmentSource do
+      define :list_command_policy_assignment_sources, action: :read
+      define :create_command_policy_assignment_source, action: :create
+    end
+
+    resource Nixstasis.CommandAllowlists.PolicyDeliveryResult do
+      define :list_command_policy_delivery_results, action: :read
+      define :create_command_policy_delivery_result, action: :create
     end
 
     resource Nixstasis.Scripts.ScriptDraft do

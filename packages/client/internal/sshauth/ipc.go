@@ -61,7 +61,10 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("listen ssh authorization socket: %w", err)
 	}
-	chownSocketGroup(s.Path)
+	if err := chownSocketGroup(s.Path); err != nil {
+		ignoreError(ln.Close())
+		return fmt.Errorf("chown ssh authorization socket: %w", err)
+	}
 	// #nosec G302 -- group write is required for AuthorizedKeysCommandUser IPC.
 	if err := os.Chmod(s.Path, 0o660); err != nil {
 		ignoreError(ln.Close())
@@ -180,16 +183,31 @@ func chownRuntimeDirectory(dir string) {
 	ignoreError(os.Chown(dir, -1, gid))
 }
 
-func chownSocketGroup(path string) {
-	group, err := user.LookupGroup("nixstasis-ssh")
+func chownSocketGroup(path string) error {
+	return chownSocketGroupWith(path, user.LookupGroup, os.Chown)
+}
+
+func chownSocketGroupWith(
+	path string,
+	lookupGroup func(string) (*user.Group, error),
+	chown func(string, int, int) error,
+) error {
+	group, err := lookupGroup("nixstasis-ssh")
 	if err != nil {
-		return
+		var unknownGroup user.UnknownGroupError
+		if errors.As(err, &unknownGroup) {
+			return nil
+		}
+		return fmt.Errorf("lookup nixstasis-ssh group: %w", err)
 	}
 	gid, err := strconv.Atoi(group.Gid)
 	if err != nil {
-		return
+		return fmt.Errorf("parse nixstasis-ssh gid: %w", err)
 	}
-	ignoreError(os.Chown(path, -1, gid))
+	if err := chown(path, -1, gid); err != nil {
+		return fmt.Errorf("set nixstasis-ssh socket group: %w", err)
+	}
+	return nil
 }
 
 func ignoreError(error) {}

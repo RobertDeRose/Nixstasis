@@ -425,7 +425,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
               type="text"
               name="name"
               value={@report_name}
-              class="input input-bordered w-full"
+              class="input w-full"
               placeholder="e.g. Daily Temperature Check"
               disabled={@action == :edit}
               required
@@ -436,8 +436,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
           </div>
 
           <div class="grid grid-cols-1 gap-4 mb-6">
-            <div class="fieldset mb-2">
-              <label for="report-schema-id" class="label mb-1 flex items-center gap-2">
+            <div class="ui-fieldset">
+              <label for="report-schema-id" class="ui-label-inline">
                 <span>Script Schema</span>
                 <span
                   class="tooltip tooltip-right cursor-help"
@@ -450,7 +450,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
               <select
                 id="report-schema-id"
                 name="schema_id"
-                class="w-full select"
+                class="ui-select-plain"
                 value={@selected_schema_id}
                 phx-target={@myself}
                 phx-change="set_schema_id"
@@ -461,12 +461,12 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                 <% end %>
               </select>
             </div>
-            <div class="fieldset mb-2">
-              <label for="report-schema-version" class="label mb-1">Schema Version</label>
+            <div class="ui-fieldset">
+              <label for="report-schema-version" class="ui-label">Schema Version</label>
               <select
                 id="report-schema-version"
                 name="schema_version"
-                class="w-full select"
+                class="ui-select-plain"
                 value={@selected_schema_version || ""}
                 phx-target={@myself}
                 phx-change="set_schema_version"
@@ -484,7 +484,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                 value=""
               />
             </div>
-            <p class="text-xs text-base-content/70">{schema_scope_hint(@selected_schema_id)}</p>
+            <p class="ui-help-text">{schema_scope_hint(@selected_schema_id)}</p>
           </div>
 
           <%= if @schema_issue do %>
@@ -510,10 +510,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
               <%= for field <- @fields do %>
                 <div
                   data-column-row-id={field.id}
-                  class="flex gap-4 items-start bg-base-200 p-3 rounded border border-base-300"
+                  class="ui-form-row"
                 >
                   <div class="flex-1">
-                    <label class="block text-xs text-base-content/70 mb-1">Schema Field</label>
+                    <label class="ui-form-label">Schema Field</label>
                     <select
                       id={column_path_select_id(field.id)}
                       name={"fields[#{field.id}][path]"}
@@ -523,7 +523,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       phx-target={@myself}
                       phx-value-id={field.id}
                       phx-value-field_id={field.id}
-                      class="select select-sm select-bordered w-full"
+                      class="ui-select-sm"
                     >
                       <option value="">Select schema field</option>
                       <%= for {label, key} <- @schema_option_pairs do %>
@@ -535,7 +535,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                     </p>
                   </div>
                   <div class="flex-1">
-                    <label class="block text-xs text-base-content/70 mb-1">Column Title</label>
+                    <label class="ui-form-label">Column Title</label>
                     <input
                       id={column_title_input_id(field.id)}
                       type="text"
@@ -548,7 +548,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       phx-blur="update_field"
                       phx-target={@myself}
                       placeholder="Title"
-                      class="input input-sm input-bordered w-full"
+                      class="ui-input-sm"
                     />
                   </div>
                   <%= if length(@fields) > 1 do %>
@@ -585,10 +585,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
               <%= for filter <- @filters do %>
                 <div
                   data-filter-row-id={filter.id}
-                  class="flex gap-4 items-start bg-base-200 p-3 rounded border border-base-300"
+                  class="ui-form-row"
                 >
                   <div class="flex-1">
-                    <label class="block text-xs text-base-content/70 mb-1">Schema Field</label>
+                    <label class="ui-form-label">Schema Field</label>
                     <select
                       id={filter_field_select_id(filter.id)}
                       name={"filters[#{filter.id}][field]"}
@@ -597,7 +597,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       phx-keydown="filter_field_keydown"
                       phx-target={@myself}
                       phx-value-filter_id={filter.id}
-                      class="select select-sm select-bordered w-full"
+                      class="ui-select-sm"
                     >
                       <option value="">Select schema field</option>
                       <%= for {label, key} <- @schema_option_pairs do %>
@@ -623,7 +623,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                     <% end %>
                   </div>
                   <div class="w-32">
-                    <label class="block text-xs text-base-content/70 mb-1">Operator</label>
+                    <label class="ui-form-label">Operator</label>
                     <select
                       id={filter_operator_select_id(filter.id)}
                       name={"filters[#{filter.id}][operator]"}
@@ -631,7 +631,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       phx-target={@myself}
                       phx-value-id={filter.id}
                       phx-value-key="operator"
-                      class="select select-sm select-bordered w-full"
+                      class="ui-select-sm"
                     >
                       <option value="=" selected={filter.operator == "="}>=</option>
                       <option value="==" selected={filter.operator == "=="}>==</option>
@@ -643,7 +643,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                     </select>
                   </div>
                   <div class="flex-1">
-                    <label class="block text-xs text-base-content/70 mb-1">
+                    <label class="ui-form-label">
                       {filter_value_label(@schema_option_types, filter.field)}
                     </label>
                     <input
@@ -657,7 +657,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                       phx-value-id={filter.id}
                       phx-blur="update_filter"
                       phx-target={@myself}
-                      class="input input-sm input-bordered w-full"
+                      class="ui-input-sm"
                     />
                     <%= if filter_type_error = filter_value_type_error(@schema_option_types, filter) do %>
                       <p class="mt-1 text-xs text-error">{filter_type_error}</p>

@@ -271,7 +271,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-7xl">
+    <div class="ui-page-shell">
       <.header>
         Alerts
         <:subtitle>System notifications and device alerts</:subtitle>
@@ -317,18 +317,18 @@ defmodule NixstasisWeb.AlertLive.Index do
         </.table>
       </div>
 
-      <div :if={@alerts_tab == "rules"} class="mt-2 card bg-base-100 shadow-xl">
+      <div :if={@alerts_tab == "rules"} class="mt-2 ui-card-panel">
         <div class="card-body p-0">
           <div class="grid grid-cols-1 gap-3 border-b border-base-300 p-4 lg:grid-cols-[1fr_auto] lg:items-end">
             <form phx-change="update_rule_filters" class="w-full">
-              <label class="mb-1 block text-xs font-medium text-base-content/70">
+              <label class="ui-label-strong">
                 Filter rules
               </label>
               <input
                 type="text"
                 name="filters[query]"
                 value={@rule_filters["query"]}
-                class="input input-sm input-bordered w-full"
+                class="ui-input-sm"
                 placeholder="Filter by rule name, schema product, field, operator, or threshold"
               />
             </form>
@@ -368,7 +368,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                           class="tooltip tooltip-right inline-flex w-24 justify-start"
                           data-tip={rule.edit_disabled_reason}
                         >
-                          <span class="badge badge-xs border border-amber-500 bg-amber-100 text-amber-800">Deprecated</span>
+                          <span class="badge badge-warning badge-xs">Deprecated</span>
                         </span>
                       <% else %>
                         <span class="inline-flex w-24"></span>
@@ -444,7 +444,7 @@ defmodule NixstasisWeb.AlertLive.Index do
           phx-hook="AlertRuleBuilderKeyboard"
         >
           <div class="grid grid-cols-1 gap-4 mb-6">
-            <div class="fieldset mb-2">
+            <div class="ui-fieldset">
               <.input
                 field={@form[:name]}
                 id="alert-rule-name"
@@ -460,8 +460,8 @@ defmodule NixstasisWeb.AlertLive.Index do
                 value={@form[:name].value || ""}
               />
             </div>
-            <div class="fieldset mb-2">
-              <label for="alert-schema-id" class="label mb-1 flex items-center gap-2">
+            <div class="ui-fieldset">
+              <label for="alert-schema-id" class="ui-label-inline">
                 <span>Schema Product</span>
                 <span
                   class="tooltip tooltip-right cursor-help"
@@ -475,7 +475,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                 id="alert-schema-id"
                 name="schema_id"
                 value={@selected_schema_id || ""}
-                class="select select-bordered w-full"
+                class="ui-select"
                 disabled={!is_nil(@rule_edit_blocked_reason)}
               >
                 <option value="">Select product/schema</option>
@@ -484,13 +484,13 @@ defmodule NixstasisWeb.AlertLive.Index do
                 <% end %>
               </select>
             </div>
-            <div class="fieldset mb-2">
-              <label for="alert-schema-version" class="label mb-1">Schema Version</label>
+            <div class="ui-fieldset">
+              <label for="alert-schema-version" class="ui-label">Schema Version</label>
               <select
                 id="alert-schema-version"
                 name="schema_version"
                 value={@selected_schema_version || ""}
-                class="select select-bordered w-full"
+                class="ui-select"
                 disabled={!is_nil(@rule_edit_blocked_reason)}
               >
                 <option value="">Select version</option>
@@ -499,7 +499,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                 <% end %>
               </select>
             </div>
-            <p class="text-xs text-base-content/70">
+            <p class="ui-help-text">
               Rules evaluate telemetry fields from the selected schema version.
             </p>
           </div>
@@ -544,7 +544,7 @@ defmodule NixstasisWeb.AlertLive.Index do
             </div>
 
             <div>
-              <p class="text-xs text-base-content/70">
+              <p class="ui-help-text">
                 Tip: use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Enter</kbd> to save.
               </p>
             </div>

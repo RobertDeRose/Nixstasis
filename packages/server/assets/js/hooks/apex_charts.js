@@ -5,6 +5,11 @@ const cssColor = (name, fallback) => {
   return value || fallback
 }
 
+const resolveColor = (color) => {
+  const match = typeof color === "string" && color.match(/^var\((--[^)]+)\)$/)
+  return match ? cssColor(match[1], color) : color
+}
+
 const hexToRgba = (color, alpha) => {
   if (!color.startsWith("#") || ![4, 7].includes(color.length)) {
     return color
@@ -42,6 +47,7 @@ const themedOptions = (options) => {
       ...(options.chart || {}),
       foreColor: mutedContent
     },
+    colors: options.colors?.map(resolveColor),
     grid: {
       borderColor: faintContent,
       ...(options.grid || {})

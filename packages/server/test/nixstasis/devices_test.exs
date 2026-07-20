@@ -1,6 +1,8 @@
 defmodule Nixstasis.DevicesTest do
   use Nixstasis.DataCase
 
+  import ExUnit.CaptureLog
+
   alias Nixstasis.Devices
   alias Nixstasis.Domain
 
@@ -368,6 +370,36 @@ defmodule Nixstasis.DevicesTest do
     end
   end
 
+  describe "queue_command_policy_assignment/1" do
+    test "queues apply_command_policy and supersedes older queued policy commands" do
+      device = device_fixture(%{mac_address: "71:71:71:71:71:71", approval_status: :approved})
+
+      {:ok, old_assignment} =
+        Domain.create_command_policy_assignment(%{
+          device_id: device.id,
+          revision: 1,
+          version: "policy-1",
+          resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+        })
+
+      {:ok, new_assignment} =
+        Domain.create_command_policy_assignment(%{
+          device_id: device.id,
+          revision: 2,
+          version: "policy-2",
+          resolved_policy: %{"commands" => %{"df" => "/usr/bin/df", "ip" => "/usr/sbin/ip"}}
+        })
+
+      assert {:ok, _} = Devices.queue_command_policy_assignment(old_assignment)
+      assert {:ok, _} = Devices.queue_command_policy_assignment(new_assignment)
+
+      [command] = Devices.pop_pending_commands(device)
+      assert command.command_payload["type"] == "apply_command_policy"
+      assert command.command_payload["payload_ref"] == new_assignment.id
+      refute command.command_payload["payload_ref"] == old_assignment.id
+    end
+  end
+
   describe "queue_terminal_revoke/2" do
     test "returns :ok for empty session_ref without queuing anything" do
       device = device_fixture(%{mac_address: "70:70:70:70:70:70", approval_status: :approved})
@@ -390,6 +422,18 @@ defmodule Nixstasis.DevicesTest do
       assert payload["content_type"] == "application/vnd.nixstasis.ssh-revoke+json;version=1"
 
       assert %{"session_ref" => "session-abc"} = Jason.decode!(payload["data"])
+    end
+
+    test "logs queue failures without blocking terminal cleanup" do
+      device = device_fixture(%{mac_address: "73:73:73:73:73:73", approval_status: :approved})
+      missing_device = %{device | id: Ecto.UUID.generate()}
+
+      log =
+        capture_log(fn ->
+          assert :ok = Devices.queue_terminal_revoke(missing_device, "session-missing")
+        end)
+
+      assert log =~ "failed to queue terminal revoke for device #{missing_device.id}"
     end
   end
 end

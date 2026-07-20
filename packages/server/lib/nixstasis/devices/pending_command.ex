@@ -73,5 +73,9 @@ defmodule Nixstasis.Devices.PendingCommand do
       attribute_public? true
       attribute_writable? true
     end
+
+    has_many :command_policy_delivery_results, Nixstasis.CommandAllowlists.PolicyDeliveryResult do
+      destination_attribute :pending_command_id
+    end
   end
 end

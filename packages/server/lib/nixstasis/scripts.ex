@@ -62,10 +62,9 @@ defmodule Nixstasis.Scripts do
 
   def validate_draft(session, %ScriptDraft{} = draft) do
     with true <- Authorization.can_validate?(session),
+         {:ok, version} <- draft_version(draft),
          rendered <- render_draft(draft),
-         {:ok, payload} <- Nixstasis.Scripts.Validator.validate_content(rendered) do
-      version = draft.front_matter["version"] || "0.1.0"
-
+         {:ok, payload} <- Validator.validate_content(rendered) do
       {:ok, _version} =
         Domain.create_script_version(%{
           script_draft_id: draft.id,
@@ -89,6 +88,7 @@ defmodule Nixstasis.Scripts do
         })
 
       audit_result(result, :validation_passed, %{script_draft_id: draft.id})
+      broadcast_script(draft.id)
       result
     else
       false ->
@@ -105,7 +105,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_test?(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
-      rendered = render_draft(draft)
+      rendered = version.rendered_content
 
       {:ok, test_run} =
         Domain.create_script_test_run(%{
@@ -145,6 +145,7 @@ defmodule Nixstasis.Scripts do
         target_device_ids: device_ids
       })
 
+      broadcast_script(draft.id)
       {:ok, test_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -153,7 +154,8 @@ defmodule Nixstasis.Scripts do
   end
 
   def ingest_test_results(session, %ScriptTestRun{} = test_run, results) when is_list(results) do
-    with true <- Authorization.can_test?(session) do
+    with true <- Authorization.can_test?(session),
+         %ScriptTestRun{status: :running} = current_run <- latest_test_run_by_id(test_run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -173,15 +175,17 @@ defmodule Nixstasis.Scripts do
         Audit.emit(:test_client_result, %{script_test_run_id: test_run.id, device_id: device_id, status: status})
       end)
 
-      final_status = test_run_status(test_run)
+      final_status = test_run_status(current_run)
       attrs = run_update_attrs(final_status)
-      result = Domain.update_script_test_run(test_run, attrs)
+      result = Domain.update_script_test_run(current_run, attrs)
 
       if final_status != :running,
         do: Audit.emit(:test_completed, %{script_test_run_id: test_run.id, status: final_status})
 
+      broadcast_script(test_run.script_draft_id)
       result
     else
+      %ScriptTestRun{} = run -> {:ok, run}
       _ -> {:error, :unauthorized}
     end
   end
@@ -191,7 +195,7 @@ defmodule Nixstasis.Scripts do
     with true <- Authorization.can_deploy?(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
-      rendered = render_draft(draft)
+      rendered = version.rendered_content
 
       {:ok, deployment_run} =
         Domain.create_script_deployment_run(%{
@@ -231,6 +235,7 @@ defmodule Nixstasis.Scripts do
         target_device_ids: device_ids
       })
 
+      broadcast_script(draft.id)
       {:ok, deployment_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
@@ -239,7 +244,8 @@ defmodule Nixstasis.Scripts do
   end
 
   def ingest_deployment_results(session, %ScriptDeploymentRun{} = run, results) when is_list(results) do
-    with true <- Authorization.can_deploy?(session) do
+    with true <- Authorization.can_deploy?(session),
+         %ScriptDeploymentRun{status: :running} = current_run <- latest_deployment_run_by_id(run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -264,15 +270,49 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      final_status = deployment_run_status(run)
+      final_status = deployment_run_status(current_run)
       attrs = run_update_attrs(final_status)
-      result = Domain.update_script_deployment_run(run, attrs)
+      result = Domain.update_script_deployment_run(current_run, attrs)
 
       if final_status != :running,
         do: Audit.emit(:deployment_completed, %{script_deployment_run_id: run.id, status: final_status})
 
+      broadcast_script(run.script_draft_id)
       result
     else
+      %ScriptDeploymentRun{} = run -> {:ok, run}
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  def cancel_test_run(session, %ScriptTestRun{} = run) do
+    with true <- Authorization.can_test?(session),
+         %ScriptTestRun{} = current_run <- latest_test_run_by_id(run.id),
+         true <- current_run.status in [:pending, :running] do
+      result = Domain.update_script_test_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:test, current_run.id)
+      audit_result(result, :test_cancelled, %{script_test_run_id: run.id})
+      broadcast_script(run.script_draft_id)
+      result
+    else
+      false -> {:error, :not_running}
+      %ScriptTestRun{} -> {:error, :not_running}
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  def cancel_deployment_run(session, %ScriptDeploymentRun{} = run) do
+    with true <- Authorization.can_deploy?(session),
+         %ScriptDeploymentRun{} = current_run <- latest_deployment_run_by_id(run.id),
+         true <- current_run.status in [:pending, :running] do
+      result = Domain.update_script_deployment_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
+      mark_client_actions_failed(:deploy, current_run.id)
+      audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id})
+      broadcast_script(run.script_draft_id)
+      result
+    else
+      false -> {:error, :not_running}
+      %ScriptDeploymentRun{} -> {:error, :not_running}
       _ -> {:error, :unauthorized}
     end
   end
@@ -284,6 +324,17 @@ defmodule Nixstasis.Scripts do
       result
     else
       {:error, :unauthorized}
+    end
+  end
+
+  defp draft_version(%ScriptDraft{front_matter: front_matter}) do
+    case Map.get(front_matter, "version") do
+      version when is_binary(version) ->
+        version = String.trim(version)
+        if version == "", do: {:error, "front matter version is required"}, else: {:ok, version}
+
+      _ ->
+        {:error, "front matter version is required"}
     end
   end
 
@@ -353,11 +404,15 @@ defmodule Nixstasis.Scripts do
     |> Enum.find(&(&1.id == id))
   end
 
+  defp latest_test_run_by_id(id), do: get_test_run(id)
+
   defp get_deployment_run(id) do
     Domain.list_script_deployment_runs()
     |> elem(1)
     |> Enum.find(&(&1.id == id))
   end
+
+  defp latest_deployment_run_by_id(id), do: get_deployment_run(id)
 
   defp attach_device_id(%Device{id: device_id}, results) do
     Enum.map(results, &Map.put(&1, "device_id", device_id))
@@ -386,6 +441,22 @@ defmodule Nixstasis.Scripts do
     [:status, :command_ref, :payload_ref, :payload, :result_payload, :delivered_at, :acknowledged_at, :failed_at]
   end
 
+  defp mark_client_actions_failed(:test, run_id) do
+    Domain.list_script_client_actions()
+    |> elem(1)
+    |> Enum.filter(&(&1.kind == :test and &1.script_test_run_id == run_id))
+    |> Enum.each(&Domain.update_script_client_action(&1, %{status: :failed}))
+  end
+
+  defp mark_client_actions_failed(:deploy, run_id) do
+    Domain.list_script_client_actions()
+    |> elem(1)
+    |> Enum.filter(&(&1.kind == :deploy and &1.script_deployment_run_id == run_id))
+    |> Enum.each(&Domain.update_script_client_action(&1, %{status: :failed}))
+  end
+
+  defp mark_client_actions_failed(_kind, _run_id), do: :ok
+
   defp find_client_action(%{kind: :test, script_test_run_id: run_id, device_id: device_id}) do
     Domain.list_script_client_actions()
     |> elem(1)
@@ -411,4 +482,8 @@ defmodule Nixstasis.Scripts do
   end
 
   defp audit_result(_, _action, _attrs), do: :ok
+
+  defp broadcast_script(draft_id) do
+    Phoenix.PubSub.broadcast(Nixstasis.PubSub, "scripts:#{draft_id}", {:script_runs_changed, draft_id})
+  end
 end

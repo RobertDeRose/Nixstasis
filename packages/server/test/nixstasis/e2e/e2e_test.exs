@@ -16,8 +16,8 @@ defmodule Nixstasis.E2ETest do
     Application.put_env(:nixstasis, :e2e,
       allowed_env_labels: ["local", "qa"],
       environments: %{
-        "local" => %{seed_script: "priv/e2e/seed.exs"},
-        "qa" => %{seed_script: "priv/e2e/seed.exs"}
+        "local" => %{seed_script: "e2e/seed.exs"},
+        "qa" => %{seed_script: "e2e/seed.exs"}
       },
       suites: %{"full" => ["auth"]},
       log_dir: "tmp/e2e-logs",
@@ -116,7 +116,7 @@ defmodule Nixstasis.E2ETest do
       :nixstasis,
       :e2e,
       previous
-      |> Keyword.put(:environments, %{"local" => %{seed_script: "priv/e2e/missing_seed.exs"}})
+      |> Keyword.put(:environments, %{"local" => %{seed_script: "e2e/missing_seed.exs"}})
       |> Keyword.put(:allowed_env_labels, ["local"])
     )
 
@@ -144,7 +144,7 @@ defmodule Nixstasis.E2ETest do
       previous
       |> Keyword.put(:suites, %{"invalid" => ["missing_journey"]})
       |> Keyword.put(:allowed_env_labels, ["local"])
-      |> Keyword.put(:environments, %{"local" => %{seed_script: "priv/e2e/seed.exs"}})
+      |> Keyword.put(:environments, %{"local" => %{seed_script: "e2e/seed.exs"}})
     )
 
     on_exit(fn ->

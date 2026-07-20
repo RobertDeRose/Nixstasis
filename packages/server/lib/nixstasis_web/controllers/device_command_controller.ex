@@ -1,6 +1,7 @@
 defmodule NixstasisWeb.DeviceCommandController do
   use NixstasisWeb, :controller
 
+  alias Nixstasis.CommandAllowlists
   alias Nixstasis.Devices
   alias Nixstasis.Scripts
 
@@ -8,6 +9,7 @@ defmodule NixstasisWeb.DeviceCommandController do
     with {:ok, device} <- fetch_device(device_id),
          :ok <- authenticate(conn, device) do
       Scripts.ingest_command_results(device, results)
+      CommandAllowlists.ingest_command_results(device, results)
 
       case Devices.acknowledge_command_results(device, results) do
         {:ok, count} ->

@@ -207,19 +207,19 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
       <%= Phoenix.HTML.raw(@shared_viewer_css) %>
 
       :root {
-        --ow-dash-base-100: #ffffff;
-        --ow-dash-base-200: #ebeded;
-        --ow-dash-base-300: #d4d6d8;
-        --ow-dash-base-content: #2c3947;
-        --ow-dash-primary: #2c3947;
-        --ow-dash-secondary: #ae153c;
-        --ow-dash-accent: #8d9fb0;
-        --ow-dash-primary-strong: #1f2a36;
-        --ow-dash-selection-bg: #d9e8f2;
-        --ow-dash-selection-border: #90b3cb;
-        --ow-dash-selection-text: #1f506b;
-        --primary: #2c3947;
-        --secondary: #ae153c;
+        --ow-dash-base-100: #f4fbfd;
+        --ow-dash-base-200: #e8f6f8;
+        --ow-dash-base-300: #b6dce1;
+        --ow-dash-base-content: #183242;
+        --ow-dash-primary: #087f92;
+        --ow-dash-secondary: #168fac;
+        --ow-dash-accent: #18b9aa;
+        --ow-dash-primary-strong: #065f67;
+        --ow-dash-selection-bg: #d7f0f2;
+        --ow-dash-selection-border: #18b9aa;
+        --ow-dash-selection-text: #065f67;
+        --primary: #087f92;
+        --secondary: #168fac;
       }
 
       body {
@@ -233,11 +233,11 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
       }
 
       a:hover {
-        color: #8f1232;
+        color: var(--ow-dash-primary-strong);
       }
 
       header {
-        background: linear-gradient(135deg, var(--ow-dash-primary), #43566b);
+        background: linear-gradient(135deg, var(--ow-dash-primary), var(--ow-dash-secondary));
       }
 
       header h1 {
@@ -411,8 +411,8 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
       .btn.btn-secondary:hover,
       .btn.btn-secondary:focus,
       .btn.btn-secondary:not(:disabled):not(.disabled):active {
-        background-color: #8f1232 !important;
-        border-color: #8f1232 !important;
+        background-color: var(--ow-dash-primary-strong) !important;
+        border-color: var(--ow-dash-primary-strong) !important;
         color: #ffffff !important;
       }
 
@@ -421,12 +421,12 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
       }
 
       .btn-link:hover {
-        color: #8f1232;
+        color: var(--ow-dash-primary-strong);
       }
 
       .code-field {
-        background-color: #f8fafb;
-        border: 1px solid rgba(141, 159, 176, 0.45);
+        background-color: var(--ow-dash-base-100);
+        border: 1px solid var(--ow-dash-base-300);
         color: var(--ow-dash-base-content);
         border-radius: 6px;
       }
@@ -471,7 +471,7 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
       }
 
       .bg-gradient-purple {
-        background: linear-gradient(40deg, var(--ow-dash-primary), #43566b) !important;
+        background: linear-gradient(40deg, var(--ow-dash-primary), var(--ow-dash-secondary)) !important;
       }
 
       .hint:hover .hint-text {

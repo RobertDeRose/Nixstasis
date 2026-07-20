@@ -128,7 +128,7 @@ defmodule NixstasisWeb.Layouts do
 
         <div class="mt-auto space-y-4">
           <div class="flex justify-center">
-            <.theme_toggle />
+            <.theme_toggle show_palette={true} />
           </div>
 
           <div class="text-xs opacity-70">
@@ -213,35 +213,74 @@ defmodule NixstasisWeb.Layouts do
 
   See <head> in root.html.heex which applies the theme before page load.
   """
+  attr(:show_palette, :boolean, default: false)
+
   def theme_toggle(assigns) do
+    assigns = assign_new(assigns, :palette_options, &palette_options/0)
+
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+    <div class={[
+      "w-full max-w-44",
+      @show_palette && "rounded-2xl border border-base-300 bg-base-300/80 p-1 shadow-sm"
+    ]}>
+      <div class="relative flex h-9 flex-row items-center rounded-full bg-base-200">
+        <div class="absolute h-full w-1/3 rounded-full border border-base-300 bg-base-100 shadow-sm brightness-110 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
+        <button
+          class="relative z-10 flex h-full w-1/3 cursor-pointer items-center justify-center"
+          phx-click={JS.dispatch("phx:set-theme")}
+          data-phx-theme="system"
+        >
+          <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+        </button>
 
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="light"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
+        <button
+          class="relative z-10 flex h-full w-1/3 cursor-pointer items-center justify-center"
+          phx-click={JS.dispatch("phx:set-theme")}
+          data-phx-theme="light"
+        >
+          <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+        </button>
 
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
+        <button
+          class="relative z-10 flex h-full w-1/3 cursor-pointer items-center justify-center"
+          phx-click={JS.dispatch("phx:set-theme")}
+          data-phx-theme="dark"
+        >
+          <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        </button>
+      </div>
+
+      <select
+        :if={@show_palette}
+        class="select select-xs mt-1 min-h-8 w-full rounded-xl border-base-300 bg-base-100 text-xs font-medium"
+        data-palette-select
+        aria-label="Color palette"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
+        <option
+          :for={{label, value} <- @palette_options}
+          value={value}
+          selected={value == "coherent-current"}
+        >
+          {label}
+        </option>
+      </select>
     </div>
     """
+  end
+
+  defp palette_options do
+    [
+      {"Coherent Current", "coherent-current"},
+      {"Glacier Console", "glacier-console"},
+      {"Signal Slate", "signal-slate"},
+      {"Deepwater Operations", "deepwater-operations"},
+      {"Mineral Glass", "mineral-glass"},
+      {"Northstar Amber", "northstar-amber"},
+      {"Electric Fjord", "electric-fjord"},
+      {"Quiet Instrument", "quiet-instrument"},
+      {"Aurora Control", "aurora-control"},
+      {"Maglev Neon", "maglev-neon"}
+    ]
   end
 end

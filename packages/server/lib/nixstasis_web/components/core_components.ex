@@ -189,8 +189,11 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:class, :string, default: nil, doc: "the input class to use over defaults")
   attr(:error_class, :string, default: nil, doc: "the input error class to use over defaults")
 
-  attr(:rest, :global, include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size step))
+  attr(:rest, :global,
+    include:
+      ~w(accept autocomplete autocapitalize autocorrect capture cols disabled form inputmode list max maxlength min minlength
+                multiple pattern placeholder readonly required rows size spellcheck step)
+  )
 
   def input(%{field: %FormField{} = field} = assigns) do
     errors = if Component.used_input?(field), do: field.errors, else: []
@@ -210,7 +213,7 @@ defmodule NixstasisWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="ui-fieldset">
       <label>
         <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <span class="label">
@@ -232,9 +235,9 @@ defmodule NixstasisWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="ui-fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="ui-label">{@label}</span>
         <select
           id={@id}
           name={@name}
@@ -253,9 +256,9 @@ defmodule NixstasisWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="ui-fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="ui-label">{@label}</span>
         <textarea
           id={@id}
           name={@name}
@@ -274,9 +277,9 @@ defmodule NixstasisWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="ui-fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="ui-label">{@label}</span>
         <input
           type={@type}
           name={@name}

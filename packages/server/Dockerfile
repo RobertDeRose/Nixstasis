@@ -24,6 +24,7 @@ RUN mix deps.compile
 
 COPY server/lib lib
 COPY server/priv priv
+COPY client/scripts/e2e/journeys priv/e2e/journeys
 COPY server/assets assets
 COPY shared ../shared
 

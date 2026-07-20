@@ -12,7 +12,7 @@ defmodule NixstasisWeb.E2ERunControllerTest do
     Application.put_env(:nixstasis, :e2e,
       allowed_env_labels: ["local"],
       environments: %{
-        "local" => %{seed_script: "priv/e2e/seed.exs"}
+        "local" => %{seed_script: "e2e/seed.exs"}
       },
       suites: %{"full" => ["auth", "dashboard"], "runtime" => ["runtime_linux_telemetry"]},
       protocol_versions: ["1"]

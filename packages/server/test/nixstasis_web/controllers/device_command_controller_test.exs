@@ -79,7 +79,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       Domain.create_script_version(%{
         script_draft_id: draft.id,
         version: "1",
-        status: :candidate,
+        status: :validated,
         front_matter: draft.front_matter,
         body: draft.body,
         rendered_content: Scripts.render_draft(draft)
@@ -109,6 +109,113 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     completed = Domain.list_script_test_runs() |> elem(1) |> Enum.find(&(&1.id == run.id))
     assert completed.status == :passed
     assert completed.completed_at
+  end
+
+  test "POST /api/v1/devices/:device_id/command_results records acknowledged command policy delivery", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
+
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: device.id,
+        revision: 1,
+        version: "policy-1",
+        resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+      })
+
+    {:ok, command} = Devices.queue_command_policy_assignment(assignment)
+
+    payload = %{
+      "results" => [
+        %{"command_id" => command.id, "status" => "OK", "output" => %{"commands_applied" => 1}}
+      ]
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+
+    assignment = Domain.get_command_policy_assignment(assignment.id) |> elem(1)
+    assert assignment.status == :acknowledged
+    assert assignment.acknowledged_at
+
+    [result] =
+      Domain.list_command_policy_delivery_results() |> elem(1) |> Enum.filter(&(&1.assignment_id == assignment.id))
+
+    assert result.status == :acknowledged
+    assert_receive {:command_policy_audit, %{action: :assignment_acknowledged, assignment_id: assignment_id}}
+    assert assignment_id == assignment.id
+  end
+
+  test "POST /api/v1/devices/:device_id/command_results records stale command policy delivery", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: device.id,
+        revision: 3,
+        version: "policy-3",
+        resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+      })
+
+    {:ok, command} = Devices.queue_command_policy_assignment(assignment)
+
+    payload = %{
+      "results" => [
+        %{
+          "command_id" => command.id,
+          "status" => "FAILED",
+          "error" => "policy revision 2 is older than current revision 3"
+        }
+      ]
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+
+    [result] =
+      Domain.list_command_policy_delivery_results() |> elem(1) |> Enum.filter(&(&1.assignment_id == assignment.id))
+
+    assert result.status == :stale
+  end
+
+  test "POST /api/v1/devices/:device_id/command_results records unsupported command policy delivery", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: device.id,
+        revision: 2,
+        version: "policy-2",
+        resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+      })
+
+    {:ok, command} = Devices.queue_command_policy_assignment(assignment)
+
+    payload = %{
+      "results" => [
+        %{"command_id" => command.id, "status" => "FAILED", "error" => "unsupported command: apply_command_policy"}
+      ]
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+
+    assignment = Domain.get_command_policy_assignment(assignment.id) |> elem(1)
+    assert assignment.status == :failed
+    assert assignment.failed_at
+
+    [result] =
+      Domain.list_command_policy_delivery_results() |> elem(1) |> Enum.filter(&(&1.assignment_id == assignment.id))
+
+    assert result.status == :unsupported
+    assert result.failure_reason == "unsupported command: apply_command_policy"
   end
 
   test "POST /api/v1/devices/:device_id/command_results rejects missing token", %{conn: conn, device: device} do

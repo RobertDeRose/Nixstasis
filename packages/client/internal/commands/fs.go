@@ -5,18 +5,6 @@ import (
 	"os"
 )
 
-func syncDir(path string) error {
-	dir, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open dir for sync: %w", err)
-	}
-	defer dir.Close()
-	if err := dir.Sync(); err != nil {
-		return fmt.Errorf("sync dir: %w", err)
-	}
-	return nil
-}
-
 func ensureDir(path string) error {
 	if err := os.MkdirAll(path, 0o750); err != nil {
 		return fmt.Errorf("create scripts dir: %w", err)

@@ -1,11 +1,16 @@
 <div class="p-4">
   <div class="flex justify-between items-center mb-4">
     <h1 class="text-2xl font-bold">Scripts</h1>
-    <%= if @can_manage do %>
-      <button phx-click="create_script" class="btn btn-sm btn-primary">
-        New Script
-      </button>
-    <% end %>
+    <div class="flex gap-2">
+      <.link navigate={~p"/scripts/command-policies"} class="btn btn-sm btn-ghost">
+        Command Policies
+      </.link>
+      <%= if @can_manage do %>
+        <button phx-click="create_script" class="btn btn-sm btn-primary">
+          New Script
+        </button>
+      <% end %>
+    </div>
   </div>
 
   <%= if @scripts == [] do %>

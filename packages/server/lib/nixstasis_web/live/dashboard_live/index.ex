@@ -64,7 +64,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-7xl">
+    <div class="ui-page-shell">
       <h1 class="text-3xl font-bold mb-6">Overview</h1>
 
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -93,7 +93,7 @@ defmodule NixstasisWeb.DashboardLive.Index do
             <NixstasisWeb.Components.StatsCard.stats_card
               title="Pending Approvals"
               value={"#{@stats.pending_approvals}"}
-              color_class="text-yellow-600 dark:text-yellow-400"
+              color_class="text-warning"
             />
           </.link>
 
