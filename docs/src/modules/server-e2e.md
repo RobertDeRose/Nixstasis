@@ -79,6 +79,10 @@
 - `POST /e2e/runs/:id/results` stores journey outcomes and updates run status.
 - `GET /e2e/runs/:id/results/:journey_id/log` retrieves log content or typed log-unavailable errors.
 - Production deployments disable E2E endpoints by default through `NixstasisWeb.Plugs.E2EEnabled` unless `NIXSTASIS_E2E_ENABLED=true`.
+- Seed scripts and journey definitions resolve from the release's application
+  `priv` directory. The server container packages client journey YAML under
+  `priv/e2e/journeys`; development and test configurations read the source
+  journey directory directly.
 
 Traceable references:
 
