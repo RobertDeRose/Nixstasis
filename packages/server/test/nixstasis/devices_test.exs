@@ -1,6 +1,8 @@
 defmodule Nixstasis.DevicesTest do
   use Nixstasis.DataCase
 
+  import ExUnit.CaptureLog
+
   alias Nixstasis.Devices
   alias Nixstasis.Domain
 
@@ -420,6 +422,18 @@ defmodule Nixstasis.DevicesTest do
       assert payload["content_type"] == "application/vnd.nixstasis.ssh-revoke+json;version=1"
 
       assert %{"session_ref" => "session-abc"} = Jason.decode!(payload["data"])
+    end
+
+    test "logs queue failures without blocking terminal cleanup" do
+      device = device_fixture(%{mac_address: "73:73:73:73:73:73", approval_status: :approved})
+      missing_device = %{device | id: Ecto.UUID.generate()}
+
+      log =
+        capture_log(fn ->
+          assert :ok = Devices.queue_terminal_revoke(missing_device, "session-missing")
+        end)
+
+      assert log =~ "failed to queue terminal revoke for device #{missing_device.id}"
     end
   end
 end

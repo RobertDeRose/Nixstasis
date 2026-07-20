@@ -783,8 +783,12 @@ defmodule Nixstasis.Devices do
              "data" => payload_data
            }
          }) do
-      {:ok, _command} -> :ok
-      {:error, reason} -> {:error, reason}
+      {:ok, _command} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("failed to queue terminal revoke for device #{device.id}: #{inspect(reason)}")
+        :ok
     end
   end
 
