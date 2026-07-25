@@ -1,0 +1,900 @@
+{
+  "capability_inventory": {
+    "ambiguities": [],
+    "ci": {
+      "commands": [
+        {
+          "command": "mode=\"${{ inputs.mode }}\"\nif [ \"$mode\" = \"images\" ]; then\n{\necho 'distros=[\"ubuntu-24.04\"]'\necho 'arches=[\"amd64\"]'\necho 'package=images'\necho \"version=${GITHUB_REF_NAME#*/[vV]}\"\necho 'os-independent=true'\necho 'arch-independent=false'\n} | tee -a \"${GITHUB_OUTPUT}\"\nexit 0\nfi\nif [ \"$mode\" = \"client-release\" ]; then\n{\necho 'distros=[\"ubuntu-24.04\"]'\necho 'arches=[\"amd64\",\"arm64\"]'\necho 'package=packages/client'\necho \"version=${GITHUB_REF_NAME#*/[vV]}\"\necho 'os-independent=false'\necho 'arch-independent=false'\n} | tee -a \"${GITHUB_OUTPUT}\"\nexit 0\nfi\necho \"Unsupported mode: $mode\" >&2\nexit 1",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/_check_configs.yml:45",
+          "working_directory": "."
+        },
+        {
+          "command": "cat prod.env >> \"$GITHUB_ENV\"",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_caddy_image.yml:31",
+          "working_directory": "."
+        },
+        {
+          "command": "deploy/compose/scripts/check_runtime_contract.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_caddy_image.yml:35",
+          "working_directory": "."
+        },
+        {
+          "command": "cat prod.env >> \"$GITHUB_ENV\"",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_frps_image.yml:32",
+          "working_directory": "."
+        },
+        {
+          "command": "deploy/compose/scripts/check_runtime_contract.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_frps_image.yml:36",
+          "working_directory": "."
+        },
+        {
+          "command": "cat prod.env >> \"$GITHUB_ENV\"",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_server_image.yml:31",
+          "working_directory": "."
+        },
+        {
+          "command": "deploy/compose/scripts/check_runtime_contract.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/build_server_image.yml:35",
+          "working_directory": "."
+        },
+        {
+          "command": "bash docs/scripts/prepare_e2e_results.sh e2e-results docs/src/reference/e2e-results.md",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/docs.yml:54",
+          "working_directory": "."
+        },
+        {
+          "command": "mise exec -- mdbook build docs",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/docs.yml:57",
+          "working_directory": "."
+        },
+        {
+          "command": "if [ -f e2e-results/runs.json ]; then\nmkdir -p book/e2e-results\ncp -R e2e-results/. book/e2e-results/\nfi",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/docs.yml:60",
+          "working_directory": "."
+        },
+        {
+          "command": "mix local.hex --force\nmix local.rebar --force\nmix deps.get\nMIX_ENV=dev mix ecto.create\nMIX_ENV=dev mix ecto.migrate",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:60",
+          "working_directory": "."
+        },
+        {
+          "command": "NIXSTASIS_DEV_BIND_ALL=true MIX_ENV=dev mix phx.server > /tmp/nixstasis-server.log 2>&1 &\necho $! > /tmp/nixstasis-server.pid",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:69",
+          "working_directory": "."
+        },
+        {
+          "command": "for _ in $(seq 1 90); do\nif curl -fsS http://127.0.0.1:4000/ > /dev/null; then\nexit 0\nfi\nsleep 2\ndone\necho \"Server did not become ready in time.\"\ntail -n 200 /tmp/nixstasis-server.log || true\nexit 1",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:74",
+          "working_directory": "."
+        },
+        {
+          "command": "scripts/e2e/run_all_suites \\\n--api-url http://127.0.0.1:4000 \\\n--env local \\\n--trigger ci \\\n--protocol-version 1 \\\n--reports-dir tmp/e2e/reports \\\n--logs-dir tmp/e2e/logs",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:89",
+          "working_directory": "."
+        },
+        {
+          "command": "mix e2e.export_static \\\n--reports-dir ../client/tmp/e2e/reports \\\n--logs-dir ../client/tmp/e2e/logs \\\n--pages-dir ../../e2e-pages \\\n--title \"Nixstasis E2E Reports\" \\\n--ref-name \"${GITHUB_REF_NAME}\" \\\n--ref-type \"${GITHUB_REF_TYPE}\" \\\n--full-sha \"${GITHUB_SHA}\" \\\n--max-runs \"${MAX_E2E_RUNS}\"",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:102",
+          "working_directory": "."
+        },
+        {
+          "command": "cd e2e-pages\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\ngit remote set-url origin \"https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git\"\ngit add -A\ngit commit -m \"ci(e2e): publish reports for ${GITHUB_REF_NAME}\" || exit 0\ngit push origin HEAD:e2e-results --force",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:117",
+          "working_directory": "."
+        },
+        {
+          "command": "if [ -f /tmp/nixstasis-server.pid ]; then\nkill \"$(cat /tmp/nixstasis-server.pid)\" || true\nfi",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/e2e-pages.yml:139",
+          "working_directory": "."
+        },
+        {
+          "command": "../../deploy/compose/scripts/check_runtime_contract.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:35",
+          "working_directory": "."
+        },
+        {
+          "command": "packages/client/build/bin/install_makeself.sh\necho \"$GITHUB_WORKSPACE/packages/client/build/tools/makeself/bin\" >> \"$GITHUB_PATH\"",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:38",
+          "working_directory": "."
+        },
+        {
+          "command": "goreleaser release --snapshot --clean",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:43",
+          "working_directory": "."
+        },
+        {
+          "command": "./build/bin/verify_artifacts.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:46",
+          "working_directory": "."
+        },
+        {
+          "command": "VERIFY_INSTALLERS=true ./build/bin/verify_artifacts.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:49",
+          "working_directory": "."
+        },
+        {
+          "command": "goreleaser release --clean --skip=publish",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:58",
+          "working_directory": "."
+        },
+        {
+          "command": "./build/bin/verify_artifacts.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:61",
+          "working_directory": "."
+        },
+        {
+          "command": "VERIFY_INSTALLERS=true ./build/bin/verify_artifacts.sh",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:64",
+          "working_directory": "."
+        },
+        {
+          "command": "shopt -s nullglob\nassets=(\ndist/nixstasis_*.deb\ndist/nixstasis-*.rpm\ndist/nixstasis_*_linux_*.tar.gz\ndist/makeself/*/*/nixstasis-*-linux-*.run\ndist/nixstasis_*_checksums.txt\n)\nif [ \"${#assets[@]}\" -eq 0 ]; then\necho \"No release artifacts found in dist/.\" >&2\nexit 1\nfi\nif gh release view \"${GITHUB_REF_NAME}\" >/dev/null 2>&1; then\ngh release upload \"${GITHUB_REF_NAME}\" \"${assets[@]}\" --clobber\nelse\ngh release create \"${GITHUB_REF_NAME}\" \"${assets[@]}\" --generate-notes --title \"${GITHUB_REF_NAME}\"\nfi",
+          "provenance": "ci-evidence-only",
+          "source": ".github/workflows/release_client.yml:69",
+          "working_directory": "."
+        }
+      ],
+      "files": [
+        ".github/workflows/_check_configs.yml",
+        ".github/workflows/build_caddy_image.yml",
+        ".github/workflows/build_frps_image.yml",
+        ".github/workflows/build_server_image.yml",
+        ".github/workflows/docs.yml",
+        ".github/workflows/e2e-pages.yml",
+        ".github/workflows/release_client.yml"
+      ]
+    },
+    "documentation": {
+      "commands": [
+        {
+          "argv": [
+            "mise",
+            "run",
+            "docs:build"
+          ],
+          "name": "root-mise-docs-build",
+          "provenance": "mise.toml",
+          "working_directory": "."
+        }
+      ],
+      "evidence": [
+        ".opencode/commands/close-feature.md",
+        ".opencode/commands/implement-feature.md",
+        ".opencode/commands/plan-features.md",
+        ".opencode/commands/project-alignment-execute.md",
+        ".opencode/commands/project-alignment-land.md",
+        ".opencode/commands/project-alignment-review.md",
+        ".opencode/commands/review-feature-spec.md",
+        ".opencode/commands/start-feature.md",
+        "AGENTS.md",
+        "README.md",
+        "deploy/compose/README.md",
+        "docs/book.toml",
+        "docs/src/README.md",
+        "docs/src/SUMMARY.md",
+        "docs/src/architecture.md",
+        "docs/src/client-server-interface.md",
+        "docs/src/data-flow.md",
+        "docs/src/development.md",
+        "docs/src/features/add-rule-modal-improvements/design.md",
+        "docs/src/features/add-rule-modal-improvements/tasks.md",
+        "docs/src/features/ash-api-contract-unification/contract-design.md",
+        "docs/src/features/ash-api-contract-unification/design.md",
+        "docs/src/features/ash-api-contract-unification/endpoint-inventory.md",
+        "docs/src/features/ash-api-contract-unification/tasks.md",
+        "docs/src/features/authcrunch-role-contract/design.md",
+        "docs/src/features/authcrunch-role-contract/tasks.md",
+        "docs/src/features/compose-dev-harness/design.md",
+        "docs/src/features/compose-dev-harness/tasks.md",
+        "docs/src/features/dashboard-home/design.md",
+        "docs/src/features/dashboard-home/tasks.md",
+        "docs/src/features/device-detail-page/design.md",
+        "docs/src/features/device-detail-page/tasks.md",
+        "docs/src/features/go-client-rewrite/design.md",
+        "docs/src/features/go-client-rewrite/tasks.md",
+        "docs/src/features/in-memory-ssh-authorized-keys/design.md",
+        "docs/src/features/in-memory-ssh-authorized-keys/tasks.md",
+        "docs/src/features/index.md",
+        "docs/src/features/iot-device-monitoring/design.md",
+        "docs/src/features/iot-device-monitoring/tasks.md",
+        "docs/src/features/packaging-deployment-migration/design.md",
+        "docs/src/features/packaging-deployment-migration/tasks.md",
+        "docs/src/features/phoenix-ui-polish/design.md",
+        "docs/src/features/phoenix-ui-polish/tasks.md",
+        "docs/src/features/production-operations-runbooks/design.md",
+        "docs/src/features/production-operations-runbooks/tasks.md",
+        "docs/src/features/report-view-improvements/design.md",
+        "docs/src/features/report-view-improvements/tasks.md",
+        "docs/src/features/rich-api-examples/design.md",
+        "docs/src/features/rich-api-examples/tasks.md",
+        "docs/src/features/schema-driven-builder-dropdowns/design.md",
+        "docs/src/features/schema-driven-builder-dropdowns/tasks.md",
+        "docs/src/features/self-extracting-installer/design.md",
+        "docs/src/features/self-extracting-installer/tasks.md",
+        "docs/src/features/server-client-e2e-tests/design.md",
+        "docs/src/features/server-client-e2e-tests/tasks.md",
+        "docs/src/features/server-command-allowlist-management/design.md",
+        "docs/src/features/server-command-allowlist-management/tasks.md",
+        "docs/src/features/server-provided-frps-token/design.md",
+        "docs/src/features/server-provided-frps-token/tasks.md",
+        "docs/src/features/server-stary-script-workbench/design.md",
+        "docs/src/features/server-stary-script-workbench/tasks.md",
+        "docs/src/features/starlark-script-system/design.md",
+        "docs/src/features/starlark-script-system/tasks.md",
+        "docs/src/modules/client-cli.md",
+        "docs/src/modules/client-command-handler.md",
+        "docs/src/modules/client-e2e-harness.md",
+        "docs/src/modules/client-frp-manager.md",
+        "docs/src/modules/client-identity.md",
+        "docs/src/modules/client-starlark-runtime.md",
+        "docs/src/modules/client-transport.md",
+        "docs/src/modules/deployment-compose.md",
+        "docs/src/modules/edge-caddy.md",
+        "docs/src/modules/edge-frp.md",
+        "docs/src/modules/index.md",
+        "docs/src/modules/server-application.md",
+        "docs/src/modules/server-devices.md",
+        "docs/src/modules/server-domain.md",
+        "docs/src/modules/server-e2e.md",
+        "docs/src/modules/server-monitoring.md",
+        "docs/src/modules/server-reporting.md",
+        "docs/src/modules/server-web.md",
+        "docs/src/modules/shared-e2e-log-viewer.md",
+        "docs/src/operations/backup-restore.md",
+        "docs/src/operations/command-policies.md",
+        "docs/src/operations/ha-scaling.md",
+        "docs/src/operations/health-checks.md",
+        "docs/src/operations/incidents.md",
+        "docs/src/operations/index.md",
+        "docs/src/operations/secret-rotation.md",
+        "docs/src/operations/upgrades-rollbacks.md",
+        "docs/src/planned-features.md",
+        "docs/src/reference/agent-workflows.md",
+        "docs/src/reference/contracts.md",
+        "docs/src/reference/e2e-results.md",
+        "docs/src/reference/openapi/index.md",
+        "docs/src/reference/tasks.md",
+        "docs/src/repository-structure.md",
+        "docs/src/runtime-boundaries.md",
+        "docs/src/unknowns.md",
+        "package.md",
+        "packages/AGENTS.md",
+        "packages/client/AGENTS.md",
+        "packages/client/README.md",
+        "packages/client/scripts/e2e/README.md",
+        "packages/server/AGENTS.md",
+        "packages/server/README.md"
+      ]
+    },
+    "layout": {
+      "config_roots": [
+        ".",
+        "packages/client",
+        "packages/server"
+      ],
+      "kind": "monorepo",
+      "source": "mise.toml"
+    },
+    "packages": [
+      {
+        "commands": [],
+        "manifests": [
+          "package.json",
+          "pyproject.toml"
+        ],
+        "mise_file": "mise.toml",
+        "path": ".",
+        "test_evidence": []
+      },
+      {
+        "commands": [
+          {
+            "argv": [
+              "mise",
+              "run",
+              "//packages/client:test"
+            ],
+            "name": "client-mise-test",
+            "provenance": "packages/client/mise.toml",
+            "working_directory": "."
+          }
+        ],
+        "manifests": [
+          "go.mod"
+        ],
+        "mise_file": "packages/client/mise.toml",
+        "path": "packages/client",
+        "test_evidence": [
+          "packages/client/cmd/nixstasis/frp_session_test.go",
+          "packages/client/cmd/nixstasis/poll_test.go",
+          "packages/client/cmd/nixstasis/repl_test.go",
+          "packages/client/cmd/nixstasis/scripts_test.go",
+          "packages/client/cmd/nixstasis/test_script_test.go",
+          "packages/client/internal/commandpolicy/store_test.go",
+          "packages/client/internal/commands/handler_test.go",
+          "packages/client/internal/config/config_test.go",
+          "packages/client/internal/e2e/runner_test.go",
+          "packages/client/internal/e2e/selector_test.go",
+          "packages/client/internal/frp/manager_test.go",
+          "packages/client/internal/identity/detect_test.go",
+          "packages/client/internal/identity/store_test.go",
+          "packages/client/internal/script/builtins_exec_test.go",
+          "packages/client/internal/script/builtins_mqtt_test.go",
+          "packages/client/internal/script/discovery_test.go",
+          "packages/client/internal/script/executor_test.go",
+          "packages/client/internal/script/format_test.go",
+          "packages/client/internal/script/report_test.go",
+          "packages/client/internal/script/runtime_test.go",
+          "packages/client/internal/script/validation_test.go",
+          "packages/client/internal/sshauth/ipc_test.go",
+          "packages/client/internal/sshauth/sshd_integration_test.go",
+          "packages/client/internal/transport/client_runtime_test.go",
+          "packages/client/internal/transport/register_test.go"
+        ]
+      },
+      {
+        "commands": [
+          {
+            "argv": [
+              "mix",
+              "test"
+            ],
+            "name": "server-elixir-test",
+            "provenance": "manifest-and-test-evidence",
+            "working_directory": "packages/server"
+          }
+        ],
+        "manifests": [
+          "mix.exs"
+        ],
+        "mise_file": "packages/server/mise.toml",
+        "path": "packages/server",
+        "test_evidence": [
+          "packages/server/test/mix/tasks/e2e_export_static_test.exs",
+          "packages/server/test/nixstasis/alerts_test.exs",
+          "packages/server/test/nixstasis/command_allowlists/category_test.exs",
+          "packages/server/test/nixstasis/command_allowlists/command_entry_test.exs",
+          "packages/server/test/nixstasis/command_allowlists/device_policy_assignment_test.exs",
+          "packages/server/test/nixstasis/command_allowlists/policy_delivery_result_test.exs",
+          "packages/server/test/nixstasis/command_allowlists/policy_resolver_test.exs",
+          "packages/server/test/nixstasis/deployment_test.exs",
+          "packages/server/test/nixstasis/devices/approval_test.exs",
+          "packages/server/test/nixstasis/devices/device_test.exs",
+          "packages/server/test/nixstasis/devices/schema_validator_test.exs",
+          "packages/server/test/nixstasis/devices/ssh_client_test.exs",
+          "packages/server/test/nixstasis/devices/ssh_key_manager_test.exs",
+          "packages/server/test/nixstasis/devices/stats_test.exs",
+          "packages/server/test/nixstasis/devices_bdd_test.exs",
+          "packages/server/test/nixstasis/devices_test.exs",
+          "packages/server/test/nixstasis/e2e/data_policy_test.exs",
+          "packages/server/test/nixstasis/e2e/e2e_test.exs",
+          "packages/server/test/nixstasis/e2e/journey_selection_test.exs",
+          "packages/server/test/nixstasis/e2e/log_store_test.exs",
+          "packages/server/test/nixstasis/e2e/metrics_test.exs",
+          "packages/server/test/nixstasis/e2e/reporting_test.exs",
+          "packages/server/test/nixstasis/e2e/retention_test.exs",
+          "packages/server/test/nixstasis/monitoring/alert_rule_test.exs",
+          "packages/server/test/nixstasis/monitoring/alert_worker_test.exs",
+          "packages/server/test/nixstasis/monitoring/command_queue_test.exs",
+          "packages/server/test/nixstasis/monitoring/offline_checker_test.exs",
+          "packages/server/test/nixstasis/monitoring/rule_evaluator_test.exs",
+          "packages/server/test/nixstasis/releases/release_test.exs",
+          "packages/server/test/nixstasis/reporting/custom_report_list_test.exs",
+          "packages/server/test/nixstasis/reporting/query_builder_test.exs",
+          "packages/server/test/nixstasis/reporting/table_filters_test.exs",
+          "packages/server/test/nixstasis/reporting_test.exs",
+          "packages/server/test/nixstasis/schema_options/builder_contract_test.exs",
+          "packages/server/test/nixstasis/schema_options/normalizer_test.exs",
+          "packages/server/test/nixstasis/schema_options/validator_test.exs",
+          "packages/server/test/nixstasis/scripts/audit_test.exs",
+          "packages/server/test/nixstasis/scripts/authorization_test.exs",
+          "packages/server/test/nixstasis/scripts/validator_test.exs",
+          "packages/server/test/nixstasis/scripts_test.exs",
+          "packages/server/test/nixstasis/settings_test.exs",
+          "packages/server/test/nixstasis_web/channels/terminal_channel_test.exs",
+          "packages/server/test/nixstasis_web/components/core_components_test.exs",
+          "packages/server/test/nixstasis_web/controllers/builder_config_validation_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/builder_contract_json_api_test.exs",
+          "packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/command_policy_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/device_command_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/device_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/error_html_test.exs",
+          "packages/server/test/nixstasis_web/controllers/error_json_test.exs",
+          "packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs",
+          "packages/server/test/nixstasis_web/controllers/layout_test.exs",
+          "packages/server/test/nixstasis_web/controllers/tls_controller_test.exs",
+          "packages/server/test/nixstasis_web/live/alerts_live_test.exs",
+          "packages/server/test/nixstasis_web/live/command_policy_live_test.exs",
+          "packages/server/test/nixstasis_web/live/dashboard_live_test.exs",
+          "packages/server/test/nixstasis_web/live/device_live_test.exs",
+          "packages/server/test/nixstasis_web/live/reports_live_test.exs",
+          "packages/server/test/nixstasis_web/live/script_live_test.exs",
+          "packages/server/test/nixstasis_web/live_dashboard/e2e_log_presenter_test.exs",
+          "packages/server/test/nixstasis_web/openapi_contract_test.exs",
+          "packages/server/test/nixstasis_web/operator_context_test.exs",
+          "packages/server/test/nixstasis_web/permissions_test.exs",
+          "packages/server/test/nixstasis_web/plugs/device_permissions_test.exs",
+          "packages/server/test/nixstasis_web/rate_limiter_store_test.exs",
+          "packages/server/test/nixstasis_web/runtime_contract_test.exs"
+        ]
+      }
+    ],
+    "tests": {
+      "commands": [
+        {
+          "argv": [
+            "mise",
+            "run",
+            "//packages/client:test"
+          ],
+          "name": "client-mise-test",
+          "provenance": "packages/client/mise.toml",
+          "working_directory": "."
+        },
+        {
+          "argv": [
+            "mix",
+            "test"
+          ],
+          "name": "server-elixir-test",
+          "provenance": "manifest-and-test-evidence",
+          "working_directory": "packages/server"
+        }
+      ],
+      "evidence": [
+        "packages/client/cmd/nixstasis/frp_session_test.go",
+        "packages/client/cmd/nixstasis/poll_test.go",
+        "packages/client/cmd/nixstasis/repl_test.go",
+        "packages/client/cmd/nixstasis/scripts_test.go",
+        "packages/client/cmd/nixstasis/test_script_test.go",
+        "packages/client/internal/commandpolicy/store_test.go",
+        "packages/client/internal/commands/handler_test.go",
+        "packages/client/internal/config/config_test.go",
+        "packages/client/internal/e2e/runner_test.go",
+        "packages/client/internal/e2e/selector_test.go",
+        "packages/client/internal/frp/manager_test.go",
+        "packages/client/internal/identity/detect_test.go",
+        "packages/client/internal/identity/store_test.go",
+        "packages/client/internal/script/builtins_exec_test.go",
+        "packages/client/internal/script/builtins_mqtt_test.go",
+        "packages/client/internal/script/discovery_test.go",
+        "packages/client/internal/script/executor_test.go",
+        "packages/client/internal/script/format_test.go",
+        "packages/client/internal/script/report_test.go",
+        "packages/client/internal/script/runtime_test.go",
+        "packages/client/internal/script/validation_test.go",
+        "packages/client/internal/sshauth/ipc_test.go",
+        "packages/client/internal/sshauth/sshd_integration_test.go",
+        "packages/client/internal/transport/client_runtime_test.go",
+        "packages/client/internal/transport/register_test.go",
+        "packages/server/test/mix/tasks/e2e_export_static_test.exs",
+        "packages/server/test/nixstasis/alerts_test.exs",
+        "packages/server/test/nixstasis/command_allowlists/category_test.exs",
+        "packages/server/test/nixstasis/command_allowlists/command_entry_test.exs",
+        "packages/server/test/nixstasis/command_allowlists/device_policy_assignment_test.exs",
+        "packages/server/test/nixstasis/command_allowlists/policy_delivery_result_test.exs",
+        "packages/server/test/nixstasis/command_allowlists/policy_resolver_test.exs",
+        "packages/server/test/nixstasis/deployment_test.exs",
+        "packages/server/test/nixstasis/devices/approval_test.exs",
+        "packages/server/test/nixstasis/devices/device_test.exs",
+        "packages/server/test/nixstasis/devices/schema_validator_test.exs",
+        "packages/server/test/nixstasis/devices/ssh_client_test.exs",
+        "packages/server/test/nixstasis/devices/ssh_key_manager_test.exs",
+        "packages/server/test/nixstasis/devices/stats_test.exs",
+        "packages/server/test/nixstasis/devices_bdd_test.exs",
+        "packages/server/test/nixstasis/devices_test.exs",
+        "packages/server/test/nixstasis/e2e/data_policy_test.exs",
+        "packages/server/test/nixstasis/e2e/e2e_test.exs",
+        "packages/server/test/nixstasis/e2e/journey_selection_test.exs",
+        "packages/server/test/nixstasis/e2e/log_store_test.exs",
+        "packages/server/test/nixstasis/e2e/metrics_test.exs",
+        "packages/server/test/nixstasis/e2e/reporting_test.exs",
+        "packages/server/test/nixstasis/e2e/retention_test.exs",
+        "packages/server/test/nixstasis/monitoring/alert_rule_test.exs",
+        "packages/server/test/nixstasis/monitoring/alert_worker_test.exs",
+        "packages/server/test/nixstasis/monitoring/command_queue_test.exs",
+        "packages/server/test/nixstasis/monitoring/offline_checker_test.exs",
+        "packages/server/test/nixstasis/monitoring/rule_evaluator_test.exs",
+        "packages/server/test/nixstasis/releases/release_test.exs",
+        "packages/server/test/nixstasis/reporting/custom_report_list_test.exs",
+        "packages/server/test/nixstasis/reporting/query_builder_test.exs",
+        "packages/server/test/nixstasis/reporting/table_filters_test.exs",
+        "packages/server/test/nixstasis/reporting_test.exs",
+        "packages/server/test/nixstasis/schema_options/builder_contract_test.exs",
+        "packages/server/test/nixstasis/schema_options/normalizer_test.exs",
+        "packages/server/test/nixstasis/schema_options/validator_test.exs",
+        "packages/server/test/nixstasis/scripts/audit_test.exs",
+        "packages/server/test/nixstasis/scripts/authorization_test.exs",
+        "packages/server/test/nixstasis/scripts/validator_test.exs",
+        "packages/server/test/nixstasis/scripts_test.exs",
+        "packages/server/test/nixstasis/settings_test.exs",
+        "packages/server/test/nixstasis_web/channels/terminal_channel_test.exs",
+        "packages/server/test/nixstasis_web/components/core_components_test.exs",
+        "packages/server/test/nixstasis_web/controllers/builder_config_validation_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/builder_contract_json_api_test.exs",
+        "packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/command_policy_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/device_command_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/device_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/e2e_run_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/e2e_run_result_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/error_html_test.exs",
+        "packages/server/test/nixstasis_web/controllers/error_json_test.exs",
+        "packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs",
+        "packages/server/test/nixstasis_web/controllers/layout_test.exs",
+        "packages/server/test/nixstasis_web/controllers/tls_controller_test.exs",
+        "packages/server/test/nixstasis_web/live/alerts_live_test.exs",
+        "packages/server/test/nixstasis_web/live/command_policy_live_test.exs",
+        "packages/server/test/nixstasis_web/live/dashboard_live_test.exs",
+        "packages/server/test/nixstasis_web/live/device_live_test.exs",
+        "packages/server/test/nixstasis_web/live/reports_live_test.exs",
+        "packages/server/test/nixstasis_web/live/script_live_test.exs",
+        "packages/server/test/nixstasis_web/live_dashboard/e2e_log_presenter_test.exs",
+        "packages/server/test/nixstasis_web/openapi_contract_test.exs",
+        "packages/server/test/nixstasis_web/operator_context_test.exs",
+        "packages/server/test/nixstasis_web/permissions_test.exs",
+        "packages/server/test/nixstasis_web/plugs/device_permissions_test.exs",
+        "packages/server/test/nixstasis_web/rate_limiter_store_test.exs",
+        "packages/server/test/nixstasis_web/runtime_contract_test.exs"
+      ]
+    }
+  },
+  "documentation": {
+    "command": "1 named partition(s)",
+    "note": "See validation_partitions for command ownership and evidence.",
+    "returncode": 0,
+    "status": "passed",
+    "stderr": "",
+    "stdout": ""
+  },
+  "generated_at": "2026-07-25T02:22:41+00:00",
+  "hk": {
+    "command": "pkl eval hk.pkl",
+    "hooks": {
+      "check": {
+        "check-added-large-files": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-added-large-files {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "14e83df6357b19c4110b39048feeb432c9e9835e38dd4515fc83eb3a01313ab6"
+        },
+        "check-exec-shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check-merge-conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-merge-conflict --assume-in-merge {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "31770c2b5c43145c2a32735a25b6e84edc0fb8eeaf7baccba1b074417a16ded5"
+        },
+        "check_byte_order_marker": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util check-byte-order-marker --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util fix-byte-order-marker {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "d257416f7caa293cd27ba2d9d7a44794af4c0d57f24bb5c7c588fd66d18de60b"
+        },
+        "check_case_conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-case-conflict {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "b1313f28b1be723c58c3bd0a13419bce9f1b613291214d2ba3780f382d8374ee"
+        },
+        "check_executables_have_shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check_symlinks": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":true,\"batch\":false,\"check\":\"hk util check-symlinks {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
+        },
+        "detect-private-key": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2aa82f9479b0cde02130e28b0a5da47b5783e128e994c05fdbc9c1158c9dd8d6"
+        },
+        "go-fmt": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l . | (! grep .)\\n  goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client . | (! grep .)\\n'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l -w .\\n  goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client .\\n'\",\"glob\":[\"**/*.go\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "73e113f991567ec6ac2c0119a56a894be3a61ab647c5e7ad3403e25f9ab66973"
+        },
+        "go-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'golangci-lint run ./...'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"'golangci-lint run --fix ./...'\",\"glob\":[\"**/*.go\",\"**/go.mod\",\"**/go.sum\",\"**/.golangci.yml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2ba25c81313b2f8e70bca0f9e415b5f57e47eeca1f8e24ace07b0157c4a601b2"
+        },
+        "go-mod": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'go mod tidy && go mod verify'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/go.mod\",\"**/go.sum\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "145de945a44183e0a50f97d58bd554c157d161561fc0985177abccecb8fcf8c3"
+        },
+        "mdbook-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mdbook-lint lint --config .mdbook-lint.toml {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mdbook-lint fix --config .mdbook-lint.toml {{ files }}\",\"glob\":[\"docs/src/**/*.md\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "1862e77e077f870c8aa289f67fd8d3553ee94aace7f7e262b97db568013b3e60"
+        },
+        "mise": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":true,\"check\":\"mise fmt --check\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mise fmt\",\"glob\":[\"mise.toml\",\"mise.*.toml\",\".mise.toml\",\".mise.*.toml\",\"mise/config.toml\",\"mise/config.*.toml\",\".mise/config.toml\",\".mise/config.*.toml\",\".config/mise.toml\",\".config/mise.*.toml\",\".config/mise/config.toml\",\".config/mise/config.*.toml\",\".config/mise/mise.toml\",\".config/mise/mise.*.toml\",\".config/mise/conf.d/*.toml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "47344620d48c32221901d724bf0e2dffea2fed4490adfd3f73694a5d6298bc61"
+        },
+        "mixed-line-ending": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util mixed-line-ending --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util mixed-line-ending --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "79feecbc9c1dc1a214bb5787cbd097a0e36733b55d1f341e6584957ce0c5e20f"
+        },
+        "newlines": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util end-of-file-fixer --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util end-of-file-fixer --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0546a56ed3d7e2c0836094b4468ffa9eb6a07393208d128cfccc9dba1f705225"
+        },
+        "server-compile": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix compile --warning-as-errors\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/*.ex\",\"**/*.exs\",\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "df3c04186cb61e24696df879c03bfaee8ab054c4656bec888f4d63be46608644"
+        },
+        "server-deps": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix deps.unlock --unused\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0beac4581ce862d6efb66a81f5f23c66c17ee22d83326ad3ba66168cc6f19b72"
+        },
+        "server-format": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mix format --check-formatted\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mix format\",\"glob\":[\"**/*.ex\",\"**/*.exs\",\"**/*.heex\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "008126d65796a4754c7342080b3af3f3c1f892238e4edd7ca0a4a7f59e8de18f"
+        },
+        "trailing-whitespace": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util trailing-whitespace --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[\"packages/server/**/*.ex\",\"packages/server/**/*.exs\",\"packages/server/**/*.heex\"],\"exclusive\":false,\"fix\":\"hk util trailing-whitespace --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "dbc6ee1496d6f08eb628886e4bd4b49490a0fa8752017464c0d55fbed536657e"
+        }
+      },
+      "commit-msg": {
+        "commit_message_format": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"perl -0pi -e \\\"s/[ \\\\t]+\\\\$//mg; s/(?<=\\\\S) {2,}/ /g\\\" {{commit_msg_file}}\\nperl -ne 'print unless /^#/' {{commit_msg_file}} | typos -\\ncommitlint --edit {{commit_msg_file}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "bcbcf62602db21ce3c41d86892e7a8e1edd1bee987910e29cc8cea81a0b565bc"
+        }
+      },
+      "fix": {
+        "check-added-large-files": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-added-large-files {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "14e83df6357b19c4110b39048feeb432c9e9835e38dd4515fc83eb3a01313ab6"
+        },
+        "check-exec-shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check-merge-conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-merge-conflict --assume-in-merge {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "31770c2b5c43145c2a32735a25b6e84edc0fb8eeaf7baccba1b074417a16ded5"
+        },
+        "check_byte_order_marker": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util check-byte-order-marker --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util fix-byte-order-marker {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "d257416f7caa293cd27ba2d9d7a44794af4c0d57f24bb5c7c588fd66d18de60b"
+        },
+        "check_case_conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-case-conflict {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "b1313f28b1be723c58c3bd0a13419bce9f1b613291214d2ba3780f382d8374ee"
+        },
+        "check_executables_have_shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check_symlinks": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":true,\"batch\":false,\"check\":\"hk util check-symlinks {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
+        },
+        "detect-private-key": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2aa82f9479b0cde02130e28b0a5da47b5783e128e994c05fdbc9c1158c9dd8d6"
+        },
+        "go-fmt": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l . | (! grep .)\\n  goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client . | (! grep .)\\n'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l -w .\\n  goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client .\\n'\",\"glob\":[\"**/*.go\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "73e113f991567ec6ac2c0119a56a894be3a61ab647c5e7ad3403e25f9ab66973"
+        },
+        "go-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'golangci-lint run ./...'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"'golangci-lint run --fix ./...'\",\"glob\":[\"**/*.go\",\"**/go.mod\",\"**/go.sum\",\"**/.golangci.yml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2ba25c81313b2f8e70bca0f9e415b5f57e47eeca1f8e24ace07b0157c4a601b2"
+        },
+        "go-mod": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'go mod tidy && go mod verify'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/go.mod\",\"**/go.sum\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "145de945a44183e0a50f97d58bd554c157d161561fc0985177abccecb8fcf8c3"
+        },
+        "mdbook-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mdbook-lint lint --config .mdbook-lint.toml {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mdbook-lint fix --config .mdbook-lint.toml {{ files }}\",\"glob\":[\"docs/src/**/*.md\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "1862e77e077f870c8aa289f67fd8d3553ee94aace7f7e262b97db568013b3e60"
+        },
+        "mise": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":true,\"check\":\"mise fmt --check\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mise fmt\",\"glob\":[\"mise.toml\",\"mise.*.toml\",\".mise.toml\",\".mise.*.toml\",\"mise/config.toml\",\"mise/config.*.toml\",\".mise/config.toml\",\".mise/config.*.toml\",\".config/mise.toml\",\".config/mise.*.toml\",\".config/mise/config.toml\",\".config/mise/config.*.toml\",\".config/mise/mise.toml\",\".config/mise/mise.*.toml\",\".config/mise/conf.d/*.toml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "47344620d48c32221901d724bf0e2dffea2fed4490adfd3f73694a5d6298bc61"
+        },
+        "mixed-line-ending": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util mixed-line-ending --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util mixed-line-ending --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "79feecbc9c1dc1a214bb5787cbd097a0e36733b55d1f341e6584957ce0c5e20f"
+        },
+        "newlines": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util end-of-file-fixer --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util end-of-file-fixer --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0546a56ed3d7e2c0836094b4468ffa9eb6a07393208d128cfccc9dba1f705225"
+        },
+        "server-compile": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix compile --warning-as-errors\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/*.ex\",\"**/*.exs\",\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "df3c04186cb61e24696df879c03bfaee8ab054c4656bec888f4d63be46608644"
+        },
+        "server-deps": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix deps.unlock --unused\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0beac4581ce862d6efb66a81f5f23c66c17ee22d83326ad3ba66168cc6f19b72"
+        },
+        "server-format": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mix format --check-formatted\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mix format\",\"glob\":[\"**/*.ex\",\"**/*.exs\",\"**/*.heex\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "008126d65796a4754c7342080b3af3f3c1f892238e4edd7ca0a4a7f59e8de18f"
+        },
+        "trailing-whitespace": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util trailing-whitespace --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[\"packages/server/**/*.ex\",\"packages/server/**/*.exs\",\"packages/server/**/*.heex\"],\"exclusive\":false,\"fix\":\"hk util trailing-whitespace --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "dbc6ee1496d6f08eb628886e4bd4b49490a0fa8752017464c0d55fbed536657e"
+        }
+      },
+      "pre-commit": {
+        "check-added-large-files": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-added-large-files {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "14e83df6357b19c4110b39048feeb432c9e9835e38dd4515fc83eb3a01313ab6"
+        },
+        "check-exec-shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check-merge-conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-merge-conflict --assume-in-merge {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "31770c2b5c43145c2a32735a25b6e84edc0fb8eeaf7baccba1b074417a16ded5"
+        },
+        "check_byte_order_marker": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util check-byte-order-marker --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util fix-byte-order-marker {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "d257416f7caa293cd27ba2d9d7a44794af4c0d57f24bb5c7c588fd66d18de60b"
+        },
+        "check_case_conflict": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-case-conflict {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "b1313f28b1be723c58c3bd0a13419bce9f1b613291214d2ba3780f382d8374ee"
+        },
+        "check_executables_have_shebangs": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util check-executables-have-shebangs {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2df07ee374ec04d99e2d6e83a30ce0773e72a3de43d084d2dc5ae2186c72e618"
+        },
+        "check_symlinks": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":true,\"batch\":false,\"check\":\"hk util check-symlinks {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
+        },
+        "detect-private-key": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2aa82f9479b0cde02130e28b0a5da47b5783e128e994c05fdbc9c1158c9dd8d6"
+        },
+        "go-fmt": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l . | (! grep .)\\n  goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client . | (! grep .)\\n'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"sh -o errexit -o nounset -o pipefail -c '\\n  gofumpt -l -w .\\n  goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client .\\n'\",\"glob\":[\"**/*.go\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "73e113f991567ec6ac2c0119a56a894be3a61ab647c5e7ad3403e25f9ab66973"
+        },
+        "go-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'golangci-lint run ./...'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"'golangci-lint run --fix ./...'\",\"glob\":[\"**/*.go\",\"**/go.mod\",\"**/go.sum\",\"**/.golangci.yml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "2ba25c81313b2f8e70bca0f9e415b5f57e47eeca1f8e24ace07b0157c4a601b2"
+        },
+        "go-mod": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"'go mod tidy && go mod verify'\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/client\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/go.mod\",\"**/go.sum\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x -- sh -c\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "145de945a44183e0a50f97d58bd554c157d161561fc0985177abccecb8fcf8c3"
+        },
+        "mdbook-lint": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mdbook-lint lint --config .mdbook-lint.toml {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mdbook-lint fix --config .mdbook-lint.toml {{ files }}\",\"glob\":[\"docs/src/**/*.md\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "1862e77e077f870c8aa289f67fd8d3553ee94aace7f7e262b97db568013b3e60"
+        },
+        "mise": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":true,\"check\":\"mise fmt --check\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mise fmt\",\"glob\":[\"mise.toml\",\"mise.*.toml\",\".mise.toml\",\".mise.*.toml\",\"mise/config.toml\",\"mise/config.*.toml\",\".mise/config.toml\",\".mise/config.*.toml\",\".config/mise.toml\",\".config/mise.*.toml\",\".config/mise/config.toml\",\".config/mise/config.*.toml\",\".config/mise/mise.toml\",\".config/mise/mise.*.toml\",\".config/mise/conf.d/*.toml\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "47344620d48c32221901d724bf0e2dffea2fed4490adfd3f73694a5d6298bc61"
+        },
+        "mixed-line-ending": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util mixed-line-ending --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util mixed-line-ending --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "79feecbc9c1dc1a214bb5787cbd097a0e36733b55d1f341e6584957ce0c5e20f"
+        },
+        "newlines": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util end-of-file-fixer --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"hk util end-of-file-fixer --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0546a56ed3d7e2c0836094b4468ffa9eb6a07393208d128cfccc9dba1f705225"
+        },
+        "server-compile": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix compile --warning-as-errors\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"**/*.ex\",\"**/*.exs\",\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "df3c04186cb61e24696df879c03bfaee8ab054c4656bec888f4d63be46608644"
+        },
+        "server-deps": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"mix deps.unlock --unused\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"mix.exs\",\"mix.lock\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "0beac4581ce862d6efb66a81f5f23c66c17ee22d83326ad3ba66168cc6f19b72"
+        },
+        "server-format": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"mix format --check-formatted\",\"check_first\":true,\"depends\":[],\"dir\":\"packages/server\",\"env\":{},\"exclude\":[],\"exclusive\":false,\"fix\":\"mix format\",\"glob\":[\"**/*.ex\",\"**/*.exs\",\"**/*.heex\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"prefix\":\"mise x --\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "008126d65796a4754c7342080b3af3f3c1f892238e4edd7ca0a4a7f59e8de18f"
+        },
+        "trailing-whitespace": {
+          "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check_diff\":\"hk util trailing-whitespace --diff {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[\"packages/server/**/*.ex\",\"packages/server/**/*.exs\",\"packages/server/**/*.heex\"],\"exclusive\":false,\"fix\":\"hk util trailing-whitespace --fix {{files}}\",\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+          "fingerprint": "dbc6ee1496d6f08eb628886e4bd4b49490a0fa8752017464c0d55fbed536657e"
+        }
+      }
+    },
+    "note": "Pkl evaluation passed.",
+    "status": "evaluable"
+  },
+  "resolution": {
+    "flags": {
+      "documentation": "supplied",
+      "tests": "supplied"
+    },
+    "residual_limitations": [],
+    "uncovered_candidates": {
+      "documentation": [],
+      "tests": []
+    },
+    "unresolved": [],
+    "write_eligible": true
+  },
+  "tests": {
+    "command": "2 named partition(s)",
+    "note": "See validation_partitions for command ownership and evidence.",
+    "returncode": 0,
+    "status": "passed",
+    "stderr": "",
+    "stdout": ""
+  },
+  "validation_partitions": [
+    {
+      "argv": [
+        "mise",
+        "run",
+        "docs:build"
+      ],
+      "kind": "documentation",
+      "name": "root-mise-docs-build",
+      "output_truncated": false,
+      "provenance": "mise.toml",
+      "recovery": null,
+      "returncode": 0,
+      "status": "passed",
+      "stderr": " INFO Book building has started\n INFO Running the html backend\n INFO HTML book written to `/Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z/docs/../book`\n",
+      "stdout": "",
+      "working_directory": "."
+    },
+    {
+      "argv": [
+        "mise",
+        "run",
+        "//packages/client:test"
+      ],
+      "kind": "tests",
+      "name": "client-mise-test",
+      "output_truncated": false,
+      "provenance": "packages/client/mise.toml",
+      "recovery": null,
+      "returncode": 0,
+      "status": "passed",
+      "stderr": "[//packages/client:test] $ go test -race --json -coverprofile=coverage.out ./..\u2026\n",
+      "stdout": "\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/cmd/nixstasis\u001b[0m\u001b[0;37m (40.9% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenInvalidScript_WhenTestScriptRuns_ThenExitNonZeroAndNoYAMLOutput\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenReplCommand_WhenRun_ThenBuiltinsAvailable\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds\u001b[0;37m (10ms)\u001b[0m\nNAME         VERSION  PATH\ntest_script           /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds1152411709/001/source.stary\nInstalled test_script at /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestGivenScriptFile_WhenListInstallRemove_ThenLifecycleSucceeds1152411709/001/.config/nixstasis/scripts/test_script.stary\nRemoved test_script\n  \u001b[0;32m\u2705 TestGivenValidScript_WhenTestScriptRuns_ThenYAMLOutputPrinted\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestHydrateCommandPayloadsUsesBoundedParallelism\u001b[0;37m (40ms)\u001b[0m\n  \u001b[0;32m\u2705 TestInitialCommandPolicyUsesPersistedServerPolicyBeforeLocalConfig\u001b[0;37m (30ms)\u001b[0m\n  \u001b[0;32m\u2705 TestPollIntervalUsesConfiguredValue\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPollOnceDoesNothingWhenTokenAbsentAndFRPInactive\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n  \u001b[0;32m\u2705 TestPollOnceKeepsActiveFRPWhenTokenPresent\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n  \u001b[0;32m\u2705 TestPollOnceRestartsActiveFRPWhenTokenChanges\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n2026/07/24 22:19:01 INFO Server remote access token changed, restarting FRP\n2026/07/24 22:19:01 INFO Server requested remote access, starting FRP\n  \u001b[0;32m\u2705 TestPollOnceRestartsActiveFRPWhenTokenStateUnknown\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n2026/07/24 22:19:01 INFO Server remote access token state unknown, restarting FRP\n2026/07/24 22:19:01 INFO Server requested remote access, starting FRP\n  \u001b[0;32m\u2705 TestPollOnceStartsFRPWithRemoteAccessToken\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n2026/07/24 22:19:01 INFO Server requested remote access, starting FRP\n  \u001b[0;32m\u2705 TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent\u001b[0;37m (0s)\u001b[0m\n2026/07/24 22:19:01 INFO polled using 0 scripts in 0 ms\n2026/07/24 22:19:01 INFO Server disabled remote access, stopping FRP\n  \u001b[0;32m\u2705 TestPollResponseTokenOverridesRuntimeFRPAuthToken\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;33m\ud83d\udea7 TestRunFRPSession_ContextCancellation\u001b[0;37m (0s)\u001b[0m\n    frp_session_test.go:107: full cancellation test requires refactoring runFRPSession to accept context\n  \u001b[0;32m\u2705 TestRunFRPSession_FRPCFailure\u001b[0;37m (30ms)\u001b[0m\n2026/07/24 22:19:00 INFO Starting FRP session config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestRunFRPSession_FRPCFailure2908960879/001/frpc.toml timeout=1h0m0s\n  \u001b[0;32m\u2705 TestRunFRPSession_MissingBinary\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRunFRPSession_MissingConfig\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRunFRPSession_SuccessfulRun\u001b[0;37m (10ms)\u001b[0m\n2026/07/24 22:19:00 INFO Starting FRP session config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestRunFRPSession_SuccessfulRun1530353978/001/frpc.toml timeout=1h0m0s\n2026/07/24 22:19:00 INFO FRP session ended normally\n  \u001b[0;32m\u2705 TestRunFRPSession_UsesExplicitPaths\u001b[0;37m (10ms)\u001b[0m\n2026/07/24 22:19:00 INFO Starting FRP session config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestRunFRPSession_UsesExplicitPaths1256050727/001/frpc.toml timeout=1h0m0s\n2026/07/24 22:19:00 INFO FRP session ended normally\n  \u001b[0;32m\u2705 TestRuntimeFRPConfigFallsBackToGeneratedDeviceIDNameOnly\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/commandpolicy\u001b[0m\u001b[0;37m (67.2% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestStoreLoadMissingReturnsErrNoPolicy\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStoreSaveLoadRoundTrip\u001b[0;37m (30ms)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/commands\u001b[0m\u001b[0;37m (80.3% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenApplyCommandPolicyPersistFailure_WhenExecuteBatch_ThenFailsClosed\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenApplyCommandPolicyStore_WhenExecuteBatch_ThenPersistsPolicy\u001b[0;37m (30ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenApplyCommandPolicy_WhenExecuteBatch_ThenAppliesPolicy\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenBadApplyCommandPolicyPayload_WhenExecuteBatch_ThenFails\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenConfiguredScriptsDir_WhenInstallScript_ThenWritesThere\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenDeferredRunScriptPayload_WhenExecuteBatch_ThenFailsClosed\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenDuplicateApplyCommandPolicyVersion_WhenExecuteBatch_ThenReportsIdempotent\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenDuplicateCommandID_WhenExecuteBatch_ThenLaterDuplicateFails\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenEmptyApplyCommandPolicy_WhenExecuteBatch_ThenAppliesDenyAll\u001b[0;37m (20ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenInstallCommitAndExpiredContext_WhenExecuteBatch_ThenSuccessReported\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenInvalidRunScriptPayload_WhenExecuteBatch_ThenReturnsFailedEnvelope\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenOlderApplyCommandPolicyRevision_WhenExecuteBatch_ThenRejectsStalePolicy\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenOversizedCommandList_WhenExecuteBatch_ThenOnlyMaxAccepted\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenPathTraversalScriptName_WhenInstallScript_ThenFails\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenPathTraversalScriptVersion_WhenRemoveScript_ThenFails\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenPreloadedRuntimePolicy_WhenExecuteBatch_ThenSameVersionReplayIsIdempotent\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenRemoveCommitAndExpiredContext_WhenExecuteBatch_ThenSuccessReported\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenRunScriptPolicyApplied_WhenExecuteBatch_ThenCanRunAllowedCommand\u001b[0;37m (1.88s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenRunScript_WhenExecuteBatch_ThenDoesNotTouchInstalledScripts\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenValidRunScriptPayload_WhenExecuteBatch_ThenReturnsStructuredResult\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeRejectsInvalidDynamicPayloads\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeRejectsInvalidDynamicPayloads/invalid_ttl\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeRejectsInvalidDynamicPayloads/malformed_json\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeRejectsInvalidDynamicPayloads/missing_session\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeRejectsInvalidDynamicPayloads/wrong_user\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHAuthorizeStoresDynamicKeyInMemory\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHRevokeFailsWithoutSessionRef\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHRevokeIsSerial\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHRevokeRemovesStoredAuthorization\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSSHRevokeResolvesSessionRefFromData\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/config\u001b[0m\u001b[0;37m (85.2% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestLoadCanUseExplicitConfigFile\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestPathsCanBeOverriddenForLocalDevelopment\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPathsUseNixstasisDefaults\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/e2e\u001b[0m\u001b[0;37m (36.7% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestRunSuiteOverridesJourneys\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestRunSuiteUsesConfiguredJourneys\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestRunSuiteWritesV1JourneyLogs\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestRuntimePayloadRefUsesDeviceAPIKey\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSelectJourneysRejectsUnknown\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestSelectJourneysUsesAllWhenEmpty\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/frp\u001b[0m\u001b[0;37m (87.6% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestFRPCTemplateEnv\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/#00\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/0.0.0.0\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/127.0.0.1\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/192.168.1.1\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/::1\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/[::1]\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoopbackAddr/localhost\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestManager_GetStatus\u001b[0;37m (20ms)\u001b[0m\n  \u001b[0;32m\u2705 TestManager_StartStop\u001b[0;37m (90ms)\u001b[0m\n2026/07/24 22:19:02 INFO Starting FRP tunnel config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestManager_StartStop1510431772/002/frpc.toml name=atom-aabbcc\n2026/07/24 22:19:02 INFO FRP transient service started unit=nixstasis-frpc\n2026/07/24 22:19:02 INFO Stopping FRP tunnel\n2026/07/24 22:19:02 INFO FRP transient service stopped\n  \u001b[0;32m\u2705 TestPackagedConfigExampleProvidesFRPName\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPackagedConfigUsesQuotedPlaceholders\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPackagedSimulatorHTTPAssets\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_NoWaitFlag\u001b[0;37m (30ms)\u001b[0m\n2026/07/24 22:19:02 INFO Starting FRP tunnel config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestStart_NoWaitFlag2042520545/002/frpc.toml name=atom-aabbcc\n2026/07/24 22:19:02 INFO FRP transient service started unit=nixstasis-frpc\n  \u001b[0;32m\u2705 TestStart_RejectsEmptyAuthToken\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RejectsEmptyName\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RejectsEmptyServerAddr\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RejectsInvalidHTTPLocalAddr\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RejectsInvalidPorts\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RejectsNonLoopbackWebServerAddr\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_RemovesAuthTokenEnvironmentFileWhenSystemdRunFails\u001b[0;37m (20ms)\u001b[0m\n2026/07/24 22:19:02 INFO Starting FRP tunnel config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestStart_RemovesAuthTokenEnvironmentFileWhenSystemdRunFails2819340537/002/frpc.toml name=atom-aabbcc\n  \u001b[0;32m\u2705 TestStart_RequiresSystemd\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestStart_SystemdRunArgs\u001b[0;37m (30ms)\u001b[0m\n2026/07/24 22:19:02 INFO Starting FRP tunnel config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestStart_SystemdRunArgs1698328471/002/frpc.toml name=atom-aabbcc\n2026/07/24 22:19:02 INFO FRP transient service started unit=nixstasis-frpc\n  \u001b[0;32m\u2705 TestStart_WritesAuthTokenEnvironmentFile\u001b[0;37m (30ms)\u001b[0m\n2026/07/24 22:19:02 INFO Starting FRP tunnel config=/var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/TestStart_WritesAuthTokenEnvironmentFile1180135253/002/frpc.toml name=atom-aabbcc\n2026/07/24 22:19:02 INFO FRP transient service started unit=nixstasis-frpc\n  \u001b[0;32m\u2705 TestSystemdRunEnv_MinimalEnv\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/identity\u001b[0m\u001b[0;37m (33.6% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestGetPrimaryIP\u001b[0;37m (0s)\u001b[0m\n    detect_test.go:41: Detected IP: 10.0.0.197\n  \u001b[0;32m\u2705 TestGetPrimaryMAC\u001b[0;37m (0s)\u001b[0m\n    detect_test.go:23: Detected MAC: fa:76:47:19:91:d3\n  \u001b[0;32m\u2705 TestLoadUUIDNormalizesValidIdentity\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoadUUIDRejectsEmptyIdentityFile\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoadUUIDRejectsInvalidIdentityFile\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestLoadUUIDReturnsErrNoIdentityWhenFileMissing\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;31m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/logging\u001b[0m\n\tgithub.com/RobertDeRose/Nixstasis/packages/client/internal/logging\t\tcoverage: 0.0% of statements\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/script\u001b[0m\u001b[0;37m (49.7% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestAcceptCriteriaMatchesOnlyExpectedKeyValues\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestCompileSchema\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdDoesNotPassUnrelatedEnvironment\u001b[0;37m (680ms)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdProvidesNormalizedDefaultEnvironment\u001b[0;37m (240ms)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdRejectsPathShadowedCommands\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdRequiresCapability\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdRunsAllowlistedCommandWithSanitizedEnvironment\u001b[0;37m (240ms)\u001b[0m\n  \u001b[0;32m\u2705 TestExecCmdSanitizesHighRiskEnvironment\u001b[0;37m (250ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenCanceledContext_WhenExecuteScripts_ThenReturnsTimeoutStatus\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenInvalidFrontMatter_WhenExecuteScripts_ThenReturnsError\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenNameSelector_WhenResolveScript_ThenReturnsMatchingScript\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenPathSelector_WhenResolveScript_ThenReturnsMatchingScript\u001b[0;37m (20ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenSchemaMismatch_WhenExecuteScripts_ThenReturnsValidationError\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenSlowScript_WhenExecuteScripts_ThenAddsWarning\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestGivenValidScript_WhenExecuteScripts_ThenReturnsValidatedOutput\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestMQTTTopicRestrictions\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestParseAcceptCriteriaRejectsNestedSelectors\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestParseStaryContent\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPubAndGetRequiresMQTTCapability\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestReportEnvelope\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRuntimeTimeoutCancelsRunawayScript\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestRuntimeTimeoutOnCanceledContext\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth\u001b[0m\u001b[0;37m (4.9% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestChownSocketGroupIgnoresMissingOptionalGroup\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestChownSocketGroupReturnsChownFailure\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestChownSocketGroupReturnsLookupFailure\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;33m\ud83d\udea7 TestRealSSHDIntegration\u001b[0;37m (0s)\u001b[0m\n    sshd_integration_test.go:38: sshd integration test is Linux-only (CI)\n\n\u001b[0;33m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry\u001b[0m\n  \ud83d\uded1 no test files\n\n\u001b[0;32m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/internal/transport\u001b[0m\u001b[0;37m (76.9% coverage)\u001b[0m\n  \u001b[0;32m\u2705 TestCommandEndpointsUseRuntimeV1Routes\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestPollUsesHeartbeatContract\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRegisterDevice\u001b[0;37m (10ms)\u001b[0m\n  \u001b[0;32m\u2705 TestRegisterDevice/Empty_ID_Response\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRegisterDevice/Invalid_Response_Body\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRegisterDevice/Server_Error\u001b[0;37m (0s)\u001b[0m\n  \u001b[0;32m\u2705 TestRegisterDevice/Success\u001b[0;37m (0s)\u001b[0m\n\n\u001b[0;31m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/scripts/e2e\u001b[0m\n\tgithub.com/RobertDeRose/Nixstasis/packages/client/scripts/e2e\t\tcoverage: 0.0% of statements\n\n\u001b[0;31m\ud83d\udce6 github.com/RobertDeRose/Nixstasis/packages/client/scripts/mock_api\u001b[0m\n\tgithub.com/RobertDeRose/Nixstasis/packages/client/scripts/mock_api\t\tcoverage: 0.0% of statements\n\n",
+      "working_directory": "."
+    },
+    {
+      "argv": [
+        "mix",
+        "test"
+      ],
+      "kind": "tests",
+      "name": "server-elixir-test",
+      "output_truncated": false,
+      "provenance": "manifest-and-test-evidence",
+      "recovery": null,
+      "returncode": 0,
+      "status": "passed",
+      "stderr": "warning: Entity without __spark_metadata__ field is deprecated. Entity AshStateMachine.Transition does not define a `__spark_metadata__` field. This field is required to access source annotations. Add `__spark_metadata__: nil` to the defstruct for AshStateMachine.Transition.\n  (elixir 1.19.5) lib/enum.ex:961: Enum.\"-each/2-lists^foreach/1-0-\"/2\n  (spark 2.4.0) lib/spark/dsl/extension.ex:2222: Spark.Dsl.Extension.__after_verify__/1\n  (elixir 1.19.5) lib/enum.ex:961: Enum.\"-each/2-lists^foreach/1-0-\"/2\n  (elixir 1.19.5) lib/module/parallel_checker.ex:288: Module.ParallelChecker.check_module/3\n  (elixir 1.19.5) lib/module/parallel_checker.ex:125: anonymous fn/7 in Module.ParallelChecker.inner_spawn/6\n\n     warning: Igniter.Inflex.singularize/1 is undefined (module Igniter.Inflex is not available or is yet to be defined)\n     \u2502\n 659 \u2502                       name: Igniter.Inflex.singularize(references),\n     \u2502                                            ~\n     \u2502\n     \u2514\u2500 lib/resource_generator/spec.ex:659:44: AshPostgres.ResourceGenerator.Spec.do_add_relationships/3\n     \u2514\u2500 lib/resource_generator/spec.ex:710:33: AshPostgres.ResourceGenerator.Spec.do_add_relationships/3\n\n     warning: Igniter.Inflex.pluralize/1 is undefined (module Igniter.Inflex is not available or is yet to be defined)\n     \u2502\n 709 \u2502               if Igniter.Inflex.pluralize(table) == table do\n     \u2502                                 ~\n     \u2502\n     \u2514\u2500 lib/resource_generator/spec.ex:709:33: AshPostgres.ResourceGenerator.Spec.do_add_relationships/3\n     \u2514\u2500 lib/resource_generator/spec.ex:715:33: AshPostgres.ResourceGenerator.Spec.do_add_relationships/3\n     \u2514\u2500 lib/resource_generator/spec.ex:718:33: AshPostgres.ResourceGenerator.Spec.do_add_relationships/3\n\n     warning: Owl.IO.input/1 is undefined (module Owl.IO is not available or is yet to be defined)\n     \u2502\n 795 \u2502       Owl.IO.input(label: label, optional: true)\n     \u2502              ~\n     \u2502\n     \u2514\u2500 lib/resource_generator/spec.ex:795:14: AshPostgres.ResourceGenerator.Spec.name_all_relationships/6\n\n     warning: a struct for Plug.Conn is expected on struct update:\n\n         %Plug.Conn{conn | private: Map.put(conn.private, AshJsonApi.Plug.Parser, content)}\n\n     but got type:\n\n         dynamic()\n\n     where \"conn\" was given the type:\n\n         # type: dynamic()\n         # from: lib/ash_json_api/plug/parser.ex:143:10\n         {:ok, data, acc, conn}\n\n     when defining the variable \"conn\", you must also pattern match on \"%Plug.Conn{}\".\n\n     hint: given pattern matching is enough to catch typing errors, you may optionally convert the struct update into a map update. For example, instead of:\n\n         user = some_function()\n         %User{user | name: \"John Doe\"}\n\n     it is enough to write:\n\n         %User{} = user = some_function()\n         %{user | name: \"John Doe\"}\n\n     typing violation found at:\n     \u2502\n 152 \u2502              %Plug.Conn{conn | private: Map.put(conn.private, __MODULE__, content)},\n     \u2502              ~\n     \u2502\n     \u2514\u2500 lib/ash_json_api/plug/parser.ex:152:14: AshJsonApi.Plug.Parser.reduce_part/4\n\n[os_mon] cpu supervisor port (cpu_sup): Erlang has closed\n[os_mon] memory supervisor port (memsup): Erlang has closed\n",
+      "stdout": "\n22:20:24.049 [info] Compiling file system watcher for Mac...\n\n22:20:25.744 [info] Done.\n==> file_system\nCompiling 7 files (.ex)\nGenerated file_system app\n==> stream_data\nCompiling 3 files (.ex)\nGenerated stream_data app\n==> ymlr\nCompiling 3 files (.ex)\nGenerated ymlr app\n==> mime\nCompiling 1 file (.ex)\nGenerated mime app\n==> nimble_options\nCompiling 3 files (.ex)\nGenerated nimble_options app\n==> fine\nCompiling 1 file (.ex)\nGenerated fine app\n==> bunt\nCompiling 2 files (.ex)\nGenerated bunt app\n==> plug_crypto\nCompiling 5 files (.ex)\nGenerated plug_crypto app\n==> hpax\nCompiling 4 files (.ex)\nGenerated hpax app\n==> mint\nCompiling 1 file (.erl)\nCompiling 20 files (.ex)\nGenerated mint app\n==> nixstasis\n===> Analyzing applications...\n===> Compiling yamerl\n==> ets\nCompiling 7 files (.ex)\nGenerated ets app\n==> table_rex\nCompiling 7 files (.ex)\nGenerated table_rex app\n==> iterex\nCompiling 48 files (.ex)\nGenerated iterex app\n==> elixir_make\nCompiling 8 files (.ex)\nGenerated elixir_make app\n==> conv_case\nCompiling 1 file (.ex)\nGenerated conv_case app\n==> sourceror\nCompiling 12 files (.ex)\nGenerated sourceror app\n==> decimal\nCompiling 4 files (.ex)\nGenerated decimal app\n==> jason\nCompiling 10 files (.ex)\nGenerated jason app\n==> esbuild\nCompiling 4 files (.ex)\nGenerated esbuild app\n==> spark\nCompiling 40 files (.ex)\nGenerated spark app\n==> xema\nCompiling 19 files (.ex)\nGenerated xema app\n==> yaml_elixir\nCompiling 6 files (.ex)\nGenerated yaml_elixir app\n==> libgraph\nCompiling 15 files (.ex)\nGenerated libgraph app\n==> nixstasis\n===> Analyzing applications...\n===> Compiling unicode_util_compat\n===> Analyzing applications...\n===> Compiling idna\n===> Analyzing applications...\n===> Compiling telemetry\n==> telemetry_metrics\nCompiling 7 files (.ex)\nGenerated telemetry_metrics app\n==> nixstasis\n===> Analyzing applications...\n===> Compiling telemetry_poller\n==> db_connection\nCompiling 18 files (.ex)\nGenerated db_connection app\n==> ecto\nCompiling 56 files (.ex)\nGenerated ecto app\n==> thousand_island\nCompiling 18 files (.ex)\nGenerated thousand_island app\n==> phoenix_html\nCompiling 6 files (.ex)\nGenerated phoenix_html app\n==> phoenix_template\nCompiling 4 files (.ex)\nGenerated phoenix_template app\n==> expo\nCompiling 2 files (.erl)\nCompiling 22 files (.ex)\nGenerated expo app\n==> gettext\nCompiling 18 files (.ex)\nGenerated gettext app\n==> phoenix_pubsub\nCompiling 12 files (.ex)\nGenerated phoenix_pubsub app\n==> json_xema\nCompiling 4 files (.ex)\nGenerated json_xema app\n==> dns_cluster\nCompiling 1 file (.ex)\nGenerated dns_cluster app\n==> phoenix_view\nCompiling 1 file (.ex)\nGenerated phoenix_view app\n==> splode\nCompiling 5 files (.ex)\nGenerated splode app\n==> reactor\nCompiling 113 files (.ex)\nGenerated reactor app\n==> credo\nCompiling 254 files (.ex)\nGenerated credo app\n==> plug\nCompiling 1 file (.erl)\nCompiling 42 files (.ex)\nGenerated plug app\n==> open_api_spex\nCompiling 80 files (.ex)\nGenerated open_api_spex app\n==> postgrex\nCompiling 69 files (.ex)\nGenerated postgrex app\n==> ecto_sql\nCompiling 25 files (.ex)\nGenerated ecto_sql app\n==> ecto_psql_extras\nCompiling 43 files (.ex)\nGenerated ecto_psql_extras app\n==> phoenix_ecto\nCompiling 7 files (.ex)\nGenerated phoenix_ecto app\n==> crux\nCompiling 19 files (.ex)\nGenerated crux app\n==> ash\nCompiling 549 files (.ex)\nCompiling lib/ash/reactor/reactor.ex (it's taking more than 10s)\nGenerated ash app\n==> ash_state_machine\nCompiling 17 files (.ex)\nGenerated ash_state_machine app\n==> ash_sql\nCompiling 14 files (.ex)\nGenerated ash_sql app\n==> ash_postgres\nCompiling 58 files (.ex)\nGenerated ash_postgres app\n==> nimble_pool\nCompiling 2 files (.ex)\nGenerated nimble_pool app\n==> finch\nCompiling 14 files (.ex)\nGenerated finch app\n==> req\nCompiling 19 files (.ex)\nGenerated req app\n==> cc_precompiler\nCompiling 3 files (.ex)\nGenerated cc_precompiler app\n==> lazy_html\nCompiling 3 files (.ex)\nGenerated lazy_html app\n==> tailwind\nCompiling 3 files (.ex)\nGenerated tailwind app\n==> websock\nCompiling 1 file (.ex)\nGenerated websock app\n==> bandit\nCompiling 54 files (.ex)\nGenerated bandit app\n==> swoosh\nCompiling 55 files (.ex)\nGenerated swoosh app\n==> websock_adapter\nCompiling 4 files (.ex)\nGenerated websock_adapter app\n==> phoenix\nCompiling 74 files (.ex)\nGenerated phoenix app\n==> ash_json_api\nCompiling 74 files (.ex)\nGenerated ash_json_api app\n==> phoenix_live_view\nCompiling 49 files (.ex)\nGenerated phoenix_live_view app\n==> ash_phoenix\nCompiling 35 files (.ex)\nGenerated ash_phoenix app\n==> ash_admin\nCompiling 39 files (.ex)\nGenerated ash_admin app\n==> phoenix_live_dashboard\nCompiling 36 files (.ex)\nGenerated phoenix_live_dashboard app\n==> nixstasis\nCompiling 158 files (.ex)\nGenerated nixstasis app\nGetting extensions in current project...\nRunning setup for AshPostgres.DataLayer...\nRunning ExUnit with seed: 148067, max_cases: 20\n\n....................................................................................................................................................................................Exported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-1/pages/runs/v1.2.3/ddddddd\nManifest entries: 1\nExported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-1/pages/runs/feature/d/eeeeeee\nManifest entries: 2\nExported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-1/pages/runs/feature/e/fffffff\nManifest entries: 2\nPurged runs: 1\n.Exported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-2/pages/runs/main/abcdef1\nManifest entries: 1\n.Exported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-3/pages/runs/feature/a/aaaaaaa\nManifest entries: 1\nExported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-3/pages/runs/feature/b/bbbbbbb\nManifest entries: 2\nExported run to /var/folders/6s/9d_7z_4d41b7n05ypfk6zds40000gp/T/e2e-export-static-3/pages/runs/feature/c/ccccccc\nManifest entries: 2\nPurged runs: 1\n..22:22:34.981 [warning] Browser request did not resolve to valid Nixstasis operator permissions\n..22:22:34.983 [warning] Browser request did not resolve to valid Nixstasis operator permissions\n............................................................Seeding baseline E2E data...\n..Seeding baseline E2E data...\n...Seeding baseline E2E data...\n...Seeding baseline E2E data...\n.Seeding baseline E2E data...\n..........Seeding baseline E2E data...\n.Seeding baseline E2E data...\n.Seeding baseline E2E data...\n..Seeding baseline E2E data...\n..........22:22:36.466 [error] Postgrex.Protocol (#PID<0.20881.0> (\"db_conn_8\")) disconnected: ** (DBConnection.ConnectionError) client #PID<0.22509.0> exited\n.......................Seeding baseline E2E data...\n.Seeding baseline E2E data...\nSeeding baseline E2E data...\n.Seeding baseline E2E data...\n..Seeding baseline E2E data...\n..........................................................................................22:22:38.580 [error] Postgrex.Protocol (#PID<0.20888.0> (\"db_conn_15\")) disconnected: ** (DBConnection.ConnectionError) client #PID<0.23667.0> exited\n................22:22:39.089 [error] Postgrex.Protocol (#PID<0.20877.0> (\"db_conn_4\")) disconnected: ** (DBConnection.ConnectionError) client #PID<0.23794.0> exited\n22:22:39.105 [warning] Failed to approve selected devices: {:error, :no_devices_selected}\n22:22:39.112 [warning] Failed to reject selected devices: {:error, :no_devices_selected}\n.......22:22:39.243 [error] Postgrex.Protocol (#PID<0.20882.0> (\"db_conn_9\")) disconnected: ** (DBConnection.ConnectionError) client #PID<0.23844.0> exited\n22:22:39.245 [warning] Failed to clear remote access flag for e04d360a-fbd5-40d4-8a26-c6daf1d02d87: \nBread Crumbs:\n  > Error returned from: Nixstasis.Devices.Device.read\n\nUnknown Error\n\n* ** (DBConnection.OwnershipError) cannot find ownership process for #PID<0.20902.0> (Nixstasis.Devices.RemoteAccessLeases)\nusing mode :manual.\n\nWhen using ownership, you must manage connections in one\nof the four ways:\n\n* By explicitly checking out a connection\n* By explicitly allowing a spawned process\n* By running the pool in shared mode\n* By using :caller option with allowed process\n\nThe first two options require every new process to explicitly\ncheck a connection out or be allowed by calling checkout or\nallow respectively.\n\nThe third option requires a {:shared, pid} mode to be set.\nIf using shared mode in tests, make sure your tests are not\nasync.\n\nThe fourth option requires [caller: pid] to be used when\nchecking out a connection from the pool. The caller process\nshould already be allowed on a connection.\n\nIf you are reading this error, it means you have not done one\nof the steps above or that the owner process has crashed.\n\nSee Ecto.Adapters.SQL.Sandbox docs for more information.\n  (ecto_sql 3.13.4) lib/ecto/adapters/sql.ex:1110: Ecto.Adapters.SQL.raise_sql_call_error/1\n  (ecto_sql 3.13.4) lib/ecto/adapters/sql.ex:1011: Ecto.Adapters.SQL.execute/6\n  (ecto 3.13.5) lib/ecto/repo/queryable.ex:241: Ecto.Repo.Queryable.execute/4\n  (ecto 3.13.5) lib/ecto/repo/queryable.ex:19: Ecto.Repo.Queryable.all/3\n  (ash_postgres 2.6.31) lib/data_layer.ex:845: anonymous fn/3 in AshPostgres.DataLayer.run_query/2\n  (ash_postgres 2.6.31) lib/data_layer.ex:844: AshPostgres.DataLayer.run_query/2\n  (ash 3.15.0) lib/ash/actions/read/read.ex:88: Ash.Actions.Read.run/3\n  (ash 3.15.0) lib/ash.ex:3022: Ash.do_read_one/3\n  (ash 3.15.0) lib/ash.ex:2930: Ash.read_one/2\n  (ash 3.15.0) lib/ash.ex:2883: Ash.read_one!/2\n  (ash 3.15.0) lib/ash/code_interface.ex:1781: Ash.CodeInterface.read_get_act!/3\n  (nixstasis 0.1.0) lib/nixstasis/devices.ex:942: Nixstasis.Devices.clear_remote_access_device/1\n  (nixstasis 0.1.0) lib/nixstasis/devices.ex:101: Nixstasis.Devices.handle_remote_access_owner_down/3\n  (stdlib 7.3) gen_server.erl:2434: :gen_server.try_handle_info/3\n  (stdlib 7.3) gen_server.erl:2420: :gen_server.handle_msg/3\n...............22:22:39.594 request_id=GMVnEznMmhBn554AAt6i [warning] Browser request did not resolve to valid Nixstasis operator permissions\n........................22:22:40.438 request_id=GMVnE2wlfpC4_5cAAtKD [warning] Browser request did not resolve to valid Nixstasis operator permissions\n22:22:40.438 request_id=GMVnE2wpBea4_5cAAtLD [warning] Browser request did not resolve to valid Nixstasis operator permissions\n...........22:22:40.673 request_id=GMVnE3ogfQh9KUkAAuCC [warning] Browser request did not resolve to valid Nixstasis operator permissions\n...........................\nFinished in 17.4 seconds (2.1s async, 15.2s sync)\n496 tests, 0 failures\n",
+      "working_directory": "packages/server"
+    }
+  ]
+}
