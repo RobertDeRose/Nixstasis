@@ -32,12 +32,15 @@
 # Development
 
 - [Development Overview](development.md)
+- [Developer Tooling](development/tooling.md)
+- [Feature Lifecycle](development/feature-lifecycle.md)
 - [Compose Dev Harness](features/compose-dev-harness/design.md)
 - [Operational Unknowns](unknowns.md)
 
 # Operations
 
 - [Deployment Compose](modules/deployment-compose.md)
+- [GitHub Pages Deployment](operations/github-pages.md)
 - [Production Operations](operations/index.md)
   - [Backup And Restore](operations/backup-restore.md)
   - [Secret Rotation](operations/secret-rotation.md)
@@ -52,7 +55,8 @@
 
 # Design
 
-- [Specifications](features/index.md)
+- [Planned Features](planned-features.md)
+  <!-- BEGIN FEATURE DESIGNS -->
   - [IoT Device Monitoring](features/iot-device-monitoring/design.md)
   - [Dashboard Home](features/dashboard-home/design.md)
   - [Phoenix UI Polish](features/phoenix-ui-polish/design.md)
@@ -68,13 +72,19 @@
   - [Production Operations Runbooks](features/production-operations-runbooks/design.md)
   - [Rich API Examples](features/rich-api-examples/design.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/design.md)
-- [Planned Features](planned-features.md)
+  <!-- END FEATURE DESIGNS -->
+- [Implemented Features](features/index.md)
+  <!-- BEGIN IMPLEMENTED FEATURES -->
+  <!-- Migration will populate standalone delivered-feature pages here. -->
+  <!-- END IMPLEMENTED FEATURES -->
 
 # Reference
 
+- [Documentation Conventions](introduction/documentation-conventions.md)
+- [Project Overview](introduction/project-overview.md)
+- [Tooling Reference](reference/tooling.md)
 - [API & Runtime Contracts](reference/contracts.md)
   - [OpenAPI Contracts](reference/openapi/index.md)
-- [Task Reference](reference/tasks.md)
 - [Agent Workflows](reference/agent-workflows.md)
 - [E2E Results](reference/e2e-results.md)
 - [Client-Server Interface](client-server-interface.md)

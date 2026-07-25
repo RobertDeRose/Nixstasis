@@ -1,3 +1,5 @@
+<!-- rumdl-disable MD041 -->
+
 <p align="center">
   <img src="assets/brand/nixstasis-logo.png" alt="Nixstasis logo" width="168">
 </p>
@@ -30,7 +32,22 @@ Elixir/Phoenix, respectively.
 - `packages/caddy`: Caddy image and legacy packaging assets.
 - `packages/frp`: FRPS image build assets and shared FRP binary acquisition
   scripts used by server/client packaging flows.
-- `docs/src/features`: Docs-driven feature designs and task history.
+- `docs/src/features`: Documentation-first feature designs and delivery records.
+
+## Development workflow
+
+This repository uses dstack's documentation-first, Beads-backed feature workflow. Install the workflow skills and
+inspect ready feature work with:
+
+```bash
+npx --yes skills@1.5.16 add RobertDeRose/dstack
+bd prime
+bd ready --type epic --label workflow:feature --json --limit 0
+```
+
+Use `/plan-features`, `/start-feature`, `/implement-feature`, and `/close-feature` for feature delivery. Install the
+locked developer tools with `mise install --locked`, run documentation validation with `mise run docs:check`, and run
+the complete quality contract with `mise run check`.
 
 ## Package READMEs
 
@@ -211,25 +228,26 @@ Files that make up this example journey:
 ### File Types and Ownership
 
 <!-- markdownlint-disable MD013 -->
-| File Type | Path Pattern | Owned By | Purpose |
-| --- | --- | --- | --- |
-| Journey spec YAML | `packages/client/scripts/e2e/journeys/*.yaml` | Client | Declarative journey specs (`id`, `description`, `steps`). |
-| Runner entry script | `packages/client/scripts/e2e/run` | Client | Shell entrypoint for E2E CLI. |
-| Runner CLI main | `packages/client/scripts/e2e/main.go` | Client | Flag parsing and run launch. |
-| Runner config YAML | `packages/client/scripts/e2e/config.example.yaml` | Client | Default suite/env/protocol/journeys. |
-| Runner orchestration | `packages/client/internal/e2e/runner.go` | Client | Creates run, executes journeys, submits results. |
-| Journey execution + logs | `packages/client/internal/e2e/journey_executor.go` | Client | Action execution + JSONL log emission. |
-| E2E API client | `packages/client/internal/e2e/api.go` | Client | Calls run creation/results endpoints and sets protocol header. |
-| E2E context | `packages/server/lib/nixstasis/e2e.ex` | Server | Run lifecycle, idempotency, locking, retention, log reads. |
-| Contract guards | `packages/server/lib/nixstasis/e2e/protocol.ex`, `journey_selection.ex`, `data_policy.ex`, `expectation_registry.ex` | Server | Protocol, suite/journey, env policy, and action/expect validation. |
-| Locking | `packages/server/lib/nixstasis/e2e/environment_lock.ex`, `environment_locks.ex` | Server | Single active run per environment. |
-| Log storage | `packages/server/lib/nixstasis/e2e/log_store.ex` | Server (reads client logs too) | Safe read/write/delete + availability semantics. |
-| Retention worker | `packages/server/lib/nixstasis/e2e/retention_worker.ex` | Server | Periodic pruning by age/count/size policy. |
-| HTTP controllers | `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`, `e2e_run_result_controller.ex` | Server | Typed API responses and error codes. |
-| Dashboard page | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex` | Server | Runs/results/log visualization. |
-| Migrations | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server | Schema for runs/results and reliability hardening fields. |
-| Seed script | `packages/server/priv/e2e/seed.exs` | Server | Baseline data reset before run acceptance. |
-| E2E API docs | `docs/src/modules/server-e2e.md`, `docs/src/client-server-interface.md` | Both | Contract reference for endpoints/payloads/errors. |
+
+| File Type                | Path Pattern                                                                                                                                              | Owned By                       | Purpose                                                            |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|--------------------------------------------------------------------|
+| Journey spec YAML        | `packages/client/scripts/e2e/journeys/*.yaml`                                                                                                             | Client                         | Declarative journey specs (`id`, `description`, `steps`).          |
+| Runner entry script      | `packages/client/scripts/e2e/run`                                                                                                                         | Client                         | Shell entrypoint for E2E CLI.                                      |
+| Runner CLI main          | `packages/client/scripts/e2e/main.go`                                                                                                                     | Client                         | Flag parsing and run launch.                                       |
+| Runner config YAML       | `packages/client/scripts/e2e/config.example.yaml`                                                                                                         | Client                         | Default suite/env/protocol/journeys.                               |
+| Runner orchestration     | `packages/client/internal/e2e/runner.go`                                                                                                                  | Client                         | Creates run, executes journeys, submits results.                   |
+| Journey execution + logs | `packages/client/internal/e2e/journey_executor.go`                                                                                                        | Client                         | Action execution + JSONL log emission.                             |
+| E2E API client           | `packages/client/internal/e2e/api.go`                                                                                                                     | Client                         | Calls run creation/results endpoints and sets protocol header.     |
+| E2E context              | `packages/server/lib/nixstasis/e2e.ex`                                                                                                                    | Server                         | Run lifecycle, idempotency, locking, retention, log reads.         |
+| Contract guards          | `packages/server/lib/nixstasis/e2e/protocol.ex`, `journey_selection.ex`, `data_policy.ex`, `expectation_registry.ex`                                      | Server                         | Protocol, suite/journey, env policy, and action/expect validation. |
+| Locking                  | `packages/server/lib/nixstasis/e2e/environment_lock.ex`, `environment_locks.ex`                                                                           | Server                         | Single active run per environment.                                 |
+| Log storage              | `packages/server/lib/nixstasis/e2e/log_store.ex`                                                                                                          | Server (reads client logs too) | Safe read/write/delete + availability semantics.                   |
+| Retention worker         | `packages/server/lib/nixstasis/e2e/retention_worker.ex`                                                                                                   | Server                         | Periodic pruning by age/count/size policy.                         |
+| HTTP controllers         | `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`, `e2e_run_result_controller.ex`                                                     | Server                         | Typed API responses and error codes.                               |
+| Dashboard page           | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex`                                                                                            | Server                         | Runs/results/log visualization.                                    |
+| Migrations               | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server                         | Schema for runs/results and reliability hardening fields.          |
+| Seed script              | `packages/server/priv/e2e/seed.exs`                                                                                                                       | Server                         | Baseline data reset before run acceptance.                         |
+| E2E API docs             | `docs/src/modules/server-e2e.md`, `docs/src/client-server-interface.md`                                                                                   | Both                           | Contract reference for endpoints/payloads/errors.                  |
 
 ## Architecture Overview
 
@@ -307,7 +325,7 @@ flowchart TB
 This service has two components:
 
 - `frps`: The server, which must run on the same server as Nixstasis and must have a wildcard domain name assigned to
-          the IP Address that the server is running. The IP Address must be publicly reachable on the Internet.
+  the IP Address that the server is running. The IP Address must be publicly reachable on the Internet.
 - `frpc`: This is the client that must be deployed on the devices that Nixstasis will monitor and provide remote access.
 
 These services are configured using a `toml` file. See the FRP docs for configuration details.

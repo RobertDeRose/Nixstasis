@@ -42,3 +42,7 @@ preferences, live in these feature designs rather than the architecture pages.
 Current top-level book placement groups these same specs by reader intent:
 [Development](../development.md), Operations, and Reference pages link to the
 same feature designs where they are most useful.
+
+<!-- BEGIN IMPLEMENTED FEATURES -->
+<!-- Migration will populate standalone delivered-feature records here. -->
+<!-- END IMPLEMENTED FEATURES -->
