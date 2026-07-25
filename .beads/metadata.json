@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "nixstasis",
+  "project_id": "8298d28d-0f50-419b-ae0d-97a537c584d5"
+}
