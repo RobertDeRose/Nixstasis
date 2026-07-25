@@ -1,0 +1,10 @@
+{
+  "base_branch": "dev",
+  "base_sha": "9e87d9422f27792928ee97bee670b8d061d356bc",
+  "created_at": "2026-07-25T02:18:11+00:00",
+  "git_common_dir": "/Users/DeRoseR/workspace/personal/nixstasis/.git",
+  "migration_branch": "chore/migrate-dstack-workflow-20260725T021757Z",
+  "mode": "fresh",
+  "schema_version": 1,
+  "worktree_path": "/Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z"
+}
