@@ -75,7 +75,6 @@
   <!-- END FEATURE DESIGNS -->
 - [Implemented Features](features/index.md)
   <!-- BEGIN IMPLEMENTED FEATURES -->
-  <!-- Migration will populate standalone delivered-feature pages here. -->
   <!-- END IMPLEMENTED FEATURES -->
 
 # Reference
@@ -88,3 +87,7 @@
 - [Agent Workflows](reference/agent-workflows.md)
 - [E2E Results](reference/e2e-results.md)
 - [Client-Server Interface](client-server-interface.md)
+
+# Introduction
+
+- [Introduction](introduction/documentation-conventions.md)

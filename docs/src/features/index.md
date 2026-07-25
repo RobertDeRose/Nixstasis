@@ -44,5 +44,4 @@ Current top-level book placement groups these same specs by reader intent:
 same feature designs where they are most useful.
 
 <!-- BEGIN IMPLEMENTED FEATURES -->
-<!-- Migration will populate standalone delivered-feature records here. -->
 <!-- END IMPLEMENTED FEATURES -->

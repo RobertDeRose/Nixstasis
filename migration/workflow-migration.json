@@ -32,6 +32,17 @@
       "recorded_at": "2026-07-25T02:57:27+00:00",
       "residual_risk": "Sixteen completed features still require standalone delivered records; active legacy designs and tasks remain until Gate 6.",
       "status": "exception"
+    },
+    {
+      "approval": "APPROVE HK_SKIP_STEPS=docs",
+      "approved_step": "docs",
+      "command": "HK_SKIP_STEPS=docs git commit -m \"chore: normalize legacy feature paths\"",
+      "equivalent_result": "uv run scripts/check-docs.py --migration-mode passed with 0 errors and 42 migration warnings.",
+      "hook": "pre-commit",
+      "reason": "The Gate 4 checkpoint intentionally retains legacy task files and incomplete designs for Beads import and reconciliation.",
+      "recorded_at": "2026-07-25T03:58:36+00:00",
+      "residual_risk": "Strict documentation validation remains blocked until delivered records are reconciled and legacy task files are archived.",
+      "status": "exception"
     }
   ],
   "delivered_record_candidates": [],
@@ -9534,7 +9545,8 @@
   },
   "manifest_path": "migration/workflow-migration.json",
   "migration_finalized": false,
-  "migration_prepared": false,
+  "migration_prepared": true,
+  "prepared_at": "2026-07-25T03:45:22+00:00",
   "root": ".",
   "schema_version": 1,
   "source_workflow": "legacy-markdown-feature-workflow"

@@ -1,3 +1,5 @@
+<!-- workflow-migration:legacy-markdown-to-beads -->
+
 # Add Rule Modal Improvements
 
 ## Feature Name

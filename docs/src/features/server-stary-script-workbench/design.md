@@ -1,3 +1,5 @@
+<!-- workflow-migration:legacy-markdown-to-beads -->
+
 # Server Stary Script Workbench
 
 ## Feature Name
