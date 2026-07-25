@@ -104,7 +104,7 @@ local linters = new Mapping<String, Step> {
   ["mixed-line-ending"] = Builtins.mixed_line_ending
   ["contextlint"] = new Step {
     glob = List("README.md", "docs/**/*.md", "contextlint.config.json")
-    check = "contextlint"
+    check = "contextlint lint {{ files }}"
   }
   ["docs"] = new Step {
     glob = List("docs/src/**/*.md", "docs/book.toml", "scripts/check-docs.py")

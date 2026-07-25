@@ -2,21 +2,21 @@
 
 ## Final-State Checklist
 
-- [x] Provide a single `nixstasis` Go binary with registration, polling, script,
+- [x] `T001` Provide a single `nixstasis` Go binary with registration, polling, script,
   command, FRP, and support workflows.
-- [x] Load client configuration from `/etc/nixstasis/config.yaml` with supported
+- [x] `T002` Load client configuration from `/etc/nixstasis/config.yaml` with supported
   environment overrides.
-- [x] Detect stable device identity from host network interfaces and persist the
+- [x] `T003` Detect stable device identity from host network interfaces and persist the
   server-assigned device ID/API credential.
-- [x] Register devices through the Phoenix `/api/v1/devices/register` API and
+- [x] `T004` Register devices through the Phoenix `/api/v1/devices/register` API and
   handle pending approval without issuing runtime credentials prematurely.
-- [x] Poll the server through token-authenticated heartbeat requests and submit
+- [x] `T005` Poll the server through token-authenticated heartbeat requests and submit
   telemetry plus FRPC connection state.
-- [x] Use Starlark `.stary` scripts as the supported telemetry extension model.
-- [x] Execute server-issued command batches and return correlated command results.
-- [x] Start, stop, and restart FRPC based on heartbeat-provided
+- [x] `T006` Use Starlark `.stary` scripts as the supported telemetry extension model.
+- [x] `T007` Execute server-issued command batches and return correlated command results.
+- [x] `T008` Start, stop, and restart FRPC based on heartbeat-provided
   `remote_access_token` values.
-- [x] Avoid persisting the shared FRPS token in static client configuration or
+- [x] `T009` Avoid persisting the shared FRPS token in static client configuration or
   identity files.
-- [x] Build and validate supported Linux release artifacts, including packages
+- [x] `T010` Build and validate supported Linux release artifacts, including packages
   with bundled `frpc`.

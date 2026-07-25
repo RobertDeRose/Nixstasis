@@ -374,7 +374,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### `in-memory-ssh-authorized-keys`
 
-- Status: completed
+- Status: in-progress
 - Overview:
 - Replace file-based browser-terminal SSH key authorization with an OpenSSH
   `AuthorizedKeysCommand` integration backed by the Go client runtime. The
@@ -1240,3 +1240,63 @@ cohort instead of relying only on product, account, status, and search filters.
 - Security tests proving untrusted device inventory cannot authorize commands not
   present in the server catalog.
 - Suggested first workflow command: `/start-feature server-curated-command-package-catalog`
+
+## Migrated Legacy Feature History
+
+These entries preserve completed and active feature identities that were present in legacy feature records but omitted
+from the current roadmap narrative.
+
+### `add-rule-modal-improvements`
+
+- Status: in-progress
+- Overview: Improve Add Rule validation and first-attempt save usability; outstanding measured success criteria remain.
+
+### `dashboard-home`
+
+- Status: completed
+- Overview: Deliver the operational dashboard home and its monitoring summaries.
+
+### `device-detail-page`
+
+- Status: completed
+- Overview: Deliver device detail navigation, telemetry, controls, and remote-session workflows.
+
+### `go-client-rewrite`
+
+- Status: completed
+- Overview: Deliver the supported Go device agent, runtime, packaging, and client/server protocol implementation.
+
+### `iot-device-monitoring`
+
+- Status: completed
+- Overview: Deliver device registration, approval, heartbeat, telemetry, alerting, and monitoring workflows.
+
+### `packaging-deployment-migration`
+
+- Status: completed
+- Overview: Establish the supported Compose server deployment and GoReleaser client release paths.
+
+### `phoenix-ui-polish`
+
+- Status: completed
+- Overview: Deliver the Phoenix and LiveView interaction, layout, and visual quality improvements.
+
+### `report-view-improvements`
+
+- Status: completed
+- Overview: Deliver report filtering, sorting, result browsing, saved view preferences, and deletion workflows.
+
+### `schema-driven-builder-dropdowns`
+
+- Status: in-progress
+- Overview: Deliver schema-backed builder options while retaining outstanding performance and close-out validation.
+
+### `server-client-e2e-tests`
+
+- Status: completed
+- Overview: Deliver the client-driven E2E harness, server lifecycle APIs, reporting, retention, and CI publication.
+
+### `starlark-script-system`
+
+- Status: completed
+- Overview: Deliver the Stary/Starlark telemetry runtime, validation, builtins, CLI workflows, and execution safeguards.

@@ -2,19 +2,19 @@
 
 # Legacy Workflow Migration Report
 
-Generated: `2026-07-25T02:44:12+00:00`
+Generated: `2026-07-25T03:44:59+00:00`
 
 ## Inventory
 
 - Features: 23
 - Legacy task files: 21
-- Parsed task files: 20
-- Unparsed task files: 1
-- Parsed legacy tasks: 689
-- Reconciliation findings: 20
-- `in_progress`: 12
-- `needs_review`: 8
-- `planned`: 3
+- Parsed task files: 21
+- Unparsed task files: 0
+- Parsed legacy tasks: 699
+- Reconciliation findings: 16
+- `completed`: 16
+- `in_progress`: 5
+- `planned`: 2
 
 ## hk Reconciliation
 
@@ -33,37 +33,38 @@ Generated: `2026-07-25T02:44:12+00:00`
 ## Checkpoint Evidence
 
 - `pre-commit` `exception` — `HK_SKIP_STEPS=docs git commit -m "chore: adopt dstack workflow"` — The approved migration checkpoint retains legacy task files and incomplete legacy designs until Beads import and semantic reconciliation.
+- `pre-commit` `exception` — `HK_SKIP_STEPS=docs git commit -m "chore: record workflow migration plan"` — The Gate 3 checkpoint intentionally retains legacy task files and incomplete designs for Beads import and reconciliation.
 
 ## Feature Mapping
 
 - **Feature:** `compose-dev-harness`
   - Target: `compose-dev-harness`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `self-extracting-installer`
   - Target: `self-extracting-installer`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `server-provided-frps-token`
   - Target: `server-provided-frps-token`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `in-memory-ssh-authorized-keys`
   - Target: `in-memory-ssh-authorized-keys`
-  - Classification: `needs_review`
-  - Roadmap: completed
+  - Classification: `in_progress (override)`
+  - Roadmap: in-progress
   - Design: —
   - Index: no
-  - Findings: 1
+  - Findings: 0
 - **Feature:** `ash-api-contract-unification`
   - Target: `ash-api-contract-unification`
   - Classification: `in_progress`
@@ -73,21 +74,21 @@ Generated: `2026-07-25T02:44:12+00:00`
   - Findings: 0
 - **Feature:** `authcrunch-role-contract`
   - Target: `authcrunch-role-contract`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `production-operations-runbooks`
   - Target: `production-operations-runbooks`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `rich-api-examples`
   - Target: `rich-api-examples`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: completed
   - Design: —
   - Index: no
@@ -101,7 +102,7 @@ Generated: `2026-07-25T02:44:12+00:00`
   - Findings: 0
 - **Feature:** `server-command-allowlist-management`
   - Target: `server-command-allowlist-management`
-  - Classification: `needs_review`
+  - Classification: `completed (override)`
   - Roadmap: implemented
   - Design: —
   - Index: no
@@ -123,77 +124,77 @@ Generated: `2026-07-25T02:44:12+00:00`
 - **Feature:** `add-rule-modal-improvements`
   - Target: `add-rule-modal-improvements`
   - Classification: `in_progress`
-  - Roadmap: —
+  - Roadmap: in-progress
   - Design: —
   - Index: no
-  - Findings: 1
+  - Findings: 0
 - **Feature:** `dashboard-home`
   - Target: `dashboard-home`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `device-detail-page`
   - Target: `device-detail-page`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `go-client-rewrite`
   - Target: `go-client-rewrite`
-  - Classification: `planned`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
-  - Findings: 2
+  - Findings: 1
 - **Feature:** `iot-device-monitoring`
   - Target: `iot-device-monitoring`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `packaging-deployment-migration`
   - Target: `packaging-deployment-migration`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `phoenix-ui-polish`
   - Target: `phoenix-ui-polish`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `report-view-improvements`
   - Target: `report-view-improvements`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `schema-driven-builder-dropdowns`
   - Target: `schema-driven-builder-dropdowns`
   - Classification: `in_progress`
-  - Roadmap: —
+  - Roadmap: in-progress
   - Design: —
   - Index: no
-  - Findings: 1
+  - Findings: 0
 - **Feature:** `server-client-e2e-tests`
   - Target: `server-client-e2e-tests`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
 - **Feature:** `starlark-script-system`
   - Target: `starlark-script-system`
-  - Classification: `in_progress`
-  - Roadmap: —
+  - Classification: `completed (override)`
+  - Roadmap: completed
   - Design: —
   - Index: no
   - Findings: 1
@@ -203,79 +204,86 @@ Generated: `2026-07-25T02:44:12+00:00`
 ### Compose dev harness (`compose-dev-harness`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 21 closed tasks, deploy/compose, and current development docs corroborate delivery.
 
 ### Self extracting installer (`self-extracting-installer`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 13 closed tasks, installer build assets, and release verification corroborate delivery.
 
 ### Server provided frps token (`server-provided-frps-token`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 23 closed tasks, client/server token handling, tests, and contract docs corroborate delivery.
 
 ### In memory ssh authorized keys (`in-memory-ssh-authorized-keys`)
 
-- `finding:6b2eaf2be8db` — Roadmap says completed/implemented but completion evidence is missing: all implementation tasks closed, T999 closed, implemented-feature index.md
+- Classification override: `in_progress` — Six validation and close-out tasks remain open, so roadmap completion is not yet supported despite delivered code.
 
 ### Authcrunch role contract (`authcrunch-role-contract`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 26 closed tasks, Caddy role mapping, Phoenix permissions, tests, and docs corroborate delivery.
 
 ### Production operations runbooks (`production-operations-runbooks`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 13 closed tasks, and the current operations runbook set corroborate delivery.
 
 ### Rich API examples (`rich-api-examples`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
+- Classification override: `completed` — Roadmap completion, 15 closed tasks, API examples, OpenAPI references, and tests corroborate delivery.
 
 ### Server command allowlist management (`server-command-allowlist-management`)
 
 - `finding:5b9be2888efc` — Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md
-
-### Add rule modal improvements (`add-rule-modal-improvements`)
-
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- Classification override: `completed` — Roadmap implementation status, 29 closed tasks, server/client policy code, tests, and docs corroborate delivery.
 
 ### Dashboard home (`dashboard-home`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 29 tasks are closed and current dashboard LiveView code, tests, and reader documentation corroborate delivery.
 
 ### Device detail page (`device-detail-page`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 38 tasks are closed and current device detail LiveView code, tests, and reader documentation corroborate delivery.
 
 ### Go client rewrite (`go-client-rewrite`)
 
-- `finding:e4ddc6438542` — Legacy tasks.md exists but no recognizable T### tasks were parsed; extend the parser or resolve this finding after manually mapping the task state
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 10 final-state tasks are closed and the current Go client, tests, packaging, and reader docs corroborate delivery.
 
 ### Iot device monitoring (`iot-device-monitoring`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 53 tasks are closed and current registration, telemetry, monitoring code, tests, and docs corroborate delivery.
 
 ### Packaging deployment migration (`packaging-deployment-migration`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 49 tasks are closed and current Compose deployment, release assets, checks, and docs corroborate delivery.
 
 ### Phoenix UI polish (`phoenix-ui-polish`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 19 tasks are closed and current LiveView components, UI tests, and reader docs corroborate delivery.
 
 ### Report view improvements (`report-view-improvements`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
-
-### Schema driven builder dropdowns (`schema-driven-builder-dropdowns`)
-
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 42 tasks are closed and current reporting LiveViews, tests, and reader docs corroborate delivery.
 
 ### Server client e2e tests (`server-client-e2e-tests`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 39 tasks are closed and the current E2E APIs, client harness, tests, and reader docs corroborate delivery.
 
 ### Starlark script system (`starlark-script-system`)
 
-- `finding:fba242b97dad` — Feature is retained from migration state but is not represented in planned-features.md
+- `finding:54e5cd13e8ca` — Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md
+- Classification override: `completed` — All 46 tasks are closed and the current Starlark runtime, CLI, tests, and reader docs corroborate delivery.
 
 ## Migration Stages
 

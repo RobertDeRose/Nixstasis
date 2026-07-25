@@ -21,15 +21,26 @@
       "recorded_at": "2026-07-25T02:44:12+00:00",
       "residual_risk": "Strict documentation validation remains blocked by legacy task and design state until Gate 6 reconciliation and archival.",
       "status": "exception"
+    },
+    {
+      "approval": "APPROVE HK_SKIP_STEPS=docs",
+      "approved_step": "docs",
+      "command": "HK_SKIP_STEPS=docs git commit -m \"chore: record workflow migration plan\"",
+      "equivalent_result": "uv run scripts/check-docs.py --migration-mode passed with 0 errors and 42 migration warnings.",
+      "hook": "pre-commit",
+      "reason": "The Gate 3 checkpoint intentionally retains legacy task files and incomplete designs for Beads import and reconciliation.",
+      "recorded_at": "2026-07-25T02:57:27+00:00",
+      "residual_risk": "Sixteen completed features still require standalone delivered records; active legacy designs and tasks remain until Gate 6.",
+      "status": "exception"
     }
   ],
   "delivered_record_candidates": [],
   "features": [
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 21 closed tasks, deploy/compose, and current development docs corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -57,7 +68,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/compose-dev-harness/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:14+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 21 closed tasks, deploy/compose, and current development docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `deploy/compose/docker-compose.yml`\n- `deploy/compose/caddy/Caddyfile`\n- `deploy/compose/frps/frps.toml`\n- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`\n- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`\n- `packages/server/lib/nixstasis/devices/ssh_client.ex`\n- `packages/client/internal/frp/manager.go`\n- `packages/client/cmd/nixstasis/register.go`\n- `packages/client/cmd/nixstasis/poll.go`",
       "related_dependencies": [],
@@ -305,9 +323,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 13 closed tasks, installer build assets, and release verification corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -335,7 +353,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/self-extracting-installer/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:15+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 13 closed tasks, installer build assets, and release verification corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `packages/frp/bin/download_frp.sh`\n- `packages/client/build/bin/fetch_frpc.sh`\n- `.github/workflows/release_client.yml`\n- `packages/client/build/bin/verify_artifacts.sh`\n- `packages/client/build/root-dir/`\n- `prod.env`",
       "related_dependencies": [],
@@ -495,9 +520,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 23 closed tasks, client/server token handling, tests, and contract docs corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -525,7 +550,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/server-provided-frps-token/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:15+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 23 closed tasks, client/server token handling, tests, and contract docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`\n- `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`\n- `packages/client/internal/transport/client.go`\n- `packages/client/cmd/nixstasis/poll.go`\n- `packages/client/cmd/nixstasis/poll_test.go`\n- `packages/client/internal/frp/manager.go`\n- `deploy/compose/docker-compose.yml`\n- `deploy/compose/scripts/check_runtime_contract.sh`\n- `docs/src/client-server-interface.md`\n- `docs/src/modules/deployment-compose.md`",
       "related_dependencies": [],
@@ -795,13 +827,11 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "needs_review",
-      "conflicts": [
-        "Roadmap says completed/implemented but completion evidence is missing: all implementation tasks closed, T999 closed, implemented-feature index.md"
-      ],
+      "classification": "in_progress",
+      "classification_override": "in_progress",
+      "classification_override_reason": "Six validation and close-out tasks remain open, so roadmap completion is not yet supported despite delivered code.",
+      "computed_classification": "in_progress",
+      "conflicts": [],
       "dependencies": [],
       "dependency_overrides": {},
       "design_path": "docs/src/features/in-memory-ssh-authorized-keys/design.md",
@@ -825,14 +855,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/in-memory-ssh-authorized-keys/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:57:07+00:00",
+          "kind": "classification_override",
+          "reason": "Six validation and close-out tasks remain open, so roadmap completion is not yet supported despite delivered code.",
+          "value": "in_progress"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `packages/client/cmd/nixstasis/poll.go`\n- `packages/client/internal/commands/handler.go`\n- `packages/client/internal/config/config.go`\n- `packages/client/build/root-dir/`\n- `packages/client/build/debian/postinstall.sh`\n- `packages/client/.goreleaser.yaml`\n- `packages/server/lib/nixstasis_web/live/device_live/show.ex`\n- `packages/server/lib/nixstasis/devices/ssh_client.ex`\n- `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`\n- `deploy/compose/docker-compose.yml`\n- `deploy/compose/scripts/check_runtime_contract.sh`\n- `docs/src/modules/deployment-compose.md`\n- `docs/src/modules/edge-frp.md`",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "completed",
-      "roadmap_status": "completed",
+      "roadmap_state": "in_progress",
+      "roadmap_status": "in-progress",
       "slug": "in-memory-ssh-authorized-keys",
       "source_dir": "docs/src/features/in-memory-ssh-authorized-keys",
       "target_dir": "docs/src/features/in-memory-ssh-authorized-keys",
@@ -2134,9 +2171,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 26 closed tasks, Caddy role mapping, Phoenix permissions, tests, and docs corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -2164,7 +2201,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/authcrunch-role-contract/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:16+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 26 closed tasks, Caddy role mapping, Phoenix permissions, tests, and docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `deploy/compose/caddy/Caddyfile`\n- `packages/server/lib/nixstasis_web/router.ex`\n- `packages/server/lib/nixstasis_web/controllers/`\n- `packages/server/lib/nixstasis_web/live/`\n- `docs/src/modules/edge-caddy.md`\n- `docs/src/client-server-interface.md`",
       "related_dependencies": [],
@@ -2467,9 +2511,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 13 closed tasks, and the current operations runbook set corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -2497,7 +2541,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/production-operations-runbooks/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:17+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 13 closed tasks, and the current operations runbook set corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `deploy/compose/docker-compose.yml`\n- `deploy/compose/scripts/check_runtime_contract.sh`\n- `deploy/compose/README.md`\n- `docs/src/modules/deployment-compose.md`\n- `docs/src/runtime-boundaries.md`",
       "related_dependencies": [],
@@ -2657,9 +2708,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap completion, 15 closed tasks, API examples, OpenAPI references, and tests corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -2687,7 +2738,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/rich-api-examples/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:17+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap completion, 15 closed tasks, API examples, OpenAPI references, and tests corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `docs/src/client-server-interface.md`\n- `docs/src/reference/openapi/`\n- `packages/server/priv/static/openapi.yaml`\n- `packages/server/lib/nixstasis_web/controllers/`\n- `packages/client/internal/transport/client.go`",
       "related_dependencies": [],
@@ -3376,9 +3434,9 @@
     },
     {
       "beads": {},
-      "classification": "needs_review",
-      "classification_override": null,
-      "classification_override_reason": "",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "Roadmap implementation status, 29 closed tasks, server/client policy code, tests, and docs corroborate delivery.",
       "computed_classification": "needs_review",
       "conflicts": [
         "Roadmap says completed/implemented but completion evidence is missing: implemented-feature index.md"
@@ -3406,7 +3464,14 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/server-command-allowlist-management/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:18+00:00",
+          "kind": "classification_override",
+          "reason": "Roadmap implementation status, 29 closed tasks, server/client policy code, tests, and docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "- `packages/client/internal/script/builtins_exec.go`\n- `packages/client/internal/script/runtime.go`\n- `packages/client/cmd/nixstasis/poll.go`\n- `packages/client/internal/commands/handler.go`\n- `packages/client/internal/transport/client.go`\n- `packages/server/lib/nixstasis/devices.ex`\n- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`\n- `packages/server/lib/nixstasis_web/live/`\n- `packages/server/lib/nixstasis/domain.ex`\n- `docs/src/modules/client-starlark-runtime.md`\n- `docs/src/data-flow.md`",
       "related_dependencies": [],
@@ -3834,9 +3899,7 @@
       "classification_override": null,
       "classification_override_reason": "",
       "computed_classification": "in_progress",
-      "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
-      ],
+      "conflicts": [],
       "dependencies": [],
       "dependency_overrides": {},
       "design_path": "docs/src/features/add-rule-modal-improvements/design.md",
@@ -3866,8 +3929,8 @@
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "in_progress",
+      "roadmap_status": "in-progress",
       "slug": "add-rule-modal-improvements",
       "source_dir": "docs/src/features/add-rule-modal-improvements",
       "target_dir": "docs/src/features/add-rule-modal-improvements",
@@ -4286,12 +4349,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 29 tasks are closed and current dashboard LiveView code, tests, and reader documentation corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -4316,14 +4379,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/dashboard-home/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:19+00:00",
+          "kind": "classification_override",
+          "reason": "All 29 tasks are closed and current dashboard LiveView code, tests, and reader documentation corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "dashboard-home",
       "source_dir": "docs/src/features/dashboard-home",
       "target_dir": "docs/src/features/dashboard-home",
@@ -4652,12 +4722,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 38 tasks are closed and current device detail LiveView code, tests, and reader documentation corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -4682,14 +4752,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/device-detail-page/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:19+00:00",
+          "kind": "classification_override",
+          "reason": "All 38 tasks are closed and current device detail LiveView code, tests, and reader documentation corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "device-detail-page",
       "source_dir": "docs/src/features/device-detail-page",
       "target_dir": "docs/src/features/device-detail-page",
@@ -5119,21 +5196,20 @@
     },
     {
       "beads": {},
-      "classification": "planned",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "planned",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 10 final-state tasks are closed and the current Go client, tests, packaging, and reader docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Legacy tasks.md exists but no recognizable T### tasks were parsed; extend the parser or resolve this finding after manually mapping the task state",
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
       "design_path": "docs/src/features/go-client-rewrite/design.md",
       "design_status": "",
       "evidence": {
-        "all_implementation_closed": false,
-        "any_implementation_started": false,
+        "all_implementation_closed": true,
+        "any_implementation_started": true,
         "completed_evidence": false,
         "t000_closed": false,
         "t999_closed": false
@@ -5150,28 +5226,146 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/go-client-rewrite/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:20+00:00",
+          "kind": "classification_override",
+          "reason": "All 10 final-state tasks are closed and the current Go client, tests, packaging, and reader docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "go-client-rewrite",
       "source_dir": "docs/src/features/go-client-rewrite",
       "target_dir": "docs/src/features/go-client-rewrite",
-      "tasks": [],
+      "tasks": [
+        {
+          "body": "command, FRP, and support workflows.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T001",
+          "parallel": null,
+          "status": "closed",
+          "title": "Provide a single `nixstasis` Go binary with registration, polling, script,",
+          "validation": ""
+        },
+        {
+          "body": "environment overrides.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T002",
+          "parallel": null,
+          "status": "closed",
+          "title": "Load client configuration from `/etc/nixstasis/config.yaml` with supported",
+          "validation": ""
+        },
+        {
+          "body": "server-assigned device ID/API credential.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T003",
+          "parallel": null,
+          "status": "closed",
+          "title": "Detect stable device identity from host network interfaces and persist the",
+          "validation": ""
+        },
+        {
+          "body": "handle pending approval without issuing runtime credentials prematurely.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T004",
+          "parallel": null,
+          "status": "closed",
+          "title": "Register devices through the Phoenix `/api/v1/devices/register` API and",
+          "validation": ""
+        },
+        {
+          "body": "telemetry plus FRPC connection state.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T005",
+          "parallel": null,
+          "status": "closed",
+          "title": "Poll the server through token-authenticated heartbeat requests and submit",
+          "validation": ""
+        },
+        {
+          "body": "",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T006",
+          "parallel": null,
+          "status": "closed",
+          "title": "Use Starlark `.stary` scripts as the supported telemetry extension model.",
+          "validation": ""
+        },
+        {
+          "body": "",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T007",
+          "parallel": null,
+          "status": "closed",
+          "title": "Execute server-issued command batches and return correlated command results.",
+          "validation": ""
+        },
+        {
+          "body": "`remote_access_token` values.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T008",
+          "parallel": null,
+          "status": "closed",
+          "title": "Start, stop, and restart FRPC based on heartbeat-provided",
+          "validation": ""
+        },
+        {
+          "body": "identity files.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T009",
+          "parallel": null,
+          "status": "closed",
+          "title": "Avoid persisting the shared FRPS token in static client configuration or",
+          "validation": ""
+        },
+        {
+          "body": "with bundled `frpc`.",
+          "completion_constraint": "",
+          "depends_on": [],
+          "fields": {},
+          "label": "T010",
+          "parallel": null,
+          "status": "closed",
+          "title": "Build and validate supported Linux release artifacts, including packages",
+          "validation": ""
+        }
+      ],
       "title": "Go client rewrite"
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 53 tasks are closed and current registration, telemetry, monitoring code, tests, and docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -5196,14 +5390,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/iot-device-monitoring/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:21+00:00",
+          "kind": "classification_override",
+          "reason": "All 53 tasks are closed and current registration, telemetry, monitoring code, tests, and docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "iot-device-monitoring",
       "source_dir": "docs/src/features/iot-device-monitoring",
       "target_dir": "docs/src/features/iot-device-monitoring",
@@ -5796,12 +5997,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 49 tasks are closed and current Compose deployment, release assets, checks, and docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -5826,14 +6027,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/packaging-deployment-migration/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:22+00:00",
+          "kind": "classification_override",
+          "reason": "All 49 tasks are closed and current Compose deployment, release assets, checks, and docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "packaging-deployment-migration",
       "source_dir": "docs/src/features/packaging-deployment-migration",
       "target_dir": "docs/src/features/packaging-deployment-migration",
@@ -6387,12 +6595,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 19 tasks are closed and current LiveView components, UI tests, and reader docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -6417,14 +6625,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/phoenix-ui-polish/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:22+00:00",
+          "kind": "classification_override",
+          "reason": "All 19 tasks are closed and current LiveView components, UI tests, and reader docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "phoenix-ui-polish",
       "source_dir": "docs/src/features/phoenix-ui-polish",
       "target_dir": "docs/src/features/phoenix-ui-polish",
@@ -6643,12 +6858,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 42 tasks are closed and current reporting LiveViews, tests, and reader docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -6673,14 +6888,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/report-view-improvements/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:23+00:00",
+          "kind": "classification_override",
+          "reason": "All 42 tasks are closed and current reporting LiveViews, tests, and reader docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "report-view-improvements",
       "source_dir": "docs/src/features/report-view-improvements",
       "target_dir": "docs/src/features/report-view-improvements",
@@ -7161,9 +7383,7 @@
       "classification_override": null,
       "classification_override_reason": "",
       "computed_classification": "in_progress",
-      "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
-      ],
+      "conflicts": [],
       "dependencies": [],
       "dependency_overrides": {},
       "design_path": "docs/src/features/schema-driven-builder-dropdowns/design.md",
@@ -7193,8 +7413,8 @@
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "in_progress",
+      "roadmap_status": "in-progress",
       "slug": "schema-driven-builder-dropdowns",
       "source_dir": "docs/src/features/schema-driven-builder-dropdowns",
       "target_dir": "docs/src/features/schema-driven-builder-dropdowns",
@@ -7671,12 +7891,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 39 tasks are closed and the current E2E APIs, client harness, tests, and reader docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -7701,14 +7921,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/server-client-e2e-tests/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:24+00:00",
+          "kind": "classification_override",
+          "reason": "All 39 tasks are closed and the current E2E APIs, client harness, tests, and reader docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "server-client-e2e-tests",
       "source_dir": "docs/src/features/server-client-e2e-tests",
       "target_dir": "docs/src/features/server-client-e2e-tests",
@@ -8149,12 +8376,12 @@
     },
     {
       "beads": {},
-      "classification": "in_progress",
-      "classification_override": null,
-      "classification_override_reason": "",
-      "computed_classification": "in_progress",
+      "classification": "completed",
+      "classification_override": "completed",
+      "classification_override_reason": "All 46 tasks are closed and the current Starlark runtime, CLI, tests, and reader docs corroborate delivery.",
+      "computed_classification": "needs_review",
       "conflicts": [
-        "Feature is retained from migration state but is not represented in planned-features.md"
+        "Roadmap says completed/implemented but completion evidence is missing: T999 closed, implemented-feature index.md"
       ],
       "dependencies": [],
       "dependency_overrides": {},
@@ -8179,14 +8406,21 @@
       "legacy_source_dirs": [],
       "legacy_tasks_archive": null,
       "legacy_tasks_path": "docs/src/features/starlark-script-system/tasks.md",
-      "migration_decisions": [],
+      "migration_decisions": [
+        {
+          "at": "2026-07-25T02:56:24+00:00",
+          "kind": "classification_override",
+          "reason": "All 46 tasks are closed and the current Starlark runtime, CLI, tests, and reader docs corroborate delivery.",
+          "value": "completed"
+        }
+      ],
       "parent_feature": null,
       "raw_dependencies": "",
       "related_dependencies": [],
       "removed_dependencies": [],
       "resolved_conflicts": [],
-      "roadmap_state": "planned",
-      "roadmap_status": "",
+      "roadmap_state": "completed",
+      "roadmap_status": "completed",
       "slug": "starlark-script-system",
       "source_dir": "docs/src/features/starlark-script-system",
       "target_dir": "docs/src/features/starlark-script-system",
@@ -8701,7 +8935,7 @@
       "title": "Starlark script system"
     }
   ],
-  "generated_at": "2026-07-25T02:44:12+00:00",
+  "generated_at": "2026-07-25T03:44:59+00:00",
   "hk_reconciliation": {
     "baseline": {
       "command": "pkl eval hk.pkl",
@@ -8983,8 +9217,8 @@
             "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
           },
           "contextlint": {
-            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
-            "fingerprint": "e3ff2b22415ecbbcbc3cd950362d298f949e1dd145acf8003574cccc0940fdec"
+            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint lint {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+            "fingerprint": "4223b7320b7721d5101e605665218796bc69bc16a4e59b19a8be337727d59817"
           },
           "detect-private-key": {
             "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
@@ -9077,8 +9311,8 @@
             "fingerprint": "e44215c8cd1b2607f2f3c855e9b29f9ee94450c04cd4d50e296ab9809efd9903"
           },
           "harper_commit_message": {
-            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"awk '\\n  /^# ------------------------ >8 ------------------------/ { exit }\\n  /^diff --git / { exit }\\n  /^#/ { next }\\n  NR == 1 && /^release: v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$/ { next }\\n  /^Beads: [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*(, [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*)*$/ { next }\\n  { print }\\n' {{commit_msg_file}} | harper-cli lint --quiet --no-color\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
-            "fingerprint": "63cfbacadf8b38f3ed398279f37349910fbcc0412c809f632f8e099b398c5231"
+            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"awk '\\n  /^# ------------------------ >8 ------------------------/ { exit }\\n  /^diff --git / { exit }\\n  /^#/ { next }\\n  NR == 1 && /^release: v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$/ { next }\\n  /^Beads: [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*(, [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*)*$/ { next }\\n  { print }\\n' {{commit_msg_file}} | harper-cli lint --quiet --no-color --user-dict-path .config/harper-dictionary.txt\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+            "fingerprint": "c35fda476ce735c5e51243aba8062cb6876d3ecba64a40cd6a07e9c457f3f902"
           }
         },
         "fix": {
@@ -9111,8 +9345,8 @@
             "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
           },
           "contextlint": {
-            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
-            "fingerprint": "e3ff2b22415ecbbcbc3cd950362d298f949e1dd145acf8003574cccc0940fdec"
+            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint lint {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+            "fingerprint": "4223b7320b7721d5101e605665218796bc69bc16a4e59b19a8be337727d59817"
           },
           "detect-private-key": {
             "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
@@ -9213,8 +9447,8 @@
             "fingerprint": "0e5393ba5e8e4b6ce7eaf8dd903b6b5430de8b7af98dfaaddb797b736e72cf49"
           },
           "contextlint": {
-            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
-            "fingerprint": "e3ff2b22415ecbbcbc3cd950362d298f949e1dd145acf8003574cccc0940fdec"
+            "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"contextlint lint {{ files }}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":[\"README.md\",\"docs/**/*.md\",\"contextlint.config.json\"],\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
+            "fingerprint": "4223b7320b7721d5101e605665218796bc69bc16a4e59b19a8be337727d59817"
           },
           "detect-private-key": {
             "definition": "{\"_type\":\"step\",\"allow_symlinks\":false,\"batch\":false,\"check\":\"hk util detect-private-key {{files}}\",\"check_first\":true,\"depends\":[],\"env\":{},\"exclude\":[],\"exclusive\":false,\"glob\":\"**/*\",\"hide\":false,\"interactive\":false,\"output_summary\":\"stderr\",\"required\":[],\"stomp\":false}",
@@ -9294,9 +9528,9 @@
   },
   "inventory": {
     "legacy_task_files": 21,
-    "parsed_task_files": 20,
-    "parsed_tasks": 689,
-    "unparsed_task_files": 1
+    "parsed_task_files": 21,
+    "parsed_tasks": 699,
+    "unparsed_task_files": 0
   },
   "manifest_path": "migration/workflow-migration.json",
   "migration_finalized": false,
