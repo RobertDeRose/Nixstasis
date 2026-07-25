@@ -1,5 +1,8 @@
 # Planned Features
 
+This page is the human-readable roadmap. During migration, legacy status and task evidence remain here; after import,
+Beads is authoritative for live status, dependencies, claims, and ready-work selection.
+
 ## Project Overview
 
 Nixstasis needs a Compose development harness that exercises the same remote-access
@@ -141,67 +144,67 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Create a default Compose development harness that can run the server-side stack,
-    register or simulate a managed client, validate Caddy dynamic TLS approval with
-    local certificates, and open SSH terminal sessions from the Phoenix UI through
-    the FRP path. Add optional guidance for DuckDNS or a real domain when public
-    ACME fidelity is required.
+  register or simulate a managed client, validate Caddy dynamic TLS approval with
+  local certificates, and open SSH terminal sessions from the Phoenix UI through
+  the FRP path. Add optional guidance for DuckDNS or a real domain when public
+  ACME fidelity is required.
 - Requirements:
 - Provide documented startup and teardown commands for the local development
-    environment.
+  environment.
 - Provide local host routing/DNS guidance for the app host, AuthCrunch host,
-    FRPS admin host, and device wildcard hostnames.
+  FRPS admin host, and device wildcard hostnames.
 - Provide a local TLS validation path that exercises Caddy on-demand approval via
-    Phoenix `GET /api/v1/check_domain` using Caddy internal CA/local certificates
-    by default.
+  Phoenix `GET /api/v1/check_domain` using Caddy internal CA/local certificates
+  by default.
 - Provide optional DuckDNS or real-domain guidance for validating public ACME
-    behavior without making that path required for normal development.
+  behavior without making that path required for normal development.
 - Provide a test managed-device path that can register, connect FRPC to FRPS, and
-    expose SSH in a way the UI terminal can reach.
+  expose SSH in a way the UI terminal can reach.
 - Provide validation steps for opening a terminal from `/devices/:id` and running
-    a harmless command through the browser UI.
+  a harmless command through the browser UI.
 - Document how the development workflow differs from production Compose.
 - Constraints:
 - Must not weaken or bypass production ingress/authentication requirements.
 - Must not require public DNS or public internet exposure for the core local
-    validation path.
+  validation path.
 - Must keep DuckDNS and real-domain support optional and clearly marked as
-    public-fidelity validation.
+  public-fidelity validation.
 - Must preserve Compose-file-composition as the development override mechanism.
 - Must keep generated certificates, local keys, and runtime state out of source
-    control.
+  control.
 - Non-goals:
 - Making production certificate issuance validation mandatory for local
-    development.
+  development.
 - Multi-user staging operations.
 - Load, performance, or HA validation.
 - Replacing existing E2E API protocol validation.
 - Success criteria:
 - A developer can start the local stack from a clean checkout using documented
-    commands and local-only configuration.
+  commands and local-only configuration.
 - Visiting the local app through Caddy with local certificates causes TLS approval
-    behavior to be exercised and observable.
+  behavior to be exercised and observable.
 - Optional DuckDNS or real-domain instructions identify how to run a higher
-    fidelity public ACME validation path and how it differs from default laptop
-    mode.
+  fidelity public ACME validation path and how it differs from default laptop
+  mode.
 - A test device appears in the UI with remote-access state sufficient to launch
-    a terminal.
+  a terminal.
 - A browser-launched terminal session can run a harmless command through FRP and
-    SSH without direct shell shortcuts.
+  SSH without direct shell shortcuts.
 - The docs clearly separate development-only shortcuts from production deployment
-    guidance.
+  guidance.
 - Risks and tradeoffs:
 - Local TLS can become misleading if it validates only certificate plumbing and
-    not domain approval behavior.
+  not domain approval behavior.
 - Device simulation can hide real packaging/client defects if it bypasses the Go
-    client and FRPC process model.
+  client and FRPC process model.
 - Hostname routing can become fragile across macOS, Linux, Docker, Podman, and
-    Apple Container unless the spec chooses supported paths explicitly.
+  Apple Container unless the spec chooses supported paths explicitly.
 - Using real public DNS would increase fidelity but adds cost, secrets, and
-    operational burden for developers.
+  operational burden for developers.
 - DuckDNS reduces domain cost but adds account tokens, DNS propagation delay, and
-    external-service availability concerns.
+  external-service availability concerns.
 - Tunnel providers such as ngrok or localtunnel are useful for reachability demos
-    but can mask Caddy-owned TLS behavior if they terminate TLS before Caddy.
+  but can mask Caddy-owned TLS behavior if they terminate TLS before Caddy.
 - Dependencies:
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/caddy/Caddyfile`
@@ -216,13 +219,13 @@ cohort instead of relying only on product, account, status, and search filters.
 - Static validation for generated Compose development overrides.
 - A local smoke test that confirms Caddy reaches Phoenix TLS approval.
 - A local smoke test that confirms Caddy serves local certificates through the
-    default laptop hostnames.
+  default laptop hostnames.
 - A local smoke test that confirms FRPC connects to FRPS using the development
-    configuration.
+  configuration.
 - Optional DuckDNS or real-domain validation that documents certificate issuance,
-    DNS challenge behavior, and expected failure modes.
+  DNS challenge behavior, and expected failure modes.
 - A browser/UI or E2E journey that launches a terminal and executes a harmless
-    command through SSH.
+  command through SSH.
 - Suggested first workflow command: `/start-feature compose-dev-harness`
 
 ### `self-extracting-installer`
@@ -230,30 +233,30 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Build a CI-produced self-extracting installer archive for non-Nix, non-deb,
-    non-rpm installs. The archive bundles the client binary, arch-matched `frpc`,
-    configs, systemd units, and an artifact manifest into a single `.run` file
-    that extracts and installs to FHS paths.
+  non-rpm installs. The archive bundles the client binary, arch-matched `frpc`,
+  configs, systemd units, and an artifact manifest into a single `.run` file
+  that extracts and installs to FHS paths.
 - Requirements:
 - Produce a self-extracting archive per supported architecture as part of the
-    client release workflow.
+  client release workflow.
 - Include an install script that copies files to `/usr/bin/`,
-    `/usr/libexec/nixstasis/`, `/etc/nixstasis/`,
-    `/usr/share/nixstasis/`, and `/lib/systemd/system/`.
+  `/usr/libexec/nixstasis/`, `/etc/nixstasis/`,
+  `/usr/share/nixstasis/`, and `/lib/systemd/system/`.
 - Include an `artifacts.json` manifest with version, arch, sha256 per file,
-    file modes, and build timestamp.
+  file modes, and build timestamp.
 - Consume `frpc` from `packages/frp` via the shared acquisition path, not a
-    separate download.
+  separate download.
 - Extend client release CI so `.run` files are produced and verified alongside
-    existing archives, `.deb`, and `.rpm` packages.
+  existing archives, `.deb`, and `.rpm` packages.
 - Extend `verify_artifacts.sh` to validate `.run` archive contents and
-    manifest integrity.
+  manifest integrity.
 - Constraints:
 - Do not embed `frpc` in the Go client binary.
 - `FRPS_SERVER_ADDR` remains a runtime env var, not baked into the archive.
 - Systemd units must use `PrivateTmp=true`.
 - `build/root-dir` stays as the GoReleaser staging source.
 - `packages/frp` remains the shared source of truth for FRP version and
-    checksums.
+  checksums.
 - Non-goals:
 - Replacing `.deb` or `.rpm` packaging for distros that support them.
 - Interactive TUI installer or configuration wizard.
@@ -262,17 +265,17 @@ cohort instead of relying only on product, account, status, and search filters.
 - Success criteria:
 - A `.run` file for each release architecture is published to GitHub Releases.
 - Running the `.run` file on a clean Linux system installs all required files
-    to their FHS paths.
+  to their FHS paths.
 - Existing `/etc/nixstasis/config.yaml` is preserved on upgrade unless the
-    installer is explicitly forced to replace it; client-owned `frpc.toml` is
-    updated on every upgrade from `/usr/share/nixstasis/frpc.toml`.
+  installer is explicitly forced to replace it; client-owned `frpc.toml` is
+  updated on every upgrade from `/usr/share/nixstasis/frpc.toml`.
 - `artifacts.json` in the archive matches the installed bundle contents by
-    sha256.
+  sha256.
 - `verify_artifacts.sh` catches content or manifest drift in CI.
 - Risks and tradeoffs:
 - `makeself` adds a release CI dependency.
 - Self-extracting archives are less auditable than plain tarballs, so the
-    installer must support no-exec extraction for inspection.
+  installer must support no-exec extraction for inspection.
 - Install script upgrade behavior must avoid overwriting operator-owned config.
 - Dependencies:
 - `packages/frp/bin/download_frp.sh`
@@ -283,11 +286,11 @@ cohort instead of relying only on product, account, status, and search filters.
 - `prod.env`
 - Suggested validation:
 - CI step that builds the `.run` archive from snapshot artifacts and verifies
-    extraction plus manifest integrity.
+  extraction plus manifest integrity.
 - Fresh-install and upgrade tests for file placement, modes, and config
-    preservation.
+  preservation.
 - Manual smoke test on Alpine or Arch to confirm FHS placement without
-    `dpkg`/`rpm`.
+  `dpkg`/`rpm`.
 - Suggested first workflow command: `/start-feature self-extracting-installer`
 
 ### `server-provided-frps-token`
@@ -295,60 +298,60 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Move the remote-access trigger from a boolean heartbeat response flag to a
-    server-provided FRPS auth token. When the server wants a client to open
-    remote access, the heartbeat response includes the shared FRPS token. The
-    client treats the presence of that token as the start signal, passes it to
-    the transient unit through a systemd credential, and stops FRPC when the
-    token is absent.
+  server-provided FRPS auth token. When the server wants a client to open
+  remote access, the heartbeat response includes the shared FRPS token. The
+  client treats the presence of that token as the start signal, passes it to
+  the transient unit through a systemd credential, and stops FRPC when the
+  token is absent.
 - Requirements:
 - Replace `remote_access_requested` in the device heartbeat response contract
-    with `remote_access_token`.
+  with `remote_access_token`.
 - Include `remote_access_token` only when remote access is currently requested
-    for the device.
+  for the device.
 - Make the Phoenix server read the shared FRPS token from deployment
-    configuration and expose it only to authenticated device heartbeat responses
-    that need remote access.
+  configuration and expose it only to authenticated device heartbeat responses
+  that need remote access.
 - Make the Compose `nixstasis` service receive the same `FRPS_AUTH_TOKEN` as
-    the `frps` service.
+  the `frps` service.
 - Make the Go client start FRPC when `remote_access_token` is non-empty and
-    use that value as `FRPS_AUTH_TOKEN` for frpc template expansion.
+  use that value as `FRPS_AUTH_TOKEN` for frpc template expansion.
 - Make the Go client stop FRPC when `remote_access_token` is absent or empty.
 - Keep the device runtime API token separate from the FRPS auth token.
 - Constraints:
 - The current FRPS deployment uses upstream FRP token auth with one shared
-    `FRPS_AUTH_TOKEN`.
+  `FRPS_AUTH_TOKEN`.
 - Do not add an FRPS authentication plugin or per-device FRPS tokens in this
-    feature.
+  feature.
 - Do not persist the FRPS token in client config or identity files.
 - The client-owned `frpc.toml` continues to use `{{ .Envs.FRPS_AUTH_TOKEN }}`
-    and frpc-native environment expansion.
+  and frpc-native environment expansion.
 - The client continues launching FRPC through the `nixstasis-frpc` transient
-    systemd unit.
+  systemd unit.
 - Non-goals:
 - Replacing FRP token authentication.
 - Implementing per-device FRPS auth or revocation.
 - Changing browser terminal authorization.
 - Changing how operators request or close remote access in the UI beyond the
-    heartbeat response payload.
+  heartbeat response payload.
 - Success criteria:
 - A heartbeat for a device without requested remote access returns no FRPS
-    token and the client stops or leaves FRPC stopped.
+  token and the client stops or leaves FRPC stopped.
 - A heartbeat for a device with requested remote access returns the configured
-    FRPS token and the client starts FRPC with that token in the transient unit
-    credential path.
+  FRPS token and the client starts FRPC with that token in the transient unit
+  credential path.
 - The device API token is never used as the FRPS token.
 - Server and client tests cover both token-present and token-absent response
-    paths.
+  paths.
 - Runtime contract documentation identifies `FRPS_AUTH_TOKEN` as consumed by
-    both `frps` and `nixstasis`.
+  both `frps` and `nixstasis`.
 - Risks and tradeoffs:
 - Returning a shared FRPS token to a device exposes that token to the managed
-    host during the active remote-access lease.
+  host during the active remote-access lease.
 - A shared token keeps FRPS deployment simple but cannot revoke a single
-    device independently at the FRPS layer.
+  device independently at the FRPS layer.
 - If `FRPS_AUTH_TOKEN` is missing from the server environment while remote
-    access is requested, clients cannot open FRPC even though the UI requested
-    access.
+  access is requested, clients cannot open FRPC even though the UI requested
+  access.
 - Dependencies:
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`
 - `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`
@@ -362,11 +365,11 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/modules/deployment-compose.md`
 - Suggested validation:
 - Server controller tests for `remote_access_token` omitted when remote access
-    is false and present when true with `FRPS_AUTH_TOKEN` configured.
+  is false and present when true with `FRPS_AUTH_TOKEN` configured.
 - Client transport/poll tests for starting FRPC with heartbeat-provided token.
 - Client poll tests for stopping FRPC when the token is absent.
 - Runtime contract check proving the Phoenix service receives
-    `FRPS_AUTH_TOKEN`.
+  `FRPS_AUTH_TOKEN`.
 - Suggested first workflow command: `/start-feature server-provided-frps-token`
 
 ### `in-memory-ssh-authorized-keys`
@@ -385,111 +388,111 @@ cohort instead of relying only on product, account, status, and search filters.
   emits; there is no capability gate and no file-based fallback.
 - Background and problem statement:
 - Browser terminal access currently targets a dedicated `nixstasis-support`
-    account so operators can diagnose and repair devices using tools such as
-    `sudo systemctl`, `run0 systemctl`, package managers, journal logs, and
-    system status commands.
+  account so operators can diagnose and repair devices using tools such as
+  `sudo systemctl`, `run0 systemctl`, package managers, journal logs, and
+  system status commands.
 - The `nixstasis` account should remain the service identity for the client
-    process and should not be the account operators SSH into for repairs.
+  process and should not be the account operators SSH into for repairs.
 - A file-based `authorized_keys` design requires the client process to write to
-    `/var/lib/nixstasis-support/.ssh/authorized_keys`.
+  `/var/lib/nixstasis-support/.ssh/authorized_keys`.
 - If the client runs as root, file writes work but broaden the client daemon's
-    privilege boundary.
+  privilege boundary.
 - If the client later runs as the unprivileged `nixstasis` user, it cannot write
-    keys owned by `nixstasis-support` unless a privileged helper or sudo rule is
-    introduced.
+  keys owned by `nixstasis-support` unless a privileged helper or sudo rule is
+  introduced.
 - OpenSSH already supports dynamic key lookup through `AuthorizedKeysCommand`,
-    which lets the client keep ephemeral keys in memory and answer key lookup
-    requests at authentication time.
+  which lets the client keep ephemeral keys in memory and answer key lookup
+  requests at authentication time.
 - Requirements:
 - Configure `sshd` for the support account so it does not use a persistent
-    `authorized_keys` file for browser-terminal keys.
+  `authorized_keys` file for browser-terminal keys.
 - Add an OpenSSH config snippet equivalent to:
-    `Match User nixstasis-support`, `AuthorizedKeysFile none`,
-    `AuthorizedKeysCommand /usr/libexec/nixstasis/ssh-authorized-keys %u %k`,
-    and `AuthorizedKeysCommandUser nixstasis-ssh-authority`.
+  `Match User nixstasis-support`, `AuthorizedKeysFile none`,
+  `AuthorizedKeysCommand /usr/libexec/nixstasis/ssh-authorized-keys %u %k`,
+  and `AuthorizedKeysCommandUser nixstasis-ssh-authority`.
 - Add a locked-down `nixstasis-ssh-authority` system user for running the helper;
-    it must not be the `nixstasis-support` operator account.
+  it must not be the `nixstasis-support` operator account.
 - Add a small helper binary or command at
-    `/usr/libexec/nixstasis/ssh-authorized-keys`.
+  `/usr/libexec/nixstasis/ssh-authorized-keys`.
 - The helper must accept the OpenSSH-supplied username and public key, ask the
-    local client runtime over IPC/RPC whether that key is currently authorized,
-    print the public key to stdout only when authorized, and print nothing when
-    denied or unavailable.
+  local client runtime over IPC/RPC whether that key is currently authorized,
+  print the public key to stdout only when authorized, and print nothing when
+  denied or unavailable.
 - The Go client must maintain an in-memory set of ephemeral SSH public keys with
-    metadata such as target user, command/session id, issued time, expiry time,
-    and optional device/session context.
+  metadata such as target user, command/session id, issued time, expiry time,
+  and optional device/session context.
 - The Go client must expose a local-only IPC endpoint, preferably a Unix-domain
-    socket under `/run/nixstasis/`, for the helper to query current SSH key
-    authorization state.
+  socket under `/run/nixstasis/`, for the helper to query current SSH key
+  authorization state.
 - The IPC socket must have strict permissions so only the helper identity and the
-    client runtime can access it.
+  client runtime can access it.
 - The client must enforce key TTL and remove keys after expiry, explicit terminal
-    close, command/session completion where possible, or client restart.
+  close, command/session completion where possible, or client restart.
 - The server's `ssh_authorize` command should deliver the ephemeral public key
-    and TTL/session context to the client without requiring an
-    `authorized_keys_path`.
+  and TTL/session context to the client without requiring an
+  `authorized_keys_path`.
 - The server-side SSH client must continue to connect as `nixstasis-support` for
-    browser terminal sessions.
+  browser terminal sessions.
 - The support account must support privileged diagnostics and repair through both
-    `sudo` and systemd `run0`, while the dynamic key helper remains narrow and
-    only answers key lookups.
+  `sudo` and systemd `run0`, while the dynamic key helper remains narrow and
+  only answers key lookups.
 - Constraints:
 - Do not grant broad sudo to the `nixstasis` service account just so it can edit
-    `nixstasis-support` SSH files.
+  `nixstasis-support` SSH files.
 - Do not persist ephemeral browser-terminal public keys in
-    `/var/lib/nixstasis-support/.ssh/authorized_keys` for new installs.
+  `/var/lib/nixstasis-support/.ssh/authorized_keys` for new installs.
 - Do not make the helper perform arbitrary client commands; it only answers
-    whether an offered key is authorized.
+  whether an offered key is authorized.
 - Do not expose the IPC endpoint on TCP or any non-local network interface.
 - Do not let the helper trust user-controlled paths or write files based on SSH
-    login input.
+  login input.
 - Keep browser/operator authorization in Phoenix/Caddy separate from device-side
-    SSH key authorization. A key is valid only after the server has authorized the
-    operator and sent the device an `ssh_authorize` command.
+  SSH key authorization. A key is valid only after the server has authorized the
+  operator and sent the device an `ssh_authorize` command.
 - Keep support-user SSH access separate from FRP token distribution; FRP opens
-    the route, while this feature decides whether a public key may authenticate.
+  the route, while this feature decides whether a public key may authenticate.
 - Non-goals:
 - Replacing FRP or changing the FRPS TCP mux route.
 - Implementing a general-purpose remote shell daemon outside OpenSSH.
 - Supporting password-based support login.
 - Implementing permanent operator SSH keys or long-lived device-local user
-    accounts for every operator.
+  accounts for every operator.
 - Building a full privileged command execution framework.
 - Proposed runtime flow:
 - Operator clicks Start Remote Session in the Phoenix UI.
 - Server generates an ephemeral SSH key pair and queues `ssh_authorize` for the
-    device with the public key, target user `nixstasis-support`, and a short TTL.
+  device with the public key, target user `nixstasis-support`, and a short TTL.
 - Client receives the command during polling and stores the public key in memory
-    only.
+  only.
 - Server opens the browser terminal channel and starts `ssh` through FRP as
-    `nixstasis-support@atom-<device>-ssh`.
+  `nixstasis-support@atom-<device>-ssh`.
 - Device `sshd` receives the public-key authentication attempt and invokes
-    `/usr/libexec/nixstasis/ssh-authorized-keys %u %k` as
-    `nixstasis-ssh-authority`.
+  `/usr/libexec/nixstasis/ssh-authorized-keys %u %k` as
+  `nixstasis-ssh-authority`.
 - The helper sends the username and offered key to the client IPC socket.
 - The client checks the in-memory authorization set, TTL, and target user.
 - If authorized, the helper prints the matching public key to stdout and exits
-    successfully; OpenSSH continues login.
+  successfully; OpenSSH continues login.
 - If not authorized, expired, or the client is unavailable, the helper prints
-    nothing and OpenSSH denies the key.
+  nothing and OpenSSH denies the key.
 - When the terminal closes, the server may send an explicit revoke/close command
-    if available; independently, the client expires the key by TTL.
+  if available; independently, the client expires the key by TTL.
 - Packaging and installer requirements:
 - Client installers must create or update `nixstasis-support` for operator SSH
-    sessions.
+  sessions.
 - Client installers must create or update `nixstasis-ssh-authority` as a locked
-    system user for `AuthorizedKeysCommandUser`.
+  system user for `AuthorizedKeysCommandUser`.
 - Client installers must install the helper under `/usr/libexec/nixstasis/` with
-    root-owned, non-writable permissions.
+  root-owned, non-writable permissions.
 - Client installers must install an sshd config drop-in for the support user and
-    reload/restart sshd safely when systemd is available.
+  reload/restart sshd safely when systemd is available.
 - Client installers must ensure `/run/nixstasis/` runtime ownership and mode allow
-    the client daemon and helper to communicate but do not expose the socket to
-    untrusted local users.
+  the client daemon and helper to communicate but do not expose the socket to
+  untrusted local users.
 - If package upgrades find an old file-based
-    `/var/lib/nixstasis-support/.ssh/authorized_keys`, they should preserve it
-    unless the design explicitly defines cleanup; avoid deleting operator-owned
-    keys unexpectedly.
+  `/var/lib/nixstasis-support/.ssh/authorized_keys`, they should preserve it
+  unless the design explicitly defines cleanup; avoid deleting operator-owned
+  keys unexpectedly.
 - Migration and compatibility notes:
 - The dynamic `ssh_authorize` payload is the only path. There is no
   `runtime.authorized_keys_path` runtime config and no file-based fallback for
@@ -502,46 +505,46 @@ cohort instead of relying only on product, account, status, and search filters.
 - The client persists no keys across restart, so restart invalidates sessions.
 - Security considerations:
 - The helper must be small, deterministic, and auditable because OpenSSH invokes
-    it during authentication.
+  it during authentication.
 - The helper must bound request size and timeout quickly if the client IPC socket
-    is missing or unresponsive.
+  is missing or unresponsive.
 - The client should compare canonical public-key values, not raw unbounded input,
-    and should reject malformed key material before adding it to memory.
+  and should reject malformed key material before adding it to memory.
 - The IPC protocol should include the requested Unix username and public key; it
-    should not authorize keys for users other than `nixstasis-support` unless the
-    feature explicitly expands scope later.
+  should not authorize keys for users other than `nixstasis-support` unless the
+  feature explicitly expands scope later.
 - Logging must be useful for diagnosis but must not leak private key material.
-    Logging public-key fingerprints is acceptable; logging full keys should be
-    considered carefully.
+  Logging public-key fingerprints is acceptable; logging full keys should be
+  considered carefully.
 - Password authentication should remain disabled for support SSH access.
 - `nixstasis-support` may have passwordless sudo and/or polkit/run0 privileges
-    for repair workflows, but this feature must not grant broad sudo or run0
-    privileges to the dynamic-key helper.
+  for repair workflows, but this feature must not grant broad sudo or run0
+  privileges to the dynamic-key helper.
 - Success criteria:
 - A browser terminal session authenticates to `nixstasis-support` without creating
-    or modifying `/var/lib/nixstasis-support/.ssh/authorized_keys`.
+  or modifying `/var/lib/nixstasis-support/.ssh/authorized_keys`.
 - The client can run as an unprivileged service user and still authorize support
-    SSH logins through the helper/IPC path.
+  SSH logins through the helper/IPC path.
 - Expired, revoked, unknown, malformed, or wrong-user keys are denied by printing
-    no authorized keys.
+  no authorized keys.
 - Restarting the client invalidates in-memory terminal keys.
 - Operators can run repair commands through both supported privilege paths, such
-    as `sudo systemctl status nixstasis-poll.service`,
-    `run0 systemctl status nixstasis-poll.service`, `journalctl`, and package
-    manager commands after logging in as `nixstasis-support`.
+  as `sudo systemctl status nixstasis-poll.service`,
+  `run0 systemctl status nixstasis-poll.service`, `journalctl`, and package
+  manager commands after logging in as `nixstasis-support`.
 - Tests prove the helper handles allow, deny, timeout, malformed-key, wrong-user,
-    and client-unavailable cases.
+  and client-unavailable cases.
 - Tests prove the server still targets `nixstasis-support` and does not require
   `authorized_keys_path` for any client.
 - Risks and tradeoffs:
 - `AuthorizedKeysCommand` adds an authentication-time dependency on the local
-    client process and IPC socket; if the client is down, support SSH is denied.
+  client process and IPC socket; if the client is down, support SSH is denied.
 - Keeping keys in memory improves security but makes restart invalidate active or
-    pending terminal sessions.
+  pending terminal sessions.
 - OpenSSH config syntax and supported tokens vary by distro/version, so package
-    tests should cover the supported Linux targets.
+  tests should cover the supported Linux targets.
 - A helper/IPC protocol is more complex than appending a file, but it is narrower
-    and avoids broad filesystem write permissions.
+  and avoids broad filesystem write permissions.
 - Dependencies:
 - `packages/client/cmd/nixstasis/poll.go`
 - `packages/client/internal/commands/handler.go`
@@ -558,16 +561,16 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/modules/edge-frp.md`
 - Suggested validation:
 - Unit tests for client in-memory SSH authorization store: add, match, expiry,
-    revoke, malformed key rejection, and wrong-user denial.
+  revoke, malformed key rejection, and wrong-user denial.
 - Unit tests for the helper command with a fake Unix socket server covering allow,
-    deny, timeout, invalid response, and missing socket.
+  deny, timeout, invalid response, and missing socket.
 - Integration test using a real `sshd` config in a container where
-    `AuthorizedKeysCommand` authenticates a short-lived key and denies it after
-    TTL expiry.
+  `AuthorizedKeysCommand` authenticates a short-lived key and denies it after
+  TTL expiry.
 - Server tests for `ssh_authorize` payload shape and SSH target user.
 - Compose dev-lab smoke test that launches a terminal, runs `whoami`, runs a sudo
-    diagnostic command, closes the session, and verifies a later expired key is
-    denied.
+  diagnostic command, closes the session, and verifies a later expired key is
+  denied.
 - Runtime contract checks for installed helper path, sshd drop-in, support user,
   authority user, sudoers rule, run0/polkit support, and absence of file-based
   key writes for new installs.
@@ -578,58 +581,58 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: in-progress
 - Overview:
 - Rework the custom Phoenix controller APIs that represent durable product
-    contracts so they are exposed through Ash actions/resources where practical,
-    allowing OpenAPI generation to become the source of truth for those APIs.
-    Keep explicitly workflow-only endpoints as Phoenix controllers only when Ash
-    would make the contract less clear.
+  contracts so they are exposed through Ash actions/resources where practical,
+  allowing OpenAPI generation to become the source of truth for those APIs.
+  Keep explicitly workflow-only endpoints as Phoenix controllers only when Ash
+  would make the contract less clear.
 - Requirements:
 - Inventory every bespoke route under `/api/v1` and `/e2e` and classify it as
-    resource/action-oriented or workflow-only.
+  resource/action-oriented or workflow-only.
 - Move resource/action-oriented device, builder, and E2E APIs to Ash-backed
-    actions/resources or Ash JSON:API routes where the behavior maps cleanly.
+  actions/resources or Ash JSON:API routes where the behavior maps cleanly.
 - Preserve current wire contracts for the Go client, Caddy `check_domain`, and
-    E2E harness unless a deliberate versioned contract change is documented.
+  E2E harness unless a deliberate versioned contract change is documented.
 - Generate OpenAPI docs for the migrated Ash-backed APIs and remove duplicate
-    hand-maintained OpenAPI sections when the generated docs cover them fully.
+  hand-maintained OpenAPI sections when the generated docs cover them fully.
 - Keep any remaining hand-written Phoenix controller contracts under
-    `docs/src/reference/openapi/` with an explicit reason why they are not
-    Ash-generated.
+  `docs/src/reference/openapi/` with an explicit reason why they are not
+  Ash-generated.
 - Constraints:
 - Do not break existing Go client registration, heartbeat, command result, or
-    command payload behavior without a versioned migration plan.
+  command payload behavior without a versioned migration plan.
 - Do not force terminal, Caddy TLS approval, or E2E workflow endpoints into Ash
-    if a controller boundary is clearer or safer.
+  if a controller boundary is clearer or safer.
 - Maintain authentication and authorization semantics for device API keys,
-    Caddy/AuthCrunch, and E2E enablement gates.
+  Caddy/AuthCrunch, and E2E enablement gates.
 - Non-goals:
 - Replacing Ash JSON:API with a separate OpenAPI generator.
 - Converting browser LiveView routes to API routes.
 - Changing the public deployment or FRP runtime contract.
 - Success criteria:
 - Generated OpenAPI covers every API route that is implemented as an Ash-backed
-    product contract.
+  product contract.
 - Remaining bespoke OpenAPI files only document endpoints that intentionally stay
-    outside Ash, with rationale in the reference docs.
+  outside Ash, with rationale in the reference docs.
 - Client/server integration tests prove the Go client and E2E harness still work
-    against the migrated API surface.
+  against the migrated API surface.
 - The Reference section clearly distinguishes generated Ash OpenAPI from any
-    retained bespoke contracts.
+  retained bespoke contracts.
 - Risks and tradeoffs:
 - Some endpoints are protocol workflows rather than CRUD resources, and forcing
-    them into Ash may obscure behavior or complicate error handling.
+  them into Ash may obscure behavior or complicate error handling.
 - Moving stable client APIs can create compatibility risk unless responses,
-    status codes, and auth failures remain byte-for-byte compatible or versioned.
+  status codes, and auth failures remain byte-for-byte compatible or versioned.
 - Implementation status:
 - Builder schema reference, option, and validation behavior now has an Ash-backed
-    action resource with generated JSON:API routes under
-    `/api/json/builder_contract/*` and generated OpenAPI in
-    `packages/server/priv/static/openapi.yaml`.
+  action resource with generated JSON:API routes under
+  `/api/json/builder_contract/*` and generated OpenAPI in
+  `packages/server/priv/static/openapi.yaml`.
 - Legacy `/api/v1/builder-*` controller routes remain compatibility wrappers
-    around the Ash actions and keep the hand-maintained wrapper contract in
-    `docs/src/reference/openapi/builder-api.yaml`.
+  around the Ash actions and keep the hand-maintained wrapper contract in
+  `docs/src/reference/openapi/builder-api.yaml`.
 - Device runtime, report preview, Caddy TLS ask, E2E workflow, and laptop
-    diagnostics remain bespoke controller routes with retained/deferred rationale
-    in the reference docs.
+  diagnostics remain bespoke controller routes with retained/deferred rationale
+  in the reference docs.
 - Dependencies:
 - `packages/server/lib/nixstasis_web/router.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
@@ -644,13 +647,13 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/reference/openapi/`
 - Suggested validation:
 - Diff generated OpenAPI before/after and confirm migrated paths appear in the
-    generated document.
+  generated document.
 - Run Go client transport tests and server controller/domain tests for each
-    migrated route.
+  migrated route.
 - Run the E2E harness against the migrated `/e2e` contract if E2E routes are
-    moved or wrapped by Ash.
+  moved or wrapped by Ash.
 - Run `mdbook build docs` and ensure Reference links describe the final contract
-    source of truth.
+  source of truth.
 - Suggested first workflow command: `/start-feature ash-api-contract-unification`
 
 ### `authcrunch-role-contract`
@@ -658,53 +661,53 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Define the production authorization contract between Caddy/AuthCrunch and the
-    Phoenix application. Document which claims or headers Caddy forwards, how
-    roles/groups map to operator capabilities, and whether LiveView screens use
-    those claims for role-aware behavior.
+  Phoenix application. Document which claims or headers Caddy forwards, how
+  roles/groups map to operator capabilities, and whether LiveView screens use
+  those claims for role-aware behavior.
 - Requirements:
 - Inventory AuthCrunch-related Caddy configuration, Phoenix request handling,
-    LiveView session data, and any existing role/group assumptions.
+  LiveView session data, and any existing role/group assumptions.
 - Define the canonical forwarded headers or session fields Phoenix may trust
-    after Caddy/AuthCrunch authentication.
+  after Caddy/AuthCrunch authentication.
 - Define operator roles and the capabilities each role grants for dashboard,
-    devices, remote access, alerts, reports, settings, and E2E surfaces.
+  devices, remote access, alerts, reports, settings, and E2E surfaces.
 - Document behavior for missing, malformed, or insufficient claims.
 - Decide whether role-aware UI behavior belongs in LiveView assigns, plugs,
-    policies, or a separate authorization module.
+  policies, or a separate authorization module.
 - Update operations docs so deployment operators know which AuthCrunch groups or
-    claims must be configured.
+  claims must be configured.
 - Constraints:
 - Do not weaken the requirement that public browser traffic reaches Phoenix
-    through Caddy/AuthCrunch in the supported deployment.
+  through Caddy/AuthCrunch in the supported deployment.
 - Do not treat device API tokens, E2E enablement, or terminal session tokens as
-    substitutes for browser/operator authorization.
+  substitutes for browser/operator authorization.
 - Keep local development shortcuts clearly separate from production role
-    enforcement.
+  enforcement.
 - Non-goals:
 - Replacing AuthCrunch as the browser authentication edge.
 - Changing the device runtime API authentication contract.
 - Implementing a full multi-tenant RBAC product unless the role inventory proves
-    it is required.
+  it is required.
 - Success criteria:
 - Operators can configure AuthCrunch groups/claims and know which Nixstasis
-    capabilities each role enables.
+  capabilities each role enables.
 - Phoenix behavior for missing or insufficient role claims is documented and
-    tested.
+  tested.
 - The docs clearly distinguish browser/operator authorization from device API,
-    E2E, and terminal-session authentication.
+  E2E, and terminal-session authentication.
 - Risks and tradeoffs:
 - Browser authorization rules can drift if they are encoded only in Caddy and not
-    visible to Phoenix UI logic.
+  visible to Phoenix UI logic.
 - Over-modeling roles too early can add complexity before production operator
-    needs are proven.
+  needs are proven.
 - Completion notes:
 - Caddy/AuthCrunch remains the production browser authorization edge with
-    `authorize with entra_policy` on protected hosts.
+  `authorize with entra_policy` on protected hosts.
 - Caddy/AuthCrunch maps provider-specific OIDC groups into normalized
-    `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin` roles before
-    proxying to Phoenix.
+  `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin` roles before
+  proxying to Phoenix.
 - Phoenix maps default AuthCrunch `X-Token-*` role claim headers into device and
-    report permission maps and stays provider-agnostic.
+  report permission maps and stays provider-agnostic.
 - Dependencies:
 - `deploy/compose/caddy/Caddyfile`
 - `packages/server/lib/nixstasis_web/router.ex`
@@ -714,9 +717,9 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/client-server-interface.md`
 - Suggested validation:
 - Add request/LiveView tests for allowed and denied role scenarios once the
-    contract is implemented.
+  contract is implemented.
 - Run `mdbook build docs` and ensure Architecture, Operations, and Reference
-    pages all point to the final authorization contract.
+  pages all point to the final authorization contract.
 - Suggested first workflow command: `/start-feature authcrunch-role-contract`
 
 ### `production-operations-runbooks`
@@ -724,27 +727,27 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Add production operations runbooks that go beyond the Compose deployment
-    contract. Cover backup/restore, secret rotation, incident response,
-    monitoring, upgrade checks, and explicit HA/non-HA expectations for the
-    supported deployment shape.
+  contract. Cover backup/restore, secret rotation, incident response,
+  monitoring, upgrade checks, and explicit HA/non-HA expectations for the
+  supported deployment shape.
 - Requirements:
 - Document PostgreSQL backup and restore workflows for bundled and external
-    database modes.
+  database modes.
 - Document secret rotation procedures for Phoenix secrets, AuthCrunch/OIDC
-    values, JWT key material, FRPS auth/dashboard credentials, and database
-    credentials.
+  values, JWT key material, FRPS auth/dashboard credentials, and database
+  credentials.
 - Document operational health checks for Phoenix, Caddy, FRPS, PostgreSQL,
-    device heartbeat freshness, E2E retention, and remote-access availability.
+  device heartbeat freshness, E2E retention, and remote-access availability.
 - Document incident-response playbooks for failed migrations, broken TLS
-    approval, FRPS token exposure, device credential compromise, and E2E
-    retention/log failures.
+  approval, FRPS token exposure, device credential compromise, and E2E
+  retention/log failures.
 - Document upgrade and rollback validation steps for Compose services and client
-    release artifacts.
+  release artifacts.
 - State HA/scaling boundaries clearly: what the supported Compose deployment
-    does and does not guarantee.
+  does and does not guarantee.
 - Constraints:
 - Do not imply unsupported HA or clustered deployment semantics unless they are
-    implemented and tested.
+  implemented and tested.
 - Keep production runbooks separate from local development harness guidance.
 - Preserve `deploy/compose` as the supported server deployment path.
 - Non-goals:
@@ -754,21 +757,21 @@ cohort instead of relying only on product, account, status, and search filters.
 - Success criteria:
 - A production operator can restore service from backup using documented steps.
 - A production operator can rotate each documented secret without guessing which
-    services must restart.
+  services must restart.
 - The docs identify observable symptoms, immediate mitigations, and validation
-    checks for common incidents.
+  checks for common incidents.
 - HA and scaling expectations are explicit rather than implied.
 - Risks and tradeoffs:
 - Runbooks can become stale if they duplicate scripts without linking to source
-    validation.
+  validation.
 - Over-prescriptive backup tooling can conflict with an operator's managed
-    database platform.
+  database platform.
 - Completion notes:
 - Production operations runbooks are available under `docs/src/operations/` and
-    cover backup/restore, secret rotation, health checks, incident response,
-    upgrades/rollbacks, and HA/scaling expectations.
+  cover backup/restore, secret rotation, health checks, incident response,
+  upgrades/rollbacks, and HA/scaling expectations.
 - The feature task list in
-    `docs/src/features/production-operations-runbooks/tasks.md` is complete.
+  `docs/src/features/production-operations-runbooks/tasks.md` is complete.
 - Operations navigation is linked from `docs/src/SUMMARY.md`.
 - Dependencies:
 - `deploy/compose/docker-compose.yml`
@@ -780,7 +783,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - Exercise backup/restore against a disposable Compose stack.
 - Run runtime contract checks before and after documented secret rotation steps.
 - Run `mdbook build docs` and verify Operations navigation points to the new
-    runbooks.
+  runbooks.
 - Suggested first workflow command: `/start-feature production-operations-runbooks`
 
 ### `rich-api-examples`
@@ -788,28 +791,28 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: completed
 - Overview:
 - Add example-rich API documentation for maintained HTTP contracts. Provide
-    representative requests and responses for successful calls, validation
-    errors, authorization failures, conflict/locking behavior, and important
-    edge cases across `/api/v1`, `/e2e`, builder APIs, and retained bespoke
-    OpenAPI files.
+  representative requests and responses for successful calls, validation
+  errors, authorization failures, conflict/locking behavior, and important
+  edge cases across `/api/v1`, `/e2e`, builder APIs, and retained bespoke
+  OpenAPI files.
 - Requirements:
 - Add examples for device registration, pending approval, approved credential
-    issuance, heartbeat, command delivery, command results, deferred payload
-    fetches, and Caddy `check_domain` decisions.
+  issuance, heartbeat, command delivery, command results, deferred payload
+  fetches, and Caddy `check_domain` decisions.
 - Add examples for E2E run creation, idempotent reuse, environment lock
-    conflicts, protocol mismatch, seed failures, result submission, cancellation,
-    and missing/pruned logs.
+  conflicts, protocol mismatch, seed failures, result submission, cancellation,
+  and missing/pruned logs.
 - Add examples for builder schema option lookup, validation success, validation
-    failure, stale selections, missing schemas, and authorization failures where
-    applicable.
+  failure, stale selections, missing schemas, and authorization failures where
+  applicable.
 - Add examples for report APIs that remain hand-maintained and link alert-rule
-    contracts to generated Ash OpenAPI.
+  contracts to generated Ash OpenAPI.
 - Keep OpenAPI examples and prose examples synchronized, or link one canonical
-    source from the other.
+  source from the other.
 - Constraints:
 - Do not invent behavior that is not implemented or tested.
 - Distinguish Ash-generated `/api/json` examples from bespoke `/api/v1` and
-    `/e2e` controller examples.
+  `/e2e` controller examples.
 - Keep secrets, real tokens, hostnames, and operator data out of examples.
 - Non-goals:
 - Replacing generated Ash OpenAPI.
@@ -817,24 +820,24 @@ cohort instead of relying only on product, account, status, and search filters.
 - Creating exhaustive API tutorials for every LiveView browser route.
 - Success criteria:
 - API consumers can copy representative request/response shapes for each durable
-    runtime contract.
+  runtime contract.
 - Error examples cover the common failure classes operators and client authors
-    must handle.
+  must handle.
 - `mdbook build docs` succeeds and OpenAPI references remain linked from the
-    Reference section.
+  Reference section.
 - Risks and tradeoffs:
 - Examples can drift unless they are derived from tests or reviewed when
-    controllers change.
+  controllers change.
 - Too many examples can obscure the canonical contract if not organized by API
-    surface.
+  surface.
 - Completion notes:
 - Rich API examples are documented in `docs/src/client-server-interface.md` with
-    traceable implementation, test, and OpenAPI references.
+  traceable implementation, test, and OpenAPI references.
 - Generated Ash contracts remain linked through
-    `packages/server/priv/static/openapi.yaml`; bespoke controller contracts
-    remain under `docs/src/reference/openapi/`.
+  `packages/server/priv/static/openapi.yaml`; bespoke controller contracts
+  remain under `docs/src/reference/openapi/`.
 - The feature task list in `docs/src/features/rich-api-examples/tasks.md` is
-    complete.
+  complete.
 - Dependencies:
 - `docs/src/client-server-interface.md`
 - `docs/src/reference/openapi/`
@@ -844,7 +847,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - Suggested validation:
 - Compare examples against controller tests and client transport tests.
 - Run `mdbook build docs` and, where practical, OpenAPI validation for example
-    payloads.
+  payloads.
 - Suggested first workflow command: `/start-feature rich-api-examples`
 
 ### `server-stary-script-workbench`
@@ -852,83 +855,83 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: in-progress
 - Overview:
 - Add a server web interface for creating, editing, validating, testing, and
-    deploying Stary scripts. The UI should include a structured front-matter
-    editor, a script body editor, syntax/schema validation, and a workflow for
-    running candidate scripts on one or more selected clients before rollout.
+  deploying Stary scripts. The UI should include a structured front-matter
+  editor, a script body editor, syntax/schema validation, and a workflow for
+  running candidate scripts on one or more selected clients before rollout.
 - Requirements:
 - Provide a script inventory in the server web UI with draft, validated, tested,
-    deployed, failed, and archived states.
+  deployed, failed, and archived states.
 - Provide a front-matter model editor for script metadata, unique name, output
-    schema, timeout or warning metadata when supported, and other fields required
-    by the existing `stary` format.
+  schema, timeout or warning metadata when supported, and other fields required
+  by the existing `stary` format.
 - Provide a script body editor for the Starlark portion of the script.
 - Validate YAML front matter, Stary file structure, declared output schema, and
-    Starlark parseability before a script can be queued for testing or
-    deployment.
+  Starlark parseability before a script can be queued for testing or
+  deployment.
 - Reuse the existing client Stary semantics for runtime behavior; do not create a
-    separate server dialect that can pass validation but fail on clients.
+  separate server dialect that can pass validation but fail on clients.
 - Allow an operator to select one or more clients for test execution.
 - Dispatch test runs through the existing authenticated client command path or a
-    deliberately designed successor, and capture per-client status, output,
-    warnings, validation errors, execution errors, and timeout results.
+  deliberately designed successor, and capture per-client status, output,
+  warnings, validation errors, execution errors, and timeout results.
 - Keep test runs separate from deployed polling scripts so operators can test a
-    draft without affecting normal telemetry collection.
+  draft without affecting normal telemetry collection.
 - Provide a deployment workflow that installs or updates a validated script on
-    selected clients only after an explicit operator action.
+  selected clients only after an explicit operator action.
 - Record script versions, validation results, test results, deployment targets,
-    actor identity, and timestamps for audit and rollback decisions.
+  actor identity, and timestamps for audit and rollback decisions.
 - Surface deployment and test failures in the UI without blocking unrelated
-    clients from reporting normal telemetry.
+  clients from reporting normal telemetry.
 - Constraints:
 - The client remains the authoritative execution boundary for Starlark builtins,
-    command allowlisting, timeouts, and output validation.
+  command allowlisting, timeouts, and output validation.
 - Server-side validation must not require shelling out to an unmanaged client
-    binary in production unless that dependency is explicitly packaged and
-    supervised.
+  binary in production unless that dependency is explicitly packaged and
+  supervised.
 - Script test commands must be authenticated, authorized, bounded by timeout, and
-    rate limited so the web interface cannot become an unbounded remote execution
-    surface.
+  rate limited so the web interface cannot become an unbounded remote execution
+  surface.
 - Draft scripts and test results may contain sensitive operator-authored logic or
-    device output and must follow the same authorization model as other
-    operator-only device controls.
+  device output and must follow the same authorization model as other
+  operator-only device controls.
 - Deployment must preserve client-local safeguards: malformed scripts, schema
-    mismatches, and forbidden builtins still fail on the client.
+  mismatches, and forbidden builtins still fail on the client.
 - Non-goals:
 - Replacing client-local `test_script`, `repl`, `list_scripts`,
-    `install_script`, or `remove_script` workflows.
+  `install_script`, or `remove_script` workflows.
 - Building a collaborative IDE with real-time multi-user editing.
 - Providing a full source-control system for scripts in the first increment.
 - Automatically deploying scripts to every client without an explicit target
-    selection.
+  selection.
 - Designing a new scripting language or changing Stary file syntax.
 - Success criteria:
 - An operator can create or edit a draft Stary script in the server UI using a
-    structured front-matter editor and Starlark body editor.
+  structured front-matter editor and Starlark body editor.
 - Invalid front matter, invalid schema declarations, malformed Stary structure,
-    and Starlark syntax errors are caught before the script can be tested.
+  and Starlark syntax errors are caught before the script can be tested.
 - The operator can choose one or more connected clients, run the draft as a test,
-    and inspect each client's output, warnings, validation status, execution
-    status, and errors.
+  and inspect each client's output, warnings, validation status, execution
+  status, and errors.
 - Test execution does not install the draft as a normal polling script.
 - The operator can deploy a validated and tested script to selected clients and
-    see per-client deployment status.
+  see per-client deployment status.
 - Scripts that call `exec_cmd` surface the client runtime's allowlist rejection
-    clearly during test execution when the selected client has not enabled the
-    requested command.
+  clearly during test execution when the selected client has not enabled the
+  requested command.
 - Audit records identify who validated, tested, and deployed each script version,
-    what clients were targeted, and what result each client reported.
+  what clients were targeted, and what result each client reported.
 - Existing client-side Stary CLI tests and runtime tests continue to pass.
 - Risks and tradeoffs:
 - A rich editor can grow into a large IDE feature; the first version should focus
-    on structured front matter, basic code editing, validation, test dispatch, and
-    deployment state.
+  on structured front matter, basic code editing, validation, test dispatch, and
+  deployment state.
 - Server-side validation improves feedback speed but can become misleading if it
-    does not use the same parser and validation rules as the Go client.
+  does not use the same parser and validation rules as the Go client.
 - Running tests on live clients provides fidelity but introduces remote execution
-    risk, uneven client availability, and per-client builtin differences.
+  risk, uneven client availability, and per-client builtin differences.
 - Deploying scripts from the server centralizes operations but creates versioning,
-    audit, rollback, and authorization requirements that client-local files did
-    not have.
+  audit, rollback, and authorization requirements that client-local files did
+  not have.
 - Dependencies:
 - `docs/src/features/starlark-script-system/design.md`
 - `packages/client/internal/script/format.go`
@@ -944,30 +947,30 @@ cohort instead of relying only on product, account, status, and search filters.
 - `packages/server/lib/nixstasis/domain.ex`
 - Implementation status:
 - Server persistence, LiveView inventory/detail screens, structured front-matter
-    editing, CodeMirror body editing, validation, test queueing, deployment
-    queueing, per-device action display, live refresh, retry, and cancel/mark
-    failed controls are implemented.
+  editing, CodeMirror body editing, validation, test queueing, deployment
+  queueing, per-device action display, live refresh, retry, and cancel/mark
+  failed controls are implemented.
 - Validation now requires an explicit front-matter version, and test/deploy
-    commands use the immutable validated version content rather than the mutable
-    draft body.
+  commands use the immutable validated version content rather than the mutable
+  draft body.
 - Remaining close-out work is documentation reconciliation and any final browser
-    smoke testing against the Compose dev lab.
+  smoke testing against the Compose dev lab.
 - Suggested validation:
 - Server tests for script draft persistence, status transitions, authorization,
-    and audit event creation.
+  and audit event creation.
 - Parser/validation contract tests that prove server-side validation accepts and
-    rejects the same Stary front matter and schemas as the Go client.
+  rejects the same Stary front matter and schemas as the Go client.
 - LiveView tests for the front-matter editor, script body editor, validation
-    errors, client selection, and test/deploy actions.
+  errors, client selection, and test/deploy actions.
 - Client command tests for test-only script execution and install/update
-    commands, including timeout, forbidden builtin, invalid schema, and malformed
-    script cases.
+  commands, including timeout, forbidden builtin, invalid schema, and malformed
+  script cases.
 - End-to-end test that creates a draft in the UI, validates it, tests it on one
-    or more clients, deploys it to selected clients, and observes the resulting
-    telemetry/reporting behavior.
+  or more clients, deploys it to selected clients, and observes the resulting
+  telemetry/reporting behavior.
 - End-to-end test that runs an `exec_cmd` script against a selected client and
-    shows the client's allowlist rejection as a test result when the command is
-    not enabled.
+  shows the client's allowlist rejection as a test result when the command is
+  not enabled.
 - Suggested first workflow command: `/start-feature server-stary-script-workbench`
 
 ### `server-command-allowlist-management`
@@ -975,85 +978,85 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: implemented
 - Overview:
 - Add a server web interface for defining `exec_cmd` command allowlists,
-    grouping allowlists into reusable categories, and assigning the resulting
-    command policy to selected devices. This gives operators a controlled way to
-    grant Stary scripts the host-command capabilities they need without changing
-    the client runtime's deny-by-default security boundary.
+  grouping allowlists into reusable categories, and assigning the resulting
+  command policy to selected devices. This gives operators a controlled way to
+  grant Stary scripts the host-command capabilities they need without changing
+  the client runtime's deny-by-default security boundary.
 - Requirements:
 - Provide a command allowlist inventory in the server web UI with name,
-    description, status, version, command entries, and audit metadata.
+  description, status, version, command entries, and audit metadata.
 - Each command entry must identify the operator-facing command name and the
-    absolute executable path that the client should allow.
+  absolute executable path that the client should allow.
 - Reject command entries with relative paths, shell fragments, empty names,
-    ambiguous path aliases, or duplicate command names within the same resolved
-    policy.
+  ambiguous path aliases, or duplicate command names within the same resolved
+  policy.
 - Provide allowlist categories that group one or more allowlists into a larger
-    additive policy, so operators can create reusable categories such as
-    diagnostics, networking, service health, or hardware inspection.
+  additive policy, so operators can create reusable categories such as
+  diagnostics, networking, service health, or hardware inspection.
 - Allow categories to include other categories only if cycle detection and clear
-    resolved-policy preview are implemented; otherwise keep first-version
-    composition to direct allowlist membership.
+  resolved-policy preview are implemented; otherwise keep first-version
+  composition to direct allowlist membership.
 - Provide assignment workflows for selecting which devices receive which
-    allowlists or categories.
+  allowlists or categories.
 - Show the resolved command policy for each targeted device before deployment,
-    including command name, absolute path, source allowlist or category, version,
-    and any conflict that blocks deployment.
+  including command name, absolute path, source allowlist or category, version,
+  and any conflict that blocks deployment.
 - Deliver assigned policy to clients through an authenticated device command,
-    heartbeat payload extension, or another explicit device-runtime contract.
+  heartbeat payload extension, or another explicit device-runtime contract.
 - Make clients persist the active command policy in a client-owned runtime config
-    location and load it into `RuntimeConfig.ExecCommandAllowlist` before Stary
-    scripts execute.
+  location and load it into `RuntimeConfig.ExecCommandAllowlist` before Stary
+  scripts execute.
 - Record policy versions, assigned devices, actor identity, timestamps, and
-    client acknowledgement or failure results.
+  client acknowledgement or failure results.
 - Provide rollback or reassignment behavior so operators can remove a command
-    grant from selected devices and observe acknowledgement.
+  grant from selected devices and observe acknowledgement.
 - Constraints:
 - `exec_cmd` remains deny-by-default when no policy is assigned or when policy
-    delivery fails.
+  delivery fails.
 - The server must not allow operators to authorize arbitrary shell strings; only
-    named commands resolving to absolute executable paths are in scope.
+  named commands resolving to absolute executable paths are in scope.
 - Additive category composition must not hide conflicts. If two sources define
-    the same command name with different absolute paths, deployment should fail
-    until the operator resolves the conflict.
+  the same command name with different absolute paths, deployment should fail
+  until the operator resolves the conflict.
 - Policy assignment must be authorized as an admin/operator capability, not a
-    viewer capability.
+  viewer capability.
 - Client-side enforcement remains mandatory; server policy validation is not a
-    substitute for the client checking the allowlist at execution time.
+  substitute for the client checking the allowlist at execution time.
 - Policy delivery must be idempotent and safe across missed heartbeats, duplicate
-    command IDs, offline devices, and downgraded clients that do not support
-    remote allowlist updates.
+  command IDs, offline devices, and downgraded clients that do not support
+  remote allowlist updates.
 - Non-goals:
 - Implementing arbitrary argument allowlisting in the first increment unless the
-    script runtime already enforces argument-level policy.
+  script runtime already enforces argument-level policy.
 - Granting direct interactive shell access.
 - Automatically inferring required commands by parsing Stary script bodies.
 - Replacing OS-level permissions, sudo policy, or service-account hardening.
 - Building per-script sandboxing beyond the existing Stary runtime boundary.
 - Success criteria:
 - An operator can create small command allowlists with explicit command names and
-    absolute executable paths.
+  absolute executable paths.
 - An operator can group allowlists into larger categories and preview the
-    resolved additive policy.
+  resolved additive policy.
 - An operator can assign an allowlist or category to one or more devices and see
-    per-device pending, acknowledged, failed, and active policy status.
+  per-device pending, acknowledged, failed, and active policy status.
 - A client with no assigned allowlist rejects `exec_cmd`.
 - A client with an assigned allowlist accepts only the configured command names
-    or exact absolute paths and rejects unlisted commands.
+  or exact absolute paths and rejects unlisted commands.
 - Removing or changing an assignment eventually updates the client's active
-    policy and is visible in the server UI.
+  policy and is visible in the server UI.
 - Audit records identify who created, changed, assigned, removed, and deployed
-    each allowlist policy version.
+  each allowlist policy version.
 - Risks and tradeoffs:
 - Command allowlists are powerful device-control policy. Weak authorization,
-    vague paths, or hidden category inheritance would turn a script feature into
-    a broad remote execution surface.
+  vague paths, or hidden category inheritance would turn a script feature into
+  a broad remote execution surface.
 - Additive categories are simpler and easier to reason about than allow/deny
-    precedence, but they require explicit cleanup when an operator wants to
-    narrow permissions.
+  precedence, but they require explicit cleanup when an operator wants to
+  narrow permissions.
 - Absolute paths are safer than PATH lookup, but operators must account for
-    distro differences across device fleets.
+  distro differences across device fleets.
 - Client acknowledgement may lag because offline devices only receive policy on
-    a later poll cycle.
+  a later poll cycle.
 - Dependencies:
 - `packages/client/internal/script/builtins_exec.go`
 - `packages/client/internal/script/runtime.go`
@@ -1068,18 +1071,18 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/data-flow.md`
 - Suggested validation:
 - Server tests for allowlist/category CRUD, conflict detection, cycle detection
-    if nested categories are supported, device assignment, authorization, audit
-    events, and policy versioning.
+  if nested categories are supported, device assignment, authorization, audit
+  events, and policy versioning.
 - LiveView tests for creating allowlists, composing categories, previewing a
-    resolved device policy, assigning to devices, and removing assignments.
+  resolved device policy, assigning to devices, and removing assignments.
 - Client tests proving `RuntimeConfig.ExecCommandAllowlist` is populated from the
-    delivered policy and that `exec_cmd` rejects unassigned, relative, mismatched,
-    and conflicting command entries.
+  delivered policy and that `exec_cmd` rejects unassigned, relative, mismatched,
+  and conflicting command entries.
 - Command-delivery or heartbeat-contract tests covering offline devices,
-    duplicate deliveries, unsupported clients, acknowledgements, and rollback.
+  duplicate deliveries, unsupported clients, acknowledgements, and rollback.
 - End-to-end test that assigns a diagnostics allowlist to a test device, runs a
-    Stary script using an allowed command, then removes the assignment and proves
-    the same script can no longer execute the command.
+  Stary script using an allowed command, then removes the assignment and proves
+  the same script can no longer execute the command.
 - Suggested first workflow command: `/start-feature server-command-allowlist-management`
 
 ### `dashboard-device-groups`
@@ -1087,35 +1090,35 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: planned
 - Overview:
 - Add operator-managed device groups to the Dashboard Devices view. Operators can
-    create groups, edit group metadata, assign and remove devices, and filter the
-    device list by group.
+  create groups, edit group metadata, assign and remove devices, and filter the
+  device list by group.
 - Requirements:
 - Provide a groups management surface from the Devices view, including create,
-    rename, describe, archive/delete, and membership count behavior.
+  rename, describe, archive/delete, and membership count behavior.
 - Support assigning one or more selected devices to a group from the existing
-    Devices table selection workflow.
+  Devices table selection workflow.
 - Support removing one or more selected devices from a group without deleting the
-    device records.
+  device records.
 - Allow a device to belong to multiple groups.
 - Add group filters to the Devices list and preserve them in route-backed filter
-    state alongside existing product, account number, IPv4, approval status,
-    connectivity status, search, and sort parameters.
+  state alongside existing product, account number, IPv4, approval status,
+  connectivity status, search, and sort parameters.
 - Show group membership in the Devices list or detail flow without making the
-    table unreadable on small screens.
+  table unreadable on small screens.
 - Provide empty, loading, unauthorized, and conflict states for group management.
 - Keep group membership updates auditable with actor identity, timestamp, device
-    IDs, group ID, and action.
+  IDs, group ID, and action.
 - Expose a domain/context API for group CRUD, membership assignment, membership
-    removal, device listing by group, and group membership lookup.
+  removal, device listing by group, and group membership lookup.
 - Constraints:
 - Device groups are manual operator organization, not automatic product-name or
-    account-number grouping.
+  account-number grouping.
 - Group membership must not change device registration, approval, heartbeat,
-    remote-access, or API-token behavior.
+  remote-access, or API-token behavior.
 - Group management requires device management permission; read-only users may
-    filter or view groups only if their device permissions allow those devices.
+  filter or view groups only if their device permissions allow those devices.
 - Existing scoped-device authorization must still apply when listing group
-    members or applying group filters.
+  members or applying group filters.
 - Deleting or archiving a group must not delete devices.
 - Non-goals:
 - Rule-based dynamic groups in the first increment.
@@ -1126,22 +1129,22 @@ cohort instead of relying only on product, account, status, and search filters.
 - Success criteria:
 - An authorized operator can create a device group from the Devices view.
 - An authorized operator can select devices in the table and add them to or
-    remove them from a group.
+  remove them from a group.
 - A device can appear in multiple groups and group membership is visible from the
-    Devices workflow.
+  Devices workflow.
 - Filtering the Devices list by group returns the expected devices and composes
-    correctly with existing filters and search.
+  correctly with existing filters and search.
 - Unauthorized users cannot manage groups or infer devices outside their allowed
-    device scope through group membership.
+  device scope through group membership.
 - Group create, update, membership add/remove, and archive/delete actions are
-    covered by audit events or an equivalent traceable history.
+  covered by audit events or an equivalent traceable history.
 - Risks and tradeoffs:
 - Manual groups are straightforward and predictable, but operators must maintain
-    membership as fleets change.
+  membership as fleets change.
 - Showing group membership in a dense device table can add clutter; the UI should
-    use compact summaries and defer detailed editing to a focused panel or modal.
+  use compact summaries and defer detailed editing to a focused panel or modal.
 - Many-to-many group membership requires careful filtering and scoped
-    authorization tests to avoid leaking device existence.
+  authorization tests to avoid leaking device existence.
 - Dependencies:
 - `packages/server/lib/nixstasis/devices.ex`
 - `packages/server/lib/nixstasis/devices/device.ex`
@@ -1153,14 +1156,14 @@ cohort instead of relying only on product, account, status, and search filters.
 - `docs/src/features/dashboard-home/design.md`
 - Suggested validation:
 - Server/domain tests for group CRUD, uniqueness rules, membership add/remove,
-    multi-group membership, delete/archive behavior, and device filtering by
-    group.
+  multi-group membership, delete/archive behavior, and device filtering by
+  group.
 - LiveView tests for creating groups, adding selected devices, removing selected
-    devices, filtering by group, preserving query params, and unauthorized states.
+  devices, filtering by group, preserving query params, and unauthorized states.
 - Authorization tests proving scoped users only see allowed group memberships and
-    cannot manage groups without device-management permission.
+  cannot manage groups without device-management permission.
 - Regression tests proving existing product, account, IPv4, approval,
-    connectivity, search, and sort filters continue to compose correctly.
+  connectivity, search, and sort filters continue to compose correctly.
 - `mix ash.codegen --check` if Ash resources or relationships change.
 - Suggested first workflow command: `/start-feature dashboard-device-groups`
 
@@ -1169,57 +1172,57 @@ cohort instead of relying only on product, account, status, and search filters.
 - Status: planned
 - Overview:
 - Add a server-curated package and command catalog for command policy authoring.
-    Operators choose approved package-backed commands from the server catalog
-    instead of manually typing absolute executable paths. Device-reported
-    inventory is evidence only; the catalog remains the policy authority.
+  Operators choose approved package-backed commands from the server catalog
+  instead of manually typing absolute executable paths. Device-reported
+  inventory is evidence only; the catalog remains the policy authority.
 - Requirements:
 - During device registration or heartbeat, clients report `/etc/os-release`,
-    architecture, detected package manager, and enough package/command inventory
-    to verify catalog compatibility.
+  architecture, detected package manager, and enough package/command inventory
+  to verify catalog compatibility.
 - Keep the server catalog as the source of truth for package names, supported OS
-    families, command names, descriptions, categories, and risk/installation
-    guidance.
+  families, command names, descriptions, categories, and risk/installation
+  guidance.
 - Let operators create command policies from catalog commands or catalog
-    categories without manually entering absolute paths.
+  categories without manually entering absolute paths.
 - Resolve the final executable path per device before enforcement, then continue
-    delivering exact absolute-path allowlists to clients.
+  delivering exact absolute-path allowlists to clients.
 - Show compatibility status per target device: supported, package installed,
-    command path resolved, missing package, unsupported OS, or conflict.
+  command path resolved, missing package, unsupported OS, or conflict.
 - Treat device-discovered commands and paths as untrusted verification data, not
-    as automatic allowlist authority.
+  as automatic allowlist authority.
 - Keep package installation as an explicit operator-approved action if added;
-    policy assignment must not silently install software.
+  policy assignment must not silently install software.
 - Constraints:
 - The existing client runtime must remain deny-by-default.
 - The final execution boundary remains command-name to absolute-path allowlists;
-    package catalog entries are an authoring and resolution layer, not a looser
-    runtime permission model.
+  package catalog entries are an authoring and resolution layer, not a looser
+  runtime permission model.
 - Catalog package mappings must be OS-aware, with separate names or unsupported
-    states for Debian/Ubuntu, Fedora/RHEL, NixOS, and other distributions.
+  states for Debian/Ubuntu, Fedora/RHEL, NixOS, and other distributions.
 - Clients must not be able to expand their own permissions by advertising extra
-    commands, alternate paths, or package names.
+  commands, alternate paths, or package names.
 - Non-goals:
 - Arbitrary package search/install from public repositories in the first
-    increment.
+  increment.
 - Silent or automatic package installation during policy assignment.
 - Argument allowlisting or shell-fragment policies.
 - Trusting discovered commands as server-approved policy entries.
 - Success criteria:
 - An operator can select a catalog-backed command such as `df` without knowing
-    `/usr/bin/df`.
+  `/usr/bin/df`.
 - The server shows whether selected devices support the catalog entry before
-    assignment.
+  assignment.
 - A client receives and enforces the same absolute-path policy shape used by the
-    existing command allowlist system.
+  existing command allowlist system.
 - A compromised or incorrect client inventory report cannot create new approved
-    catalog commands by itself.
+  catalog commands by itself.
 - Risks and tradeoffs:
 - A curated catalog is safer than discovered-command authoring, but it requires
-    maintenance as package names and distro behavior change.
+  maintenance as package names and distro behavior change.
 - Per-device path resolution improves usability, but the server must make stale
-    or missing inventory obvious before assignment.
+  or missing inventory obvious before assignment.
 - Package installation support crosses a stronger trust boundary than command
-    allowlisting and should be separately approved, audited, and reversible.
+  allowlisting and should be separately approved, audited, and reversible.
 - Dependencies:
 - `docs/src/features/server-command-allowlist-management/design.md`
 - `packages/client/cmd/nixstasis/poll.go`
@@ -1229,11 +1232,11 @@ cohort instead of relying only on product, account, status, and search filters.
 - `packages/server/lib/nixstasis/devices/device.ex`
 - Suggested validation:
 - Client tests for OS-release parsing, package-manager detection, and command
-    path resolution reporting.
+  path resolution reporting.
 - Server tests proving catalog entries, OS mappings, compatibility checks, and
-    resolved absolute-path policy delivery.
+  resolved absolute-path policy delivery.
 - LiveView tests for catalog command selection, missing-package warnings,
-    unsupported-device states, and conflict handling.
+  unsupported-device states, and conflict handling.
 - Security tests proving untrusted device inventory cannot authorize commands not
-    present in the server catalog.
+  present in the server catalog.
 - Suggested first workflow command: `/start-feature server-curated-command-package-catalog`
