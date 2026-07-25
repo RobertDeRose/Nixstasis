@@ -139,7 +139,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ## Feature Map
 
-### `compose-dev-harness`
+### Compose dev harness (`compose-dev-harness`)
 
 - Status: completed
 - Overview:
@@ -228,7 +228,7 @@ cohort instead of relying only on product, account, status, and search filters.
   command through SSH.
 - Suggested first workflow command: `/start-feature compose-dev-harness`
 
-### `self-extracting-installer`
+### Self extracting installer (`self-extracting-installer`)
 
 - Status: completed
 - Overview:
@@ -293,7 +293,7 @@ cohort instead of relying only on product, account, status, and search filters.
   `dpkg`/`rpm`.
 - Suggested first workflow command: `/start-feature self-extracting-installer`
 
-### `server-provided-frps-token`
+### Server provided frps token (`server-provided-frps-token`)
 
 - Status: completed
 - Overview:
@@ -372,7 +372,7 @@ cohort instead of relying only on product, account, status, and search filters.
   `FRPS_AUTH_TOKEN`.
 - Suggested first workflow command: `/start-feature server-provided-frps-token`
 
-### `in-memory-ssh-authorized-keys`
+### In memory ssh authorized keys (`in-memory-ssh-authorized-keys`)
 
 - Status: in-progress
 - Overview:
@@ -576,7 +576,7 @@ cohort instead of relying only on product, account, status, and search filters.
   key writes for new installs.
 - Suggested first workflow command: `/start-feature in-memory-ssh-authorized-keys`
 
-### `ash-api-contract-unification`
+### Ash API contract unification (`ash-api-contract-unification`)
 
 - Status: in-progress
 - Overview:
@@ -656,7 +656,7 @@ cohort instead of relying only on product, account, status, and search filters.
   source of truth.
 - Suggested first workflow command: `/start-feature ash-api-contract-unification`
 
-### `authcrunch-role-contract`
+### Authcrunch role contract (`authcrunch-role-contract`)
 
 - Status: completed
 - Overview:
@@ -722,7 +722,7 @@ cohort instead of relying only on product, account, status, and search filters.
   pages all point to the final authorization contract.
 - Suggested first workflow command: `/start-feature authcrunch-role-contract`
 
-### `production-operations-runbooks`
+### Production operations runbooks (`production-operations-runbooks`)
 
 - Status: completed
 - Overview:
@@ -786,7 +786,7 @@ cohort instead of relying only on product, account, status, and search filters.
   runbooks.
 - Suggested first workflow command: `/start-feature production-operations-runbooks`
 
-### `rich-api-examples`
+### Rich API examples (`rich-api-examples`)
 
 - Status: completed
 - Overview:
@@ -850,7 +850,7 @@ cohort instead of relying only on product, account, status, and search filters.
   payloads.
 - Suggested first workflow command: `/start-feature rich-api-examples`
 
-### `server-stary-script-workbench`
+### Server stary script workbench (`server-stary-script-workbench`)
 
 - Status: in-progress
 - Overview:
@@ -973,7 +973,7 @@ cohort instead of relying only on product, account, status, and search filters.
   not enabled.
 - Suggested first workflow command: `/start-feature server-stary-script-workbench`
 
-### `server-command-allowlist-management`
+### Server command allowlist management (`server-command-allowlist-management`)
 
 - Status: implemented
 - Overview:
@@ -1085,7 +1085,7 @@ cohort instead of relying only on product, account, status, and search filters.
   the same script can no longer execute the command.
 - Suggested first workflow command: `/start-feature server-command-allowlist-management`
 
-### `dashboard-device-groups`
+### Dashboard device groups (`dashboard-device-groups`)
 
 - Status: planned
 - Overview:
@@ -1167,7 +1167,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - `mix ash.codegen --check` if Ash resources or relationships change.
 - Suggested first workflow command: `/start-feature dashboard-device-groups`
 
-### `server-curated-command-package-catalog`
+### Server curated command package catalog (`server-curated-command-package-catalog`)
 
 - Status: planned
 - Overview:
@@ -1246,57 +1246,57 @@ cohort instead of relying only on product, account, status, and search filters.
 These entries preserve completed and active feature identities that were present in legacy feature records but omitted
 from the current roadmap narrative.
 
-### `add-rule-modal-improvements`
+### Add rule modal improvements (`add-rule-modal-improvements`)
 
 - Status: in-progress
 - Overview: Improve Add Rule validation and first-attempt save usability; outstanding measured success criteria remain.
 
-### `dashboard-home`
+### Dashboard home (`dashboard-home`)
 
 - Status: completed
 - Overview: Deliver the operational dashboard home and its monitoring summaries.
 
-### `device-detail-page`
+### Device detail page (`device-detail-page`)
 
 - Status: completed
 - Overview: Deliver device detail navigation, telemetry, controls, and remote-session workflows.
 
-### `go-client-rewrite`
+### Go client rewrite (`go-client-rewrite`)
 
 - Status: completed
 - Overview: Deliver the supported Go device agent, runtime, packaging, and client/server protocol implementation.
 
-### `iot-device-monitoring`
+### Iot device monitoring (`iot-device-monitoring`)
 
 - Status: completed
 - Overview: Deliver device registration, approval, heartbeat, telemetry, alerting, and monitoring workflows.
 
-### `packaging-deployment-migration`
+### Packaging deployment migration (`packaging-deployment-migration`)
 
 - Status: completed
 - Overview: Establish the supported Compose server deployment and GoReleaser client release paths.
 
-### `phoenix-ui-polish`
+### Phoenix UI polish (`phoenix-ui-polish`)
 
 - Status: completed
 - Overview: Deliver the Phoenix and LiveView interaction, layout, and visual quality improvements.
 
-### `report-view-improvements`
+### Report view improvements (`report-view-improvements`)
 
 - Status: completed
 - Overview: Deliver report filtering, sorting, result browsing, saved view preferences, and deletion workflows.
 
-### `schema-driven-builder-dropdowns`
+### Schema driven builder dropdowns (`schema-driven-builder-dropdowns`)
 
 - Status: in-progress
 - Overview: Deliver schema-backed builder options while retaining outstanding performance and close-out validation.
 
-### `server-client-e2e-tests`
+### Server client e2e tests (`server-client-e2e-tests`)
 
 - Status: completed
 - Overview: Deliver the client-driven E2E harness, server lifecycle APIs, reporting, retention, and CI publication.
 
-### `starlark-script-system`
+### Starlark script system (`starlark-script-system`)
 
 - Status: completed
 - Overview: Deliver the Stary/Starlark telemetry runtime, validation, builtins, CLI workflows, and execution safeguards.

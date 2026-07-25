@@ -1,3 +1,5 @@
+<!-- workflow-migration:legacy-markdown-to-beads -->
+
 # Schema-Driven Builder Dropdowns
 
 ## Feature Name

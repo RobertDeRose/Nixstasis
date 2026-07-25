@@ -34,6 +34,7 @@ Generated: `2026-07-25T03:44:59+00:00`
 
 - `pre-commit` `exception` — `HK_SKIP_STEPS=docs git commit -m "chore: adopt dstack workflow"` — The approved migration checkpoint retains legacy task files and incomplete legacy designs until Beads import and semantic reconciliation.
 - `pre-commit` `exception` — `HK_SKIP_STEPS=docs git commit -m "chore: record workflow migration plan"` — The Gate 3 checkpoint intentionally retains legacy task files and incomplete designs for Beads import and reconciliation.
+- `pre-commit` `exception` — `HK_SKIP_STEPS=docs git commit -m "chore: normalize legacy feature paths"` — The Gate 4 checkpoint intentionally retains legacy task files and incomplete designs for Beads import and reconciliation.
 
 ## Feature Mapping
 

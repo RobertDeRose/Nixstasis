@@ -1,3 +1,5 @@
+<!-- workflow-migration:legacy-markdown-to-beads -->
+
 # Server Command Allowlist Management
 
 - Feature: `server-command-allowlist-management`

@@ -1,3 +1,5 @@
+<!-- workflow-migration:legacy-markdown-to-beads -->
+
 # Phoenix UI Polish
 
 ## Feature Name
