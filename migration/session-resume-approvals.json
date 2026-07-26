@@ -1,0 +1,11 @@
+{
+  "approvals": [
+    {
+      "approval": "RESUME DSTACK MIGRATION chore/migrate-dstack-workflow-20260725T021757Z IN /Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z",
+      "approved_at": "2026-07-26T03:36:36+00:00",
+      "head_sha": "5dc4f83e08986dd79f788dc5225cd3a450bfe99f",
+      "worktree_path": "/Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z"
+    }
+  ],
+  "schema_version": 1
+}
