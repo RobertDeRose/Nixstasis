@@ -1,2 +1,4 @@
 [default]
 extend-ignore-re = ["[0-9a-f]{7,40}"]
+[files]
+extend-exclude = [".beads/interactions.jsonl", "migration/workflow-migration.json"]
