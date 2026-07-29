@@ -43,14 +43,11 @@ upsert_device = fn attrs ->
   mac = attrs[:mac_address]
 
   case Domain.get_device_by_mac(mac) do
-    {:ok, nil} ->
-      Domain.create_device(attrs)
-
     {:ok, device} ->
       Domain.update_device(device, Map.delete(attrs, :mac_address))
 
-    {:error, error} ->
-      {:error, error}
+    {:error, _error} ->
+      Domain.create_device(attrs)
   end
 end
 
@@ -141,4 +138,75 @@ for {device, payload} <- [
 end
 
 IO.puts("Inserted sample telemetry events.")
+
+IO.puts("Seeding command catalog diagnostics entries...")
+
+for attrs <- [
+      %{slug: "diagnostics", display_name: "Diagnostics", description: "Read-only diagnostic commands"},
+      %{slug: "storage", display_name: "Storage", description: "Filesystem and storage inspection commands"}
+    ] do
+  case Domain.create_command_catalog_category(attrs) do
+    {:ok, _category} -> :ok
+    {:error, _error} -> :ok
+  end
+end
+
+catalog_commands = [
+  %{
+    name: "df",
+    display_name: "Disk free",
+    category_slugs: ["storage", "diagnostics"],
+    package_name: "coreutils",
+    command_path: "/usr/bin/df"
+  },
+  %{
+    name: "uname",
+    display_name: "Kernel identity",
+    category_slugs: ["diagnostics"],
+    package_name: "coreutils",
+    command_path: "/usr/bin/uname"
+  },
+  %{
+    name: "journalctl",
+    display_name: "Systemd journal",
+    category_slugs: ["diagnostics"],
+    package_name: "systemd",
+    command_path: "/usr/bin/journalctl"
+  }
+]
+
+for command_attrs <- catalog_commands do
+  {:ok, command} =
+    case Domain.create_command_catalog_command(%{
+           name: command_attrs.name,
+           display_name: command_attrs.display_name,
+           category_slugs: command_attrs.category_slugs,
+           description: "Curated #{command_attrs.display_name} command",
+           risk_notes: "Read-only diagnostic use through Stary exec_cmd policies.",
+           install_guidance: "Install the mapped package for the target OS before assignment."
+         }) do
+      {:ok, command} ->
+        {:ok, command}
+
+      {:error, _error} ->
+        Domain.list_command_catalog_commands()
+        |> then(fn {:ok, commands} -> {:ok, Enum.find(commands, &(&1.name == command_attrs.name))} end)
+    end
+
+  for {os_family, package_manager} <- [{"debian", "apt"}, {"fedora", "dnf"}, {"nixos", "nix"}] do
+    case Domain.create_command_catalog_mapping(%{
+           catalog_command_id: command.id,
+           os_family: os_family,
+           package_manager: package_manager,
+           package_name: command_attrs.package_name,
+           command_path: command_attrs.command_path,
+           install_hint: "Install #{command_attrs.package_name} with #{package_manager}."
+         }) do
+      {:ok, _mapping} -> :ok
+      {:error, _error} -> :ok
+    end
+  end
+end
+
+IO.puts("Seeded command catalog diagnostics entries.")
 IO.puts("Seed complete.")

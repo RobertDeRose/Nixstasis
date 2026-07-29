@@ -32,6 +32,11 @@
 - `packages/server/lib/nixstasis/command_allowlists/policy_delivery_result.ex`
 - `packages/server/lib/nixstasis/command_allowlists.ex`
 - `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex`
+- `packages/server/lib/nixstasis/command_catalog/category.ex`
+- `packages/server/lib/nixstasis/command_catalog/catalog_command.ex`
+- `packages/server/lib/nixstasis/command_catalog/package_mapping.ex`
+- `packages/server/lib/nixstasis/command_catalog/device_inventory_snapshot.ex`
+- `packages/server/lib/nixstasis/command_catalog/resolver.ex`
 - `packages/server/lib/nixstasis_web/ash_json_api_router.ex`
 - `packages/server/priv/static/openapi.yaml`
 
@@ -39,6 +44,10 @@
 
 - Command allowlist entries validate lowercase command names and absolute command paths without whitespace or shell metacharacters at the resource and database layers.
 - `Nixstasis.Domain.preview_command_policy/1` resolves selected command entries and category tags into a preview containing commands, provenance, conflicts, diff, and the raw v1 payload body.
+- The server-curated command catalog stores catalog categories, approved command records, OS-family package mappings, and the latest untrusted device command inventory snapshot.
+- `Nixstasis.Domain.command_inventory_probe_manifest/0` returns a non-authoritative `catalog-v1` probe manifest containing package names and command probes from active catalog mappings.
+- `Nixstasis.Domain.preview_catalog_command_compatibility/1` resolves selected catalog commands against selected devices and returns per-device statuses: `stale_inventory`, `unsupported_os`, `supported`, `missing_package`, `conflict`, `package_installed`, and `command_path_resolved`.
+- Inventory is current only when its probe catalog version matches the active catalog version and its `observed_at` timestamp is within the existing `offline_window` setting.
 - Ash domain APIs defined in `Nixstasis.Domain`:
   - `list_devices`
   - `get_device`
@@ -92,6 +101,27 @@
   - `list_command_policy_delivery_results`
   - `create_command_policy_delivery_result`
   - `preview_command_policy`
+  - `list_command_catalog_categories`
+  - `get_command_catalog_category`
+  - `create_command_catalog_category`
+  - `update_command_catalog_category`
+  - `destroy_command_catalog_category`
+  - `list_command_catalog_commands`
+  - `get_command_catalog_command`
+  - `create_command_catalog_command`
+  - `update_command_catalog_command`
+  - `list_command_catalog_mappings`
+  - `get_command_catalog_mapping`
+  - `create_command_catalog_mapping`
+  - `update_command_catalog_mapping`
+  - `destroy_command_catalog_mapping`
+  - `list_device_command_inventory_snapshots`
+  - `get_device_command_inventory_snapshot`
+  - `create_device_command_inventory_snapshot`
+  - `update_device_command_inventory_snapshot`
+  - `destroy_device_command_inventory_snapshot`
+  - `command_inventory_probe_manifest`
+  - `preview_catalog_command_compatibility`
 
 ## Dependencies
 

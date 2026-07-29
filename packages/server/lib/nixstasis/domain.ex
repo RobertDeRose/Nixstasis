@@ -7,6 +7,7 @@ defmodule Nixstasis.Domain do
     extensions: [AshJsonApi.Domain, AshPhoenix]
 
   alias Nixstasis.CommandAllowlists.PolicyResolver
+  alias Nixstasis.CommandCatalog.Resolver, as: CatalogResolver
 
   json_api do
     authorize? false
@@ -129,6 +130,8 @@ defmodule Nixstasis.Domain do
   end
 
   def preview_command_policy(attrs), do: PolicyResolver.preview(attrs)
+  def preview_catalog_command_compatibility(attrs), do: CatalogResolver.preview(attrs)
+  def command_inventory_probe_manifest, do: CatalogResolver.probe_manifest()
 
   resources do
     resource Nixstasis.Devices.Device do
@@ -203,6 +206,37 @@ defmodule Nixstasis.Domain do
     resource Nixstasis.CommandAllowlists.PolicyDeliveryResult do
       define :list_command_policy_delivery_results, action: :read
       define :create_command_policy_delivery_result, action: :create
+    end
+
+    resource Nixstasis.CommandCatalog.Category do
+      define :list_command_catalog_categories, action: :read
+      define :get_command_catalog_category, action: :read, get_by: [:id]
+      define :create_command_catalog_category, action: :create
+      define :update_command_catalog_category, action: :update
+      define :destroy_command_catalog_category, action: :destroy
+    end
+
+    resource Nixstasis.CommandCatalog.CatalogCommand do
+      define :list_command_catalog_commands, action: :read
+      define :get_command_catalog_command, action: :read, get_by: [:id]
+      define :create_command_catalog_command, action: :create
+      define :update_command_catalog_command, action: :update
+    end
+
+    resource Nixstasis.CommandCatalog.PackageMapping do
+      define :list_command_catalog_mappings, action: :read
+      define :get_command_catalog_mapping, action: :read, get_by: [:id]
+      define :create_command_catalog_mapping, action: :create
+      define :update_command_catalog_mapping, action: :update
+      define :destroy_command_catalog_mapping, action: :destroy
+    end
+
+    resource Nixstasis.CommandCatalog.DeviceInventorySnapshot do
+      define :list_device_command_inventory_snapshots, action: :read
+      define :get_device_command_inventory_snapshot, action: :read, get_by: [:id]
+      define :create_device_command_inventory_snapshot, action: :create
+      define :update_device_command_inventory_snapshot, action: :update
+      define :destroy_device_command_inventory_snapshot, action: :destroy
     end
 
     resource Nixstasis.Scripts.ScriptDraft do

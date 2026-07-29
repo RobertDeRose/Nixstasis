@@ -35,6 +35,32 @@ Payload shape:
 
 Clients durably persist accepted server policies outside the scripts directory. A persisted server policy overrides local `runtime.exec_commands`; when no persisted server policy exists, local config is the fallback. An empty `commands` object is valid and means deny all.
 
+## Command Catalog Resolver Contract
+
+The server-curated command catalog is an authoring and compatibility layer above the command policy contract. Catalog entries do not change the client runtime permission format; catalog-backed assignments still resolve to the absolute-path `apply_command_policy` payload above.
+
+Catalog resources store:
+
+- approved catalog commands with command name, display name, category slugs, risk notes, install guidance, and active version;
+- OS-family package mappings for `debian`, `fedora`, and `nixos`, each with package manager, package name, expected executable path, and install hint;
+- the latest device command inventory snapshot with schema version, probe catalog version, observation time, architecture, OS release fields, package manager, package evidence, and command path evidence.
+
+`Nixstasis.Domain.command_inventory_probe_manifest/0` returns the current non-authoritative probe catalog version (`catalog-v1` in the first server implementation), package names, and command probes. Clients may use the manifest to bound inventory collection, but it is never authorization.
+
+`Nixstasis.Domain.preview_catalog_command_compatibility/1` accepts selected `device_ids` and `catalog_command_ids` and returns per-device command compatibility. Status values are:
+
+| Status                  | Meaning                                                                                                                    |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `stale_inventory`       | No matching inventory exists, its probe catalog version is not current, or its observation is older than `offline_window`. |
+| `unsupported_os`        | The catalog has no supported mapping for the device OS family.                                                             |
+| `supported`             | The catalog has a supported OS mapping, but inventory did not include package evidence for the mapped package.             |
+| `missing_package`       | The catalog mapping exists, but inventory explicitly reports the mapped package as not installed.                          |
+| `conflict`              | Inventory reports the catalog command at a different executable path than the server mapping expects.                      |
+| `package_installed`     | The mapped package is installed, but the command path has not been resolved by inventory evidence.                         |
+| `command_path_resolved` | The mapped package is installed and the observed command path matches the server mapping.                                  |
+
+Only `command_path_resolved` is sufficient for catalog-backed assignment without further operator action. Client-reported packages, commands, or paths that do not match a server-approved catalog entry are diagnostics only and cannot create an approved policy source.
+
 ## Client Contracts
 
 - [Client Transport](../modules/client-transport.md): typed Go client HTTP
