@@ -59,7 +59,7 @@
   rows, not simple `CustomReport` CRUD.
 - Report list/detail interaction requirements, including filtering, sorting,
   delete confirmation, and saved view preferences, are captured in
-  [Report View Improvements](../features/report-view-improvements/design.md).
+  [Report View Improvements](../features/report-view-improvements/index.md).
 - Schema-aware alert/report builder option lookup and invalid-selection clearing
   behavior is captured in
   [Schema-Driven Builder Dropdowns](../features/schema-driven-builder-dropdowns/design.md).

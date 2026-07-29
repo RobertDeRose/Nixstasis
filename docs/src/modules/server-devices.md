@@ -88,7 +88,7 @@
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
 - Terminal session startup creates an opaque session ref **before** queueing
   `ssh_authorize`, so the queued command carries the ref. See
-   `packages/server/lib/nixstasis_web/live/device_live/show.ex` lines 171-192 for the full sequencing.
+  `packages/server/lib/nixstasis_web/live/device_live/show.ex` lines 171-192 for the full sequencing.
 - Terminal authorization commands carry the public key at top level and a dynamic
   JSON payload with `target_user=nixstasis-support`, `ttl_seconds`, and
   `session_ref`. The in-memory `ssh_authorize` payload is the only shape the
@@ -114,8 +114,8 @@
   product-specific Stary scripts can evolve without one relational table per
   product payload.
 - Detailed historical product requirements live in
-  [IoT Device Monitoring](../features/iot-device-monitoring/design.md) and
-  [Device Detail Page](../features/device-detail-page/design.md); runtime API
+  [IoT Device Monitoring](../features/iot-device-monitoring/index.md) and
+  [Device Detail Page](../features/device-detail-page/index.md); runtime API
   payloads live in [Client-Server Interface](../client-server-interface.md).
 
 Traceable references:

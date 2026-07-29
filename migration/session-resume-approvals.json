@@ -5,6 +5,12 @@
       "approved_at": "2026-07-26T03:36:36+00:00",
       "head_sha": "5dc4f83e08986dd79f788dc5225cd3a450bfe99f",
       "worktree_path": "/Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z"
+    },
+    {
+      "approval": "RESUME DSTACK MIGRATION chore/migrate-dstack-workflow-20260725T021757Z IN /Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z",
+      "approved_at": "2026-07-29T12:48:32+00:00",
+      "head_sha": "90587c36ddbaf4e33edf0ddbb3d35efdce0d37a6",
+      "worktree_path": "/Users/DeRoseR/workspace/personal/nixstasis.chore-migrate-dstack-workflow-20260725T021757Z"
     }
   ],
   "schema_version": 1

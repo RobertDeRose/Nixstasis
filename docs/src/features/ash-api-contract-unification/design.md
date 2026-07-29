@@ -242,3 +242,82 @@ Existing bespoke OpenAPI files that must be reconciled:
   migration is explicitly documented.
 - Retained-controller endpoints are acceptable only with route-specific rationale
   in the endpoint inventory and reference docs.
+
+## Metadata
+
+- Beads feature root: `nixstasis-zf5`
+- Feature slug: `ash-api-contract-unification`
+- Base branch: `dev`
+- Status: in progress
+
+## Feature Summary
+
+Move durable resource and action contracts to Ash-generated JSON:API and OpenAPI where the mapping is clear, while
+retaining workflow controllers with explicit rationale and wire compatibility.
+
+## User Intent
+
+Client authors and maintainers need one discoverable contract source without destabilizing device, Caddy, report, or E2E
+protocols that are clearer as bespoke workflows.
+
+## User-Facing Behavior
+
+Generated builder contracts are available under `/api/json/builder_contract/*`; retained `/api/v1` wrappers and workflow
+routes continue to preserve established payloads, status codes, and authentication.
+
+## Requirements
+
+The endpoint inventory, classification rules, compatibility requirements, and incremental implementation approach above
+remain authoritative. No route moves solely to satisfy architectural uniformity.
+
+## Proposed Design
+
+Apply the incremental endpoint classification and compatibility approach documented above, using Ash actions for clear
+resource contracts and retained controllers for workflow protocols.
+
+## Existing Context
+
+Ash resources, generated OpenAPI, retained bespoke OpenAPI, Phoenix controllers, the Go client, and E2E harness all
+already own parts of the HTTP surface.
+
+## Architecture Consistency
+
+Ash owns durable resource/action contracts. Controllers remain appropriate for Caddy asks, device polling, report
+preview, E2E orchestration, and diagnostics when workflow semantics are clearer and safer.
+
+## Operational Considerations
+
+Every migration must preserve public authorization, device credentials, E2E gating, error semantics, and generated
+artifact reproducibility. Contract drift must be visible in OpenAPI and integration tests.
+
+## Documentation Impact
+
+Update `docs/src/reference/contracts.md`, `docs/src/reference/openapi/`, `docs/src/client-server-interface.md`, and the
+server API module pages as each endpoint group reaches a final owner.
+
+## Validation Strategy
+
+Diff generated OpenAPI and run focused domain, controller, authorization, Go transport, E2E, and documentation checks for
+each migrated group.
+
+## Implementation Decomposition
+
+Migrate one coherent endpoint group at a time: inventory and classify, expose an Ash action where appropriate, preserve
+or wrap compatibility routes, regenerate OpenAPI, test, and reconcile documentation.
+
+## Dependencies and Parallelism
+
+Endpoint groups can be reviewed independently after shared authentication and error-shape rules are fixed. Generated
+OpenAPI and compatibility tests follow each implementation slice.
+
+## Rejected Alternatives
+
+A forced all-at-once controller conversion and a second OpenAPI generator remain rejected.
+
+## Open Questions
+
+The remaining open work is route-specific classification and close-out evidence, not a change to the governing rules.
+
+## Deferred Decisions
+
+Further device, report, and E2E migrations remain deferred until individual endpoint evidence supports Ash ownership.

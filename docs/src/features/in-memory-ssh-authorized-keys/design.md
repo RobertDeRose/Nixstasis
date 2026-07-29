@@ -443,3 +443,88 @@ configuration rather than bypassing OpenSSH with direct shell access.
   story.
 - Before completion, verify new-install defaults no longer configure any
   browser-terminal persistent `authorized_keys` path as the normal path.
+
+## Metadata
+
+- Beads feature root: `nixstasis-bdv`
+- Feature slug: `in-memory-ssh-authorized-keys`
+- Base branch: `dev`
+- Status: in progress
+
+## Feature Summary
+
+Replace persistent browser-terminal key files with an OpenSSH `AuthorizedKeysCommand` helper backed by the Go client's
+in-memory, TTL-bound authorization store and local Unix socket.
+
+## User Intent
+
+Operators need privileged support sessions without making the Nixstasis service account a login identity or persisting
+ephemeral browser-terminal keys on managed devices.
+
+## User-Facing Behavior
+
+Authorized terminal sessions target `nixstasis-support`; unknown, expired, revoked, malformed, and wrong-user keys fail
+closed. Client restart clears all ephemeral authorizations.
+
+## Requirements
+
+The detailed runtime, helper, server, client, packaging, security, and compatibility requirements above remain
+authoritative. Outstanding work is limited to the focused validation and close-out tasks represented in Beads.
+
+## Proposed Design
+
+Use the helper, Unix socket, in-memory store, dynamic server payload, OpenSSH account configuration, and packaging design
+documented above; finish the remaining validation without reintroducing file-based fallback.
+
+## Existing Context
+
+Dynamic command delivery, FRP TCP muxing, the dedicated support account, systemd packaging, and the completed Go client
+runtime are reused. The implemented code already uses the dynamic payload exclusively.
+
+## Architecture Consistency
+
+The server authorizes operators and issues short-lived keys; the client owns device-local authorization state; OpenSSH
+owns login enforcement; FRP only transports the connection. No boundary grants authority to another.
+
+## Operational Considerations
+
+Packaging must install the helper, authority user, socket permissions, sshd drop-in, support privileges, and safe reload
+behavior. Missing client or IPC state denies access rather than falling back to files.
+
+## Documentation Impact
+
+Update `docs/src/client-server-interface.md`, `docs/src/runtime-boundaries.md`, client and deployment module pages,
+`packages/client/README.md`, and the device API reference when the remaining reconciliation work closes.
+
+## Validation Strategy
+
+Run focused client store, helper, IPC, command-handler, real-sshd, server payload, packaging-contract, and documentation
+checks listed in the validation plan above.
+
+## Implementation Decomposition
+
+Beads retains the remaining test, packaging, stale-reference search, documentation validation, and final consistency
+work. Existing implementation tasks and imported evidence remain beneath the feature root.
+
+## Dependencies and Parallelism
+
+Client helper/store tests and server payload tests can proceed independently. Packaging and end-to-end SSH validation
+depend on the final helper and payload contract.
+
+## Risks and Tradeoffs
+
+Authentication now depends on the client process and IPC socket, so outages fail closed. In-memory state improves key
+hygiene but intentionally invalidates sessions on restart.
+
+## Rejected Alternatives
+
+Persistent `authorized_keys`, broad service-account sudo, TCP IPC, password login, and a custom shell daemon remain
+rejected.
+
+## Open Questions
+
+No product decision is open; remaining questions are validation outcomes recorded by the active Beads tasks.
+
+## Deferred Decisions
+
+Permanent operator keys and broader privileged-command frameworks remain out of scope.

@@ -5,7 +5,7 @@ exercise Nixstasis locally. These docs are not production operating procedures.
 
 ## Local Stack
 
-- [Compose Dev Harness](features/compose-dev-harness/design.md) describes the
+- [Compose Dev Harness](features/compose-dev-harness/index.md) describes the
   local deployment-shaped stack for validating Caddy TLS approval, FRP, managed
   device simulation, and browser-launched SSH terminal flows.
 - Production deployment belongs in [Deployment Compose](modules/deployment-compose.md);

@@ -320,3 +320,82 @@ The Script Workbench subscribes to script run PubSub events and also polls as a
 fallback while connected. Test and deployment runs expose retry actions for failed
 or partial runs. Active runs can be cancelled from the UI by marking the server
 run failed; already delivered client commands may still complete independently.
+
+## Metadata
+
+- Beads feature root: `nixstasis-kb6`
+- Feature slug: `server-stary-script-workbench`
+- Base branch: `dev`
+- Status: in progress
+
+## Feature Summary
+
+Provide a server UI for authoring, validating, testing, versioning, deploying, retrying, and auditing Stary scripts
+while preserving the Go client as the authoritative execution boundary.
+
+## User Intent
+
+Operators need to manage telemetry scripts centrally, test immutable validated versions on selected devices, and inspect
+per-device outcomes before controlled rollout.
+
+## Goals
+
+Provide auditable authoring, immutable validation, selected-device testing, explicit deployment, and actionable results.
+
+## User-Facing Behavior
+
+The workbench exposes draft and version inventories, structured front matter, code editing, validation feedback, device
+selection, test and deployment runs, live status refresh, retry, cancellation, and per-device results.
+
+## Existing Context
+
+The completed Starlark runtime, deferred command payloads, device command results, Ash resources, LiveView conventions,
+and command-policy enforcement are reused.
+
+## Architecture Consistency
+
+Phoenix owns authoring, durable versions, audit, targeting, and orchestration. The client owns parser fidelity, builtins,
+timeouts, output validation, and final execution enforcement.
+
+## Operational Considerations
+
+Runs are bounded, authorized, auditable, and visible when devices are offline or partial. Immutable rendered content
+prevents a mutable draft from differing from the artifact that was validated and dispatched.
+
+## Documentation Impact
+
+Update script operations guidance, `docs/src/client-server-interface.md`, server and client script module pages, and API
+references for durable test and deployment payloads.
+
+## Validation Strategy
+
+Run server resource, state transition, authorization, LiveView, validator, PubSub, and audit tests; run client command
+and runtime tests; finish with a Compose browser smoke test and documentation validation.
+
+## Implementation Decomposition
+
+Beads owns remaining close-out work. Delivered slices include persistence, editor UI, validation, immutable versions,
+test and deployment dispatch, result display, retry, cancellation, and live refresh.
+
+## Dependencies and Parallelism
+
+Server UI and persistence depend on stable version and run models. Client test execution and deferred payload contracts
+can be validated independently before end-to-end reconciliation.
+
+## Risks and Tradeoffs
+
+Central authoring improves fleet control but increases remote-execution, authorization, audit, versioning, and partial
+failure complexity. Server validation may lag client semantics until the packaged helper is delivered.
+
+## Rejected Alternatives
+
+A separate server scripting dialect, automatic fleet-wide rollout, and treating server validation as runtime authority
+remain rejected.
+
+## Open Questions
+
+The remaining open evidence is final browser smoke coverage and documentation reconciliation.
+
+## Deferred Decisions
+
+A packaged Starlark parse helper and collaborative IDE behavior remain deferred.

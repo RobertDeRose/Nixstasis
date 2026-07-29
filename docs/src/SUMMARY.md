@@ -34,7 +34,6 @@
 - [Development Overview](development.md)
 - [Developer Tooling](development/tooling.md)
 - [Feature Lifecycle](development/feature-lifecycle.md)
-- [Compose Dev Harness](features/compose-dev-harness/design.md)
 - [Operational Unknowns](unknowns.md)
 
 # Operations
@@ -49,32 +48,35 @@
   - [Incident Response](operations/incidents.md)
   - [Upgrades And Rollbacks](operations/upgrades-rollbacks.md)
   - [HA And Scaling](operations/ha-scaling.md)
-- [Server-Client E2E Tests](features/server-client-e2e-tests/design.md)
-- [Self-Extracting Installer](features/self-extracting-installer/design.md)
-- [Packaging And Deployment Migration](features/packaging-deployment-migration/design.md)
 
 # Design
 
 - [Planned Features](planned-features.md)
   <!-- BEGIN FEATURE DESIGNS -->
-  - [IoT Device Monitoring](features/iot-device-monitoring/design.md)
-  - [Dashboard Home](features/dashboard-home/design.md)
-  - [Phoenix UI Polish](features/phoenix-ui-polish/design.md)
-  - [Go Client Rewrite](features/go-client-rewrite/design.md)
-  - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
-  - [Starlark Script System](features/starlark-script-system/design.md)
-  - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
-  - [Report View Improvements](features/report-view-improvements/design.md)
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
-  - [Device Detail Page](features/device-detail-page/design.md)
-  - [Server-Provided FRPS Token](features/server-provided-frps-token/design.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/design.md)
-  - [Production Operations Runbooks](features/production-operations-runbooks/design.md)
-  - [Rich API Examples](features/rich-api-examples/design.md)
-  - [AuthCrunch Role Contract](features/authcrunch-role-contract/design.md)
+  - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
+  - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
+  - [Server Stary Script Workbench](features/server-stary-script-workbench/design.md)
   <!-- END FEATURE DESIGNS -->
 - [Implemented Features](features/index.md)
   <!-- BEGIN IMPLEMENTED FEATURES -->
+  - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)
+  - [Compose Dev Harness](features/compose-dev-harness/index.md)
+  - [Dashboard Home](features/dashboard-home/index.md)
+  - [Device Detail Page](features/device-detail-page/index.md)
+  - [Go Client Rewrite](features/go-client-rewrite/index.md)
+  - [IoT Device Monitoring](features/iot-device-monitoring/index.md)
+  - [Packaging and Deployment Migration](features/packaging-deployment-migration/index.md)
+  - [Phoenix UI Polish](features/phoenix-ui-polish/index.md)
+  - [Production Operations Runbooks](features/production-operations-runbooks/index.md)
+  - [Report View Improvements](features/report-view-improvements/index.md)
+  - [Rich API Examples](features/rich-api-examples/index.md)
+  - [Self-Extracting Installer](features/self-extracting-installer/index.md)
+  - [Server-Client E2E Tests](features/server-client-e2e-tests/index.md)
+  - [Server Command Allowlist Management](features/server-command-allowlist-management/index.md)
+  - [Server-Provided FRPS Token](features/server-provided-frps-token/index.md)
+  - [Starlark Script System](features/starlark-script-system/index.md)
   <!-- END IMPLEMENTED FEATURES -->
 
 # Reference
@@ -87,7 +89,3 @@
 - [Agent Workflows](reference/agent-workflows.md)
 - [E2E Results](reference/e2e-results.md)
 - [Client-Server Interface](client-server-interface.md)
-
-# Introduction
-
-- [Introduction](introduction/documentation-conventions.md)
