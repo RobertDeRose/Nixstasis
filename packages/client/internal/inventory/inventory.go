@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -38,9 +39,10 @@ func Collect(ctx context.Context, probe *transport.CommandInventoryProbe) *trans
 		return nil
 	}
 
+	osRelease := readOSRelease(osReleasePath)
 	pm := detectPackageManager()
 	packages := collectPackages(ctx, pm, probe.PackageNames)
-	commands := collectCommands(probe.CommandProbes)
+	commands := collectCommands(probe.CommandProbes, osFamily(osRelease))
 
 	return &transport.CommandInventoryEvidence{
 		SchemaVersion:       schemaVersion,
@@ -48,7 +50,7 @@ func Collect(ctx context.Context, probe *transport.CommandInventoryProbe) *trans
 		ObservedAt:          now().UTC().Truncate(time.Second),
 		Architecture:        normalizeArchitecture(runtime.GOARCH),
 		PackageManager:      pm,
-		OSRelease:           readOSRelease(osReleasePath),
+		OSRelease:           osRelease,
 		Packages:            packages,
 		Commands:            commands,
 	}
@@ -105,6 +107,39 @@ func normalizeArchitecture(arch string) string {
 	}
 }
 
+func osFamily(osRelease map[string]string) string {
+	ids := make([]string, 0, 3)
+	for _, key := range []string{"ID", "ID_LIKE"} {
+		ids = append(ids, strings.FieldsFunc(strings.ToLower(osRelease[key]), func(r rune) bool {
+			return r == ' ' || r == '\t' || r == ','
+		})...)
+	}
+
+	if contains(ids, "nixos") {
+		return "nixos"
+	}
+	if containsAny(ids, "debian", "ubuntu") {
+		return "debian"
+	}
+	if containsAny(ids, "fedora", "rhel", "centos", "rocky", "almalinux", "redhat") {
+		return "fedora"
+	}
+	return "unsupported"
+}
+
+func contains(values []string, target string) bool {
+	return slices.Contains(values, target)
+}
+
+func containsAny(values []string, targets ...string) bool {
+	for _, target := range targets {
+		if contains(values, target) {
+			return true
+		}
+	}
+	return false
+}
+
 func detectPackageManager() string {
 	for _, candidate := range []struct {
 		binary string
@@ -133,26 +168,32 @@ func collectPackages(ctx context.Context, manager string, names []string) map[st
 	return packages
 }
 
-func collectCommands(probes []transport.CommandProbe) map[string]transport.CommandEvidence {
+func collectCommands(probes []transport.CommandProbe, deviceOSFamily string) map[string]transport.CommandEvidence {
 	commands := make(map[string]transport.CommandEvidence)
-	seen := make(map[string]struct{})
 	for _, probe := range probes {
 		if len(commands) >= maxEvidenceEntries {
 			break
 		}
 		name := sanitize(probe.Name)
-		if name == "" {
+		if name == "" || !matchesOSFamily(probe.OSFamily, deviceOSFamily) {
 			continue
 		}
-		if _, ok := seen[name]; ok {
+		if _, ok := commands[name]; ok {
 			continue
 		}
-		seen[name] = struct{}{}
 		if path := resolveCommandPath(name, sanitize(probe.CommandPath)); path != "" {
 			commands[name] = transport.CommandEvidence{Path: path}
 		}
 	}
 	return commands
+}
+
+func matchesOSFamily(probeOSFamily, deviceOSFamily string) bool {
+	probeOSFamily = sanitize(probeOSFamily)
+	if probeOSFamily == "" {
+		return true
+	}
+	return deviceOSFamily != "unsupported" && probeOSFamily == deviceOSFamily
 }
 
 func resolveCommandPath(_, expectedPath string) string {

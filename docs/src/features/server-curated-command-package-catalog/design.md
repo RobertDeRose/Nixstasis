@@ -7,7 +7,7 @@
 - Design path: `docs/src/features/server-curated-command-package-catalog/design.md`
 - Implemented record: `docs/src/features/server-curated-command-package-catalog/index.md`
 - Base branch: `dev`
-- Status: draft
+- Status: delivered
 
 ## Feature Summary
 

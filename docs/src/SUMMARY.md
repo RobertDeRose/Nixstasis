@@ -79,6 +79,7 @@
   - [Self-Extracting Installer](features/self-extracting-installer/index.md)
   - [Server-Client E2E Tests](features/server-client-e2e-tests/index.md)
   - [Server Command Allowlist Management](features/server-command-allowlist-management/index.md)
+  - [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/index.md)
   - [Server-Provided FRPS Token](features/server-provided-frps-token/index.md)
   - [Starlark Script System](features/starlark-script-system/index.md)
   <!-- END IMPLEMENTED FEATURES -->

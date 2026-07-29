@@ -467,11 +467,13 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
                entries: form["entry_ids"],
                categories: form["category_ids"],
                catalog_commands: selected_catalog_source_ids(preview, device_id),
-               catalog_categories: form["catalog_category_ids"]
+               catalog_categories: form["catalog_category_ids"],
+               catalog_version: preview.catalog.catalog_version,
+               catalog_resolution: catalog_resolution_snapshot(preview, device_id)
              },
              queued_at: DateTime.utc_now() |> DateTime.truncate(:second)
            }),
-         :ok <- create_assignment_sources(assignment, form),
+         :ok <- create_assignment_sources(assignment, form, preview, device_id),
          {:ok, _command} <- Devices.queue_command_policy_assignment(assignment) do
       Audit.emit(:assignment_queued, %{assignment_id: assignment.id, device_id: device_id})
       {:ok, assignment}
@@ -509,7 +511,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     |> Enum.map(fn {_name, result} -> result.catalog_command_id end)
   end
 
-  defp create_assignment_sources(assignment, form) do
+  defp create_assignment_sources(assignment, form, preview, device_id) do
     entry_sources = Enum.map(form["entry_ids"], &{:command_entry, &1})
     category_sources = Enum.map(form["category_ids"], &{:category, &1})
     catalog_command_sources = Enum.map(form["catalog_command_ids"], &{:catalog_command, &1})
@@ -524,13 +526,46 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
                source_kind: Atom.to_string(kind),
                source_id: source_id,
                source_version: 1,
-               source_snapshot: %{}
+               source_snapshot: source_snapshot(kind, source_id, preview, device_id)
              }) do
           {:ok, _} -> {:cont, :ok}
           _ -> {:halt, {:error, :source_failed}}
         end
       end
     )
+  end
+
+  defp source_snapshot(kind, source_id, preview, device_id) when kind in [:catalog_command, :catalog_category] do
+    snapshot = %{
+      catalog_version: preview.catalog.catalog_version,
+      device_id: device_id,
+      resolved_commands: catalog_resolution_snapshot(preview, device_id)
+    }
+
+    case kind do
+      :catalog_command -> Map.put(snapshot, :catalog_command_id, source_id)
+      :catalog_category -> Map.put(snapshot, :catalog_category_id, source_id)
+    end
+  end
+
+  defp source_snapshot(_kind, _source_id, _preview, _device_id), do: %{}
+
+  defp catalog_resolution_snapshot(preview, device_id) do
+    preview.catalog.devices
+    |> Map.get(device_id, %{commands: %{}})
+    |> Map.get(:commands)
+    |> Enum.filter(fn {_name, result} -> result.status == :command_path_resolved end)
+    |> Map.new(fn {name, result} ->
+      {name,
+       %{
+         status: Atom.to_string(result.status),
+         catalog_command_id: result.catalog_command_id,
+         os_family: result.os_family,
+         package_manager: result.package_manager,
+         package_name: result.package_name,
+         command_path: result.command_path
+       }}
+    end)
   end
 
   defp next_revision(device_id) do

@@ -22,6 +22,7 @@ historical decisions needed to audit each feature. Active and future work remain
 - [Self-Extracting Installer](self-extracting-installer/index.md)
 - [Server-Client E2E Tests](server-client-e2e-tests/index.md)
 - [Server Command Allowlist Management](server-command-allowlist-management/index.md)
+- [Server Curated Command Package Catalog](server-curated-command-package-catalog/index.md)
 - [Server-Provided FRPS Token](server-provided-frps-token/index.md)
 - [Starlark Script System](starlark-script-system/index.md)
 <!-- END IMPLEMENTED FEATURES -->

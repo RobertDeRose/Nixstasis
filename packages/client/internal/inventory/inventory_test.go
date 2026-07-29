@@ -86,6 +86,41 @@ func TestCollectBuildsBoundedInventoryFromProbe(t *testing.T) {
 	}
 }
 
+func TestCollectUsesCurrentOSFamilyWhenCommandProbePathsDiffer(t *testing.T) {
+	restore := stubEnvironment(t)
+	defer restore()
+
+	root := t.TempDir()
+	osReleasePath = filepath.Join(root, "os-release")
+	if err := os.WriteFile(osReleasePath, []byte("ID=ubuntu\nID_LIKE=debian\n"), 0o600); err != nil {
+		t.Fatalf("write os-release: %v", err)
+	}
+	nixosPath := filepath.Join(root, "nixos", "df")
+	debianPath := filepath.Join(root, "debian", "df")
+	for _, path := range []string{nixosPath, debianPath} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("make path dir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatalf("write path: %v", err)
+		}
+	}
+
+	got := Collect(context.Background(), &transport.CommandInventoryProbe{
+		CatalogVersion: "catalog-v1",
+		CommandProbes: []transport.CommandProbe{
+			{Name: "df", OSFamily: "nixos", CommandPath: nixosPath},
+			{Name: "df", OSFamily: "debian", CommandPath: debianPath},
+		},
+	})
+	if got == nil {
+		t.Fatalf("expected inventory")
+	}
+	if got.Commands["df"].Path != debianPath {
+		t.Fatalf("commands = %#v", got.Commands)
+	}
+}
+
 func TestCollectBoundsEvidenceAndIgnoresMalformedInputs(t *testing.T) {
 	restore := stubEnvironment(t)
 	defer restore()

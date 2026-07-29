@@ -1174,10 +1174,10 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Server curated command package catalog (`server-curated-command-package-catalog`)
 
-- Status: in-progress
+- Status: completed
 - Beads root: `nixstasis-o4t`
 - Design: [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/design.md)
-- Delivered record: `docs/src/features/server-curated-command-package-catalog/index.md` (created during close-out)
+- Delivered record: [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/index.md)
 - Sequencing: client inventory and server catalog resolver precede catalog-backed policy UI and delivery; end-to-end validation follows the UI and delivery integration.
 - Overview:
 - Add a server-curated package and command catalog for command policy authoring.
@@ -1185,9 +1185,9 @@ cohort instead of relying only on product, account, status, and search filters.
   instead of manually typing absolute executable paths. Device-reported
   inventory is evidence only; the catalog remains the policy authority.
 - Requirements:
-- During device registration or heartbeat, clients report `/etc/os-release`,
-  architecture, detected package manager, and enough package/command inventory
-  to verify catalog compatibility.
+- During heartbeat, clients report `/etc/os-release`, architecture, detected
+  package manager, and enough package/command inventory to verify catalog
+  compatibility.
 - Keep the server catalog as the source of truth for package names, supported OS
   families, command names, descriptions, categories, and risk/installation
   guidance.
@@ -1196,7 +1196,8 @@ cohort instead of relying only on product, account, status, and search filters.
 - Resolve the final executable path per device before enforcement, then continue
   delivering exact absolute-path allowlists to clients.
 - Show compatibility status per target device: supported, package installed,
-  command path resolved, missing package, unsupported OS, or conflict.
+  command path resolved, stale inventory, missing package, unsupported OS, or
+  conflict.
 - Treat device-discovered commands and paths as untrusted verification data, not
   as automatic allowlist authority.
 - Keep package installation as an explicit operator-approved action if added;
@@ -1248,8 +1249,7 @@ cohort instead of relying only on product, account, status, and search filters.
   unsupported-device states, and conflict handling.
 - Security tests proving untrusted device inventory cannot authorize commands not
   present in the server catalog.
-- Suggested first workflow command: `/start-feature server-curated-command-package-catalog`
-- Current workflow command: `/implement-feature server-curated-command-package-catalog` after specification reconciliation closes.
+- Suggested first workflow command: delivered; see the implemented-feature record for audit and validation evidence.
 
 ## Migrated Legacy Feature History
 

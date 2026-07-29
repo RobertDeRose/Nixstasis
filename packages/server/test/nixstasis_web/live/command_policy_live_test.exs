@@ -194,6 +194,14 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert assignment.resolved_policy["commands"] == %{"df" => "/usr/bin/df"}
     assert assignment.source_snapshot["entries"] == [entry.id]
     assert assignment.source_snapshot["catalog_categories"] == [category.id]
+    assert assignment.source_snapshot["catalog_version"] == "catalog-v1"
+    assert assignment.source_snapshot["catalog_resolution"]["df"]["command_path"] == "/usr/bin/df"
+
+    sources = Domain.list_command_policy_assignment_sources() |> elem(1)
+    catalog_source = Enum.find(sources, &(&1.assignment_id == assignment.id and &1.source_kind == "catalog_category"))
+    assert catalog_source.source_snapshot["catalog_version"] == "catalog-v1"
+    assert catalog_source.source_snapshot["catalog_category_id"] == category.id
+    assert catalog_source.source_snapshot["resolved_commands"]["df"]["package_name"] == "coreutils"
 
     [command] = Nixstasis.Devices.pop_pending_commands(device)
     assert command.command_payload["type"] == "apply_command_policy"
