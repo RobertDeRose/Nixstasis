@@ -55,6 +55,7 @@
   <!-- BEGIN FEATURE DESIGNS -->
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/design.md)
+  - [Dashboard Device Groups](features/dashboard-device-groups/design.md)
   - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
   - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
   - [Server Stary Script Workbench](features/server-stary-script-workbench/design.md)

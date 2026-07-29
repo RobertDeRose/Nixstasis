@@ -1087,7 +1087,11 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Dashboard device groups (`dashboard-device-groups`)
 
-- Status: planned
+- Status: in progress — implementation ready
+- Beads root: `nixstasis-vpu`
+- Design: [Dashboard Device Groups](features/dashboard-device-groups/design.md)
+- Sequencing: persistence precedes scoped reads and metadata orchestration, membership writes, audit/refresh integration,
+  metadata UI, membership UI, route filtering, and documentation.
 - Overview:
 - Add operator-managed device groups to the Dashboard Devices view. Operators can
   create groups, edit group metadata, assign and remove devices, and filter the
@@ -1165,7 +1169,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - Regression tests proving existing product, account, IPv4, approval,
   connectivity, search, and sort filters continue to compose correctly.
 - `mix ash.codegen --check` if Ash resources or relationships change.
-- Suggested first workflow command: `/start-feature dashboard-device-groups`
+- Suggested next workflow command: `/implement-feature dashboard-device-groups`
 
 ### Server curated command package catalog (`server-curated-command-package-catalog`)
 
