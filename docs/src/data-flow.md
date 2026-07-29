@@ -57,10 +57,12 @@ sequenceDiagram
         Scripts-->>Client: telemetry reports/errors
         Client->>FRP: Read current connection status
         FRP-->>Client: connection_status
-        Client->>Phoenix: POST heartbeat with telemetry/status
+        Client->>Client: Collect catalog inventory from previous probe
+        Client->>Phoenix: POST heartbeat with telemetry/status/inventory
         Phoenix->>Monitoring: heartbeat(device, payload)
-        Monitoring-->>Phoenix: remote_access_token and commands
+        Monitoring-->>Phoenix: remote_access_token, commands, inventory probe
         Phoenix-->>Client: Poll response
+        Client->>Client: Cache command_inventory_probe for next heartbeat
         Client->>Commands: Hydrate payloads and execute commands
         Commands-->>Phoenix: POST command_results
         Client->>FRP: Start/stop/restart from remote_access_token
@@ -79,20 +81,40 @@ sequenceDiagram
 6. Client discovers scripts from configured script directory.
 7. Client executes latest script versions and collects script reports/errors.
 8. Client reads current FRP status.
-9. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry and connection status.
-10. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
-11. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, evaluates rules, and pops pending commands.
-12. Server returns optional `remote_access_token` and optional command list.
-13. Client hydrates deferred command payloads, executes commands, and posts command results.
-14. Client starts, stops, or restarts FRPC according to `remote_access_token` and current FRP status.
+9. Client optionally collects bounded command/package inventory evidence from the previous server probe.
+10. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry, connection status, and optional top-level `command_inventory`.
+11. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
+12. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, persists inventory snapshots outside telemetry, evaluates rules, and pops pending commands.
+13. Server returns optional `remote_access_token`, optional command list, and a server-owned `command_inventory_probe` for the next heartbeat.
+14. Client caches the probe for the next heartbeat; reported inventory remains untrusted evidence and never authorizes client commands directly.
+15. Client hydrates deferred command payloads, executes commands, and posts command results.
+16. Client starts, stops, or restarts FRPC according to `remote_access_token` and current FRP status.
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/poll.go:35-157`
-- `packages/client/internal/script/executor.go:23-93`
-- `packages/client/internal/transport/client.go:170-212`
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
-- `packages/server/lib/nixstasis/monitoring.ex:15-28`
+- `packages/client/cmd/nixstasis/poll.go`
+- `packages/client/internal/inventory/inventory.go`
+- `packages/client/internal/script/executor.go`
+- `packages/client/internal/transport/client.go`
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`
+- `packages/server/lib/nixstasis/monitoring.ex`
+
+## Command Policy Catalog Resolution
+
+1. Server heartbeat responses include a `command_inventory_probe` derived from active catalog mappings.
+2. Upgraded clients inspect only the package and command names from that probe and report bounded `command_inventory` on a later heartbeat.
+3. The server stores the latest inventory snapshot per device outside telemetry and ignores unprobed package/command evidence.
+4. Command policy assignment resolves catalog selections on the server by combining approved catalog mappings with matching inventory evidence.
+5. Catalog-backed policies still queue the existing versioned `apply_command_policy` command with absolute command paths per device.
+6. Missing packages, unsupported OS families, stale inventory, and path conflicts block catalog-backed assignment; no package installation occurs as an assignment side effect.
+7. Clients enforce only the delivered absolute-path policy map. Catalog IDs and package names are never runtime authority.
+
+Traceable references:
+
+- `packages/server/lib/nixstasis/command_catalog/resolver.ex`
+- `packages/server/lib/nixstasis_web/live/command_policy_live/index.ex`
+- `packages/client/internal/commands/handler.go`
+- `packages/client/internal/script/builtins_exec.go`
 
 ## Command Delivery and Results
 

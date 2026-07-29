@@ -84,6 +84,8 @@
 - Script execution is bounded: executions have a five-second timeout and emit a
   slow-script warning after three seconds.
 - When a persisted server command policy exists, it overrides locally configured `runtime.exec_commands`; local config is fallback only before the first successful server policy write.
+- Catalog-backed command policies use the same persisted `apply_command_policy` payload as manual policies: a version, revision, and command-name to absolute-path map.
+- Package names, catalog IDs, and command inventory evidence are not runtime authority. They are server-side compatibility inputs only and do not expand `exec_cmd` permissions unless the server later delivers an absolute-path policy.
 - `script test` prints normalized YAML output on success and exits non-zero
   without telemetry output when validation or execution fails.
 - Server command batches are correlated by command ID. Duplicate command IDs in a

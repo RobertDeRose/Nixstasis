@@ -194,6 +194,14 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert assignment.resolved_policy["commands"] == %{"df" => "/usr/bin/df"}
     assert assignment.source_snapshot["entries"] == [entry.id]
     assert assignment.source_snapshot["catalog_categories"] == [category.id]
+
+    [command] = Nixstasis.Devices.pop_pending_commands(device)
+    assert command.command_payload["type"] == "apply_command_policy"
+    assert command.command_payload["defer_payload"] == false
+    payload = Jason.decode!(command.command_payload["payload"]["data"])
+    assert payload["version"] == assignment.version
+    assert payload["revision"] == assignment.revision
+    assert payload["commands"] == %{"df" => "/usr/bin/df"}
   end
 
   test "periodic refresh keeps command entry modal open", %{conn: conn} do

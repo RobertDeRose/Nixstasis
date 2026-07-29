@@ -31,6 +31,7 @@ defmodule Nixstasis.CommandCatalog.Changes.NormalizeInventory do
       :probe_catalog_version,
       sanitize_string(changeset_value(changeset, :probe_catalog_version), "unknown")
     )
+    |> Ash.Changeset.change_attribute(:observed_at, clamp_observed_at(changeset_value(changeset, :observed_at)))
     |> Ash.Changeset.change_attribute(
       :packages,
       sanitize_packages(changeset_value(changeset, :packages), probe.package_names)
@@ -104,6 +105,18 @@ defmodule Nixstasis.CommandCatalog.Changes.NormalizeInventory do
   end
 
   defp sanitize_commands(_value, _allowed_commands), do: %{}
+
+  defp clamp_observed_at(%DateTime{} = observed_at) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    if DateTime.compare(observed_at, now) == :gt do
+      now
+    else
+      observed_at
+    end
+  end
+
+  defp clamp_observed_at(observed_at), do: observed_at
 
   defp installed?(true), do: true
   defp installed?(%{"installed" => true}), do: true

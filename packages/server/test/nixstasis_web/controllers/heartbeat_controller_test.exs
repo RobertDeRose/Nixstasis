@@ -116,6 +116,118 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     refute Map.has_key?(command, "payload")
   end
 
+  test "heartbeat includes command inventory probe manifest", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, command} =
+      Domain.create_command_catalog_command(%{
+        name: "df",
+        display_name: "Disk free",
+        category_slugs: ["diagnostics"],
+        active: true
+      })
+
+    {:ok, _mapping} =
+      Domain.create_command_catalog_mapping(%{
+        catalog_command_id: command.id,
+        os_family: "debian",
+        package_manager: "apt",
+        package_name: "coreutils",
+        command_path: "/usr/bin/df"
+      })
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"command_inventory_probe" => probe} = json_response(conn, 200)["data"]
+    assert probe["catalog_version"] == "catalog-v1"
+    assert "coreutils" in probe["package_names"]
+    assert Enum.any?(probe["command_probes"], &(&1["name"] == "df" and &1["command_path"] == "/usr/bin/df"))
+  end
+
+  test "heartbeat persists command inventory outside telemetry", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, command} =
+      Domain.create_command_catalog_command(%{
+        name: "df",
+        display_name: "Disk free",
+        category_slugs: ["diagnostics"],
+        active: true
+      })
+
+    {:ok, _mapping} =
+      Domain.create_command_catalog_mapping(%{
+        catalog_command_id: command.id,
+        os_family: "debian",
+        package_manager: "apt",
+        package_name: "coreutils",
+        command_path: "/usr/bin/df"
+      })
+
+    future_observed_at = DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+
+    payload = %{
+      "telemetry" => %{
+        "scripts" => %{"disk" => %{"data" => %{"usage_pct" => 73.2}}},
+        "command_inventory" => %{"packages" => %{"leak" => true}}
+      },
+      "command_inventory" => %{
+        "schema_version" => 1,
+        "probe_catalog_version" => "catalog-v1",
+        "observed_at" => future_observed_at,
+        "architecture" => "x86_64",
+        "package_manager" => "apt",
+        "os_release" => %{"ID" => "ubuntu", "ID_LIKE" => "debian", "UNTRUSTED" => "ignored"},
+        "packages" => %{"coreutils" => %{"installed" => true}, "client-only" => %{"installed" => true}},
+        "commands" => %{"df" => %{"path" => "/usr/bin/df"}, "evil" => %{"path" => "/bin/sh"}}
+      }
+    }
+
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", payload)
+    assert json_response(conn, 200)["data"]
+
+    snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
+    assert [snapshot] = Enum.filter(snapshots, &(&1.device_id == device.id))
+    assert snapshot.probe_catalog_version == "catalog-v1"
+    assert DateTime.compare(snapshot.observed_at, future_observed_at) == :lt
+    assert snapshot.os_family == "debian"
+    assert snapshot.packages == %{"coreutils" => %{"installed" => true}}
+    assert snapshot.commands == %{"df" => %{"path" => "/usr/bin/df"}}
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^device.id)
+      |> Ash.read!(domain: Domain)
+
+    refute Map.has_key?(hd(telemetry).payload, "command_inventory")
+  end
+
+  test "malformed command inventory does not block heartbeat commands", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
+
+    conn =
+      post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{
+        "command_inventory" => %{
+          "schema_version" => "bad",
+          "probe_catalog_version" => "catalog-v1"
+        }
+      })
+
+    assert %{"commands" => [command]} = json_response(conn, 200)["data"]
+    assert command["payload"] == %{"cmd" => "update"}
+
+    snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
+    refute Enum.any?(snapshots, &(&1.device_id == device.id))
+  end
+
   test "heartbeat omits remote_access_token when remote access is not requested", %{
     conn: conn,
     device: device,
