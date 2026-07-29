@@ -76,6 +76,126 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     refute Enum.any?(assignments, &(&1.device_id == other_device.id))
   end
 
+  test "catalog search filters catalog command options", %{conn: conn} do
+    create_catalog_fixture()
+
+    {:ok, _command} =
+      Domain.create_command_catalog_command(%{
+        name: "uname",
+        display_name: "Kernel name",
+        description: "Kernel information",
+        category_slugs: [],
+        active: true
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/scripts/command-policies?search=disk")
+
+    assert html =~ "df · catalog"
+    refute html =~ "uname · catalog"
+  end
+
+  test "catalog preview shows per-device compatibility blockers", %{conn: conn} do
+    %{command: command} = create_catalog_fixture()
+
+    resolved = approved_device!("AA:BB:CC:AA:BC:01", "catalog-resolved")
+    supported = approved_device!("AA:BB:CC:AA:BC:02", "catalog-partial")
+    missing = approved_device!("AA:BB:CC:AA:BC:03", "catalog-missing")
+    unsupported = approved_device!("AA:BB:CC:AA:BC:04", "catalog-unsupported")
+    conflict = approved_device!("AA:BB:CC:AA:BC:05", "catalog-conflict")
+
+    inventory!(resolved, package_installed: true, command_path: "/usr/bin/df")
+    inventory!(supported, package_installed: :unknown, command_path: nil)
+    inventory!(missing, package_installed: false, command_path: nil)
+    inventory!(unsupported, os_release: %{"ID" => "alpine"}, package_installed: true, command_path: "/bin/df")
+    inventory!(conflict, package_installed: true, command_path: "/custom/df")
+
+    {:ok, view, html} = live(conn, ~p"/scripts/command-policies")
+    assert html =~ "df · catalog"
+
+    view
+    |> form("form[phx-submit='preview_assignment']",
+      assignment: %{
+        device_ids: [resolved.id, supported.id, missing.id, unsupported.id, conflict.id],
+        entry_ids: [],
+        category_ids: [],
+        catalog_command_ids: [command.id],
+        catalog_category_ids: []
+      }
+    )
+    |> render_submit()
+
+    html = render(view)
+    assert html =~ "command_path_resolved"
+    assert html =~ ">supported</span>"
+    assert html =~ "missing_package"
+    assert html =~ "Install: apt install coreutils"
+    assert html =~ "unsupported_os"
+    assert html =~ "conflict"
+    assert html =~ "incompatible catalog commands detected"
+    refute html =~ "Confirm and queue"
+  end
+
+  test "catalog confirmation rechecks current compatibility", %{conn: conn} do
+    %{command: command} = create_catalog_fixture()
+    device = approved_device!("AA:BB:CC:AA:BC:08", "catalog-rechecked")
+    inventory!(device, package_installed: true, command_path: "/usr/bin/df")
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    view
+    |> form("form[phx-submit='preview_assignment']",
+      assignment: %{
+        device_ids: [device.id],
+        entry_ids: [],
+        category_ids: [],
+        catalog_command_ids: [command.id],
+        catalog_category_ids: []
+      }
+    )
+    |> render_submit()
+
+    assert render(view) =~ "Confirm and queue"
+    {:ok, _command} = Domain.update_command_catalog_command(command, %{active: false})
+
+    assert render_click(element(view, "button", "Confirm and queue")) =~
+             "Preview must be conflict-free and catalog-compatible before assignment"
+
+    assignments = Domain.list_command_policy_assignments() |> elem(1)
+    refute Enum.any?(assignments, &(&1.device_id == device.id))
+  end
+
+  test "catalog categories coexist with manual entries when queued", %{conn: conn, entry: entry} do
+    %{category: category} = create_catalog_fixture()
+    device = approved_device!("AA:BB:CC:AA:BC:05", "catalog-queued")
+    inventory!(device, package_installed: true, command_path: "/usr/bin/df")
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    view
+    |> form("form[phx-submit='preview_assignment']",
+      assignment: %{
+        device_ids: [device.id],
+        entry_ids: [entry.id],
+        category_ids: [],
+        catalog_command_ids: [],
+        catalog_category_ids: [category.id]
+      }
+    )
+    |> render_submit()
+
+    assert render(view) =~ "Confirm and queue"
+    render_click(element(view, "button", "Confirm and queue"))
+
+    assignment =
+      Domain.list_command_policy_assignments()
+      |> elem(1)
+      |> Enum.find(&(&1.device_id == device.id))
+
+    assert assignment.resolved_policy["commands"] == %{"df" => "/usr/bin/df"}
+    assert assignment.source_snapshot["entries"] == [entry.id]
+    assert assignment.source_snapshot["catalog_categories"] == [category.id]
+  end
+
   test "periodic refresh keeps command entry modal open", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/new")
 
@@ -95,6 +215,40 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     html = render(view)
     assert html =~ "New Category"
     assert html =~ ~s(autocorrect="off")
+  end
+
+  test "catalog preview is scoped to authorized devices", %{conn: conn} do
+    %{command: command} = create_catalog_fixture()
+    allowed = approved_device!("AA:BB:CC:AA:BC:06", "catalog-allowed")
+    blocked = approved_device!("AA:BB:CC:AA:BC:07", "catalog-blocked")
+    inventory!(allowed, package_installed: true, command_path: "/usr/bin/df")
+    inventory!(blocked, package_installed: false, command_path: nil)
+
+    conn =
+      put_session(conn, "device_permissions", %{
+        "can_view" => true,
+        "can_manage" => true,
+        "device_ids" => [allowed.id]
+      })
+
+    {:ok, view, html} = live(conn, ~p"/scripts/command-policies")
+    assert html =~ "catalog-allowed"
+    refute html =~ "catalog-blocked"
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [allowed.id, blocked.id],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => [command.id],
+        "catalog_category_ids" => []
+      }
+    })
+
+    html = render(view)
+    assert html =~ allowed.id
+    refute html =~ blocked.id
+    refute html =~ "missing_package"
   end
 
   test "assignment actions are scoped to authorized devices", %{conn: conn} do
@@ -160,4 +314,63 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert Enum.any?(entries, &(&1.name == "uptime"))
     assert_receive {:command_policy_audit, %{action: :command_entry_created, name: "uptime"}}
   end
+
+  defp create_catalog_fixture do
+    {:ok, category} =
+      Domain.create_command_catalog_category(%{
+        slug: "diagnostics",
+        display_name: "Diagnostics",
+        description: "Diagnostic tools"
+      })
+
+    {:ok, command} =
+      Domain.create_command_catalog_command(%{
+        name: "df",
+        display_name: "Disk free",
+        description: "Disk usage",
+        category_slugs: [category.slug],
+        active: true
+      })
+
+    {:ok, _mapping} =
+      Domain.create_command_catalog_mapping(%{
+        catalog_command_id: command.id,
+        os_family: "debian",
+        package_manager: "apt",
+        package_name: "coreutils",
+        command_path: "/usr/bin/df",
+        install_hint: "apt install coreutils"
+      })
+
+    %{category: category, command: command}
+  end
+
+  defp approved_device!(mac_address, product_name) do
+    {:ok, device} = Nixstasis.Devices.register_device(%{mac_address: mac_address, product_name: product_name})
+    {:ok, device} = Nixstasis.Devices.approve_device(device)
+    device
+  end
+
+  defp inventory!(device, opts) do
+    attrs = %{
+      device_id: device.id,
+      observed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      os_release: Keyword.get(opts, :os_release, %{"ID" => "debian"}),
+      schema_version: 1,
+      probe_catalog_version: "catalog-v1",
+      architecture: "x86_64",
+      package_manager: "apt",
+      packages: package_evidence(Keyword.fetch!(opts, :package_installed)),
+      commands: maybe_command_evidence(Keyword.get(opts, :command_path))
+    }
+
+    {:ok, snapshot} = Domain.create_device_command_inventory_snapshot(attrs)
+    snapshot
+  end
+
+  defp package_evidence(:unknown), do: %{}
+  defp package_evidence(installed?), do: %{"coreutils" => %{"installed" => installed?}}
+
+  defp maybe_command_evidence(nil), do: %{}
+  defp maybe_command_evidence(path), do: %{"df" => %{"path" => path}}
 end
