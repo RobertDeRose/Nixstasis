@@ -1174,7 +1174,11 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Server curated command package catalog (`server-curated-command-package-catalog`)
 
-- Status: planned
+- Status: in-progress
+- Beads root: `nixstasis-o4t`
+- Design: [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/design.md)
+- Delivered record: `docs/src/features/server-curated-command-package-catalog/index.md` (created during close-out)
+- Sequencing: client inventory and server catalog resolver precede catalog-backed policy UI and delivery; end-to-end validation follows the UI and delivery integration.
 - Overview:
 - Add a server-curated package and command catalog for command policy authoring.
   Operators choose approved package-backed commands from the server catalog
@@ -1245,6 +1249,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - Security tests proving untrusted device inventory cannot authorize commands not
   present in the server catalog.
 - Suggested first workflow command: `/start-feature server-curated-command-package-catalog`
+- Current workflow command: `/implement-feature server-curated-command-package-catalog` after specification reconciliation closes.
 
 ## Migrated Legacy Feature History
 

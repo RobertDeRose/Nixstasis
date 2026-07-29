@@ -59,6 +59,7 @@
   - [Dashboard Device Groups](features/dashboard-device-groups/design.md)
   - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
   - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
+  - [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/design.md)
   - [Server Stary Script Workbench](features/server-stary-script-workbench/design.md)
   <!-- END FEATURE DESIGNS -->
 - [Implemented Features](features/index.md)
