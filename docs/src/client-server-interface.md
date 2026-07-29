@@ -25,10 +25,10 @@
 All `/api/v1` and `/api/json` requests are rate-limited per device (or per
 remote IP when no device identity is available).
 
-| Scope | Default Limit | Window |
-| --- | --- | --- |
-| Heartbeat (`POST .../heartbeat`) | 30 requests | 60 seconds |
-| Other API requests | 120 requests | 60 seconds |
+| Scope                            | Default Limit | Window     |
+|----------------------------------|---------------|------------|
+| Heartbeat (`POST .../heartbeat`) | 30 requests   | 60 seconds |
+| Other API requests               | 120 requests  | 60 seconds |
 
 When the limit is exceeded the server responds with HTTP `429` and body:
 
@@ -46,12 +46,12 @@ Traceable references:
 
 ## Go Client to Phoenix Endpoint Mapping
 
-| Go Method | HTTP Endpoint | Server Handler | Purpose |
-| --- | --- | --- | --- |
-| `RegisterDevice` | `POST /api/v1/devices/register` | `DeviceController.register/2` | Register device and receive UUID |
-| `Poll` | `POST /api/v1/devices/:id/heartbeat?api_key=...` | `HeartbeatController.create/2` | Submit telemetry and receive remote-access/command directives |
-| `SendCommandResults` | `POST /api/v1/devices/:id/command_results?api_key=...` | `DeviceCommandController.command_results/2` | Acknowledge command execution results |
-| `FetchCommandPayload` | `GET /api/v1/devices/:id/command_payloads/:ref?api_key=...` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload |
+| Go Method                    | HTTP Endpoint                                               | Server Handler                              | Purpose                                                                                              |
+|------------------------------|-------------------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------|
+| `RegisterDevice`             | `POST /api/v1/devices/register`                             | `DeviceController.register/2`               | Register device and receive UUID                                                                     |
+| `Poll` / `PollWithInventory` | `POST /api/v1/devices/:id/heartbeat?api_key=...`            | `HeartbeatController.create/2`              | Submit telemetry and optional command inventory, then receive remote-access/command/probe directives |
+| `SendCommandResults`         | `POST /api/v1/devices/:id/command_results?api_key=...`      | `DeviceCommandController.command_results/2` | Acknowledge command execution results                                                                |
+| `FetchCommandPayload`        | `GET /api/v1/devices/:id/command_payloads/:ref?api_key=...` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload                                                                       |
 
 Traceable references:
 
@@ -156,19 +156,58 @@ Request:
     "connection_string": "tcp://frps.example.invalid:7000",
     "pid": 1234,
     "start_time": "2026-05-06T14:00:00Z"
+  },
+  "command_inventory": {
+    "schema_version": 1,
+    "probe_catalog_version": "catalog-v1",
+    "observed_at": "2026-07-29T12:00:00Z",
+    "architecture": "x86_64",
+    "package_manager": "apt",
+    "os_release": {
+      "ID": "ubuntu",
+      "ID_LIKE": "debian",
+      "VERSION_ID": "24.04",
+      "PRETTY_NAME": "Ubuntu 24.04 LTS"
+    },
+    "packages": {
+      "coreutils": {"installed": true}
+    },
+    "commands": {
+      "df": {"path": "/usr/bin/df"}
+    }
   }
 }
 ```
 
-No-command response:
+`command_inventory` is optional, top-level, and untrusted. The client only
+reports package names and command names from the latest server
+`command_inventory_probe`; the data is evidence for server compatibility checks
+and never grants client-side permissions by itself.
+
+No-command response with an inventory probe:
 
 ```json
 {
   "data": {
-    "commands": []
+    "commands": [],
+    "command_inventory_probe": {
+      "catalog_version": "catalog-v1",
+      "package_names": ["coreutils"],
+      "command_probes": [
+        {
+          "name": "df",
+          "os_family": "debian",
+          "package_name": "coreutils",
+          "command_path": "/usr/bin/df"
+        }
+      ]
+    }
   }
 }
 ```
+
+Clients cache the probe and send matching inventory on a later heartbeat. If the
+probe is absent, clients omit `command_inventory`.
 
 Remote-access response:
 
@@ -242,7 +281,8 @@ Devices that are not approved receive a distinct authorization failure:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:123-187`
+- `packages/client/internal/transport/client.go:123-232`
+- `packages/client/internal/inventory/inventory.go`
 - `docs/src/features/go-client-rewrite/design.md`
 
 ### Command Results
@@ -365,14 +405,14 @@ Traceable references:
 
 ## Builder API Mapping
 
-| Endpoint | Handler | Purpose |
-| --- | --- | --- |
-| `GET /api/json/builder_contract/schema_references` | `BuilderContract.list_schema_references` | Generated Ash action contract for schema references |
-| `GET /api/json/builder_contract/schemas/:schema_id/versions/:schema_version/options` | `BuilderContract.options_for` | Generated Ash action contract for normalized options |
-| `POST /api/json/builder_contract/builder_configurations/validate` | `BuilderContract.validate_builder_configuration` | Generated Ash action contract for selection validation |
-| `GET /api/v1/builder-schemas` | `BuilderSchemaController.index/2` | Legacy JSON compatibility wrapper for schema references |
-| `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options` | `BuilderSchemaController.options/2` | Legacy JSON compatibility wrapper for normalized options |
-| `POST /api/v1/builder-configurations/validate` | `BuilderConfigValidationController.create/2` | Legacy JSON compatibility wrapper for selection validation |
+| Endpoint                                                                             | Handler                                          | Purpose                                                    |
+|--------------------------------------------------------------------------------------|--------------------------------------------------|------------------------------------------------------------|
+| `GET /api/json/builder_contract/schema_references`                                   | `BuilderContract.list_schema_references`         | Generated Ash action contract for schema references        |
+| `GET /api/json/builder_contract/schemas/:schema_id/versions/:schema_version/options` | `BuilderContract.options_for`                    | Generated Ash action contract for normalized options       |
+| `POST /api/json/builder_contract/builder_configurations/validate`                    | `BuilderContract.validate_builder_configuration` | Generated Ash action contract for selection validation     |
+| `GET /api/v1/builder-schemas`                                                        | `BuilderSchemaController.index/2`                | Legacy JSON compatibility wrapper for schema references    |
+| `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`            | `BuilderSchemaController.options/2`              | Legacy JSON compatibility wrapper for normalized options   |
+| `POST /api/v1/builder-configurations/validate`                                       | `BuilderConfigValidationController.create/2`     | Legacy JSON compatibility wrapper for selection validation |
 
 Generated builder action contracts are documented in
 `packages/server/priv/static/openapi.yaml`. The `/api/v1` builder routes remain
@@ -469,16 +509,16 @@ Traceable references:
 
 ## E2E API Mapping
 
-| Endpoint | Handler | Purpose |
-| --- | --- | --- |
-| `GET /e2e/suites` | `E2ERunController.suites/2` | List configured suites |
-| `GET /e2e/runs` | `E2ERunController.index/2` | List runs |
-| `POST /e2e/runs` | `E2ERunController.create/2` | Create or reuse run |
-| `GET /e2e/runs/:id` | `E2ERunController.show/2` | Fetch run |
-| `POST /e2e/runs/:id/cancel` | `E2ERunController.cancel/2` | Cancel run |
-| `GET /e2e/runs/:id/results` | `E2ERunResultController.index/2` | List results |
-| `POST /e2e/runs/:id/results` | `E2ERunResultController.create/2` | Submit results |
-| `GET /e2e/runs/:id/results/:journey_id/log` | `E2ERunResultController.log/2` | Fetch journey log |
+| Endpoint                                    | Handler                           | Purpose                |
+|---------------------------------------------|-----------------------------------|------------------------|
+| `GET /e2e/suites`                           | `E2ERunController.suites/2`       | List configured suites |
+| `GET /e2e/runs`                             | `E2ERunController.index/2`        | List runs              |
+| `POST /e2e/runs`                            | `E2ERunController.create/2`       | Create or reuse run    |
+| `GET /e2e/runs/:id`                         | `E2ERunController.show/2`         | Fetch run              |
+| `POST /e2e/runs/:id/cancel`                 | `E2ERunController.cancel/2`       | Cancel run             |
+| `GET /e2e/runs/:id/results`                 | `E2ERunResultController.index/2`  | List results           |
+| `POST /e2e/runs/:id/results`                | `E2ERunResultController.create/2` | Submit results         |
+| `GET /e2e/runs/:id/results/:journey_id/log` | `E2ERunResultController.log/2`    | Fetch journey log      |
 
 Run creation requires `X-E2E-Protocol-Version`; protocol version `1` is the
 default supported version. Legacy `client_version`/`server_version` fields are

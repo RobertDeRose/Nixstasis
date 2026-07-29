@@ -20,6 +20,7 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/frp"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/inventory"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/script"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/sshauth"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
@@ -207,7 +208,26 @@ type frpController interface {
 }
 
 type remoteAccessPollState struct {
-	tokenHash string
+	tokenHash             string
+	commandInventoryProbe *transport.CommandInventoryProbe
+}
+
+type inventoryPollClient interface {
+	PollWithInventory(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error)
+}
+
+func collectCommandInventory(ctx context.Context, state *remoteAccessPollState) *transport.CommandInventoryEvidence {
+	if state == nil || state.commandInventoryProbe == nil {
+		return nil
+	}
+	return inventory.Collect(ctx, state.commandInventoryProbe)
+}
+
+func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, commandInventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+	if extended, ok := client.(inventoryPollClient); ok {
+		return extended.PollWithInventory(ctx, uuid, payload, frpStatus, commandInventory)
+	}
+	return client.Poll(ctx, uuid, payload, frpStatus)
 }
 
 //nolint:gocyclo // Poll orchestration intentionally keeps telemetry, commands, and FRP decisions in one cycle.
@@ -254,10 +274,15 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 		},
 	}
 
+	commandInventory := collectCommandInventory(ctx, state)
+
 	slog.Debug("Sending telemetry", "scripts", len(payload.Scripts), "uptime", payload.Device.Uptime)
-	resp, err := client.Poll(ctx, uuid, payload, frpStatus)
+	resp, err := sendHeartbeat(ctx, client, uuid, payload, frpStatus, commandInventory)
 	if err != nil {
 		return err
+	}
+	if state != nil {
+		state.commandInventoryProbe = resp.CommandInventoryProbe
 	}
 
 	if err := handleCommandResponses(ctx, client, client, cmdHandler, uuid, resp.Commands); err != nil {
