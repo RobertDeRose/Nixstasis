@@ -32,6 +32,24 @@ two output-sensitive edges: `gofumpt` follows `goimports`, then fix-only module 
 No recognized language profile is active; only the universal tooling baseline
 runs.
 
+## Feature validation: command catalog policies
+
+Use these focused checks when changing the curated command catalog path:
+
+```bash
+cd packages/client
+mise x -- go test ./internal/inventory ./internal/transport ./cmd/nixstasis ./internal/commands
+mise x -- golangci-lint run ./internal/inventory ./internal/transport ./cmd/nixstasis ./internal/commands
+
+cd ../server
+mise x -- mix test \
+  test/nixstasis/command_catalog/catalog_resolver_test.exs \
+  test/nixstasis_web/controllers/heartbeat_controller_test.exs \
+  test/nixstasis_web/live/command_policy_live_test.exs
+```
+
+These checks cover heartbeat inventory probes, bounded client evidence, server compatibility resolution, catalog-backed policy delivery, unchanged `exec_cmd` absolute-path enforcement, and deny-all revocation.
+
 ## GitHub validation
 
 `.github/workflows/validate.yml` runs on every push and pull request. It isolates user-global mise configuration,

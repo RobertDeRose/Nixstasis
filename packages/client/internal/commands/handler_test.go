@@ -153,7 +153,7 @@ func TestGivenApplyCommandPolicy_WhenExecuteBatch_ThenAppliesPolicy(t *testing.T
 
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload: &transport.CommandPayload{
 			Data: payload,
 		},
@@ -210,7 +210,7 @@ func TestGivenPreloadedRuntimePolicy_WhenExecuteBatch_ThenSameVersionReplayIsIde
 	handler := NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore("", nil, &runtimeCfg, nil)
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"policy_version":"v1","commands":{"safe":"/bin/echo"}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusOK {
@@ -232,7 +232,7 @@ func TestGivenOlderApplyCommandPolicyRevision_WhenExecuteBatch_ThenRejectsStaleP
 
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"version":"v1","revision":1,"commands":{"old":"/bin/echo"}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusFailed {
@@ -249,7 +249,7 @@ func TestGivenApplyCommandPolicyStore_WhenExecuteBatch_ThenPersistsPolicy(t *tes
 
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"version":"v1","revision":3,"commands":{"safe":"/bin/echo"}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusOK {
@@ -270,7 +270,7 @@ func TestGivenApplyCommandPolicyPersistFailure_WhenExecuteBatch_ThenFailsClosed(
 
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"policy_version":"v2","commands":{"safe":"/bin/echo"}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusFailed {
@@ -290,7 +290,7 @@ func TestGivenEmptyApplyCommandPolicy_WhenExecuteBatch_ThenAppliesDenyAll(t *tes
 	handler := &Handler{runtimeConfig: &runtimeCfg, policyStore: store}
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-empty-policy",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"policy_version":"deny-all","commands":{}}`},
 	}})[0]
 	if result.Status != transport.CommandStatusOK {
@@ -312,7 +312,7 @@ func TestGivenBadApplyCommandPolicyPayload_WhenExecuteBatch_ThenFails(t *testing
 	handler := NewHandler("")
 	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-bad",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: `{"policy_version":"","commands":{"safe":"echo"}}`},
 	}})[0]
 
@@ -341,7 +341,7 @@ func TestGivenRunScriptPolicyApplied_WhenExecuteBatch_ThenCanRunAllowedCommand(t
 	applyPayload := fmt.Sprintf(`{"policy_version":"v2","commands":{"print-ok":"%s"}}`, cmdPath)
 	setup := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
 		CommandID: "cmd-setup",
-		Type:      "apply_command_policy",
+		Type:      applyCommandPolicyCommandType,
 		Payload:   &transport.CommandPayload{Data: applyPayload},
 	}})[0]
 	if setup.Status != transport.CommandStatusOK {
@@ -378,6 +378,70 @@ def main():
 	}
 	if outResult["value"] != "ok" {
 		t.Fatalf("expected script output ok, got %v", outResult["value"])
+	}
+}
+
+func TestGivenCatalogPolicyPayload_WhenAppliedAndRevoked_ThenExecCmdAllowsThenDenies(t *testing.T) {
+	dfPath := filepath.Join(t.TempDir(), "df")
+	if err := os.WriteFile(dfPath, []byte("#!/usr/bin/env sh\nprintf 'catalog-df'"), 0o755); err != nil {
+		t.Fatalf("write df fixture: %v", err)
+	}
+
+	runtimeCfg := script.RuntimeConfig{}
+	handler := &Handler{runtimeConfig: &runtimeCfg}
+	applyPayload := fmt.Sprintf(
+		`{"assignment_id":"catalog-assignment","policy_version":"catalog-v1","revision":1,"commands":{"df":"%s"}}`,
+		dfPath,
+	)
+	setup := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-setup",
+		Type:      applyCommandPolicyCommandType,
+		Payload:   &transport.CommandPayload{Data: applyPayload},
+	}})[0]
+	if setup.Status != transport.CommandStatusOK {
+		t.Fatalf("expected catalog policy setup success, got %s: %s", setup.Status, setup.Error)
+	}
+
+	content := strings.TrimSpace(`---
+name: catalog-df
+schema:
+  type: object
+  properties:
+    value:
+      type: string
+---
+def main():
+    return {"value": exec_cmd(cmd="df")}
+`)
+
+	allowed := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run-allowed",
+		Type:      "run_script",
+		Payload:   &transport.CommandPayload{ContentType: "text/x-stary", Data: content},
+	}})[0]
+	if allowed.Status != transport.CommandStatusOK {
+		t.Fatalf("expected catalog-backed exec_cmd success, got %s: %s", allowed.Status, allowed.Error)
+	}
+
+	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-revoke",
+		Type:      applyCommandPolicyCommandType,
+		Payload:   &transport.CommandPayload{Data: `{"policy_version":"deny-all","revision":2,"commands":{}}`},
+	}})[0]
+	if revoke.Status != transport.CommandStatusOK {
+		t.Fatalf("expected revoke policy success, got %s: %s", revoke.Status, revoke.Error)
+	}
+
+	denied := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-run-denied",
+		Type:      "run_script",
+		Payload:   &transport.CommandPayload{ContentType: "text/x-stary", Data: content},
+	}})[0]
+	if denied.Status != transport.CommandStatusFailed {
+		t.Fatalf("expected exec_cmd denial after revocation, got %s", denied.Status)
+	}
+	if len(runtimeCfg.ExecCommandAllowlist) != 0 {
+		t.Fatalf("expected deny-all command policy after revocation, got %+v", runtimeCfg.ExecCommandAllowlist)
 	}
 }
 
