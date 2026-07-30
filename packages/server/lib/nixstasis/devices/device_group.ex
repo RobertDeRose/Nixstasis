@@ -41,7 +41,7 @@ defmodule Nixstasis.Devices.DeviceGroup do
 
     attribute :name, :string do
       allow_nil? false
-      constraints min_length: 1
+      constraints min_length: 1, max_length: 120
       public? true
     end
 
@@ -50,6 +50,7 @@ defmodule Nixstasis.Devices.DeviceGroup do
     end
 
     attribute :description, :string do
+      constraints max_length: 500
       default ""
       public? true
     end

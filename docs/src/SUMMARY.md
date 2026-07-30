@@ -65,6 +65,7 @@
   <!-- BEGIN IMPLEMENTED FEATURES -->
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)
   - [Compose Dev Harness](features/compose-dev-harness/index.md)
+  - [Dashboard Device Groups](features/dashboard-device-groups/index.md)
   - [Dashboard Home](features/dashboard-home/index.md)
   - [Device Detail Page](features/device-detail-page/index.md)
   - [Go Client Rewrite](features/go-client-rewrite/index.md)

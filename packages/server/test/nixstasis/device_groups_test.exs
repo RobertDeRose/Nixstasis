@@ -45,6 +45,13 @@ defmodule Nixstasis.DeviceGroupsTest do
       assert {:error, _error} = Domain.create_device_group(%{name: "WAREHOUSE SENSORS"})
       assert {:error, _error} = Domain.create_device_group(%{name: "   "})
 
+      assert {:ok, unicode_group} = Domain.create_device_group(%{name: "Straße"})
+      assert unicode_group.name_key == "strasse"
+      assert {:ok, archived_unicode} = Domain.update_device_group(unicode_group, %{archived_at: DateTime.utc_now()})
+      assert {:error, _error} = Domain.create_device_group(%{name: "STRASSE"})
+      assert {:ok, restored_unicode} = Domain.update_device_group(archived_unicode, %{archived_at: nil})
+      assert is_nil(restored_unicode.archived_at)
+
       assert {:ok, restored} = Domain.update_device_group(archived, %{archived_at: nil})
       assert is_nil(restored.archived_at)
       assert Enum.map(Ash.load!(restored, :devices).devices, & &1.id) == [device.id]
@@ -58,6 +65,7 @@ defmodule Nixstasis.DeviceGroupsTest do
       {:ok, _active} = Domain.create_device_group(%{name: "Active"})
       {:ok, reserved} = Domain.create_device_group(%{name: "Reserved"})
       {:ok, _reserved} = Domain.update_device_group(reserved, %{archived_at: DateTime.utc_now()})
+      {:ok, _unicode} = Domain.create_device_group(%{name: "Straße"})
 
       assert {:ok, renamed} = Domain.update_device_group(group, %{name: "  Renamed Group  "})
       assert renamed.name == "Renamed Group"
@@ -66,6 +74,7 @@ defmodule Nixstasis.DeviceGroupsTest do
       assert {:error, _error} = Domain.update_device_group(renamed, %{name: "   "})
       assert {:error, _error} = Domain.update_device_group(renamed, %{name: "ACTIVE"})
       assert {:error, _error} = Domain.update_device_group(renamed, %{name: "RESERVED"})
+      assert {:error, _error} = Domain.update_device_group(renamed, %{name: "STRASSE"})
     end
 
     test "supports many-to-many memberships and rejects duplicate pairs" do
@@ -255,6 +264,23 @@ defmodule Nixstasis.DeviceGroupsTest do
       assert {:ok, archived} = Devices.archive_device_group(group.id, unscoped)
       assert :ok = Devices.permanently_delete_device_group(archived.id, unscoped)
       assert {:error, :group_not_found} = Devices.update_device_group(group.id, %{name: "Gone"}, unscoped)
+    end
+
+    test "metadata length limits reject bypassed client values without persistence" do
+      auth = authorization(nil)
+      too_long_name = String.duplicate("n", 121)
+      too_long_description = String.duplicate("d", 501)
+
+      assert {:error, _error} = Devices.create_device_group(%{name: too_long_name}, auth)
+      refute Enum.any?(Devices.list_device_groups(auth), &(&1.group.name == too_long_name))
+
+      assert {:ok, group} = Devices.create_device_group(%{name: "Bounded", description: "Original"}, auth)
+
+      assert {:error, _error} =
+               Devices.update_device_group(group.id, %{description: too_long_description}, auth)
+
+      assert {:ok, persisted} = Domain.get_device_group(group.id)
+      assert persisted.description == "Original"
     end
 
     test "metadata conflicts roll back without changing the target" do

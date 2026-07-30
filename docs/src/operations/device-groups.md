@@ -27,7 +27,7 @@ Open **Devices → Groups**. Unscoped device managers can:
 
 Archiving is the normal removal action. It preserves the group identity and every membership, so restoring the group restores the same organization. Permanent deletion is intentionally restricted to archived, empty groups.
 
-Group names are unique without regard to letter case across active and archived groups. Archiving a group does not make its name available for reuse.
+Group names are unique without regard to Unicode letter case across active and archived groups. Names are limited to 120 characters, and descriptions are limited to 500 characters. Archiving a group does not make its name available for reuse.
 
 ## Change memberships
 

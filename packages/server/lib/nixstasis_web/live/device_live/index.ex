@@ -528,11 +528,17 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, schedule_debounced_refresh(socket)}
   end
 
+  def handle_info({:device_deleted, _device}, socket) do
+    {:noreply,
+     socket
+     |> refresh_devices_if_authorized()
+     |> refresh_device_groups()}
+  end
+
   def handle_info({event, _device}, socket)
       when event in [
              :device_registered,
              :device_created,
-             :device_deleted,
              :device_updated,
              :device_approval_status_changed,
              :device_remote_access_changed
@@ -899,11 +905,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp group_metadata_error(%Ash.Changeset{errors: errors}) do
-    if Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :name_key}, &1)) do
-      "A group with that name already exists."
-    else
-      "Unable to save the group. Check its name and try again."
-    end
+    metadata_validation_message(errors) || "Unable to save the group. Check its name and try again."
   end
 
   defp group_metadata_error(%Ash.Error.Invalid{} = error), do: invalid_group_metadata_error(error)
@@ -916,14 +918,64 @@ defmodule NixstasisWeb.DeviceLive.Index do
   defp group_metadata_error(_reason), do: "Unable to change the group. Try again."
 
   defp invalid_group_metadata_error(error) do
-    message = Exception.message(error)
+    validation_message =
+      case error do
+        %{errors: errors} when is_list(errors) -> metadata_validation_message(errors)
+        _error -> nil
+      end
 
-    if String.contains?(message, ["name_key", "already been taken", "unique"]) do
-      "A group with that name already exists."
-    else
-      "Unable to save the group. Check its name and try again."
+    validation_message || metadata_validation_message_from_text(Exception.message(error))
+  end
+
+  defp metadata_validation_message(errors) do
+    Enum.find_value(errors, &metadata_validation_error_message/1)
+  end
+
+  defp metadata_validation_error_message(%Ash.Error.Changes.InvalidAttribute{
+         field: :name_key
+       }),
+       do: "A group with that name already exists."
+
+  defp metadata_validation_error_message(%Ash.Error.Changes.InvalidAttribute{
+         field: :name,
+         vars: vars
+       }) do
+    if constraint_value(vars, :max) == 120,
+      do: "Group names must be 120 characters or fewer."
+  end
+
+  defp metadata_validation_error_message(%Ash.Error.Changes.InvalidAttribute{
+         field: :description,
+         vars: vars
+       }) do
+    if constraint_value(vars, :max) == 500,
+      do: "Group descriptions must be 500 characters or fewer."
+  end
+
+  defp metadata_validation_error_message(%{errors: errors}) when is_list(errors),
+    do: metadata_validation_message(errors)
+
+  defp metadata_validation_error_message(_error), do: nil
+
+  defp metadata_validation_message_from_text(message) do
+    cond do
+      String.contains?(message, ["name_key", "already been taken", "unique"]) ->
+        "A group with that name already exists."
+
+      String.contains?(message, ["name", "120"]) ->
+        "Group names must be 120 characters or fewer."
+
+      String.contains?(message, ["description", "500"]) ->
+        "Group descriptions must be 500 characters or fewer."
+
+      true ->
+        "Unable to save the group. Check its name and try again."
     end
   end
+
+  defp constraint_value(vars, key) when is_list(vars), do: Keyword.get(vars, key)
+  defp constraint_value(vars, key) when is_map(vars), do: Map.get(vars, key)
+  defp constraint_value(_vars, _key), do: nil
 
   defp permanent_delete_error(%Ash.Changeset{}),
     do: "Remove every device before permanently deleting this group."

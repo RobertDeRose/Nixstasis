@@ -9,6 +9,7 @@ historical decisions needed to audit each feature. Active and future work remain
 <!-- BEGIN IMPLEMENTED FEATURES -->
 - [AuthCrunch Role Contract](authcrunch-role-contract/index.md)
 - [Compose Dev Harness](compose-dev-harness/index.md)
+- [Dashboard Device Groups](dashboard-device-groups/index.md)
 - [Dashboard Home](dashboard-home/index.md)
 - [Device Detail Page](device-detail-page/index.md)
 - [Go Client Rewrite](go-client-rewrite/index.md)

@@ -1087,9 +1087,10 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Dashboard device groups (`dashboard-device-groups`)
 
-- Status: in progress — implementation ready
+- Status: completed
 - Beads root: `nixstasis-vpu`
 - Design: [Dashboard Device Groups](features/dashboard-device-groups/design.md)
+- Delivered record: [Dashboard Device Groups](features/dashboard-device-groups/index.md)
 - Sequencing: persistence precedes scoped reads and metadata orchestration, membership writes, audit/refresh integration,
   metadata UI, membership UI, route filtering, and documentation.
 - Overview:
@@ -1169,7 +1170,7 @@ cohort instead of relying only on product, account, status, and search filters.
 - Regression tests proving existing product, account, IPv4, approval,
   connectivity, search, and sort filters continue to compose correctly.
 - `mix ash.codegen --check` if Ash resources or relationships change.
-- Suggested next workflow command: `/implement-feature dashboard-device-groups`
+- Delivery evidence is recorded in the implemented-feature record and Beads lifecycle.
 
 ### Server curated command package catalog (`server-curated-command-package-catalog`)
 

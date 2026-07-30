@@ -13,7 +13,7 @@ defmodule Nixstasis.Devices.Changes.NormalizeGroupName do
 
         changeset
         |> Ash.Changeset.change_attribute(:name, trimmed)
-        |> Ash.Changeset.change_attribute(:name_key, String.downcase(trimmed))
+        |> Ash.Changeset.change_attribute(:name_key, :string.casefold(trimmed))
 
       _ ->
         changeset

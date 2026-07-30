@@ -224,6 +224,37 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert has_element?(view, "[data-group-name='Existing group']")
     end
 
+    test "group metadata handlers enforce resource length limits", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      view |> element("#manage-device-groups") |> render_click()
+      view |> element("#new-device-group") |> render_click()
+
+      too_long_name = String.duplicate("n", 121)
+
+      view
+      |> form("#device-group-form", %{"group" => %{"name" => too_long_name, "description" => ""}})
+      |> render_submit()
+
+      assert render(view) =~ "Group names must be 120 characters or fewer"
+      refute has_element?(view, "[data-group-name='#{too_long_name}']")
+
+      view
+      |> form("#device-group-form", %{"group" => %{"name" => "Bounded group", "description" => "Original"}})
+      |> render_submit()
+
+      view |> element("button[phx-click='edit_group']", "Edit") |> render_click()
+
+      view
+      |> form("#device-group-form", %{
+        "group" => %{"name" => "Bounded group", "description" => String.duplicate("d", 501)}
+      })
+      |> render_submit()
+
+      assert render(view) =~ "Group descriptions must be 500 characters or fewer"
+      assert {:ok, [persisted]} = Nixstasis.Domain.list_device_groups()
+      assert persisted.description == "Original"
+    end
+
     test "scoped managers cannot invoke group metadata handlers", %{conn: conn} do
       allowed = create_device!(%{mac_address: "AA:AA:AA:AA:AA:A2"})
 
@@ -758,6 +789,41 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       refute render(view) =~ allowed.mac_address
       refute render(view) =~ blocked.mac_address
+    end
+
+    test "device deletion refreshes scoped group counts, targets, and routes", %{conn: conn} do
+      device = create_device!(%{mac_address: "DE:AD:BE:EF:00:0B"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Deletion refresh"})
+
+      {:ok, _membership} =
+        Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "scoped-manager"})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => true,
+          "device_ids" => [device.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/devices?group_id=#{group.id}")
+      view |> element("#manage-device-groups") |> render_click()
+      assert eventually_rendered?(view, "1 visible device")
+      render_hook(view, "toggle_selection", %{"id" => device.id})
+      render_change(element(view, "#membership-group-form"), %{"group_id" => group.id})
+
+      assert :ok = Devices.delete_device(device)
+      assert eventually_rendered?(view, "The requested group is unavailable")
+      refute has_element?(view, "[data-group-name='Deletion refresh']")
+      refute has_element?(view, "#membership-group-form")
+
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.selected_ids == []
+      assert is_nil(assigns.selected_group_id)
+      assert is_nil(assigns.filter_group_id)
+      assert assigns.group_filter_unavailable?
     end
 
     test "device selection and bulk actions are blocked for view-only sessions", %{conn: conn} do
