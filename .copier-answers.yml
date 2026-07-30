@@ -1,0 +1,74 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# This file is managed by Copier. Do not edit it manually.
+_commit: v0.5.7
+_src_path: gh:RobertDeRose/dstack
+language_profiles:
+- other
+project_boundaries: Docker Compose under deploy/compose is the supported server deployment
+    path; GoReleaser is the supported client release path; Caddy/AuthCrunch owns public
+    browser ingress authentication; Phoenix owns device and application authorization;
+    abandoned server package deployment assets are excluded.
+project_kind: application
+project_name: Nixstasis
+project_purpose: Monitor managed IoT devices and provide operators with secure, on-demand
+    remote access and state visibility.
+project_scope: A Go device agent for registration, telemetry, commands, scripts, and
+    FRP lifecycle; an Elixir/Phoenix control plane with APIs, LiveView monitoring,
+    approvals, alerts, reporting, and E2E validation; and a Docker Compose deployment
+    using Caddy, FRPS, and PostgreSQL.
+project_slug: nixstasis
+project_users: Operators and administrators managing Atomix IoT device fleets, plus
+    the managed-device agents that communicate with the control plane.
+repository_default_branch: dev
+repository_layout: single-package

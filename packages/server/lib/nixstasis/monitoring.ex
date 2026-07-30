@@ -20,7 +20,8 @@ defmodule Nixstasis.Monitoring do
     telemetry_payload = normalize_telemetry_payload(payload)
 
     with {:ok, device} <- Devices.update_last_seen(device),
-         {:ok, _event} <- persist_telemetry_event(device, telemetry_payload) do
+         {:ok, _event} <- persist_telemetry_event(device, telemetry_payload),
+         {:ok, _inventory} <- persist_command_inventory(device, payload) do
       resolve_offline_alerts(device)
 
       # Evaluate telemetry against rules
@@ -146,13 +147,49 @@ defmodule Nixstasis.Monitoring do
     })
   end
 
+  defp persist_command_inventory(%Device{} = device, payload) when is_map(payload) do
+    case map_get(payload, "command_inventory") do
+      inventory when is_map(inventory) ->
+        attrs =
+          inventory
+          |> Map.take([
+            "schema_version",
+            "probe_catalog_version",
+            "observed_at",
+            "architecture",
+            "os_release",
+            "os_family",
+            "package_manager",
+            "packages",
+            "commands"
+          ])
+          |> Map.put("device_id", device.id)
+
+        case Domain.create_device_command_inventory_snapshot(attrs) do
+          {:ok, snapshot} ->
+            {:ok, snapshot}
+
+          {:error, reason} ->
+            Logger.warning("Ignoring invalid command inventory for #{device.id}: #{inspect(reason)}")
+            {:ok, :invalid_inventory}
+        end
+
+      _ ->
+        {:ok, :none}
+    end
+  end
+
+  defp persist_command_inventory(%Device{}, _payload), do: {:ok, :none}
+
   defp normalize_telemetry_payload(payload) when is_map(payload) do
     sanitized =
       payload
-      |> Map.drop(["device_id", :device_id])
+      |> Map.drop(["device_id", :device_id, "command_inventory", :command_inventory])
 
     case map_get(sanitized, "telemetry") do
       telemetry when is_map(telemetry) ->
+        telemetry = Map.drop(telemetry, ["command_inventory", :command_inventory])
+
         case map_get(sanitized, "connection_status") do
           connection_status when is_map(connection_status) ->
             Map.put_new(telemetry, "connection_status", connection_status)
@@ -172,6 +209,9 @@ defmodule Nixstasis.Monitoring do
 
   defp map_get(map, "connection_status") when is_map(map),
     do: Map.get(map, "connection_status") || Map.get(map, :connection_status)
+
+  defp map_get(map, "command_inventory") when is_map(map),
+    do: Map.get(map, "command_inventory") || Map.get(map, :command_inventory)
 
   defp handle_alert_created(%Alert{} = alert) do
     broadcast_alert_created(alert)

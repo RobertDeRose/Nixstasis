@@ -123,7 +123,7 @@
       <button type="button" class="btn btn-sm btn-ghost" phx-click="refresh">Refresh</button>
     </div>
 
-    <.form for={%{}} as={:assignment} phx-submit="preview_assignment" class="grid gap-3 md:grid-cols-4">
+    <.form for={%{}} as={:assignment} phx-submit="preview_assignment" class="grid gap-3 md:grid-cols-6">
       <select name="assignment[device_ids][]" class="select select-bordered" multiple>
         <option :for={device <- @devices} value={device.id}>{device.product_name || device.mac_address}</option>
       </select>
@@ -141,6 +141,24 @@
           {category.display_name}
         </option>
       </select>
+      <select name="assignment[catalog_command_ids][]" class="select select-bordered" multiple>
+        <option
+          :for={command <- @catalog_commands}
+          value={command.id}
+          selected={command.id in @assignment_form["catalog_command_ids"]}
+        >
+          {command.name} · catalog
+        </option>
+      </select>
+      <select name="assignment[catalog_category_ids][]" class="select select-bordered" multiple>
+        <option
+          :for={category <- @catalog_categories}
+          value={category.id}
+          selected={category.id in @assignment_form["catalog_category_ids"]}
+        >
+          {category.display_name} · catalog category
+        </option>
+      </select>
       <button type="submit" class="btn btn-primary">Preview</button>
     </.form>
 
@@ -150,12 +168,45 @@
         <div class="mt-2 text-sm">
           Devices: {length(@assignment_preview.device_ids)} · Commands: {map_size(@assignment_preview.commands)}
         </div>
-        <%= if @assignment_preview.conflicts == [] do %>
+        <%= if @assignment_preview.catalog.devices != %{} do %>
+          <div class="mt-3 overflow-x-auto">
+            <table class="table table-xs">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th>Catalog command</th>
+                  <th>Compatibility</th>
+                  <th>Catalog path</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for {device_id, device_preview} <- @assignment_preview.catalog.devices do %>
+                  <tr :for={{name, result} <- device_preview.commands}>
+                    <td>{device_id}</td>
+                    <td>{name}</td>
+                    <td><span class="badge badge-outline">{result.status}</span></td>
+                    <td><code class="text-xs">{Map.get(result, :command_path, "-")}</code></td>
+                    <td class="max-w-md text-xs">
+                      <div :if={Map.get(result, :package_name)}>Package: {result.package_name}</div>
+                      <div :if={Map.get(result, :install_hint)}>Install: {result.install_hint}</div>
+                      <div :if={Map.get(result, :observed_path)}>Observed path: {result.observed_path}</div>
+                      <div :if={Map.get(result, :manual_path)}>Manual path: {result.manual_path}</div>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+        <%= if @assignment_preview.conflicts == [] and @assignment_preview.catalog_blockers == [] do %>
           <button class="btn btn-sm btn-primary mt-3" phx-click="confirm_assignment">Confirm and queue</button>
         <% else %>
-          <div class="alert alert-error mt-3">Conflicts detected; remove conflicted sources before confirming.</div>
+          <div class="alert alert-error mt-3">
+            Conflicts or incompatible catalog commands detected; remove blocked sources before confirming.
+          </div>
         <% end %>
-        <pre class="mt-3 max-h-48 overflow-auto rounded bg-base-200 p-3 text-xs">{Jason.encode!(@assignment_preview.payload, pretty: true)}</pre>
+        <pre class="mt-3 max-h-48 overflow-auto rounded bg-base-200 p-3 text-xs">{Jason.encode!(%{manual: @assignment_preview.payload, catalog: @assignment_preview.catalog_commands, catalog_blockers: @assignment_preview.catalog_blockers}, pretty: true)}</pre>
       </div>
     <% end %>
 

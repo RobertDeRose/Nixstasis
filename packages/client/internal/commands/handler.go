@@ -25,6 +25,8 @@ const MaxCommandsPerPoll = 50
 
 const maxConcurrentNonSerialCommands = 8
 
+const applyCommandPolicyCommandType = "apply_command_policy"
+
 var afterCommandCommitHook = func() {}
 
 // Handler executes supported command types.
@@ -154,7 +156,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 		return h.sshAuthorize(ctx, cmd.CommandID, cmd.PublicKey, cmd.Payload)
 	case "ssh_revoke":
 		return h.sshRevoke(ctx, cmd.CommandID, cmd.Payload)
-	case "apply_command_policy":
+	case applyCommandPolicyCommandType:
 		return h.applyCommandPolicy(ctx, cmd.CommandID, cmd.Payload)
 	default:
 		return failureResult(cmd.CommandID, fmt.Sprintf("unsupported command: %s", cmd.Type))
@@ -163,7 +165,7 @@ func (h *Handler) executeOne(ctx context.Context, cmd transport.CommandRequest) 
 
 func commandRequiresSerial(cmd transport.CommandRequest) bool {
 	switch cmd.Type {
-	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script", "apply_command_policy":
+	case "install_script", "remove_script", "ssh_authorize", "ssh_revoke", "run_script", applyCommandPolicyCommandType:
 		return true
 	default:
 		return false

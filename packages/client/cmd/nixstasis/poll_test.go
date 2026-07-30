@@ -71,7 +71,8 @@ type fakePayloadFetcher struct {
 }
 
 type fakePollClient struct {
-	response *transport.PollResponse
+	response  *transport.PollResponse
+	inventory *transport.CommandInventoryEvidence
 }
 
 type fakeFRPController struct {
@@ -107,6 +108,11 @@ func (f *fakePayloadFetcher) FetchCommandPayload(ctx context.Context, _ string, 
 }
 
 func (f *fakePollClient) Poll(_ context.Context, _ string, _ telemetry.Payload, _ frp.ConnectionStatus) (*transport.PollResponse, error) {
+	return f.response, nil
+}
+
+func (f *fakePollClient) PollWithInventory(_ context.Context, _ string, _ telemetry.Payload, _ frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+	f.inventory = inventory
 	return f.response, nil
 }
 
@@ -191,6 +197,39 @@ func TestPollResponseTokenOverridesRuntimeFRPAuthToken(t *testing.T) {
 
 	if frpConfig.AuthToken != "heartbeat-token" {
 		t.Fatalf("expected heartbeat token to become FRP auth token, got %q", frpConfig.AuthToken)
+	}
+}
+
+func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing.T) {
+	client := &fakePollClient{response: &transport.PollResponse{CommandInventoryProbe: &transport.CommandInventoryProbe{
+		CatalogVersion: "catalog-v1",
+		PackageNames:   []string{"coreutils"},
+		CommandProbes:  []transport.CommandProbe{{Name: "df", CommandPath: "/usr/bin/df"}},
+	}}}
+	frpManager := &fakeFRPController{}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+	runtimeCfg := script.RuntimeConfig{ExecCommandAllowlist: map[string]string{"local": "/bin/true"}}
+	state := &remoteAccessPollState{}
+
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("first pollOnce() error = %v", err)
+	}
+	if client.inventory != nil {
+		t.Fatalf("first heartbeat should not report inventory without a prior probe: %#v", client.inventory)
+	}
+	if state.commandInventoryProbe == nil || state.commandInventoryProbe.CatalogVersion != "catalog-v1" {
+		t.Fatalf("probe not retained: %#v", state.commandInventoryProbe)
+	}
+
+	client.response = &transport.PollResponse{}
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("second pollOnce() error = %v", err)
+	}
+	if client.inventory == nil || client.inventory.ProbeCatalogVersion != "catalog-v1" || client.inventory.SchemaVersion != 1 {
+		t.Fatalf("inventory not sent on second heartbeat: %#v", client.inventory)
+	}
+	if runtimeCfg.ExecCommandAllowlist["local"] != "/bin/true" {
+		t.Fatalf("inventory reporting changed runtime allowlist: %#v", runtimeCfg.ExecCommandAllowlist)
 	}
 }
 

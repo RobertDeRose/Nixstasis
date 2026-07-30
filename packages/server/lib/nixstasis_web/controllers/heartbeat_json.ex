@@ -1,5 +1,6 @@
 defmodule NixstasisWeb.HeartbeatJSON do
   alias Nixstasis.Devices.FrpsToken
+  alias Nixstasis.Domain
 
   def show(%{commands: commands, device: device}) do
     %{
@@ -7,6 +8,7 @@ defmodule NixstasisWeb.HeartbeatJSON do
         device
         |> response_data(commands)
         |> maybe_put_remote_access_token(FrpsToken.for_heartbeat(device))
+        |> maybe_put_command_inventory_probe()
     }
   end
 
@@ -22,6 +24,13 @@ defmodule NixstasisWeb.HeartbeatJSON do
 
   defp maybe_put_remote_access_token(data, nil), do: data
   defp maybe_put_remote_access_token(data, token), do: Map.put(data, :remote_access_token, token)
+
+  defp maybe_put_command_inventory_probe(data) do
+    case Domain.command_inventory_probe_manifest() do
+      {:ok, manifest} -> Map.put(data, :command_inventory_probe, manifest)
+      _ -> data
+    end
+  end
 
   defp command_data(cmd) do
     payload = cmd.command_payload || %{}

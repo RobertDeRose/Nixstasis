@@ -70,6 +70,61 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	}
 }
 
+func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
+	t.Parallel()
+
+	deviceID := "d-inventory"
+	observedAt := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req PollRequest
+		if err := json.UnmarshalRead(r.Body, &req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.CommandInventory == nil {
+			t.Fatalf("expected command_inventory in heartbeat request")
+		}
+		if req.CommandInventory.SchemaVersion != 1 || req.CommandInventory.ProbeCatalogVersion != "catalog-v1" {
+			t.Fatalf("unexpected inventory metadata: %#v", req.CommandInventory)
+		}
+		if !req.CommandInventory.ObservedAt.Equal(observedAt) {
+			t.Fatalf("observed_at = %s", req.CommandInventory.ObservedAt)
+		}
+		if !req.CommandInventory.Packages["coreutils"].Installed {
+			t.Fatalf("expected coreutils package evidence: %#v", req.CommandInventory.Packages)
+		}
+		if req.CommandInventory.Commands["df"].Path != "/usr/bin/df" {
+			t.Fatalf("expected df command evidence: %#v", req.CommandInventory.Commands)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"command_inventory_probe":{"catalog_version":"catalog-v2","package_names":["util-linux"],"command_probes":[{"name":"lsblk","command_path":"/usr/bin/lsblk"}]}}}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(config.APIConfig{URL: server.URL})
+	resp, err := client.PollWithInventory(context.Background(), deviceID, telemetry.Payload{}, frp.ConnectionStatus{}, &CommandInventoryEvidence{
+		SchemaVersion:       1,
+		ProbeCatalogVersion: "catalog-v1",
+		ObservedAt:          observedAt,
+		Architecture:        "x86_64",
+		PackageManager:      "apt",
+		OSRelease:           map[string]string{"ID": "debian"},
+		Packages:            map[string]PackageEvidence{"coreutils": {Installed: true}},
+		Commands:            map[string]CommandEvidence{"df": {Path: "/usr/bin/df"}},
+	})
+	if err != nil {
+		t.Fatalf("PollWithInventory failed: %v", err)
+	}
+	if resp.CommandInventoryProbe == nil || resp.CommandInventoryProbe.CatalogVersion != "catalog-v2" {
+		t.Fatalf("unexpected inventory probe: %#v", resp.CommandInventoryProbe)
+	}
+	if len(resp.CommandInventoryProbe.CommandProbes) != 1 || resp.CommandInventoryProbe.CommandProbes[0].Name != "lsblk" {
+		t.Fatalf("unexpected command probes: %#v", resp.CommandInventoryProbe.CommandProbes)
+	}
+}
+
 func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	t.Parallel()
 

@@ -166,8 +166,9 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 
 // PollRequest represents the body of the poll request.
 type PollRequest struct {
-	Telemetry        telemetry.Payload    `json:"telemetry"`
-	ConnectionStatus frp.ConnectionStatus `json:"connection_status"`
+	Telemetry        telemetry.Payload         `json:"telemetry"`
+	ConnectionStatus frp.ConnectionStatus      `json:"connection_status"`
+	CommandInventory *CommandInventoryEvidence `json:"command_inventory,omitempty"`
 	// SchemaURLs to be added in Refinement
 }
 
@@ -208,17 +209,61 @@ type CommandResult struct {
 
 // PollResponse represents the response from the poll endpoint.
 type PollResponse struct {
-	RemoteAccessToken string           `json:"remote_access_token"`
-	Commands          []CommandRequest `json:"commands,omitempty"`
+	RemoteAccessToken     string                 `json:"remote_access_token"`
+	Commands              []CommandRequest       `json:"commands,omitempty"`
+	CommandInventoryProbe *CommandInventoryProbe `json:"command_inventory_probe,omitempty"`
+}
+
+// CommandInventoryProbe describes bounded server-owned inventory evidence to collect.
+type CommandInventoryProbe struct {
+	CatalogVersion string         `json:"catalog_version"`
+	PackageNames   []string       `json:"package_names"`
+	CommandProbes  []CommandProbe `json:"command_probes"`
+}
+
+// CommandProbe identifies one command/path pair the client may inspect.
+type CommandProbe struct {
+	Name        string `json:"name"`
+	OSFamily    string `json:"os_family,omitempty"`
+	PackageName string `json:"package_name,omitempty"`
+	CommandPath string `json:"command_path"`
+}
+
+// CommandInventoryEvidence is best-effort, untrusted package and command evidence.
+type CommandInventoryEvidence struct {
+	SchemaVersion       int                        `json:"schema_version"`
+	ProbeCatalogVersion string                     `json:"probe_catalog_version"`
+	ObservedAt          time.Time                  `json:"observed_at"`
+	Architecture        string                     `json:"architecture"`
+	PackageManager      string                     `json:"package_manager"`
+	OSRelease           map[string]string          `json:"os_release"`
+	Packages            map[string]PackageEvidence `json:"packages"`
+	Commands            map[string]CommandEvidence `json:"commands"`
+}
+
+// PackageEvidence reports whether a probed package appears installed.
+type PackageEvidence struct {
+	Installed bool `json:"installed"`
+}
+
+// CommandEvidence reports an observed absolute executable path for a probed command.
+type CommandEvidence struct {
+	Path string `json:"path"`
 }
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
 func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
+	return c.PollWithInventory(ctx, uuid, payload, frpStatus, nil)
+}
+
+// PollWithInventory sends telemetry and optional untrusted command inventory evidence to the heartbeat endpoint.
+func (c *Client) PollWithInventory(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *CommandInventoryEvidence) (*PollResponse, error) {
 	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid))
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
 		ConnectionStatus: frpStatus,
+		CommandInventory: inventory,
 	}
 
 	var response struct {
