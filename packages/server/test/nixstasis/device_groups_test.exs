@@ -1,10 +1,20 @@
 defmodule Nixstasis.DeviceGroupsTest do
   use Nixstasis.DataCase
 
+  import ExUnit.CaptureLog
+
   alias Nixstasis.Devices
   alias Nixstasis.Devices.GroupAuthorization
   alias Nixstasis.Domain
   alias Nixstasis.Repo
+
+  defmodule StructuredLogHandler do
+    @moduledoc false
+
+    def log(%{meta: metadata}, %{test_pid: test_pid}) do
+      send(test_pid, {:device_group_log, metadata})
+    end
+  end
 
   describe "device group persistence" do
     test "normalizes names and reserves them across archived groups" do
@@ -288,6 +298,9 @@ defmodule Nixstasis.DeviceGroupsTest do
       second = device_fixture("56:44:55:66:77:88")
       {:ok, group} = Domain.create_device_group(%{name: "Mid-write rollback"})
 
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "device_group_audit")
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+
       Repo.query!("""
       ALTER TABLE device_group_memberships
       ADD CONSTRAINT dgd_reject_second_membership
@@ -302,6 +315,8 @@ defmodule Nixstasis.DeviceGroupsTest do
                )
 
       assert Devices.list_group_memberships(group.id, authorization(nil)) == []
+      refute_receive {:device_group_audit, _payload}, 20
+      refute_receive :device_groups_changed, 20
     end
 
     test "rejects invalid capability and stale group state without writes" do
@@ -325,6 +340,89 @@ defmodule Nixstasis.DeviceGroupsTest do
 
       assert {:error, :group_not_found} =
                Devices.add_devices_to_group(group.id, [device.id], authorization(nil))
+    end
+  end
+
+  describe "group audit and refresh integration" do
+    test "emits complete audit events after successful context transactions" do
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "device_group_audit")
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+      auth = authorization(nil)
+      device = device_fixture("57:44:55:66:77:88")
+      previous_log_level = Logger.level()
+      Logger.configure(level: :info)
+
+      :ok =
+        :logger.add_handler(
+          :device_group_audit_test,
+          StructuredLogHandler,
+          %{level: :info, test_pid: self()}
+        )
+
+      on_exit(fn ->
+        :logger.remove_handler(:device_group_audit_test)
+        Logger.configure(level: previous_log_level)
+      end)
+
+      log =
+        capture_log([level: :info], fn ->
+          assert {:ok, group} = Devices.create_device_group(%{name: "Audited"}, auth)
+          assert_group_event(:create, group.id, [], auth.actor_id, refresh?: true)
+
+          assert {:error, _reason} = Devices.create_device_group(%{name: "AUDITED"}, auth)
+          refute_receive {:device_group_audit, _payload}, 20
+          refute_receive :device_groups_changed, 20
+
+          assert {:ok, updated} = Devices.update_device_group(group.id, %{description: "Changed"}, auth)
+          assert_group_event(:update, updated.id, [], auth.actor_id, refresh?: true)
+
+          assert {:ok, _result} = Devices.add_devices_to_group(group.id, [device.id], auth)
+          assert_group_event(:membership_add, group.id, [device.id], auth.actor_id, refresh?: true)
+
+          assert {:ok, %{changed_device_ids: []}} =
+                   Devices.add_devices_to_group(group.id, [device.id], auth)
+
+          assert_group_event(:membership_add, group.id, [], auth.actor_id, refresh?: false)
+
+          assert {:ok, _result} = Devices.remove_devices_from_group(group.id, [device.id], auth)
+          assert_group_event(:membership_remove, group.id, [device.id], auth.actor_id, refresh?: true)
+
+          assert {:ok, archived} = Devices.archive_device_group(group.id, auth)
+          assert_group_event(:archive, archived.id, [], auth.actor_id, refresh?: true)
+
+          assert {:ok, restored} = Devices.restore_device_group(group.id, auth)
+          assert_group_event(:restore, restored.id, [], auth.actor_id, refresh?: true)
+
+          assert {:ok, archived} = Devices.archive_device_group(group.id, auth)
+          assert_group_event(:archive, archived.id, [], auth.actor_id, refresh?: true)
+
+          assert :ok = Devices.permanently_delete_device_group(group.id, auth)
+          assert_group_event(:permanent_delete, group.id, [], auth.actor_id, refresh?: true)
+        end)
+
+      assert log =~ "device group audit"
+
+      assert_receive {:device_group_log, %{payload: structured_payload}}
+      assert structured_payload.action == :create
+      assert structured_payload.actor_id == auth.actor_id
+      assert %DateTime{} = structured_payload.timestamp
+      assert is_binary(structured_payload.group_id)
+      assert structured_payload.device_ids == []
+    end
+  end
+
+  defp assert_group_event(action, group_id, device_ids, actor_id, opts) do
+    assert_receive {:device_group_audit, payload}
+    assert payload.action == action
+    assert payload.group_id == group_id
+    assert payload.device_ids == device_ids
+    assert payload.actor_id == actor_id
+    assert %DateTime{} = payload.timestamp
+
+    if Keyword.fetch!(opts, :refresh?) do
+      assert_receive :device_groups_changed
+    else
+      refute_receive :device_groups_changed, 20
     end
   end
 

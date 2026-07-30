@@ -271,6 +271,35 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "not authorized to view devices"
     end
 
+    test "group invalidation re-queries scoped devices without consuming audit payloads", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "DE:AD:BE:EF:00:09"})
+      blocked = create_device!(%{mac_address: "DE:AD:BE:EF:00:0A"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{"can_view" => true, "device_ids" => [allowed.id]})
+
+      {:ok, view, html} = live(conn, ~p"/devices")
+      assert html =~ allowed.mac_address
+      refute html =~ blocked.mac_address
+
+      assert :ok = Nixstasis.Domain.destroy_device(allowed)
+
+      send(view.pid, {
+        :device_group_audit,
+        %{actor_id: "sensitive-actor", device_ids: [blocked.id], action: :membership_add}
+      })
+
+      assert render(view) =~ allowed.mac_address
+      refute render(view) =~ blocked.mac_address
+
+      send(view.pid, :device_groups_changed)
+
+      refute render(view) =~ allowed.mac_address
+      refute render(view) =~ blocked.mac_address
+    end
+
     test "device selection and bulk actions are blocked for view-only sessions", %{conn: conn} do
       device = create_device!(%{mac_address: "DE:AD:BE:EF:00:06", approval_status: :pending})
 

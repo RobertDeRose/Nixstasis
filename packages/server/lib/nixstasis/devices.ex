@@ -14,6 +14,7 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.DeviceGroup
   alias Nixstasis.Devices.DeviceGroupMembership
+  alias Nixstasis.Devices.GroupAudit
   alias Nixstasis.Devices.GroupAuthorization
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
@@ -360,53 +361,68 @@ defmodule Nixstasis.Devices do
 
   @doc "Creates group metadata for an unscoped device manager."
   def create_device_group(attrs, %GroupAuthorization{} = authorization) when is_map(attrs) do
-    with :ok <- authorize_group_metadata(authorization) do
-      run_group_transaction(fn -> Domain.create_device_group(metadata_attrs(attrs), return_notifications?: true) end)
-    end
+    result =
+      with :ok <- authorize_group_metadata(authorization) do
+        run_group_transaction(fn -> Domain.create_device_group(metadata_attrs(attrs), return_notifications?: true) end)
+      end
+
+    publish_metadata_result(result, :create, authorization)
   end
 
   @doc "Updates group metadata for an unscoped device manager."
   def update_device_group(group_id, attrs, %GroupAuthorization{} = authorization) when is_map(attrs) do
-    mutate_group(group_id, authorization, fn group ->
+    group_id
+    |> mutate_group(authorization, fn group ->
       Domain.update_device_group(group, metadata_attrs(attrs), return_notifications?: true)
     end)
+    |> publish_metadata_result(:update, authorization)
   end
 
   @doc "Archives a group while preserving memberships."
   def archive_device_group(group_id, %GroupAuthorization{} = authorization) do
-    mutate_group(group_id, authorization, fn group ->
+    group_id
+    |> mutate_group(authorization, fn group ->
       if group.archived_at do
         {:error, :group_archived}
       else
         Domain.update_device_group(group, %{archived_at: DateTime.utc_now()}, return_notifications?: true)
       end
     end)
+    |> publish_metadata_result(:archive, authorization)
   end
 
   @doc "Restores an archived group."
   def restore_device_group(group_id, %GroupAuthorization{} = authorization) do
-    mutate_group(group_id, authorization, fn group ->
+    group_id
+    |> mutate_group(authorization, fn group ->
       if group.archived_at do
         Domain.update_device_group(group, %{archived_at: nil}, return_notifications?: true)
       else
         {:error, :group_not_archived}
       end
     end)
+    |> publish_metadata_result(:restore, authorization)
   end
 
   @doc "Permanently deletes an archived empty group."
   def permanently_delete_device_group(group_id, %GroupAuthorization{} = authorization) do
-    mutate_group(group_id, authorization, &delete_archived_group/1)
+    group_id
+    |> mutate_group(authorization, &delete_archived_group/1)
+    |> publish_delete_result(group_id, authorization)
   end
 
   @doc "Adds authorized devices to an active group as one transaction."
   def add_devices_to_group(group_id, device_ids, %GroupAuthorization{} = authorization) do
-    mutate_group_memberships(:add, group_id, device_ids, authorization)
+    :add
+    |> mutate_group_memberships(group_id, device_ids, authorization)
+    |> publish_membership_result(:membership_add, authorization)
   end
 
   @doc "Removes authorized devices from an active group as one transaction."
   def remove_devices_from_group(group_id, device_ids, %GroupAuthorization{} = authorization) do
-    mutate_group_memberships(:remove, group_id, device_ids, authorization)
+    :remove
+    |> mutate_group_memberships(group_id, device_ids, authorization)
+    |> publish_membership_result(:membership_remove, authorization)
   end
 
   @doc """
@@ -1148,6 +1164,42 @@ defmodule Nixstasis.Devices do
 
   defp restrict_membership_query(query, ids) do
     from([membership, group] in query, where: type(membership.device_id, Ecto.UUID) in ^ids)
+  end
+
+  defp publish_metadata_result({:ok, %{id: group_id}} = result, action, authorization) do
+    publish_group_operation(action, group_id, [], authorization, true)
+    result
+  end
+
+  defp publish_metadata_result(result, _action, _authorization), do: result
+
+  defp publish_delete_result(:ok, group_id, authorization) do
+    {:ok, group_id} = Ecto.UUID.cast(group_id)
+    publish_group_operation(:permanent_delete, group_id, [], authorization, true)
+    :ok
+  end
+
+  defp publish_delete_result(result, _group_id, _authorization), do: result
+
+  defp publish_membership_result(
+         {:ok, %{group_id: group_id, changed_device_ids: changed_ids}} = result,
+         action,
+         authorization
+       ) do
+    publish_group_operation(action, group_id, changed_ids, authorization, changed_ids != [])
+    result
+  end
+
+  defp publish_membership_result(result, _action, _authorization), do: result
+
+  defp publish_group_operation(action, group_id, device_ids, authorization, refresh?) do
+    GroupAudit.emit(action, authorization.actor_id, group_id, device_ids)
+
+    if refresh? do
+      Phoenix.PubSub.broadcast(Nixstasis.PubSub, "devices", :device_groups_changed)
+    end
+
+    :ok
   end
 
   defp mutate_group_memberships(action, group_id, device_ids, authorization)

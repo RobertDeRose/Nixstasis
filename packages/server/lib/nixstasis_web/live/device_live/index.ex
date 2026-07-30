@@ -349,6 +349,10 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, refresh_devices_if_authorized(socket)}
   end
 
+  def handle_info(:device_groups_changed, socket) do
+    {:noreply, refresh_devices_if_authorized(socket)}
+  end
+
   def handle_info(:debounced_refresh, socket) do
     {:noreply,
      socket
