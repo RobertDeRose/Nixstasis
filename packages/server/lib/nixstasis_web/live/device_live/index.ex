@@ -83,7 +83,11 @@ defmodule NixstasisWeb.DeviceLive.Index do
     filter_product = normalize_blank(params["product"])
     filter_account_number = normalize_blank(params["account_number"])
     filter_ipv4_address = normalize_blank(params["ipv4_address"])
-    search = params["search"]
+    search = normalize_blank(params["search"])
+    device_groups = list_device_groups(socket)
+
+    {filter_group_id, filter_group_name, group_filter_unavailable?} =
+      normalize_group_filter(params["group_id"], device_groups)
 
     active_filters =
       %{
@@ -91,7 +95,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
         "connectivity_status" => filter_connectivity_status,
         "product" => filter_product,
         "account_number" => filter_account_number,
-        "ipv4_address" => filter_ipv4_address
+        "ipv4_address" => filter_ipv4_address,
+        "group_id" => filter_group_name
       }
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
@@ -104,12 +109,15 @@ defmodule NixstasisWeb.DeviceLive.Index do
         connectivity_status: filter_connectivity_status,
         product: filter_product,
         account_number: filter_account_number,
-        ipv4_address: filter_ipv4_address
+        ipv4_address: filter_ipv4_address,
+        group_id: filter_group_id
       },
-      search: search
+      search: search,
+      authorized_device_ids: Permissions.authorized_device_ids(socket.assigns.device_permissions),
+      load_device_groups?: true
     ]
 
-    devices = opts |> Devices.list_devices() |> filter_authorized_devices(socket.assigns.device_permissions)
+    devices = if group_filter_unavailable?, do: [], else: Devices.list_devices(opts)
 
     socket =
       socket
@@ -120,12 +128,14 @@ defmodule NixstasisWeb.DeviceLive.Index do
       |> assign(:filter_product, filter_product)
       |> assign(:filter_account_number, filter_account_number)
       |> assign(:filter_ipv4_address, filter_ipv4_address)
+      |> assign(:filter_group_id, filter_group_id)
+      |> assign(:group_filter_unavailable?, group_filter_unavailable?)
       |> assign(:active_filters, active_filters)
       |> assign(:search, search)
       |> then(fn s -> assign(s, :current_params, get_params(s.assigns)) end)
       |> assign(:total_count, length(devices))
       |> stream(:devices, devices, reset: true)
-      |> refresh_device_groups()
+      |> assign_device_group_rows(device_groups)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -365,7 +375,14 @@ defmodule NixstasisWeb.DeviceLive.Index do
     params =
       socket.assigns
       |> get_params()
-      |> Map.drop(["approval_status", "connectivity_status", "product", "account_number", "ipv4_address"])
+      |> Map.drop([
+        "approval_status",
+        "connectivity_status",
+        "product",
+        "account_number",
+        "ipv4_address",
+        "group_id"
+      ])
 
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
   end
@@ -559,6 +576,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       "product" => assigns[:filter_product],
       "account_number" => assigns[:filter_account_number],
       "ipv4_address" => assigns[:filter_ipv4_address],
+      "group_id" => assigns[:filter_group_id],
       "search" => assigns[:search]
     }
     |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
@@ -574,6 +592,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:filter_product, nil)
     |> assign(:filter_account_number, nil)
     |> assign(:filter_ipv4_address, nil)
+    |> assign(:filter_group_id, nil)
+    |> assign(:group_filter_unavailable?, false)
     |> assign(:active_filters, %{})
     |> assign(:search, nil)
     |> assign(:current_params, %{})
@@ -653,6 +673,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
 
     {:noreply,
      socket
+     |> refresh_devices()
      |> refresh_device_groups()
      |> put_flash(:info, message)}
   end
@@ -721,11 +742,20 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp refresh_device_groups(socket) do
-    groups =
-      Devices.list_device_groups(socket.assigns.group_authorization,
-        include_archived?: socket.assigns.show_archived_groups?
-      )
+    socket
+    |> list_device_groups()
+    |> then(&assign_device_group_rows(socket, &1))
+  end
 
+  defp list_device_groups(%{assigns: %{group_authorization: nil}}), do: []
+
+  defp list_device_groups(socket) do
+    Devices.list_device_groups(socket.assigns.group_authorization,
+      include_archived?: socket.assigns.show_archived_groups?
+    )
+  end
+
+  defp assign_device_group_rows(socket, groups) do
     active_group_ids =
       groups
       |> Enum.filter(&is_nil(&1.group.archived_at))
@@ -736,10 +766,47 @@ defmodule NixstasisWeb.DeviceLive.Index do
         do: socket.assigns.selected_group_id,
         else: nil
 
-    socket
-    |> assign(:device_groups, groups)
-    |> assign(:selected_group_id, selected_group_id)
-    |> assign(:groups_loading?, false)
+    socket =
+      socket
+      |> assign(:device_groups, groups)
+      |> assign(:selected_group_id, selected_group_id)
+      |> assign(:groups_loading?, false)
+
+    filter_group_id = socket.assigns[:filter_group_id]
+
+    case Enum.find(groups, &(&1.group.id == filter_group_id and is_nil(&1.group.archived_at))) do
+      %{group: group} ->
+        assign(socket, :active_filters, Map.put(socket.assigns.active_filters, "group_id", group.name))
+
+      nil when not is_nil(filter_group_id) ->
+        socket
+        |> assign(:filter_group_id, nil)
+        |> assign(:group_filter_unavailable?, true)
+        |> assign(:active_filters, Map.delete(socket.assigns.active_filters, "group_id"))
+        |> assign(:current_params, Map.delete(socket.assigns.current_params, "group_id"))
+
+      nil ->
+        socket
+    end
+  end
+
+  defp normalize_group_filter(group_id, groups) do
+    group_id
+    |> normalize_blank()
+    |> resolve_group_filter(groups)
+  end
+
+  defp resolve_group_filter(nil, _groups), do: {nil, nil, false}
+
+  defp resolve_group_filter(requested_group_id, groups) do
+    groups
+    |> Enum.find(fn row ->
+      row.group.id == requested_group_id and is_nil(row.group.archived_at)
+    end)
+    |> case do
+      nil -> {nil, nil, true}
+      row -> {row.group.id, row.group.name, false}
+    end
   end
 
   defp find_device_group(socket, group_id) do
@@ -933,17 +1000,20 @@ defmodule NixstasisWeb.DeviceLive.Index do
         connectivity_status: assigns.filter_connectivity_status,
         product: assigns.filter_product,
         account_number: assigns.filter_account_number,
-        ipv4_address: assigns.filter_ipv4_address
+        ipv4_address: assigns.filter_ipv4_address,
+        group_id: assigns.filter_group_id
       },
-      search: assigns.search
+      search: assigns.search,
+      authorized_device_ids: Permissions.authorized_device_ids(assigns.device_permissions),
+      load_device_groups?: true
     )
-    |> filter_authorized_devices(assigns.device_permissions)
   end
 
-  defp filter_authorized_devices(devices, permissions) do
-    case Permissions.authorized_device_ids(permissions) do
-      nil -> devices
-      ids -> Enum.filter(devices, &MapSet.member?(ids, &1.id))
-    end
+  defp active_device_groups(%{device_groups: groups}) when is_list(groups) do
+    groups
+    |> Enum.filter(&is_nil(&1.archived_at))
+    |> Enum.sort_by(&{String.downcase(&1.name), &1.id})
   end
+
+  defp active_device_groups(_device), do: []
 end

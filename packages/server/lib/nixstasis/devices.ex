@@ -313,6 +313,8 @@ defmodule Nixstasis.Devices do
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
     * `:filter` - A map of filters (e.g., `%{approval_status: :pending}`).
     * `:search` - A search string for mac_address or account_number.
+    * `:authorized_device_ids` - An optional device-ID scope applied in the query.
+    * `:load_device_groups?` - Whether to preload group summaries. Defaults to `false`.
   """
   def list_devices(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :inserted_at)
@@ -320,6 +322,7 @@ defmodule Nixstasis.Devices do
     filter = Keyword.get(opts, :filter, %{})
     search = Keyword.get(opts, :search)
     authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
+    load_device_groups? = Keyword.get(opts, :load_device_groups?, false)
 
     Device
     |> filter_by_authorized_device_ids(authorized_device_ids)
@@ -331,6 +334,7 @@ defmodule Nixstasis.Devices do
     |> filter_by_ipv4_address(filter_value(filter, :ipv4_address))
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
+    |> maybe_load_device_groups(load_device_groups?)
     |> Ash.read!(domain: Domain)
   end
 
@@ -466,6 +470,9 @@ defmodule Nixstasis.Devices do
   end
 
   def normalize_connectivity_status_filter(_), do: nil
+
+  defp maybe_load_device_groups(query, true), do: Ash.Query.load(query, :device_groups)
+  defp maybe_load_device_groups(query, false), do: query
 
   defp filter_by_authorized_device_ids(query, nil), do: query
 

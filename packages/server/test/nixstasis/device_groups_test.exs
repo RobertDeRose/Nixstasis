@@ -191,6 +191,43 @@ defmodule Nixstasis.DeviceGroupsTest do
       assert Devices.list_devices(filter: %{group_id: shared.id}) == []
     end
 
+    test "filters scoped devices by active group with composable filters and preloaded summaries" do
+      first = device_fixture("43:44:55:66:77:88")
+      second = device_fixture("44:44:55:66:77:88")
+      blocked = device_fixture("45:44:55:66:77:88")
+      {:ok, group} = Domain.create_device_group(%{name: "Composable"})
+      {:ok, other_group} = Domain.create_device_group(%{name: "Other"})
+
+      for {target_group, device} <- [
+            {group, first},
+            {group, blocked},
+            {other_group, first},
+            {group, second}
+          ] do
+        {:ok, _membership} =
+          Domain.create_device_group_membership(%{group_id: target_group.id, device_id: device.id})
+      end
+
+      results =
+        Devices.list_devices(
+          authorized_device_ids: MapSet.new([first.id, second.id]),
+          filter: %{group_id: group.id, product: "sensor"},
+          search: first.mac_address,
+          load_device_groups?: true
+        )
+
+      assert Enum.map(results, & &1.id) == [first.id]
+      assert Enum.sort(Enum.map(hd(results).device_groups, & &1.name)) == ["Composable", "Other"]
+
+      {:ok, _archived} = Domain.update_device_group(group, %{archived_at: DateTime.utc_now()})
+
+      assert Devices.list_devices(
+               authorized_device_ids: MapSet.new([first.id, second.id]),
+               filter: %{group_id: group.id},
+               load_device_groups?: true
+             ) == []
+    end
+
     test "metadata lifecycle requires an unscoped manager with a trusted actor" do
       unscoped = authorization(nil)
       scoped = authorization([])

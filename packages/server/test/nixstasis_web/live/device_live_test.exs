@@ -476,6 +476,165 @@ defmodule NixstasisWeb.DeviceLiveTest do
       refute render(view) =~ "Active filters:"
     end
 
+    test "group routes compose with existing filters and preserve generated navigation", %{conn: conn} do
+      matching =
+        create_device!(%{
+          mac_address: "31:31:31:31:31:31",
+          product_name: "Route sensor",
+          approval_status: :pending,
+          ipv4_address: "10.31.0.1"
+        })
+
+      excluded =
+        create_device!(%{
+          mac_address: "32:32:32:32:32:32",
+          product_name: "Other sensor",
+          approval_status: :approved,
+          ipv4_address: "10.31.0.2"
+        })
+
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Route group"})
+
+      for device <- [matching, excluded] do
+        {:ok, _membership} =
+          Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+      end
+
+      params = %{
+        "group_id" => group.id,
+        "product" => matching.product_name,
+        "account_number" => matching.account_number,
+        "ipv4_address" => matching.ipv4_address,
+        "approval_status" => "pending",
+        "connectivity_status" => "online",
+        "search" => "31:31",
+        "sort_by" => "mac_address",
+        "sort_order" => "asc"
+      }
+
+      {:ok, view, html} = live(conn, ~p"/devices?#{params}")
+
+      assert html =~ matching.mac_address
+      refute html =~ excluded.mac_address
+      assert html =~ "Group: Route group"
+      refute html =~ "Group: #{group.id}"
+      assert has_element?(view, "[data-device-group-summary='#{matching.id}']", "Route group")
+      assert has_element?(view, "th[data-group-summary-heading]")
+
+      assert has_element?(
+               view,
+               "[data-device-group-summary='#{matching.id}'] a[href='#{~p"/devices?#{params}"}']",
+               "Route group"
+             )
+
+      for label <- [matching.product_name, matching.account_number, matching.ipv4_address] do
+        assert has_element?(view, "a[href*='group_id=#{group.id}']", label)
+      end
+
+      view |> element("th[phx-value-sort_by='account_number']") |> render_click()
+
+      routed_params =
+        params
+        |> Map.put("sort_by", "account_number")
+        |> Map.put("sort_order", :asc)
+
+      assert_patch(view, ~p"/devices?#{routed_params}")
+
+      assert has_element?(
+               view,
+               "a[href*='group_id=#{group.id}'][href*='approval_status=approved']",
+               "Approved"
+             )
+
+      {:ok, _renamed} = Nixstasis.Domain.update_device_group(group, %{name: "Route group renamed"})
+      send(view.pid, :device_groups_changed)
+      assert render(view) =~ "Group: Route group renamed"
+
+      view |> element("button[phx-value-key='product']") |> render_click()
+      routed_params = Map.delete(routed_params, "product")
+      assert_patch(view, ~p"/devices?#{routed_params}")
+
+      view |> element("form[phx-change='search']") |> render_change(%{"search" => "31:31:31"})
+      routed_params = Map.put(routed_params, "search", "31:31:31")
+      assert_patch(view, ~p"/devices?#{routed_params}")
+
+      view |> element("button[phx-click='clear_filters']") |> render_click()
+
+      assert_patch(
+        view,
+        ~p"/devices?#{Map.take(routed_params, ["search", "sort_by", "sort_order"])}"
+      )
+
+      refute render(view) =~ "Group: Route group"
+    end
+
+    test "invalid, archived, and unauthorized group routes share an unavailable state", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "33:33:33:33:33:33"})
+      blocked = create_device!(%{mac_address: "34:34:34:34:34:34"})
+      {:ok, archived} = Nixstasis.Domain.create_device_group(%{name: "Archived secret"})
+      {:ok, hidden} = Nixstasis.Domain.create_device_group(%{name: "Hidden secret"})
+
+      for {group, device} <- [{archived, allowed}, {hidden, blocked}] do
+        {:ok, _membership} =
+          Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+      end
+
+      {:ok, _archived} =
+        Nixstasis.Domain.update_device_group(archived, %{archived_at: DateTime.utc_now()})
+
+      conn =
+        conn
+        |> put_session("operator_context", %{"subject" => "scoped-viewer"})
+        |> put_session("device_permissions", %{"can_view" => true, "device_ids" => [allowed.id]})
+
+      for group_id <- ["not-a-uuid", archived.id, hidden.id] do
+        {:ok, view, html} = live(conn, ~p"/devices?group_id=#{group_id}")
+
+        assert html =~ "The requested group is unavailable"
+        assert has_element?(view, "a", "Continue without group filter")
+        refute html =~ allowed.mac_address
+        refute html =~ blocked.mac_address
+        refute html =~ "Archived secret"
+        refute html =~ "Hidden secret"
+        refute has_element?(view, "[data-group-filter-name]")
+      end
+    end
+
+    test "scoped group routes expose only authorized memberships and counts", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "35:35:35:35:35:35"})
+      blocked = create_device!(%{mac_address: "36:36:36:36:36:36"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Scoped route"})
+
+      for device <- [allowed, blocked] do
+        {:ok, _membership} =
+          Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+      end
+
+      conn =
+        conn
+        |> put_session("operator_context", %{"subject" => "scoped-viewer"})
+        |> put_session("device_permissions", %{"can_view" => true, "device_ids" => [allowed.id]})
+
+      {:ok, view, html} = live(conn, ~p"/devices?group_id=#{group.id}")
+
+      assert html =~ allowed.mac_address
+      refute html =~ blocked.mac_address
+      assert html =~ "Group: Scoped route"
+      assert has_element?(view, "[data-device-group-summary='#{allowed.id}']", "Scoped route")
+
+      view |> element("#manage-device-groups") |> render_click()
+      assert eventually_rendered?(view, "1 visible device")
+      assert has_element?(view, "[data-group-name='Scoped route']", "1 visible device")
+
+      {:ok, _archived} =
+        Nixstasis.Domain.update_device_group(group, %{archived_at: DateTime.utc_now()})
+
+      send(view.pid, :device_groups_changed)
+      assert render(view) =~ "The requested group is unavailable"
+      refute render(view) =~ allowed.mac_address
+      refute has_element?(view, "[data-group-filter-name]")
+    end
+
     test "filters by approval_status and connectivity_status params", %{conn: conn} do
       _pending_online =
         create_device!(%{

@@ -1,51 +1,57 @@
 <div class="p-4">
-  <div class="flex justify-between items-center mb-4">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-2xl font-bold">Devices</h1>
-    <div class="flex gap-2">
-      <.form for={%{}} as={:search} phx-submit="search" phx-change="search" class="flex gap-2">
+    <div class="flex flex-1 flex-wrap justify-end gap-2">
+      <.form
+        for={%{}}
+        as={:search}
+        phx-submit="search"
+        phx-change="search"
+        class="flex w-full gap-2 sm:w-auto"
+      >
         <input
           type="text"
           name="search"
           value={@search}
           placeholder="Search devices..."
-          class="ui-input"
+          class="ui-input w-full sm:w-auto"
           phx-debounce="300"
         />
       </.form>
-      <div :if={@can_view_device_details?} class="join">
+      <div :if={@can_view_device_details?} class="flex flex-wrap gap-1">
         <.link
-          patch={~p"/devices?#{%{approval_status: "approved"}}"}
-          class={"btn btn-sm join-item #{@filter_approval_status == "approved" && "btn-active"}"}
+          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "approved")}"}
+          class={"btn btn-sm #{@filter_approval_status == "approved" && "btn-active"}"}
         >
           Approved
         </.link>
         <.link
-          patch={~p"/devices?#{%{approval_status: "pending"}}"}
-          class={"btn btn-sm join-item #{@filter_approval_status == "pending" && "btn-active"}"}
+          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "pending")}"}
+          class={"btn btn-sm #{@filter_approval_status == "pending" && "btn-active"}"}
         >
           Pending
         </.link>
         <.link
-          patch={~p"/devices?#{%{approval_status: "rejected"}}"}
-          class={"btn btn-sm join-item #{@filter_approval_status == "rejected" && "btn-active"}"}
+          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "rejected")}"}
+          class={"btn btn-sm #{@filter_approval_status == "rejected" && "btn-active"}"}
         >
           Rejected
         </.link>
         <.link
-          patch={~p"/devices?#{%{connectivity_status: "online"}}"}
-          class={"btn btn-sm join-item #{@filter_connectivity_status == "online" && "btn-active"}"}
+          patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "online")}"}
+          class={"btn btn-sm #{@filter_connectivity_status == "online" && "btn-active"}"}
         >
           Online
         </.link>
         <.link
-          patch={~p"/devices?#{%{connectivity_status: "offline"}}"}
-          class={"btn btn-sm join-item #{@filter_connectivity_status == "offline" && "btn-active"}"}
+          patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "offline")}"}
+          class={"btn btn-sm #{@filter_connectivity_status == "offline" && "btn-active"}"}
         >
           Offline
         </.link>
         <.link
-          patch={~p"/devices"}
-          class={"btn btn-sm join-item #{is_nil(@filter_approval_status) && is_nil(@filter_connectivity_status) && "btn-active"}"}
+          patch={~p"/devices?#{Map.drop(@current_params, ["approval_status", "connectivity_status"])}"}
+          class={"btn btn-sm #{is_nil(@filter_approval_status) && is_nil(@filter_connectivity_status) && "btn-active"}"}
         >
           All
         </.link>
@@ -324,6 +330,7 @@
           class="badge badge-outline gap-2 px-3 py-3"
           phx-click="remove_filter"
           phx-value-key={key}
+          data-group-filter-name={key == "group_id" && value}
         >
           <span>{Phoenix.Naming.humanize(key)}: {value}</span>
           <span aria-hidden="true">×</span>
@@ -336,6 +343,12 @@
   <div class="overflow-x-auto">
     <div :if={!@can_view_device_details?} class="alert alert-warning">
       You are not authorized to view devices.
+    </div>
+    <div :if={@group_filter_unavailable?} class="alert alert-info mb-4" role="status">
+      <span>The requested group is unavailable.</span>
+      <.link patch={~p"/devices?#{@current_params}"} class="btn btn-sm btn-outline">
+        Continue without group filter
+      </.link>
     </div>
     <table :if={@can_view_device_details?} class="table table-zebra">
       <thead>
@@ -392,6 +405,7 @@
               do: if(@sort_order == :asc, do: "▲", else: "▼")}
           </th>
           <th>Online</th>
+          <th data-group-summary-heading class="hidden lg:table-cell">Groups</th>
         </tr>
       </thead>
       <tbody id="devices-stream" phx-update="stream">
@@ -482,6 +496,23 @@
                 offline
               </.link>
             <% end %>
+          </td>
+          <td class="hidden lg:table-cell" data-device-group-summary={device.id}>
+            <% groups = active_device_groups(device) %>
+            <span :if={groups == []} class="text-sm text-base-content/50">—</span>
+            <div :if={groups != []} class="flex max-w-64 flex-wrap gap-1">
+              <.link
+                :for={group <- Enum.take(groups, 2)}
+                patch={~p"/devices?#{Map.put(@current_params, "group_id", group.id)}"}
+                class="badge badge-outline badge-sm max-w-32 truncate"
+                title={group.name}
+              >
+                {group.name}
+              </.link>
+              <span :if={length(groups) > 2} class="badge badge-ghost badge-sm">
+                +{length(groups) - 2}
+              </span>
+            </div>
           </td>
         </tr>
       </tbody>
