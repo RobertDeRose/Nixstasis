@@ -1216,6 +1216,7 @@ defmodule Nixstasis.Devices do
   defp run_membership_transaction(action, group_id, device_ids, authorization) do
     with {:ok, group} <- lock_device_group(group_id),
          :ok <- ensure_active_group(group),
+         :ok <- authorize_group_visibility(group_id, authorization),
          :ok <- authorize_group_memberships(authorization, device_ids),
          :ok <- lock_existing_devices(device_ids) do
       memberships = current_group_memberships(group_id, device_ids)
@@ -1225,6 +1226,16 @@ defmodule Nixstasis.Devices do
 
   defp ensure_active_group(%DeviceGroup{archived_at: nil}), do: :ok
   defp ensure_active_group(%DeviceGroup{}), do: {:error, :group_archived}
+
+  defp authorize_group_visibility(_group_id, %GroupAuthorization{authorized_device_ids: nil}), do: :ok
+
+  defp authorize_group_visibility(group_id, %GroupAuthorization{} = authorization) do
+    if membership_device_ids(group_id, authorization.authorized_device_ids) == [] do
+      {:error, :group_not_visible}
+    else
+      :ok
+    end
+  end
 
   defp cast_device_ids(device_ids) when is_list(device_ids) do
     Enum.reduce_while(device_ids, {:ok, []}, fn device_id, {:ok, valid_ids} ->

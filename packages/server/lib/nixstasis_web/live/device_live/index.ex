@@ -38,6 +38,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
      socket
      |> stream(:devices, [])
      |> assign(:selected_ids, [])
+     |> assign(:selected_group_id, nil)
      |> assign(:active_filters, %{})
      |> assign(:device_permissions, permissions)
      |> assign(:group_authorization, group_authorization)
@@ -124,6 +125,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
       |> then(fn s -> assign(s, :current_params, get_params(s.assigns)) end)
       |> assign(:total_count, length(devices))
       |> stream(:devices, devices, reset: true)
+      |> refresh_device_groups()
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -278,6 +280,34 @@ defmodule NixstasisWeb.DeviceLive.Index do
       {true, %{id: group_id}} -> permanently_delete_group(socket, group_id)
       _state -> {:noreply, group_metadata_denied(socket)}
     end
+  end
+
+  def handle_event("select_membership_group", %{"group_id" => group_id}, socket) do
+    if can_manage_group_memberships?(socket) do
+      case find_active_device_group(socket, group_id) do
+        nil ->
+          {:noreply,
+           socket
+           |> assign(:selected_group_id, nil)
+           |> put_flash(:error, "That group is no longer available.")}
+
+        _group ->
+          {:noreply, assign(socket, :selected_group_id, group_id)}
+      end
+    else
+      {:noreply, group_membership_denied(socket)}
+    end
+  end
+
+  def handle_event("select_membership_group", _params, socket),
+    do: {:noreply, group_membership_denied(socket)}
+
+  def handle_event("add_selected_to_group", _params, socket) do
+    mutate_selected_group_memberships(socket, :add)
+  end
+
+  def handle_event("remove_selected_from_group", _params, socket) do
+    mutate_selected_group_memberships(socket, :remove)
   end
 
   def handle_event("search", %{"search" => search}, socket) do
@@ -549,8 +579,111 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:current_params, %{})
     |> assign(:total_count, 0)
     |> assign(:selected_ids, [])
+    |> assign(:selected_group_id, nil)
+    |> assign(:device_groups, [])
     |> stream(:devices, [], reset: true)
   end
+
+  defp can_manage_group_memberships?(socket) do
+    case socket.assigns.group_authorization do
+      %{can_manage_devices?: true} -> true
+      _authorization -> false
+    end
+  end
+
+  defp group_membership_denied(socket) do
+    put_flash(socket, :error, "You are not authorized to manage group memberships.")
+  end
+
+  defp find_active_device_group(socket, group_id) do
+    Enum.find_value(socket.assigns.device_groups, fn row ->
+      if row.group.id == group_id and is_nil(row.group.archived_at), do: row.group
+    end)
+  end
+
+  defp mutate_selected_group_memberships(socket, operation) do
+    cond do
+      not can_manage_group_memberships?(socket) ->
+        {:noreply, group_membership_denied(socket)}
+
+      socket.assigns.selected_ids == [] ->
+        {:noreply, put_flash(socket, :error, "Select at least one device first.")}
+
+      is_nil(socket.assigns.selected_group_id) ->
+        {:noreply, put_flash(socket, :error, "That group is no longer available.")}
+
+      true ->
+        run_selected_membership_mutation(socket, operation)
+    end
+  end
+
+  defp run_selected_membership_mutation(socket, operation) do
+    group = find_active_device_group(socket, socket.assigns.selected_group_id)
+
+    if group do
+      result =
+        case operation do
+          :add ->
+            Devices.add_devices_to_group(
+              group.id,
+              socket.assigns.selected_ids,
+              socket.assigns.group_authorization
+            )
+
+          :remove ->
+            Devices.remove_devices_from_group(
+              group.id,
+              socket.assigns.selected_ids,
+              socket.assigns.group_authorization
+            )
+        end
+
+      handle_selected_membership_result(socket, operation, group, result)
+    else
+      {:noreply,
+       socket
+       |> assign(:selected_group_id, nil)
+       |> put_flash(:error, "That group is no longer available.")}
+    end
+  end
+
+  defp handle_selected_membership_result(socket, operation, group, {:ok, result}) do
+    changed_count = length(result.changed_device_ids)
+    message = membership_success_message(operation, group.name, changed_count)
+
+    {:noreply,
+     socket
+     |> refresh_device_groups()
+     |> put_flash(:info, message)}
+  end
+
+  defp handle_selected_membership_result(socket, _operation, _group, {:error, reason}) do
+    {:noreply, put_flash(socket, :error, group_membership_error(reason))}
+  end
+
+  defp membership_success_message(:add, group_name, 0),
+    do: "Selected devices are already in #{group_name}."
+
+  defp membership_success_message(:remove, group_name, 0),
+    do: "Selected devices are not in #{group_name}."
+
+  defp membership_success_message(:add, group_name, count),
+    do: "Added #{count} #{device_count_label(count)} to #{group_name}."
+
+  defp membership_success_message(:remove, group_name, count),
+    do: "Removed #{count} #{device_count_label(count)} from #{group_name}."
+
+  defp device_count_label(1), do: "device"
+  defp device_count_label(_count), do: "devices"
+
+  defp group_membership_error(:group_archived), do: "That group is archived or no longer available."
+  defp group_membership_error(:group_not_found), do: "That group is archived or no longer available."
+  defp group_membership_error(:group_not_visible), do: "That group is no longer available."
+  defp group_membership_error(:unauthorized_devices), do: "Your device access changed. Refresh and try again."
+  defp group_membership_error(:devices_not_found), do: "One or more selected devices are no longer available."
+  defp group_membership_error(:unauthorized), do: "You are not authorized to manage group memberships."
+  defp group_membership_error(:missing_actor), do: "Your operator identity is unavailable. Sign in again."
+  defp group_membership_error(_reason), do: "Unable to update group memberships. No changes were saved."
 
   defp can_manage_group_metadata?(socket) do
     case socket.assigns.group_authorization do
@@ -583,6 +716,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   defp refresh_device_groups(%{assigns: %{group_authorization: nil}} = socket) do
     socket
     |> assign(:device_groups, [])
+    |> assign(:selected_group_id, nil)
     |> assign(:groups_loading?, false)
   end
 
@@ -592,8 +726,19 @@ defmodule NixstasisWeb.DeviceLive.Index do
         include_archived?: socket.assigns.show_archived_groups?
       )
 
+    active_group_ids =
+      groups
+      |> Enum.filter(&is_nil(&1.group.archived_at))
+      |> Enum.map(& &1.group.id)
+
+    selected_group_id =
+      if socket.assigns.selected_group_id in active_group_ids,
+        do: socket.assigns.selected_group_id,
+        else: nil
+
     socket
     |> assign(:device_groups, groups)
+    |> assign(:selected_group_id, selected_group_id)
     |> assign(:groups_loading?, false)
   end
 

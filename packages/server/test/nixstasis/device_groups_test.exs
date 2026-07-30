@@ -285,6 +285,16 @@ defmodule Nixstasis.DeviceGroupsTest do
 
       assert Devices.list_group_memberships(group.id, authorization(nil)) == []
 
+      {:ok, hidden_group} = Domain.create_device_group(%{name: "Hidden membership target"})
+
+      {:ok, _membership} =
+        Domain.create_device_group_membership(%{group_id: hidden_group.id, device_id: second.id})
+
+      assert {:error, :group_not_visible} =
+               Devices.add_devices_to_group(hidden_group.id, [first.id], authorization([first.id]))
+
+      assert Devices.list_group_memberships(hidden_group.id, authorization(nil)) == [second.id]
+
       changed_authorization = authorization([])
 
       assert {:error, :unauthorized_devices} =

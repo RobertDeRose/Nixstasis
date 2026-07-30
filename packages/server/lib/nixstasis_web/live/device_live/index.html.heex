@@ -262,10 +262,57 @@
   </section>
 
   <%= if NixstasisWeb.Permissions.can_manage_devices?(@device_permissions) and length(@selected_ids) > 0 do %>
-    <div class="bg-base-200 p-2 rounded-lg mb-4 flex gap-4 items-center">
+    <div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-base-300 bg-base-200 p-3">
       <span class="font-semibold">{length(@selected_ids)} selected</span>
-      <button phx-click="bulk_approve" class="btn btn-sm btn-success">Approve</button>
-      <button phx-click="bulk_reject" class="btn btn-sm btn-error">Reject</button>
+      <div class="flex gap-2">
+        <button phx-click="bulk_approve" class="btn btn-sm btn-success">Approve</button>
+        <button phx-click="bulk_reject" class="btn btn-sm btn-error">Reject</button>
+      </div>
+      <.form
+        :if={@device_groups != []}
+        for={%{}}
+        id="membership-group-form"
+        phx-change="select_membership_group"
+        class="ml-auto flex flex-wrap items-center gap-2"
+      >
+        <label for="membership-group-select" class="text-sm font-medium">Group</label>
+        <select
+          id="membership-group-select"
+          name="group_id"
+          class="select select-bordered select-sm min-w-44"
+        >
+          <option value="" selected={is_nil(@selected_group_id)}>Choose a group</option>
+          <option
+            :for={row <- @device_groups}
+            :if={is_nil(row.group.archived_at)}
+            value={row.group.id}
+            selected={@selected_group_id == row.group.id}
+          >
+            {row.group.name}
+          </option>
+        </select>
+        <button
+          id="add-selected-to-group"
+          type="button"
+          class="btn btn-sm btn-primary"
+          phx-click="add_selected_to_group"
+          phx-disable-with="Adding…"
+        >
+          Add to group
+        </button>
+        <button
+          id="remove-selected-from-group"
+          type="button"
+          class="btn btn-sm btn-outline"
+          phx-click="remove_selected_from_group"
+          phx-disable-with="Removing…"
+        >
+          Remove from group
+        </button>
+      </.form>
+      <p :if={@device_groups == []} class="ml-auto text-sm text-base-content/60">
+        No visible groups are available for membership changes.
+      </p>
     </div>
   <% end %>
 

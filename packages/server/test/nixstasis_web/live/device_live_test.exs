@@ -48,6 +48,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
     device
   end
 
+  defp group_authorization(device_ids) do
+    %Nixstasis.Devices.GroupAuthorization{
+      actor_id: "test-operator",
+      can_manage_devices?: true,
+      can_manage_all_devices?: is_nil(device_ids),
+      authorized_device_ids: if(is_nil(device_ids), do: nil, else: MapSet.new(device_ids))
+    }
+  end
+
   setup %{conn: conn} do
     conn =
       conn
@@ -237,6 +246,183 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       render_hook(view, "archive_group", %{"id" => Ecto.UUID.generate()})
       assert render(view) =~ "not authorized to manage group metadata"
+    end
+
+    test "selected devices can be added to and removed from a visible group", %{conn: conn} do
+      first = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B1"})
+      second = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B2"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Selected workflow"})
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      render_hook(view, "toggle_selection", %{"id" => first.id})
+      render_hook(view, "toggle_selection", %{"id" => second.id})
+      assert render(view) =~ "2 selected"
+      assert has_element?(view, "#membership-group-select option[value='#{group.id}']")
+
+      render_change(element(view, "#membership-group-form"), %{"group_id" => group.id})
+      render_click(element(view, "#add-selected-to-group"))
+
+      assert render(view) =~ "Added 2 devices to Selected workflow"
+
+      assert MapSet.new(Devices.list_group_memberships(group.id, group_authorization(nil))) ==
+               MapSet.new([first.id, second.id])
+
+      render_click(element(view, "#add-selected-to-group"))
+      assert render(view) =~ "Selected devices are already in Selected workflow"
+
+      render_click(element(view, "#remove-selected-from-group"))
+      assert render(view) =~ "Removed 2 devices from Selected workflow"
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == []
+      assert render(view) =~ "2 selected"
+    end
+
+    test "scoped managers mutate memberships only in visible groups", %{conn: conn} do
+      first = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B3"})
+      second = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B4"})
+      {:ok, visible_group} = Nixstasis.Domain.create_device_group(%{name: "Visible workflow"})
+      {:ok, hidden_group} = Nixstasis.Domain.create_device_group(%{name: "Hidden workflow"})
+
+      {:ok, _membership} =
+        Nixstasis.Domain.create_device_group_membership(%{
+          group_id: visible_group.id,
+          device_id: first.id
+        })
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "scoped-manager"})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => true,
+          "device_ids" => [first.id, second.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      render_hook(view, "toggle_selection", %{"id" => second.id})
+
+      assert has_element?(view, "#membership-group-select option[value='#{visible_group.id}']")
+      refute has_element?(view, "#membership-group-select option[value='#{hidden_group.id}']")
+
+      render_change(element(view, "#membership-group-form"), %{"group_id" => visible_group.id})
+      render_click(element(view, "#add-selected-to-group"))
+
+      assert MapSet.new(Devices.list_group_memberships(visible_group.id, group_authorization(nil))) ==
+               MapSet.new([first.id, second.id])
+
+      render_hook(view, "select_membership_group", %{"group_id" => hidden_group.id})
+      render_click(element(view, "#add-selected-to-group"))
+      assert render(view) =~ "That group is no longer available"
+      assert Devices.list_group_memberships(hidden_group.id, group_authorization(nil)) == []
+    end
+
+    test "view-only sessions cannot invoke membership handlers", %{conn: conn} do
+      device = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B5"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Denied workflow"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "viewer"})
+        |> put_session("device_permissions", %{"can_view" => true, "can_manage" => false})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      refute has_element?(view, "#membership-group-form")
+
+      render_hook(view, "toggle_selection", %{"id" => device.id})
+      render_hook(view, "select_membership_group", %{"group_id" => group.id})
+      render_hook(view, "add_selected_to_group", %{})
+
+      assert render(view) =~ "not authorized to manage group memberships"
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == []
+    end
+
+    test "membership handlers reject groups archived after selection", %{conn: conn} do
+      device = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B6"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Stale workflow"})
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      render_hook(view, "toggle_selection", %{"id" => device.id})
+      render_change(element(view, "#membership-group-form"), %{"group_id" => group.id})
+      {:ok, _archived} = Nixstasis.Domain.update_device_group(group, %{archived_at: DateTime.utc_now()})
+
+      render_click(element(view, "#add-selected-to-group"))
+      assert render(view) =~ "That group is archived or no longer available"
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == []
+    end
+
+    test "scoped removal clears a group selection when its final visible membership leaves", %{conn: conn} do
+      device = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B7"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Last visible membership"})
+
+      {:ok, _membership} =
+        Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "scoped-manager"})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => true,
+          "device_ids" => [device.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      render_hook(view, "toggle_selection", %{"id" => device.id})
+      render_change(element(view, "#membership-group-form"), %{"group_id" => group.id})
+      render_click(element(view, "#remove-selected-from-group"))
+
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == []
+      refute has_element?(view, "#membership-group-form")
+      assert render(view) =~ "No visible groups are available"
+    end
+
+    test "membership UI rejects unauthorized and stale selected devices atomically", %{conn: conn} do
+      first = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B8"})
+      second = create_device!(%{mac_address: "AA:AA:AA:AA:AA:B9"})
+      blocked = create_device!(%{mac_address: "AA:AA:AA:AA:AA:C0"})
+      {:ok, group} = Nixstasis.Domain.create_device_group(%{name: "Atomic UI workflow"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "scoped-manager"})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => true,
+          "device_ids" => [first.id, second.id]
+        })
+
+      {:ok, _seed} =
+        Nixstasis.Domain.create_device_group_membership(%{group_id: group.id, device_id: first.id})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      render_hook(view, "toggle_selection", %{"id" => first.id})
+      render_hook(view, "toggle_selection", %{"id" => second.id})
+      render_hook(view, "toggle_selection", %{"id" => blocked.id})
+      assert render(view) =~ "not authorized to manage this device"
+      assert render(view) =~ "2 selected"
+
+      render_change(element(view, "#membership-group-form"), %{"group_id" => group.id})
+
+      :sys.replace_state(view.pid, fn state ->
+        %{state | socket: Phoenix.Component.assign(state.socket, :selected_ids, [first.id, blocked.id])}
+      end)
+
+      render_click(element(view, "#add-selected-to-group"))
+      assert render(view) =~ "Your device access changed"
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == [first.id]
+
+      :sys.replace_state(view.pid, fn state ->
+        %{state | socket: Phoenix.Component.assign(state.socket, :selected_ids, [first.id, second.id])}
+      end)
+
+      assert :ok = Nixstasis.Domain.destroy_device(second)
+      render_click(element(view, "#add-selected-to-group"))
+
+      assert render(view) =~ "One or more selected devices are no longer available"
+      assert Devices.list_group_memberships(group.id, group_authorization(nil)) == [first.id]
     end
 
     test "renders MAC Address and Product columns", %{conn: conn} do
