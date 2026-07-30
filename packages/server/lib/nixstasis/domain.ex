@@ -141,6 +141,21 @@ defmodule Nixstasis.Domain do
       define :destroy_device, action: :destroy
     end
 
+    resource Nixstasis.Devices.DeviceGroup do
+      define :list_device_groups, action: :read
+      define :get_device_group, action: :read, get_by: [:id]
+      define :create_device_group, action: :create
+      define :update_device_group, action: :update
+      define :destroy_device_group, action: :destroy
+    end
+
+    resource Nixstasis.Devices.DeviceGroupMembership do
+      define :list_device_group_memberships, action: :read
+      define :get_device_group_membership, action: :read, get_by: [:id]
+      define :create_device_group_membership, action: :create
+      define :destroy_device_group_membership, action: :destroy
+    end
+
     resource Nixstasis.Devices.PendingCommand do
       define :list_pending_commands, action: :read
       define :create_pending_command, action: :create

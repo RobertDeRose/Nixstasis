@@ -162,6 +162,16 @@ defmodule Nixstasis.Devices.Device do
     has_many :command_policy_assignments, Nixstasis.CommandAllowlists.DevicePolicyAssignment do
       public? true
     end
+
+    has_many :device_group_memberships, Nixstasis.Devices.DeviceGroupMembership do
+      destination_attribute :device_id
+    end
+
+    many_to_many :device_groups, Nixstasis.Devices.DeviceGroup do
+      through Nixstasis.Devices.DeviceGroupMembership
+      source_attribute_on_join_resource :device_id
+      destination_attribute_on_join_resource :group_id
+    end
   end
 
   identities do
