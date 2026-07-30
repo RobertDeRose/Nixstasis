@@ -18,7 +18,7 @@ flowchart TB
 - Server application:
   - Elixir OTP application `:nixstasis`.
   - Phoenix HTTP endpoint and LiveView UI.
-  - Ash domain and Ash resources for devices, commands, alerts, telemetry, reports, and settings.
+  - Ash domain and Ash resources for devices, manual device groups, commands, alerts, telemetry, reports, and settings.
   - Ecto/PostgreSQL persistence through `Nixstasis.Repo`.
 - Client application:
   - Go CLI binary `nixstasis` using Cobra.
@@ -76,6 +76,14 @@ telemetry payloads.
   command-result, and deferred command-payload endpoints.
 - Device telemetry is stored as dynamic JSON payloads so Stary/Starlark scripts
   and product schemas can evolve without one table per product type.
+- Manual device groups use a many-to-many membership resource. A group can be
+  archived without losing identity or memberships; permanent deletion requires
+  an archived group with no memberships. Group organization never changes the
+  device runtime lifecycle.
+- Group reads, counts, route filters, and membership changes apply the trusted
+  browser device scope before data leaves the server. Metadata lifecycle actions
+  require an unscoped device manager, while scoped managers can change only
+  authorized-device memberships in visible groups.
 - Alert rules and report builders use schema-aware fields where practical, while
   runtime telemetry remains flexible enough for product-specific payloads.
 
@@ -162,7 +170,8 @@ Traceable references:
 - Browser routes use the `:browser` pipeline with session fetch, LiveView flash, CSRF protection, and secure browser headers.
 - LiveViews implement `mount/3`, `handle_params/3`, and `handle_event/3` for UI state and user interactions.
 - Observable event examples:
-  - Device list search/filter/sort/bulk approval in `DeviceLive.Index`.
+  - Device list search/filter/sort/bulk approval, group lifecycle, scoped
+    membership updates, and route-backed group filtering in `DeviceLive.Index`.
   - Device detail tab change, retry session, and SSH session start in `DeviceLive.Show`.
   - Alert rule validation/save/delete in alert LiveViews.
   - Report sorting/filtering/deletion in report LiveViews.
@@ -181,6 +190,10 @@ Traceable references:
 - JSON:API routes are declared for devices, pending commands, alerts, alert rules, telemetry events, custom reports, and system settings.
 - Domain-level functions are defined for common resource actions such as `list_devices`, `get_device`, `register_device`, `create_pending_command`, `list_alerts`, and `list_custom_reports`.
 - Context modules call `Nixstasis.Domain` functions and Ash queries to implement application behavior.
+- `Nixstasis.Devices` owns device-group authorization, lifecycle transactions,
+  scoped reads and counts, atomic membership changes, structured post-commit
+  audit events, and payload-free LiveView refresh invalidation. These are browser
+  control-plane behaviors; no device runtime or JSON:API group endpoint is exposed.
 
 Traceable references:
 

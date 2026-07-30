@@ -1,3 +1,5 @@
+<!-- rumdl-disable MD041 -->
+
 <section class="brand-hero">
   <img class="brand-hero__logo" src="assets/brand/nixstasis-logo.png" alt="Nixstasis logo">
   <div class="brand-hero__copy">
@@ -25,7 +27,7 @@ Traceable references:
 
 - Device registration and persistent device identity.
 - Device telemetry polling and server-side heartbeat processing.
-- Approval and monitoring of devices through a Phoenix LiveView UI.
+- Approval, monitoring, manual grouping, and scoped fleet filtering through a Phoenix LiveView UI.
 - Alert-rule configuration and alert review.
 - Custom report creation and report result browsing.
 - On-demand remote access through FRP tunnels fronted by Caddy.

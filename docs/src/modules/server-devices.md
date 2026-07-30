@@ -10,12 +10,16 @@
 
 ## Purpose
 
-- Manages device registration, listing, approval, remote-access flags, pending command queueing, command delivery, command acknowledgement, command payload retrieval, and SSH terminal process support.
+- Manages device registration, listing, approval, manual group organization, remote-access flags, pending command queueing, command delivery, command acknowledgement, command payload retrieval, and SSH terminal process support.
 
 ## Key Files
 
 - `packages/server/lib/nixstasis/devices.ex`
 - `packages/server/lib/nixstasis/devices/device.ex`
+- `packages/server/lib/nixstasis/devices/device_group.ex`
+- `packages/server/lib/nixstasis/devices/device_group_membership.ex`
+- `packages/server/lib/nixstasis/devices/group_authorization.ex`
+- `packages/server/lib/nixstasis/devices/group_audit.ex`
 - `packages/server/lib/nixstasis/devices/pending_command.ex`
 - `packages/server/lib/nixstasis/devices/schema_validator.ex`
 - `packages/server/lib/nixstasis/devices/ssh_key_manager.ex`
@@ -37,6 +41,15 @@
   - `Nixstasis.Devices.list_pending_devices/0`
   - `Nixstasis.Devices.approve_device/1`
   - `Nixstasis.Devices.list_devices/1`
+  - `Nixstasis.Devices.list_device_groups/2`
+  - `Nixstasis.Devices.list_group_memberships/2`
+  - `Nixstasis.Devices.create_device_group/2`
+  - `Nixstasis.Devices.update_device_group/3`
+  - `Nixstasis.Devices.archive_device_group/2`
+  - `Nixstasis.Devices.restore_device_group/2`
+  - `Nixstasis.Devices.permanently_delete_device_group/2`
+  - `Nixstasis.Devices.add_devices_to_group/3`
+  - `Nixstasis.Devices.remove_devices_from_group/3`
   - `Nixstasis.Devices.requesting_remote_access?/1`
   - `Nixstasis.Devices.approve_devices/1`
   - `Nixstasis.Devices.reject_devices/1`
@@ -65,6 +78,10 @@
 - `Nixstasis.Repo`
 - `Nixstasis.Devices.Device`
 - `Nixstasis.Devices.PendingCommand`
+- `Nixstasis.Devices.DeviceGroup`
+- `Nixstasis.Devices.DeviceGroupMembership`
+- `Nixstasis.Devices.GroupAuthorization`
+- `Nixstasis.Devices.GroupAudit`
 - `Nixstasis.Devices.SchemaValidator`
 
 ### External
@@ -104,6 +121,31 @@
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 
+## Device Group Contracts
+
+- Device groups are browser control-plane data. The server exposes no public
+  group HTTP API and requires no client behavior.
+- `GroupAuthorization` is constructed from trusted browser identity and device
+  permissions. Every mutation requires a nonblank actor ID. Production requests
+  fail closed when both trusted subject and email are absent; the explicit local
+  browser fallback supplies `local-development` only in local development.
+- Unscoped device managers own group metadata. Scoped managers can change
+  memberships only for authorized devices and only in groups visible through
+  their device scope.
+- `list_devices/1` accepts `group_id`, `authorized_device_ids`, and
+  `load_device_groups?` options. Active-group filtering composes with existing
+  search, sort, and device filters; the optional relationship preload supports
+  bounded LiveView summaries rather than per-row queries.
+- Metadata and membership transactions publish structured audit events only
+  after commit. A separate payload-free `:device_groups_changed` event tells the
+  Devices LiveView to reload scoped state.
+- Structured group audit logs carry action, trusted actor ID, UTC timestamp,
+  group ID, and affected device IDs. They are not stored in a dedicated database
+  table, so retention belongs to the deployment logging system.
+
+See [Device Groups](../operations/device-groups.md) for operator workflows and
+conflict recovery.
+
 ## Data Model Notes
 
 - Device records carry stable identity and operational fields such as MAC
@@ -113,6 +155,11 @@
 - Telemetry and schema data intentionally remain dynamic JSON structures so
   product-specific Stary scripts can evolve without one relational table per
   product payload.
+- `DeviceGroup` stores normalized, case-insensitively unique metadata and an
+  optional archive timestamp. Names remain reserved while archived.
+- `DeviceGroupMembership` is the unique device/group join. Device deletion
+  cascades membership cleanup; group deletion is restricted until the group is
+  archived and empty. Archive and restore preserve memberships.
 - Detailed historical product requirements live in
   [IoT Device Monitoring](../features/iot-device-monitoring/index.md) and
   [Device Detail Page](../features/device-detail-page/index.md); runtime API
@@ -120,7 +167,12 @@
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/devices.ex:1-360`
+- `packages/server/lib/nixstasis/devices.ex`
+- `packages/server/lib/nixstasis/devices/device_group.ex`
+- `packages/server/lib/nixstasis/devices/device_group_membership.ex`
+- `packages/server/lib/nixstasis/devices/group_authorization.ex`
+- `packages/server/lib/nixstasis/devices/group_audit.ex`
+- `packages/server/lib/nixstasis_web/live/device_live/index.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-65`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
