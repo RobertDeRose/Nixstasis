@@ -155,6 +155,102 @@ defmodule Nixstasis.DevicesTest do
       assert res.id == wanted.id
     end
 
+    test "list_devices/1 composes group and authorization with every existing filter" do
+      now = DateTime.utc_now()
+
+      wanted =
+        device_fixture(%{
+          mac_address: "A1:A1:A1:A1:A1:A1",
+          product_name: "alpha",
+          account_number: "77777",
+          ipv4_address: "10.0.0.1",
+          approval_status: :approved,
+          last_seen_at: DateTime.add(now, -30, :second)
+        })
+
+      unauthorized =
+        device_fixture(%{
+          mac_address: "A2:A2:A2:A2:A2:A2",
+          product_name: "alpha",
+          account_number: "77777",
+          ipv4_address: "10.0.0.1",
+          approval_status: :approved,
+          last_seen_at: DateTime.add(now, -30, :second)
+        })
+
+      wrong_product =
+        device_fixture(%{
+          mac_address: "A3:A3:A3:A3:A3:A3",
+          product_name: "beta",
+          account_number: "77777",
+          ipv4_address: "10.0.0.1",
+          approval_status: :approved,
+          last_seen_at: DateTime.add(now, -30, :second)
+        })
+
+      outside_group =
+        device_fixture(%{
+          mac_address: "A4:A4:A4:A4:A4:A4",
+          product_name: "alpha",
+          account_number: "77777",
+          ipv4_address: "10.0.0.1",
+          approval_status: :approved,
+          last_seen_at: DateTime.add(now, -30, :second)
+        })
+
+      {:ok, group} = Domain.create_device_group(%{name: "Composed"})
+
+      for device <- [wanted, unauthorized, wrong_product] do
+        {:ok, _membership} =
+          Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+      end
+
+      assert [result] =
+               Devices.list_devices(
+                 authorized_device_ids: MapSet.new([wanted.id, wrong_product.id, outside_group.id]),
+                 filter: %{
+                   group_id: group.id,
+                   approval_status: :approved,
+                   connectivity_status: :online,
+                   product: "alpha",
+                   account_number: "77777",
+                   ipv4_address: "10.0.0.1"
+                 },
+                 search: "77777",
+                 sort_by: :mac_address,
+                 sort_order: :asc
+               )
+
+      assert result.id == wanted.id
+      assert Devices.list_devices(filter: %{group_id: Ecto.UUID.generate()}) == []
+      assert Devices.list_devices(authorized_device_ids: MapSet.new()) == []
+    end
+
+    test "list_devices/1 applies active group membership in one database statement" do
+      device = device_fixture(%{mac_address: "A5:A5:A5:A5:A5:A5", product_name: "atomic"})
+      {:ok, group} = Domain.create_device_group(%{name: "Atomic filter"})
+
+      {:ok, _membership} =
+        Domain.create_device_group_membership(%{group_id: group.id, device_id: device.id})
+
+      handler_id = "group-filter-query-count-#{System.unique_integer([:positive])}"
+
+      :ok =
+        :telemetry.attach(
+          handler_id,
+          [:nixstasis, :repo, :query],
+          fn _event, _measurements, _metadata, test_pid -> send(test_pid, :group_filter_query) end,
+          self()
+        )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      assert [result] = Devices.list_devices(filter: %{group_id: group.id})
+      assert result.id == device.id
+      assert_receive :group_filter_query
+      refute_receive :group_filter_query, 20
+    end
+
     test "list_devices/1 searches by mac_address" do
       match = device_fixture(%{mac_address: "11:22:33:44:55:66", product_name: "k1"})
       _miss = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "k2"})

@@ -10,6 +10,7 @@ defmodule NixstasisWeb.Permissions do
   """
 
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.GroupAuthorization
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
@@ -46,6 +47,24 @@ defmodule NixstasisWeb.Permissions do
   def can_manage_all_devices?(_permissions), do: false
 
   def can_create_devices?(permissions), do: can_manage_all_devices?(permissions)
+
+  @doc "Builds trusted authorization for device group context operations."
+  def device_group_authorization(session) when is_map(session) do
+    permissions = device_permissions(session)
+
+    with {:ok, actor_id} <- group_actor_id(session),
+         {:ok, authorized_device_ids} <- validate_group_device_scope(authorized_device_ids(permissions)) do
+      {:ok,
+       %GroupAuthorization{
+         actor_id: actor_id,
+         can_manage_devices?: can_manage_devices?(permissions),
+         can_manage_all_devices?: can_manage_all_devices?(permissions),
+         authorized_device_ids: authorized_device_ids
+       }}
+    end
+  end
+
+  def device_group_authorization(_session), do: {:error, :missing_actor}
 
   def can_manage_device?(permissions, device_id) when is_map(permissions) do
     permissions["can_manage"] == true and device_authorized?(permissions, device_id)
@@ -110,6 +129,45 @@ defmodule NixstasisWeb.Permissions do
   end
 
   def can_assign_command_policy_to_device?(_session, _device), do: false
+
+  defp validate_group_device_scope(nil), do: {:ok, nil}
+
+  defp validate_group_device_scope(%MapSet{} = ids) do
+    Enum.reduce_while(ids, {:ok, MapSet.new()}, fn id, {:ok, valid_ids} ->
+      case Ecto.UUID.cast(id) do
+        {:ok, valid_id} -> {:cont, {:ok, MapSet.put(valid_ids, valid_id)}}
+        :error -> {:halt, {:error, :invalid_device_scope}}
+      end
+    end)
+  end
+
+  defp group_actor_id(session) do
+    case Map.get(session, "operator_context") do
+      context when is_map(context) ->
+        context
+        |> then(&(normalize_actor_id(&1["subject"]) || normalize_actor_id(&1["email"])))
+        |> case do
+          nil -> {:error, :missing_actor}
+          actor_id -> {:ok, actor_id}
+        end
+
+      _context ->
+        if Application.get_env(:nixstasis, :local_browser_auth_fallback?, false) do
+          {:ok, "local-development"}
+        else
+          {:error, :missing_actor}
+        end
+    end
+  end
+
+  defp normalize_actor_id(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      actor_id -> actor_id
+    end
+  end
+
+  defp normalize_actor_id(_value), do: nil
 
   defp permission_map(session, key) when is_map(session) do
     case Map.get(session, key) do

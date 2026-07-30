@@ -2,6 +2,7 @@ defmodule NixstasisWeb.PermissionsTest do
   use ExUnit.Case, async: true
 
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.GroupAuthorization
   alias NixstasisWeb.Permissions
 
   test "script permissions can be scoped to allowed scripts" do
@@ -60,5 +61,55 @@ defmodule NixstasisWeb.PermissionsTest do
     refute Permissions.can_view_command_policy_details?(%{})
     refute Permissions.can_manage_command_policies?(%{})
     refute Permissions.can_manage_command_policy_for_device?(%{}, "device-a")
+  end
+
+  test "builds trusted group authorization from operator context and device permissions" do
+    first_id = Ecto.UUID.generate()
+    second_id = Ecto.UUID.generate()
+
+    session = %{
+      "operator_context" => %{"subject" => "operator-1", "email" => "operator@example.com"},
+      "device_permissions" => %{
+        "can_manage" => true,
+        "device_ids" => [first_id, second_id]
+      }
+    }
+
+    assert {:ok,
+            %GroupAuthorization{
+              actor_id: "operator-1",
+              can_manage_devices?: true,
+              can_manage_all_devices?: false,
+              authorized_device_ids: ids
+            }} = Permissions.device_group_authorization(session)
+
+    assert ids == MapSet.new([first_id, second_id])
+  end
+
+  test "uses trusted email fallback and fails closed without actor identity" do
+    permissions = %{"can_manage" => true}
+
+    assert {:ok, %GroupAuthorization{actor_id: "operator@example.com"}} =
+             Permissions.device_group_authorization(%{
+               "operator_context" => %{"subject" => " ", "email" => "operator@example.com"},
+               "device_permissions" => permissions
+             })
+
+    assert {:error, :missing_actor} =
+             Permissions.device_group_authorization(%{
+               "operator_context" => %{},
+               "device_permissions" => permissions
+             })
+  end
+
+  test "fails closed when a trusted device scope contains a malformed UUID" do
+    assert {:error, :invalid_device_scope} =
+             Permissions.device_group_authorization(%{
+               "operator_context" => %{"subject" => "operator-1"},
+               "device_permissions" => %{
+                 "can_manage" => true,
+                 "device_ids" => [Ecto.UUID.generate(), "not-a-uuid"]
+               }
+             })
   end
 end

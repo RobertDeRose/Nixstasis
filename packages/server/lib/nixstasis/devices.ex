@@ -12,6 +12,8 @@ defmodule Nixstasis.Devices do
   alias Ash.Error.Changes.InvalidAttribute
   alias Ash.Error.Invalid
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.DeviceGroup
+  alias Nixstasis.Devices.GroupAuthorization
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
   alias Nixstasis.Domain
@@ -315,8 +317,11 @@ defmodule Nixstasis.Devices do
     sort_order = Keyword.get(opts, :sort_order, :desc)
     filter = Keyword.get(opts, :filter, %{})
     search = Keyword.get(opts, :search)
+    authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
 
     Device
+    |> filter_by_authorized_device_ids(authorized_device_ids)
+    |> filter_by_group(filter_value(filter, :group_id))
     |> filter_by_approval_status(filter_value(filter, :approval_status))
     |> filter_by_connectivity_status(filter_value(filter, :connectivity_status))
     |> filter_by_product(filter_value(filter, :product))
@@ -325,6 +330,72 @@ defmodule Nixstasis.Devices do
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
     |> Ash.read!(domain: Domain)
+  end
+
+  @doc "Returns active groups visible within the trusted device scope."
+  def list_device_groups(%GroupAuthorization{} = authorization, opts \\ []) do
+    include_archived? =
+      Keyword.get(opts, :include_archived?, false) and global_group_visibility?(authorization)
+
+    if global_group_visibility?(authorization) do
+      list_global_group_rows(include_archived?)
+    else
+      list_scoped_group_rows(authorization.authorized_device_ids, include_archived?)
+    end
+  end
+
+  @doc "Returns visible device IDs belonging to a group."
+  def list_group_memberships(group_id, %GroupAuthorization{} = authorization) do
+    case Ecto.UUID.cast(group_id) do
+      {:ok, group_id} ->
+        group_id
+        |> membership_device_ids(authorization.authorized_device_ids)
+        |> Enum.sort()
+
+      :error ->
+        []
+    end
+  end
+
+  @doc "Creates group metadata for an unscoped device manager."
+  def create_device_group(attrs, %GroupAuthorization{} = authorization) when is_map(attrs) do
+    with :ok <- authorize_group_metadata(authorization) do
+      run_group_transaction(fn -> Domain.create_device_group(metadata_attrs(attrs), return_notifications?: true) end)
+    end
+  end
+
+  @doc "Updates group metadata for an unscoped device manager."
+  def update_device_group(group_id, attrs, %GroupAuthorization{} = authorization) when is_map(attrs) do
+    mutate_group(group_id, authorization, fn group ->
+      Domain.update_device_group(group, metadata_attrs(attrs), return_notifications?: true)
+    end)
+  end
+
+  @doc "Archives a group while preserving memberships."
+  def archive_device_group(group_id, %GroupAuthorization{} = authorization) do
+    mutate_group(group_id, authorization, fn group ->
+      if group.archived_at do
+        {:error, :group_archived}
+      else
+        Domain.update_device_group(group, %{archived_at: DateTime.utc_now()}, return_notifications?: true)
+      end
+    end)
+  end
+
+  @doc "Restores an archived group."
+  def restore_device_group(group_id, %GroupAuthorization{} = authorization) do
+    mutate_group(group_id, authorization, fn group ->
+      if group.archived_at do
+        Domain.update_device_group(group, %{archived_at: nil}, return_notifications?: true)
+      else
+        {:error, :group_not_archived}
+      end
+    end)
+  end
+
+  @doc "Permanently deletes an archived empty group."
+  def permanently_delete_device_group(group_id, %GroupAuthorization{} = authorization) do
+    mutate_group(group_id, authorization, &delete_archived_group/1)
   end
 
   @doc """
@@ -368,6 +439,33 @@ defmodule Nixstasis.Devices do
   end
 
   def normalize_connectivity_status_filter(_), do: nil
+
+  defp filter_by_authorized_device_ids(query, nil), do: query
+
+  defp filter_by_authorized_device_ids(query, %MapSet{} = ids) do
+    Ash.Query.filter(query, id in ^MapSet.to_list(ids))
+  end
+
+  defp filter_by_authorized_device_ids(query, ids) when is_list(ids) do
+    Ash.Query.filter(query, id in ^ids)
+  end
+
+  defp filter_by_authorized_device_ids(query, _ids), do: Ash.Query.filter(query, false)
+
+  defp filter_by_group(query, nil), do: query
+
+  defp filter_by_group(query, group_id) do
+    case Ecto.UUID.cast(group_id) do
+      {:ok, group_id} ->
+        Ash.Query.filter(
+          query,
+          exists(device_group_memberships, group_id == ^group_id and is_nil(group.archived_at))
+        )
+
+      :error ->
+        Ash.Query.filter(query, false)
+    end
+  end
 
   defp filter_by_approval_status(query, nil), do: query
 
@@ -954,6 +1052,176 @@ defmodule Nixstasis.Devices do
     :exit, reason ->
       Logger.warning("Failed to clear remote access flag for #{device_id}: #{inspect(reason)}")
       :ok
+  end
+
+  defp global_group_visibility?(%GroupAuthorization{} = authorization) do
+    authorization.can_manage_all_devices? and is_nil(authorization.authorized_device_ids)
+  end
+
+  defp list_global_group_rows(include_archived?) do
+    from(group in "device_groups",
+      left_join: membership in "device_group_memberships",
+      on: membership.group_id == group.id,
+      where: ^include_archived? or is_nil(group.archived_at),
+      group_by: [group.id, group.name, group.name_key, group.description, group.archived_at],
+      order_by: [asc: group.name, asc: group.id],
+      select: %{
+        group: %{
+          id: type(group.id, Ecto.UUID),
+          name: group.name,
+          name_key: group.name_key,
+          description: group.description,
+          archived_at: group.archived_at
+        },
+        visible_device_count: count(membership.device_id, :distinct)
+      }
+    )
+    |> Repo.all()
+  end
+
+  defp list_scoped_group_rows(%MapSet{} = ids, include_archived?) do
+    list_scoped_group_rows(MapSet.to_list(ids), include_archived?)
+  end
+
+  defp list_scoped_group_rows([], _include_archived?), do: []
+
+  defp list_scoped_group_rows(authorized_device_ids, include_archived?) do
+    query =
+      from(group in "device_groups",
+        join: membership in "device_group_memberships",
+        on: membership.group_id == group.id,
+        where: ^include_archived? or is_nil(group.archived_at),
+        group_by: [group.id, group.name, group.name_key, group.description, group.archived_at],
+        order_by: [asc: group.name, asc: group.id],
+        select: %{
+          group: %{
+            id: type(group.id, Ecto.UUID),
+            name: group.name,
+            name_key: group.name_key,
+            description: group.description,
+            archived_at: group.archived_at
+          },
+          visible_device_count: count(membership.device_id, :distinct)
+        }
+      )
+
+    query =
+      case authorized_device_ids do
+        nil -> query
+        ids -> from([group, membership] in query, where: type(membership.device_id, Ecto.UUID) in ^ids)
+      end
+
+    Repo.all(query)
+  end
+
+  defp membership_device_ids(group_id, authorized_device_ids) do
+    query =
+      from(membership in "device_group_memberships",
+        join: group in "device_groups",
+        on: group.id == membership.group_id,
+        where: type(group.id, Ecto.UUID) == ^group_id,
+        where: is_nil(group.archived_at),
+        select: type(membership.device_id, Ecto.UUID)
+      )
+
+    query =
+      case authorized_device_ids do
+        nil -> query
+        %MapSet{} = ids -> restrict_membership_query(query, MapSet.to_list(ids))
+        ids when is_list(ids) -> restrict_membership_query(query, ids)
+        _ids -> restrict_membership_query(query, [])
+      end
+
+    Repo.all(query)
+  end
+
+  defp restrict_membership_query(query, ids) do
+    from([membership, group] in query, where: type(membership.device_id, Ecto.UUID) in ^ids)
+  end
+
+  defp authorize_group_metadata(%GroupAuthorization{} = authorization) do
+    cond do
+      not valid_actor_id?(authorization.actor_id) -> {:error, :missing_actor}
+      not authorization.can_manage_devices? -> {:error, :unauthorized}
+      not authorization.can_manage_all_devices? -> {:error, :unauthorized}
+      not is_nil(authorization.authorized_device_ids) -> {:error, :unauthorized}
+      true -> :ok
+    end
+  end
+
+  defp valid_actor_id?(actor_id) when is_binary(actor_id), do: String.trim(actor_id) != ""
+  defp valid_actor_id?(_actor_id), do: false
+
+  defp metadata_attrs(attrs) do
+    Map.take(attrs, [:name, :description, "name", "description"])
+  end
+
+  defp mutate_group(group_id, authorization, operation) do
+    with :ok <- authorize_group_metadata(authorization),
+         {:ok, group_id} <- cast_group_id(group_id) do
+      run_locked_group_transaction(group_id, operation)
+    end
+  end
+
+  defp run_locked_group_transaction(group_id, operation) do
+    run_group_transaction(fn -> apply_to_locked_group(group_id, operation) end)
+  end
+
+  defp apply_to_locked_group(group_id, operation) do
+    case lock_device_group(group_id) do
+      {:ok, group} -> operation.(group)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp delete_archived_group(%DeviceGroup{archived_at: nil}), do: {:error, :group_not_archived}
+
+  defp delete_archived_group(%DeviceGroup{} = group) do
+    case Domain.destroy_device_group(group, return_notifications?: true) do
+      {:ok, notifications} -> {:ok, :deleted, notifications}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp cast_group_id(group_id) do
+    case Ecto.UUID.cast(group_id) do
+      {:ok, group_id} -> {:ok, group_id}
+      :error -> {:error, :group_not_found}
+    end
+  end
+
+  defp lock_device_group(group_id) do
+    case Repo.query!("SELECT id FROM device_groups WHERE id = $1::uuid FOR UPDATE", [Ecto.UUID.dump!(group_id)]).rows do
+      [[_id]] -> Domain.get_device_group(group_id)
+      [] -> {:error, :group_not_found}
+    end
+  end
+
+  defp run_group_transaction(operation) do
+    Repo.transaction(fn ->
+      case operation.() do
+        {:ok, value, notifications} -> {value, notifications}
+        {:ok, value} -> {value, []}
+        :ok -> {:ok, []}
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, {:ok, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        :ok
+
+      {:ok, {:deleted, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        :ok
+
+      {:ok, {value, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        {:ok, value}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp filter_value(filter, key) when is_map(filter) do
