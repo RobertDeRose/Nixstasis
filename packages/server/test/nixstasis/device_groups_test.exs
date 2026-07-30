@@ -4,6 +4,7 @@ defmodule Nixstasis.DeviceGroupsTest do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.GroupAuthorization
   alias Nixstasis.Domain
+  alias Nixstasis.Repo
 
   describe "device group persistence" do
     test "normalizes names and reserves them across archived groups" do
@@ -217,6 +218,113 @@ defmodule Nixstasis.DeviceGroupsTest do
       assert {:error, _error} = Devices.update_device_group(first.id, %{name: "SECOND"}, auth)
       assert {:ok, persisted} = Domain.get_device_group(first.id)
       assert persisted.name == "First"
+    end
+  end
+
+  describe "transactional membership mutations" do
+    test "adds and removes memberships idempotently while allowing many groups" do
+      first = device_fixture("50:44:55:66:77:88")
+      second = device_fixture("51:44:55:66:77:88")
+      {:ok, first_group} = Domain.create_device_group(%{name: "Membership first"})
+      {:ok, second_group} = Domain.create_device_group(%{name: "Membership second"})
+      auth = authorization(nil)
+
+      assert {:ok, %{changed_device_ids: changed}} =
+               Devices.add_devices_to_group(first_group.id, [first.id, second.id], auth)
+
+      assert MapSet.new(changed) == MapSet.new([first.id, second.id])
+
+      assert {:ok, %{changed_device_ids: []}} =
+               Devices.add_devices_to_group(first_group.id, [first.id, second.id], auth)
+
+      assert {:ok, %{changed_device_ids: [first_id]}} =
+               Devices.add_devices_to_group(second_group.id, [first.id], auth)
+
+      assert first_id == first.id
+
+      assert MapSet.new(Devices.list_group_memberships(first_group.id, auth)) ==
+               MapSet.new([first.id, second.id])
+
+      assert Devices.list_group_memberships(second_group.id, auth) == [first.id]
+
+      assert {:ok, %{changed_device_ids: []}} =
+               Devices.remove_devices_from_group(second_group.id, [second.id], auth)
+
+      assert {:ok, %{changed_device_ids: [first_id]}} =
+               Devices.remove_devices_from_group(second_group.id, [first.id], auth)
+
+      assert first_id == first.id
+
+      assert {:ok, %{changed_device_ids: []}} =
+               Devices.remove_devices_from_group(second_group.id, [first.id], auth)
+    end
+
+    test "rejects unauthorized or missing devices without partial writes" do
+      first = device_fixture("52:44:55:66:77:88")
+      second = device_fixture("53:44:55:66:77:88")
+      {:ok, group} = Domain.create_device_group(%{name: "All or nothing"})
+      missing_id = Ecto.UUID.generate()
+
+      assert {:error, :unauthorized_devices} =
+               Devices.add_devices_to_group(group.id, [first.id, second.id], authorization([first.id]))
+
+      assert Devices.list_group_memberships(group.id, authorization(nil)) == []
+
+      assert {:error, :devices_not_found} =
+               Devices.add_devices_to_group(group.id, [first.id, missing_id], authorization(nil))
+
+      assert Devices.list_group_memberships(group.id, authorization(nil)) == []
+
+      changed_authorization = authorization([])
+
+      assert {:error, :unauthorized_devices} =
+               Devices.add_devices_to_group(group.id, [first.id], changed_authorization)
+
+      assert Devices.list_group_memberships(group.id, authorization(nil)) == []
+    end
+
+    test "rolls back an earlier membership when a later insert fails" do
+      first = device_fixture("55:44:55:66:77:88")
+      second = device_fixture("56:44:55:66:77:88")
+      {:ok, group} = Domain.create_device_group(%{name: "Mid-write rollback"})
+
+      Repo.query!("""
+      ALTER TABLE device_group_memberships
+      ADD CONSTRAINT dgd_reject_second_membership
+      CHECK (device_id <> '#{second.id}'::uuid)
+      """)
+
+      assert {:error, _reason} =
+               Devices.add_devices_to_group(
+                 group.id,
+                 [first.id, second.id],
+                 authorization(nil)
+               )
+
+      assert Devices.list_group_memberships(group.id, authorization(nil)) == []
+    end
+
+    test "rejects invalid capability and stale group state without writes" do
+      device = device_fixture("54:44:55:66:77:88")
+      {:ok, group} = Domain.create_device_group(%{name: "Stale memberships"})
+      viewer = %{authorization(nil) | can_manage_devices?: false, can_manage_all_devices?: false}
+      missing_actor = %{authorization(nil) | actor_id: " "}
+
+      assert {:error, :unauthorized} =
+               Devices.add_devices_to_group(group.id, [device.id], viewer)
+
+      assert {:error, :missing_actor} =
+               Devices.add_devices_to_group(group.id, [device.id], missing_actor)
+
+      {:ok, archived} = Domain.update_device_group(group, %{archived_at: DateTime.utc_now()})
+
+      assert {:error, :group_archived} =
+               Devices.add_devices_to_group(archived.id, [device.id], authorization(nil))
+
+      assert :ok = Domain.destroy_device_group(archived)
+
+      assert {:error, :group_not_found} =
+               Devices.add_devices_to_group(group.id, [device.id], authorization(nil))
     end
   end
 

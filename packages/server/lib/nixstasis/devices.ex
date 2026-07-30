@@ -13,6 +13,7 @@ defmodule Nixstasis.Devices do
   alias Ash.Error.Invalid
   alias Nixstasis.Devices.Device
   alias Nixstasis.Devices.DeviceGroup
+  alias Nixstasis.Devices.DeviceGroupMembership
   alias Nixstasis.Devices.GroupAuthorization
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.SchemaValidator
@@ -396,6 +397,16 @@ defmodule Nixstasis.Devices do
   @doc "Permanently deletes an archived empty group."
   def permanently_delete_device_group(group_id, %GroupAuthorization{} = authorization) do
     mutate_group(group_id, authorization, &delete_archived_group/1)
+  end
+
+  @doc "Adds authorized devices to an active group as one transaction."
+  def add_devices_to_group(group_id, device_ids, %GroupAuthorization{} = authorization) do
+    mutate_group_memberships(:add, group_id, device_ids, authorization)
+  end
+
+  @doc "Removes authorized devices from an active group as one transaction."
+  def remove_devices_from_group(group_id, device_ids, %GroupAuthorization{} = authorization) do
+    mutate_group_memberships(:remove, group_id, device_ids, authorization)
   end
 
   @doc """
@@ -1138,6 +1149,121 @@ defmodule Nixstasis.Devices do
   defp restrict_membership_query(query, ids) do
     from([membership, group] in query, where: type(membership.device_id, Ecto.UUID) in ^ids)
   end
+
+  defp mutate_group_memberships(action, group_id, device_ids, authorization)
+       when action in [:add, :remove] do
+    with {:ok, group_id} <- cast_group_id(group_id),
+         {:ok, device_ids} <- cast_device_ids(device_ids),
+         :ok <- authorize_group_memberships(authorization, device_ids) do
+      run_group_transaction(fn ->
+        run_membership_transaction(action, group_id, device_ids, authorization)
+      end)
+    end
+  end
+
+  defp run_membership_transaction(action, group_id, device_ids, authorization) do
+    with {:ok, group} <- lock_device_group(group_id),
+         :ok <- ensure_active_group(group),
+         :ok <- authorize_group_memberships(authorization, device_ids),
+         :ok <- lock_existing_devices(device_ids) do
+      memberships = current_group_memberships(group_id, device_ids)
+      apply_membership_change(action, group_id, device_ids, memberships)
+    end
+  end
+
+  defp ensure_active_group(%DeviceGroup{archived_at: nil}), do: :ok
+  defp ensure_active_group(%DeviceGroup{}), do: {:error, :group_archived}
+
+  defp cast_device_ids(device_ids) when is_list(device_ids) do
+    Enum.reduce_while(device_ids, {:ok, []}, fn device_id, {:ok, valid_ids} ->
+      case Ecto.UUID.cast(device_id) do
+        {:ok, valid_id} -> {:cont, {:ok, append_unique(valid_ids, valid_id)}}
+        :error -> {:halt, {:error, :devices_not_found}}
+      end
+    end)
+  end
+
+  defp cast_device_ids(_device_ids), do: {:error, :devices_not_found}
+
+  defp append_unique(ids, id), do: if(id in ids, do: ids, else: ids ++ [id])
+
+  defp authorize_group_memberships(%GroupAuthorization{} = authorization, device_ids) do
+    cond do
+      not valid_actor_id?(authorization.actor_id) -> {:error, :missing_actor}
+      not authorization.can_manage_devices? -> {:error, :unauthorized}
+      is_nil(authorization.authorized_device_ids) -> :ok
+      MapSet.subset?(MapSet.new(device_ids), authorization.authorized_device_ids) -> :ok
+      true -> {:error, :unauthorized_devices}
+    end
+  end
+
+  defp lock_existing_devices([]), do: :ok
+
+  defp lock_existing_devices(device_ids) do
+    dumped_ids = Enum.map(device_ids, &Ecto.UUID.dump!/1)
+
+    %{num_rows: count} =
+      Repo.query!("SELECT id FROM devices WHERE id = ANY($1::uuid[]) FOR UPDATE", [dumped_ids])
+
+    if count == length(device_ids), do: :ok, else: {:error, :devices_not_found}
+  end
+
+  defp current_group_memberships(_group_id, []), do: []
+
+  defp current_group_memberships(group_id, device_ids) do
+    DeviceGroupMembership
+    |> Ash.Query.filter(group_id == ^group_id and device_id in ^device_ids)
+    |> Ash.read!(domain: Domain)
+  end
+
+  defp apply_membership_change(:add, group_id, device_ids, memberships) do
+    existing_ids = MapSet.new(memberships, & &1.device_id)
+    changed_ids = Enum.reject(device_ids, &MapSet.member?(existing_ids, &1))
+
+    persist_added_memberships(group_id, device_ids, changed_ids)
+  end
+
+  defp apply_membership_change(:remove, group_id, device_ids, memberships) do
+    by_device_id = Map.new(memberships, &{&1.device_id, &1})
+    changed_ids = Enum.filter(device_ids, &Map.has_key?(by_device_id, &1))
+
+    persist_removed_memberships(group_id, device_ids, changed_ids, by_device_id)
+  end
+
+  defp persist_added_memberships(group_id, device_ids, changed_ids) do
+    changed_ids
+    |> Enum.reduce_while({:ok, []}, fn device_id, {:ok, notifications} ->
+      case Domain.create_device_group_membership(
+             %{group_id: group_id, device_id: device_id},
+             return_notifications?: true
+           ) do
+        {:ok, _membership, new_notifications} ->
+          {:cont, {:ok, notifications ++ new_notifications}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> membership_result(group_id, device_ids, changed_ids)
+  end
+
+  defp persist_removed_memberships(group_id, device_ids, changed_ids, by_device_id) do
+    changed_ids
+    |> Enum.reduce_while({:ok, []}, fn device_id, {:ok, notifications} ->
+      case Domain.destroy_device_group_membership(by_device_id[device_id], return_notifications?: true) do
+        {:ok, new_notifications} -> {:cont, {:ok, notifications ++ new_notifications}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> membership_result(group_id, device_ids, changed_ids)
+  end
+
+  defp membership_result({:ok, notifications}, group_id, device_ids, changed_ids) do
+    {:ok, %{group_id: group_id, device_ids: device_ids, changed_device_ids: changed_ids}, notifications}
+  end
+
+  defp membership_result({:error, reason}, _group_id, _device_ids, _changed_ids),
+    do: {:error, reason}
 
   defp authorize_group_metadata(%GroupAuthorization{} = authorization) do
     cond do
