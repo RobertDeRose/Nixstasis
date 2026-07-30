@@ -124,6 +124,121 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert render(view) =~ "Devices"
     end
 
+    test "unscoped managers complete the group metadata lifecycle", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/devices")
+
+      loading_html = view |> element("#manage-device-groups") |> render_click()
+      assert loading_html =~ "Loading groups…"
+      assert has_element?(view, "#device-group-panel[aria-labelledby='device-group-heading']")
+      Process.sleep(15)
+      assert render(view) =~ "No active groups yet"
+
+      view |> element("#new-device-group") |> render_click()
+      assert has_element?(view, "#device-group-form input[name='group[name]']")
+      assert has_element?(view, "#device-group-form textarea[name='group[description]']")
+      assert has_element?(view, "#device-group-form button[phx-disable-with='Saving…']")
+
+      view
+      |> form("#device-group-form", %{"group" => %{"name" => "Field units", "description" => "North site"}})
+      |> render_submit()
+
+      assert render(view) =~ "Group created"
+      assert has_element?(view, "[data-group-name='Field units']")
+
+      view |> element("button[phx-click='edit_group']", "Edit") |> render_click()
+
+      view
+      |> form("#device-group-form", %{"group" => %{"name" => "Field sensors", "description" => "North site"}})
+      |> render_submit()
+
+      assert render(view) =~ "Group updated"
+      assert has_element?(view, "[data-group-name='Field sensors']")
+
+      view |> element("button[phx-click='archive_group']", "Archive") |> render_click()
+      refute has_element?(view, "[data-group-name='Field sensors']")
+
+      view |> element("#toggle-archived-groups") |> render_click()
+      assert has_element?(view, "[data-group-name='Field sensors']")
+      assert has_element?(view, "button[phx-click='restore_group']", "Restore")
+
+      view |> element("button[phx-click='restore_group']", "Restore") |> render_click()
+      assert render(view) =~ "Group restored"
+
+      view |> element("button[phx-click='archive_group']", "Archive") |> render_click()
+      view |> element("button[phx-click='request_group_delete']", "Delete permanently") |> render_click()
+
+      assert has_element?(view, "#confirm-group-delete[role='region'][tabindex='0']")
+      assert has_element?(view, "#confirm-group-delete button[phx-disable-with='Deleting…']")
+
+      render_keydown(view, "group_panel_keydown", %{"key" => "Escape"})
+      refute has_element?(view, "#confirm-group-delete")
+      assert has_element?(view, "#device-group-panel")
+
+      view |> element("button[phx-click='request_group_delete']", "Delete permanently") |> render_click()
+      view |> element("button[phx-click='confirm_group_delete']", "Delete permanently") |> render_click()
+      assert render(view) =~ "Group permanently deleted"
+      refute has_element?(view, "[data-group-name='Field sensors']")
+
+      render_keydown(view, "group_panel_keydown", %{"key" => "Escape"})
+      refute has_element?(view, "#device-group-panel")
+    end
+
+    test "group metadata UI reports name and nonempty deletion conflicts", %{conn: conn} do
+      device = create_device!(%{mac_address: "AA:AA:AA:AA:AA:A1"})
+      {:ok, existing} = Nixstasis.Domain.create_device_group(%{name: "Existing group"})
+
+      {:ok, _membership} =
+        Nixstasis.Domain.create_device_group_membership(%{
+          group_id: existing.id,
+          device_id: device.id
+        })
+
+      {:ok, _archived} =
+        Nixstasis.Domain.update_device_group(existing, %{archived_at: DateTime.utc_now()})
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      view |> element("#manage-device-groups") |> render_click()
+      view |> element("#new-device-group") |> render_click()
+
+      view
+      |> form("#device-group-form", %{"group" => %{"name" => "EXISTING GROUP", "description" => ""}})
+      |> render_submit()
+
+      assert render(view) =~ "A group with that name already exists"
+
+      view |> element("button[phx-click='cancel_group_form']", "Cancel") |> render_click()
+      view |> element("#toggle-archived-groups") |> render_click()
+      view |> element("button[phx-click='request_group_delete']", "Delete permanently") |> render_click()
+      view |> element("button[phx-click='confirm_group_delete']", "Delete permanently") |> render_click()
+
+      assert render(view) =~ "Remove every device before permanently deleting this group"
+      assert has_element?(view, "[data-group-name='Existing group']")
+    end
+
+    test "scoped managers cannot invoke group metadata handlers", %{conn: conn} do
+      allowed = create_device!(%{mac_address: "AA:AA:AA:AA:AA:A2"})
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("operator_context", %{"subject" => "scoped-manager"})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => true,
+          "device_ids" => [allowed.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/devices")
+      view |> element("#manage-device-groups") |> render_click()
+
+      refute has_element?(view, "#new-device-group")
+      render_hook(view, "new_group", %{})
+      refute has_element?(view, "#device-group-form")
+
+      render_hook(view, "archive_group", %{"id" => Ecto.UUID.generate()})
+      assert render(view) =~ "not authorized to manage group metadata"
+    end
+
     test "renders MAC Address and Product columns", %{conn: conn} do
       _ =
         create_device!(%{

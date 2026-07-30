@@ -50,6 +50,17 @@
           All
         </.link>
       </div>
+      <button
+        :if={@can_view_device_details?}
+        id="manage-device-groups"
+        type="button"
+        class="btn btn-sm btn-outline"
+        phx-click="toggle_group_panel"
+        aria-expanded={to_string(@group_panel_open?)}
+        aria-controls="device-group-panel"
+      >
+        Groups
+      </button>
       <.link
         :if={NixstasisWeb.Permissions.can_create_devices?(@device_permissions)}
         patch={~p"/devices/new"}
@@ -59,6 +70,196 @@
       </.link>
     </div>
   </div>
+
+  <section
+    :if={@group_panel_open?}
+    id="device-group-panel"
+    class="mb-5 overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm"
+    aria-labelledby="device-group-heading"
+    phx-window-keydown="group_panel_keydown"
+    phx-key="escape"
+  >
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-300 bg-base-200/60 px-4 py-3">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Fleet map</p>
+        <h2 id="device-group-heading" class="text-lg font-bold">Device groups</h2>
+        <p class="text-sm text-base-content/65">Manual organization only; device behavior stays unchanged.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          :if={NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions)}
+          id="toggle-archived-groups"
+          type="button"
+          class="btn btn-sm btn-ghost"
+          phx-click="toggle_archived_groups"
+        >
+          {if @show_archived_groups?, do: "Hide archived", else: "Show archived"}
+        </button>
+        <button
+          :if={NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions)}
+          id="new-device-group"
+          type="button"
+          class="btn btn-sm btn-primary"
+          phx-click="new_group"
+        >
+          New group
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost" phx-click="close_group_panel" aria-label="Close groups">
+          Close
+        </button>
+      </div>
+    </div>
+
+    <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+      <div class="space-y-2" aria-live="polite" aria-busy={to_string(@groups_loading?)}>
+        <div :if={@groups_loading?} class="flex items-center gap-2 py-6 text-sm text-base-content/65">
+          <span class="loading loading-spinner loading-sm" aria-hidden="true"></span> Loading groups…
+        </div>
+
+        <div
+          :if={!@groups_loading? and @device_groups == []}
+          id="device-groups-empty"
+          class="rounded-xl border border-dashed border-base-300 px-4 py-8 text-center"
+        >
+          <p class="font-semibold">
+            {if NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions),
+              do: "No active groups yet",
+              else: "No groups are visible for your device scope"}
+          </p>
+          <p class="mt-1 text-sm text-base-content/60">
+            {if NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions),
+              do: "Create a group to begin organizing this fleet.",
+              else: "Groups appear after an accessible device is assigned."}
+          </p>
+        </div>
+
+        <article
+          :for={row <- @device_groups}
+          class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-base-300 border-l-4 border-l-primary bg-base-100 px-4 py-3"
+          data-group-name={row.group.name}
+          data-group-id={row.group.id}
+        >
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="font-semibold">{row.group.name}</h3>
+              <span :if={row.group.archived_at} class="badge badge-ghost badge-sm">Archived</span>
+              <span class="badge badge-outline badge-sm">
+                {row.visible_device_count} visible {if row.visible_device_count == 1, do: "device", else: "devices"}
+              </span>
+            </div>
+            <p :if={row.group.description not in [nil, ""]} class="mt-1 text-sm text-base-content/65">
+              {row.group.description}
+            </p>
+          </div>
+          <div
+            :if={NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions)}
+            class="flex flex-wrap gap-1"
+          >
+            <button
+              :if={is_nil(row.group.archived_at)}
+              type="button"
+              class="btn btn-xs btn-ghost"
+              phx-click="edit_group"
+              phx-value-id={row.group.id}
+            >
+              Edit
+            </button>
+            <button
+              :if={is_nil(row.group.archived_at)}
+              type="button"
+              class="btn btn-xs btn-ghost"
+              phx-click="archive_group"
+              phx-value-id={row.group.id}
+              phx-disable-with="Archiving…"
+            >
+              Archive
+            </button>
+            <button
+              :if={row.group.archived_at}
+              type="button"
+              class="btn btn-xs btn-ghost"
+              phx-click="restore_group"
+              phx-value-id={row.group.id}
+              phx-disable-with="Restoring…"
+            >
+              Restore
+            </button>
+            <button
+              :if={row.group.archived_at}
+              type="button"
+              class="btn btn-xs btn-error btn-outline"
+              phx-click="request_group_delete"
+              phx-value-id={row.group.id}
+            >
+              Delete permanently
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div class="space-y-3">
+        <.form
+          :if={@group_form}
+          for={%{}}
+          as={:group}
+          id="device-group-form"
+          phx-submit="save_group"
+          class="rounded-xl border border-base-300 bg-base-200/45 p-4"
+        >
+          <h3 class="font-semibold">{if @group_form.id, do: "Edit group", else: "New group"}</h3>
+          <label class="form-control mt-3 w-full">
+            <span class="label-text mb-1">Name</span>
+            <input
+              type="text"
+              name="group[name]"
+              value={@group_form.name}
+              class="input input-bordered w-full"
+              required
+              maxlength="120"
+              autocomplete="off"
+            />
+          </label>
+          <label class="form-control mt-3 w-full">
+            <span class="label-text mb-1">Description</span>
+            <textarea
+              name="group[description]"
+              class="textarea textarea-bordered min-h-24 w-full"
+              maxlength="500"
+            >{@group_form.description}</textarea>
+          </label>
+          <div class="mt-4 flex justify-end gap-2">
+            <button type="button" class="btn btn-sm btn-ghost" phx-click="cancel_group_form">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary" phx-disable-with="Saving…">Save group</button>
+          </div>
+        </.form>
+
+        <div
+          :if={@pending_group_delete}
+          id="confirm-group-delete"
+          role="region"
+          aria-labelledby="confirm-group-delete-heading"
+          tabindex="0"
+          class="rounded-xl border border-error/40 bg-error/10 p-4"
+        >
+          <h3 id="confirm-group-delete-heading" class="font-semibold">Permanently delete this group?</h3>
+          <p class="mt-1 text-sm">
+            {@pending_group_delete.name} can be deleted only when it has no device memberships. This cannot be undone.
+          </p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button type="button" class="btn btn-sm btn-ghost" phx-click="cancel_group_delete">Cancel</button>
+            <button
+              type="button"
+              class="btn btn-sm btn-error"
+              phx-click="confirm_group_delete"
+              phx-disable-with="Deleting…"
+            >
+              Delete permanently
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <%= if NixstasisWeb.Permissions.can_manage_devices?(@device_permissions) and length(@selected_ids) > 0 do %>
     <div class="bg-base-200 p-2 rounded-lg mb-4 flex gap-4 items-center">

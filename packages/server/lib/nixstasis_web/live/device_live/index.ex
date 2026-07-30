@@ -24,6 +24,12 @@ defmodule NixstasisWeb.DeviceLive.Index do
   def mount(_params, session, socket) do
     permissions = Permissions.device_permissions(session)
 
+    group_authorization =
+      case Permissions.device_group_authorization(session) do
+        {:ok, authorization} -> authorization
+        {:error, _reason} -> nil
+      end
+
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
     end
@@ -34,6 +40,13 @@ defmodule NixstasisWeb.DeviceLive.Index do
      |> assign(:selected_ids, [])
      |> assign(:active_filters, %{})
      |> assign(:device_permissions, permissions)
+     |> assign(:group_authorization, group_authorization)
+     |> assign(:device_groups, [])
+     |> assign(:group_panel_open?, false)
+     |> assign(:group_form, nil)
+     |> assign(:show_archived_groups?, false)
+     |> assign(:pending_group_delete, nil)
+     |> assign(:groups_loading?, false)
      |> assign(:can_view_device_details?, Permissions.can_view_device_details?(permissions))
      # Placeholder for pagination if needed
      |> assign(:meta, %{page: 1, per_page: 50})}
@@ -136,6 +149,137 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   @impl true
+  def handle_event("toggle_group_panel", _params, socket) do
+    if socket.assigns.can_view_device_details? and socket.assigns.group_authorization do
+      open? = not socket.assigns.group_panel_open?
+
+      {:noreply,
+       socket
+       |> assign(:group_panel_open?, open?)
+       |> assign(:group_form, nil)
+       |> assign(:pending_group_delete, nil)
+       |> maybe_queue_device_group_refresh(open?)}
+    else
+      {:noreply, put_flash(socket, :error, "You are not authorized to view device groups.")}
+    end
+  end
+
+  def handle_event("close_group_panel", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:group_panel_open?, false)
+     |> assign(:group_form, nil)
+     |> assign(:pending_group_delete, nil)}
+  end
+
+  def handle_event("new_group", _params, socket) do
+    if can_manage_group_metadata?(socket) do
+      {:noreply, assign(socket, :group_form, %{id: nil, name: "", description: ""})}
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  def handle_event("edit_group", %{"id" => group_id}, socket) do
+    if can_manage_group_metadata?(socket) do
+      case find_device_group(socket, group_id) do
+        nil -> {:noreply, put_flash(socket, :error, "That group is no longer available.")}
+        group -> {:noreply, assign(socket, :group_form, group)}
+      end
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  def handle_event("edit_group", _params, socket), do: {:noreply, group_metadata_denied(socket)}
+
+  def handle_event("cancel_group_form", _params, socket) do
+    {:noreply, assign(socket, :group_form, nil)}
+  end
+
+  def handle_event("save_group", %{"group" => attrs}, socket) when is_map(attrs) do
+    if can_manage_group_metadata?(socket) do
+      save_group_metadata(socket, attrs)
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  def handle_event("save_group", _params, socket), do: {:noreply, group_metadata_denied(socket)}
+
+  def handle_event("archive_group", %{"id" => group_id}, socket) do
+    run_group_metadata_action(
+      socket,
+      fn authorization ->
+        Devices.archive_device_group(group_id, authorization)
+      end,
+      "Group archived"
+    )
+  end
+
+  def handle_event("archive_group", _params, socket), do: {:noreply, group_metadata_denied(socket)}
+
+  def handle_event("restore_group", %{"id" => group_id}, socket) do
+    run_group_metadata_action(
+      socket,
+      fn authorization ->
+        Devices.restore_device_group(group_id, authorization)
+      end,
+      "Group restored"
+    )
+  end
+
+  def handle_event("restore_group", _params, socket), do: {:noreply, group_metadata_denied(socket)}
+
+  def handle_event("toggle_archived_groups", _params, socket) do
+    if can_manage_group_metadata?(socket) do
+      {:noreply,
+       socket
+       |> assign(:show_archived_groups?, not socket.assigns.show_archived_groups?)
+       |> refresh_device_groups()}
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  def handle_event("request_group_delete", %{"id" => group_id}, socket) do
+    if can_manage_group_metadata?(socket) do
+      case find_device_group(socket, group_id) do
+        %{archived_at: archived_at} = group when not is_nil(archived_at) ->
+          {:noreply, assign(socket, :pending_group_delete, group)}
+
+        _group ->
+          {:noreply, put_flash(socket, :error, "Only archived groups can be permanently deleted.")}
+      end
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  def handle_event("request_group_delete", _params, socket),
+    do: {:noreply, group_metadata_denied(socket)}
+
+  def handle_event("cancel_group_delete", _params, socket) do
+    {:noreply, assign(socket, :pending_group_delete, nil)}
+  end
+
+  def handle_event("group_panel_keydown", %{"key" => "Escape"}, socket) do
+    if socket.assigns.pending_group_delete do
+      {:noreply, assign(socket, :pending_group_delete, nil)}
+    else
+      handle_event("close_group_panel", %{}, socket)
+    end
+  end
+
+  def handle_event("group_panel_keydown", _params, socket), do: {:noreply, socket}
+
+  def handle_event("confirm_group_delete", _params, socket) do
+    case {can_manage_group_metadata?(socket), socket.assigns.pending_group_delete} do
+      {true, %{id: group_id}} -> permanently_delete_group(socket, group_id)
+      _state -> {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
   def handle_event("search", %{"search" => search}, socket) do
     params =
       socket.assigns
@@ -349,8 +493,15 @@ defmodule NixstasisWeb.DeviceLive.Index do
     {:noreply, refresh_devices_if_authorized(socket)}
   end
 
+  def handle_info(:load_device_groups, socket) do
+    {:noreply, refresh_device_groups(socket)}
+  end
+
   def handle_info(:device_groups_changed, socket) do
-    {:noreply, refresh_devices_if_authorized(socket)}
+    {:noreply,
+     socket
+     |> refresh_devices_if_authorized()
+     |> refresh_device_groups()}
   end
 
   def handle_info(:debounced_refresh, socket) do
@@ -400,6 +551,178 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:selected_ids, [])
     |> stream(:devices, [], reset: true)
   end
+
+  defp can_manage_group_metadata?(socket) do
+    case socket.assigns.group_authorization do
+      %{
+        can_manage_devices?: true,
+        can_manage_all_devices?: true,
+        authorized_device_ids: nil
+      } ->
+        true
+
+      _authorization ->
+        false
+    end
+  end
+
+  defp group_metadata_denied(socket) do
+    put_flash(socket, :error, "You are not authorized to manage group metadata.")
+  end
+
+  defp maybe_queue_device_group_refresh(socket, true) do
+    Process.send_after(self(), :load_device_groups, 10)
+
+    socket
+    |> assign(:groups_loading?, true)
+    |> assign(:device_groups, [])
+  end
+
+  defp maybe_queue_device_group_refresh(socket, false), do: assign(socket, :groups_loading?, false)
+
+  defp refresh_device_groups(%{assigns: %{group_authorization: nil}} = socket) do
+    socket
+    |> assign(:device_groups, [])
+    |> assign(:groups_loading?, false)
+  end
+
+  defp refresh_device_groups(socket) do
+    groups =
+      Devices.list_device_groups(socket.assigns.group_authorization,
+        include_archived?: socket.assigns.show_archived_groups?
+      )
+
+    socket
+    |> assign(:device_groups, groups)
+    |> assign(:groups_loading?, false)
+  end
+
+  defp find_device_group(socket, group_id) do
+    socket.assigns.device_groups
+    |> Enum.find(&(&1.group.id == group_id))
+    |> case do
+      nil -> nil
+      row -> Map.put(row.group, :visible_device_count, row.visible_device_count)
+    end
+  end
+
+  defp save_group_metadata(socket, attrs) do
+    name = attrs |> Map.get("name", "") |> String.trim()
+    description = Map.get(attrs, "description", "")
+
+    if name == "" do
+      {:noreply,
+       socket
+       |> assign(:group_form, put_group_form_values(socket.assigns.group_form, name, description))
+       |> put_flash(:error, "Group name is required.")}
+    else
+      persist_group_metadata(socket, %{name: name, description: description})
+    end
+  end
+
+  defp persist_group_metadata(socket, attrs) do
+    result =
+      case socket.assigns.group_form do
+        %{id: nil} -> Devices.create_device_group(attrs, socket.assigns.group_authorization)
+        %{id: group_id} -> Devices.update_device_group(group_id, attrs, socket.assigns.group_authorization)
+      end
+
+    case result do
+      {:ok, _group} ->
+        message = if socket.assigns.group_form.id, do: "Group updated", else: "Group created"
+
+        {:noreply,
+         socket
+         |> assign(:group_form, nil)
+         |> refresh_device_groups()
+         |> put_flash(:info, message)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:group_form, put_group_form_values(socket.assigns.group_form, attrs.name, attrs.description))
+         |> put_flash(:error, group_metadata_error(reason))}
+    end
+  end
+
+  defp put_group_form_values(group_form, name, description) do
+    group_form
+    |> Map.put(:name, name)
+    |> Map.put(:description, description)
+  end
+
+  defp run_group_metadata_action(socket, operation, success_message) do
+    if can_manage_group_metadata?(socket) do
+      case operation.(socket.assigns.group_authorization) do
+        {:ok, _group} ->
+          {:noreply,
+           socket
+           |> assign(:group_form, nil)
+           |> refresh_device_groups()
+           |> put_flash(:info, success_message)}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, group_metadata_error(reason))}
+      end
+    else
+      {:noreply, group_metadata_denied(socket)}
+    end
+  end
+
+  defp permanently_delete_group(socket, group_id) do
+    case Devices.permanently_delete_device_group(group_id, socket.assigns.group_authorization) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:pending_group_delete, nil)
+         |> refresh_device_groups()
+         |> put_flash(:info, "Group permanently deleted")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:pending_group_delete, nil)
+         |> put_flash(:error, permanent_delete_error(reason))}
+    end
+  end
+
+  defp group_metadata_error(%Ash.Changeset{errors: errors}) do
+    if Enum.any?(errors, &match?(%Ash.Error.Changes.InvalidAttribute{field: :name_key}, &1)) do
+      "A group with that name already exists."
+    else
+      "Unable to save the group. Check its name and try again."
+    end
+  end
+
+  defp group_metadata_error(%Ash.Error.Invalid{} = error), do: invalid_group_metadata_error(error)
+  defp group_metadata_error(%Ash.Error.Unknown{} = error), do: invalid_group_metadata_error(error)
+  defp group_metadata_error(:group_not_found), do: "That group is no longer available."
+  defp group_metadata_error(:group_archived), do: "That group is already archived."
+  defp group_metadata_error(:group_not_archived), do: "That group is not archived."
+  defp group_metadata_error(:unauthorized), do: "You are not authorized to manage group metadata."
+  defp group_metadata_error(:missing_actor), do: "Your operator identity is unavailable. Sign in again."
+  defp group_metadata_error(_reason), do: "Unable to change the group. Try again."
+
+  defp invalid_group_metadata_error(error) do
+    message = Exception.message(error)
+
+    if String.contains?(message, ["name_key", "already been taken", "unique"]) do
+      "A group with that name already exists."
+    else
+      "Unable to save the group. Check its name and try again."
+    end
+  end
+
+  defp permanent_delete_error(%Ash.Changeset{}),
+    do: "Remove every device before permanently deleting this group."
+
+  defp permanent_delete_error(%Ash.Error.Unknown{}),
+    do: "Remove every device before permanently deleting this group."
+
+  defp permanent_delete_error(%Ash.Error.Invalid{}),
+    do: "Remove every device before permanently deleting this group."
+
+  defp permanent_delete_error(reason), do: group_metadata_error(reason)
 
   defp normalize_blank(nil), do: nil
 
