@@ -94,7 +94,8 @@
 
 ## Client-Server Interaction Details
 
-- Device `/api/v1` runtime routes remain bespoke controller routes until strict
+- Device `/api/v1` runtime routes are the next Ash-backed API migration priority.
+  The current controller transport remains the compatibility boundary until strict
   Go client compatibility tests cover authentication, pending/approved
   registration token behavior, heartbeat remote-access directives, command result
   acknowledgement, deferred payload retrieval, and status-code semantics.

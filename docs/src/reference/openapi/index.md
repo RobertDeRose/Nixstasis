@@ -1,16 +1,20 @@
 # OpenAPI Contracts
 
-The Ash-generated OpenAPI file at `packages/server/priv/static/openapi.yaml`
-documents the Ash JSON:API surface under `/api/json`. This includes the
-generated builder action routes under `/api/json/builder_contract/*`.
+The Ash-generated OpenAPI specification is served at `/api/json/open_api` and
+`/api/json/swaggerui`, and is committed as
+`packages/server/priv/static/openapi.yaml`. It documents the generated Ash
+JSON:API surface under `/api/json`, including builder actions, alert rules, and
+other Ash-backed resource groups. Regenerate the committed artifact with
+`mix openapi.generate` from `packages/server`.
 
-Phoenix controller APIs used by the Go client, legacy builder UI compatibility,
-TLS approval, report previews, and E2E harness are bespoke routes, so their
-wire-compatible controller contracts live here.
+Phoenix controller APIs used by the Go client, legacy builder compatibility,
+Caddy TLS approval, report previews, and the current E2E harness remain bespoke
+or compatibility routes. Their wire-compatible controller contracts live here
+until a separate migration decision changes ownership.
 
-Generated Ash JSON:API request and response shapes, including alert-rule
-contracts for `/api/json/alert_rules`, remain in
-`packages/server/priv/static/openapi.yaml`.
+The device API file documents the current compatibility transport while device
+runtime migration is in progress; it must remain aligned with generated Ash
+coverage and Go-client behavior.
 
 ## Contracts
 
@@ -31,6 +35,8 @@ contracts for `/api/json/alert_rules`, remain in
   `/e2e` controller owns the route.
 - Keep the builder `/api/v1` contract here until all consumers can use the
   generated `/api/json/builder_contract/*` routes directly.
+- Keep device compatibility details here while the Ash-backed migration is
+  implemented, and verify generated/static OpenAPI coverage after each group.
 - Link to generated Ash OpenAPI for resources such as alert rules instead of
   adding retained bespoke examples for routes that are not controller-owned.
 - If an API is reference-only or planned, keep it out of these files until it is

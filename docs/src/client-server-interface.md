@@ -398,10 +398,10 @@ Denied host response:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:202-212`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:28-38`
-- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:21-27`
-- `docs/src/features/go-client-rewrite/design.md`
+- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:8-17`
+- `deploy/compose/caddy/Caddyfile:42-75`
+- `docs/src/runtime-boundaries.md`
+- `docs/src/modules/deployment-compose.md`
 
 ## Builder API Mapping
 
@@ -426,6 +426,15 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
 
 ## Builder API Examples
+
+The schema examples below are for the legacy `/api/v1` compatibility wrapper and
+use its `application/json` envelope. The generated `/api/json` options action
+returns the same domain fields as a raw action payload, uses JSON:API errors, and
+is protected by the generated API permission pipeline. The validation request and
+result fields are shared by both surfaces, while their route/status/error
+contracts remain distinct.
+
+### Legacy `/api/v1` schema option response
 
 Schema option lookup response:
 
@@ -459,6 +468,8 @@ Missing schema response:
   }
 }
 ```
+
+### Shared validation payload
 
 Validation request:
 

@@ -1,8 +1,9 @@
 # Ash API Contract Design Notes
 
-These notes satisfy the contract-design pass before endpoint implementation. They
-do not convert routes yet; they define the intended Ash model/action shape and
-retained-controller rationale for the current endpoint inventory.
+These notes define the Ash model/action shape, compatibility boundaries, and
+retained-controller rationale for the current endpoint inventory. The builder
+contract slice already exists and is being rebaselined here; device runtime
+conversion is the next implementation priority.
 
 ## Usage Rule Consultation
 
@@ -27,20 +28,19 @@ retained-controller rationale for the current endpoint inventory.
 
 ## Ash-Backed Endpoint Model
 
-### Builder APIs
+### Builder APIs (existing implementation)
 
-Candidate endpoints:
+Existing compatibility and generated endpoints:
 
 - `GET /api/v1/builder-schemas`
 - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
 - `POST /api/v1/builder-configurations/validate`
 
-Proposed model:
+Implemented model:
 
-- Introduce a non-persisted Ash resource, tentatively
-  `Nixstasis.SchemaOptions.BuilderSchema`, for builder option and validation
-  contracts. If implementation finds an existing durable schema-reference resource,
-  use that resource instead and preserve the action names below.
+- Use the existing non-persisted Ash resource
+  `Nixstasis.SchemaOptions.BuilderContract` for builder option and validation
+  contracts. Preserve the action names and domain fields below.
 - Add a read action `:list_builder_schemas` with no required arguments. Output
   items preserve the current `SchemaReference` fields: `schema_id`,
   `schema_version`, `product_name`, and `readable`.
@@ -69,9 +69,11 @@ Proposed model:
   `ValidationResponse`, and `ValidationIssue`. Generated `/api/json` routes may
   use JSON:API transport envelopes and error documents, but must keep the domain
   fields and status-code semantics explicit.
-- Keep authorization/access-denied behavior explicit; this builder slice has no
-  route-level `403` contract and remains unauthenticated behind the shared API
-  rate limiter, while `404` and `422` semantics stay documented and tested.
+- Keep authorization/access-denied behavior explicit. The generated
+  `/api/json/builder_contract/*` routes run through the JSON API permission
+  pipeline and bearer security, while the `/api/v1` wrappers retain their
+  compatibility-pipeline behavior. Document and test these as separate contracts;
+  `404`, `422`, and generated `403` semantics must remain explicit.
 
 Implementation note: the first builder slice uses
 `Nixstasis.SchemaOptions.BuilderContract` as a non-persisted generic-action
@@ -84,8 +86,10 @@ generic actions use Ash JSON:API's generated `201` success status even when the
 action validates rather than creates data. `/api/v1` remains the compatibility
 surface for clients that require the original wrapper status/body shape.
 
-First implementation candidate: builder APIs, because they are compact,
-non-client-critical, and have explicit OpenAPI request/response models.
+The builder slice is existing implementation, not a future conversion candidate.
+Its remaining work is to reconcile route-specific authorization, generated/static
+OpenAPI evidence, wrapper parity, and reader-facing documentation before the
+feature moves on to device runtime migration.
 
 ### Device Runtime APIs
 
@@ -99,47 +103,50 @@ Candidate endpoints:
 
 Proposed model:
 
-- Use `Nixstasis.Devices.Device` for list/register/heartbeat actions where the
-  action semantics remain device-centric.
-- Use `Nixstasis.Devices.PendingCommand` or action-specific Ash actions for
-  command result acknowledgement and deferred payload fetches.
+- Treat the device runtime as the next Ash-backed implementation group, not as a
+  deferred candidate. First capture the existing wire/auth/status/side-effect
+  contract and define the domain orchestration boundary.
+- Use `Nixstasis.Devices.Device` for device-centric registration and read actions.
+  Use domain-specific actions around `Devices` and `PendingCommand` for runtime
+  operations rather than modeling heartbeat and command delivery as simple CRUD.
 - Target `Device.read` or a filtered read action for `GET /api/v1/devices`,
   preserving filters `product`, `account_number`, `approval_status`,
   `connectivity_status`, and `ipv4_address`.
 - Target `Device.register` for `POST /api/v1/devices/register`, preserving
   request fields `mac_address`, `product_name`, and dynamic `metadata`, and
   response fields currently emitted by `DeviceController.device_data/2`.
-- Target `Device.heartbeat` for `POST /api/v1/devices/:device_id/heartbeat`,
-  preserving telemetry and connection-status input plus response fields
-  `remote_access_token` and `commands`.
-- Target `PendingCommand.acknowledge_results` for command result submission,
-  preserving the `results` array and `acknowledged_count` response.
-- Target `PendingCommand.fetch_payload` for deferred command payload retrieval,
-  preserving `content_type`, `name`, and `data`.
+- Add a heartbeat action or orchestration action that owns the existing
+  `Monitoring.heartbeat/2` behavior, preserving telemetry, inventory,
+  offline-alert resolution, command delivery, rate limits, and
+  `remote_access_token`/`commands` responses.
+- Add domain-specific command-result acknowledgement and deferred-payload
+  actions, preserving the `results` array, `acknowledged_count`,
+  `content_type`, `name`, and `data`.
 - Preserve Go client runtime compatibility exactly, including status codes,
-  `api_key` query authentication behavior, pending/approved registration token
-  behavior, heartbeat `remote_access_token`, command result acknowledgement, and
-  command payload shape.
+  `api_key` query authentication, pending/approved registration tokens, heartbeat
+  responses, command result acknowledgement, and command payload shape.
+- Publish generated OpenAPI coverage where it can represent the device contract;
+  retain a thin `/api/v1` compatibility wrapper when existing transport or
+  device-authenticated semantics cannot be replaced without a versioned client
+  migration.
 - Reconcile the undocumented `ipv4_address` device list filter before conversion.
 
-Device runtime APIs are high risk because they are consumed by the Go client; do
-not convert them before baseline compatibility tests and OpenAPI diff checks are
-in place.
+Device runtime APIs are high risk because they are consumed by the Go client.
+Baseline compatibility tests, OpenAPI diffs, and explicit authentication design
+must precede each conversion group.
 
 ### Report Result API
 
-Candidate endpoint:
+Current route:
 
 - `GET /api/v1/reports/:id/results`
 
-Proposed model:
-
-- Add an Ash action on `Nixstasis.Reporting.CustomReport` or a reporting action
-  wrapper that returns the current `{fields, rows}` response model.
-- Target action name: `CustomReport.results`, requiring report `id` and returning
-  `fields` as a string array and `rows` as an array of dynamic maps.
-- Add a baseline controller test before conversion if none exists.
-- Preserve report-not-found/result-unavailable behavior from `report-api.yaml`.
+This route is deferred for Ash migration. Reports currently need LiveView preview
+behavior, while a future export or external reporting consumer may justify an
+Ash-backed action. Do not add `CustomReport.results` in this feature without an
+approved external contract. Keep the current `{fields, rows}` shape,
+not-found/result-unavailable behavior, bespoke OpenAPI, and a baseline controller
+test visible for that future decision.
 
 ### Existing Ash JSON:API Resources
 
@@ -147,14 +154,24 @@ Existing route groups under `/api/json` remain generated Ash resource APIs:
 
 - `devices`
 - `pending_commands`
+- `script_drafts`
+- `script_versions`
+- `script_validation_runs`
+- `script_test_runs`
+- `script_deployment_runs`
+- `script_client_actions`
 - `alerts`
 - `alert_rules`
 - `telemetry_events`
 - `custom_reports`
 - `system_settings`
 
-These should not be rewritten as part of the first migration slice. They are the
-generated target surface used to compare future converted contracts.
+The existing resource groups are not rewritten as part of the device migration,
+but their inventory, authorization, generated/static OpenAPI, and route-test
+evidence must be reconciled. The six script groups are currently declared by
+`Nixstasis.Domain` but absent from the committed static OpenAPI artifact; that
+artifact/ownership mismatch must be resolved before inventory completeness is
+claimed.
 
 ## Retained Controller Rationale
 
@@ -182,15 +199,16 @@ Rationale:
 
 ### E2E API
 
-All `/e2e` endpoints remain controller-owned by default.
+All `/e2e` endpoints remain controller-owned for this feature.
 
 Rationale:
 
 - The E2E surface is a gated protocol workflow with enablement checks,
   protocol-version headers, idempotent run reuse, environment locks, seed
   execution, result ingestion, log retention, and typed errors.
-- Individual resource-like reads can be revisited later, but only after the
-  workflow contract is proven safe to express through Ash actions.
+- The current E2E tests and reporting model may need a separate design review;
+  this feature records the existing contract but does not spend migration effort
+  on generated OpenAPI for it.
 
 ## Response Schema Rules
 
@@ -200,4 +218,8 @@ Rationale:
 - Converted endpoints must have tests for success, validation failure,
   authorization/authentication failure, and important edge cases before bespoke
   OpenAPI sections are removed.
+- Generated `/api/json` authorization and `/api/v1` compatibility authorization
+  are separate contract surfaces and must be documented/tested separately.
 - Retained endpoints must keep route-specific rationale in reference docs.
+- Deferred endpoints must keep their current contract and an explicit future
+  decision boundary; deferral is not permission to remove existing docs/tests.

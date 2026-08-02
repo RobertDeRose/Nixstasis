@@ -63,10 +63,20 @@ Generated Ash JSON:API routes:
 These builder routes are Ash generic-action RPC endpoints exposed through the
 Ash JSON:API router. Successful responses are raw action payloads rather than
 resource `data` documents; the generated POST action uses Ash JSON:API's `201`
-success status. Use the `/api/v1` wrappers when the legacy `200` validation
-status/body shape is required.
+success status. Generated `/api/json` routes use the JSON API permission pipeline
+and bearer/report-view authorization. Use the `/api/v1` wrappers when the legacy
+`200` validation status/body shape or compatibility authorization is required.
+
+Other generated resource routes:
+
 - `/api/json/devices`
 - `/api/json/pending_commands`
+- `/api/json/script_drafts`
+- `/api/json/script_versions`
+- `/api/json/script_validation_runs`
+- `/api/json/script_test_runs`
+- `/api/json/script_deployment_runs`
+- `/api/json/script_client_actions`
 - `/api/json/alerts`
 - `/api/json/alert_rules`
 - `/api/json/telemetry_events`
@@ -92,10 +102,11 @@ builder actions. The generated contracts for those actions are published under
 `application/json` envelope and status behavior for current consumers.
 
 The device runtime, report result preview, and Caddy TLS ask endpoints remain
-bespoke controller routes in the current implementation. Device runtime routes
-require Go client compatibility before any Ash conversion, report result preview
-is still a bespoke result-shaping endpoint, and `GET /api/v1/check_domain`
-remains an ingress workflow boundary called by Caddy.
+controller-backed in the current implementation. Device runtime routes are the
+next Ash-backed migration priority and require Go-client compatibility before
+transport changes; report result preview remains a deferred external-contract
+decision; and `GET /api/v1/check_domain` remains a Caddy-only ingress workflow
+boundary.
 
 ### E2E Routes
 

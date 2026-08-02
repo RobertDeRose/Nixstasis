@@ -69,6 +69,9 @@ Traceable references:
 - Caddy on-demand TLS sends domain approval input to `GET /api/v1/check_domain`.
   This route remains controller-backed because it is a Caddy ingress ask
   workflow with allow/deny semantics, not a durable product data resource.
+- Development laptop TLS observation routes
+  `/_nixstasis/laptop/tls_observations` are gated diagnostics for the Compose
+  harness, not supported product API contracts or generated OpenAPI surfaces.
 
 Traceable references:
 

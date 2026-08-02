@@ -114,8 +114,10 @@ Nixstasis intentionally has multiple API surfaces with different consumers.
 
 The current docs distinguish these contracts in [API & Runtime Contracts](reference/contracts.md).
 Builder contracts now straddle generated Ash JSON:API routes and retained
-`/api/v1` compatibility wrappers; device runtime, Caddy TLS ask, report preview,
-and E2E routes remain bespoke controller contracts.
+`/api/v1` compatibility wrappers. Device runtime routes are currently controller-backed
+compatibility contracts and are the next Ash-backed migration priority; Caddy TLS
+ask remains Caddy-owned, report preview is deferred, and E2E routes remain
+workflow-controller contracts.
 
 AuthCrunch claim and role mapping is documented as a Caddy-owned edge policy with
 Phoenix mapping trusted `X-Token-*` role claims into UI capability maps after

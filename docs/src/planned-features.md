@@ -586,24 +586,25 @@ cohort instead of relying only on product, account, status, and search filters.
   Keep explicitly workflow-only endpoints as Phoenix controllers only when Ash
   would make the contract less clear.
 - Requirements:
-- Inventory every bespoke route under `/api/v1` and `/e2e` and classify it as
-  resource/action-oriented or workflow-only.
-- Move resource/action-oriented device, builder, and E2E APIs to Ash-backed
-  actions/resources or Ash JSON:API routes where the behavior maps cleanly.
+- Inventory every externally accessed non-UI route under `/api/v1`, `/api/json`,
+  `/e2e`, and related diagnostic/reference surfaces and classify it as
+  `ash-backed`, `retained-controller`, `ui-only`, or `deferred`.
+- Reconcile the existing builder Ash actions/generated routes and compatibility
+  wrappers, then move the externally consumed device runtime to Ash-backed
+  actions/resources or generated routes where the behavior maps cleanly.
 - Preserve current wire contracts for the Go client, Caddy `check_domain`, and
-  E2E harness unless a deliberate versioned contract change is documented.
-- Generate OpenAPI docs for the migrated Ash-backed APIs and remove duplicate
-  hand-maintained OpenAPI sections when the generated docs cover them fully.
-- Keep any remaining hand-written Phoenix controller contracts under
-  `docs/src/reference/openapi/` with an explicit reason why they are not
-  Ash-generated.
+  the current E2E harness unless a deliberate versioned contract change is
+  documented.
+- Generate OpenAPI docs for Ash-backed APIs and retain explicit bespoke
+  contracts only for intentionally retained controllers.
 - Constraints:
 - Do not break existing Go client registration, heartbeat, command result, or
   command payload behavior without a versioned migration plan.
-- Do not force terminal, Caddy TLS approval, or E2E workflow endpoints into Ash
-  if a controller boundary is clearer or safer.
+- Do not force Caddy TLS approval or current E2E workflow endpoints into Ash when
+  they have no current contract benefit or a controller boundary is clearer.
+- Keep report preview unchanged until a concrete external export contract exists.
 - Maintain authentication and authorization semantics for device API keys,
-  Caddy/AuthCrunch, and E2E enablement gates.
+  Caddy/AuthCrunch, bearer-protected Ash routes, and E2E enablement gates.
 - Non-goals:
 - Replacing Ash JSON:API with a separate OpenAPI generator.
 - Converting browser LiveView routes to API routes.
@@ -630,9 +631,11 @@ cohort instead of relying only on product, account, status, and search filters.
 - Legacy `/api/v1/builder-*` controller routes remain compatibility wrappers
   around the Ash actions and keep the hand-maintained wrapper contract in
   `docs/src/reference/openapi/builder-api.yaml`.
-- Device runtime, report preview, Caddy TLS ask, E2E workflow, and laptop
-  diagnostics remain bespoke controller routes with retained/deferred rationale
-  in the reference docs.
+- Device runtime remains controller-backed in the current implementation but is
+  now the next Ash-backed migration priority because Go clients consume it.
+- Caddy TLS ask and current E2E workflow remain retained controllers, report
+  preview is deferred pending an export consumer, and laptop diagnostics remain
+  development-only controller routes.
 - Dependencies:
 - `packages/server/lib/nixstasis_web/router.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
@@ -643,7 +646,11 @@ cohort instead of relying only on product, account, status, and search filters.
 - `packages/server/lib/nixstasis_web/controllers/builder_schema_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
 - `packages/server/lib/nixstasis/domain.ex`
+- `packages/server/lib/nixstasis/devices/`
+- `packages/server/lib/nixstasis/monitoring.ex`
 - `packages/server/priv/static/openapi.yaml`
+- `packages/client/internal/transport/`
+- `packages/client/internal/e2e/`
 - `docs/src/reference/openapi/`
 - Suggested validation:
 - Diff generated OpenAPI before/after and confirm migrated paths appear in the

@@ -2,12 +2,12 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Bespoke Phoenix controller API used by managed devices and Caddy TLS approval. Device runtime routes are deferred from Ash conversion until strict Go client compatibility tests cover token, status-code, and response-shape behavior. The Caddy ask endpoint remains retained-controller because it is an ingress workflow boundary called by Caddy, not a product data resource.
+  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes are Ash-backed migration priorities; conversion must preserve Go-client token, authentication, status-code, and response-shape behavior. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
 paths:
   /api/v1/devices:
     get:
       summary: List devices with optional filters
-      description: Deferred from Ash conversion until device list filters and compatibility semantics, including ipv4_address, are reconciled with generated documentation.
+      description: Current compatibility controller contract. The route is an Ash-backed migration priority; preserve device list filters and compatibility semantics, including ipv4_address, in generated/reference documentation.
       parameters:
         - in: query
           name: product
@@ -55,7 +55,7 @@ paths:
   /api/v1/devices/register:
     post:
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. Deferred from Ash conversion until Go client registration compatibility tests cover pending and approved token behavior.
+      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The route is an Ash-backed migration priority; preserve pending and approved token behavior through compatibility tests.
       requestBody:
         required: true
         content:
@@ -137,7 +137,7 @@ paths:
   /api/v1/devices/{id}/heartbeat:
     post:
       summary: Submit device heartbeat and telemetry
-      description: Deferred from Ash conversion until Go client heartbeat compatibility tests cover api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling.
+      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling through Go-client compatibility tests.
       parameters:
         - in: path
           name: id
@@ -173,6 +173,10 @@ paths:
                     start_time:
                       type: string
                       format: date-time
+                command_inventory:
+                  type: object
+                  additionalProperties: true
+                  description: Optional untrusted package and command evidence collected from the latest server probe.
       responses:
         "200":
           description: Heartbeat acknowledged
@@ -192,6 +196,10 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/CommandRequest"
+                      command_inventory_probe:
+                        type: object
+                        additionalProperties: true
+                        description: Optional server-owned probe manifest describing requested package and command evidence.
         "401":
           description: Missing or invalid API key
         "403":
@@ -205,7 +213,7 @@ paths:
   /api/v1/devices/{id}/command_results:
     post:
       summary: Submit command execution results
-      description: Deferred from Ash conversion until command-result compatibility tests cover api_key authentication, duplicate command handling, acknowledged_count shape, and processing-error status codes.
+      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, duplicate command handling, acknowledged_count shape, and processing-error status codes through compatibility tests.
       parameters:
         - in: path
           name: id
@@ -256,7 +264,7 @@ paths:
   /api/v1/devices/{id}/command_payloads/{ref}:
     get:
       summary: Fetch deferred command payload
-      description: Deferred from Ash conversion until command-payload compatibility tests cover api_key authentication, payload lookup, payload shape, and 404 behavior.
+      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
       parameters:
         - in: path
           name: id

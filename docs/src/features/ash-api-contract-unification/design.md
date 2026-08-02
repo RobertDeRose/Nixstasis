@@ -4,147 +4,183 @@
 
 ## Summary
 
-Move non-UI HTTP API contracts onto Ash-backed resources and actions wherever the
-endpoint represents a durable product contract. The goal is for non-UI API models
-and endpoints to generate OpenAPI schema from Ash instead of relying on duplicate
-hand-maintained controller documentation.
+Move externally consumed, durable HTTP API contracts onto Ash-backed resources and
+actions when the contract benefits from Ash-generated OpenAPI and the mapping
+preserves existing behavior. Generated OpenAPI is the canonical reference for
+those Ash-backed contracts instead of a duplicate hand-maintained schema.
 
-This feature is intentionally scoped to non-UI API surfaces. Browser routes,
-LiveView screens, and UI-only workflow handlers remain outside the conversion
-scope unless they expose a durable non-UI contract.
+This feature does not require every Phoenix route to use Ash. UI-only LiveView
+interactions remain outside scope. Infrastructure-specific and workflow-specific
+protocols may remain controller-owned when Ash would not provide a practical
+benefit; their current contracts and rationale remain documented.
+
+The device runtime used by Go clients is an explicit in-scope priority because it
+is an externally consumed protocol that benefits from a discoverable,
+contract-driven API.
 
 ## Source Of Intent
 
-This spec is seeded from `docs/src/planned-features.md` entry
-`ash-api-contract-unification`, with the additional user constraint that all API
-models should use Ash models so all non-UI API endpoints generate OpenAPI schema.
+This spec is seeded from the `ash-api-contract-unification` entry in
+`docs/src/planned-features.md`. The intended boundary is externally consumed API
+contracts that benefit from generated OpenAPI and a well-defined Ash-backed
+contract model, not UI-only routes or every internal HTTP handler.
 
 ## Goals
 
-- Inventory every non-UI endpoint under `/api/v1`, `/api/json`, `/e2e`,
-  `/_nixstasis/laptop`, and any related generated or hand-maintained API
-  reference surface.
-- Classify each non-UI endpoint as resource/action-oriented, workflow-only, or
-  intentionally retained outside Ash.
-- Move resource/action-oriented non-UI endpoints to Ash resources, actions, or
-  Ash JSON/OpenAPI routes where the behavior maps cleanly.
-- Preserve existing wire contracts for the Go client, Caddy domain approval,
-  builder APIs, and E2E harness unless a deliberate versioned contract change is
-  documented in this feature.
-- Make generated OpenAPI the canonical reference for converted non-UI API
-  contracts.
-- Keep any retained bespoke endpoints documented under `docs/src/reference/` with
-  explicit rationale for why they do not generate from Ash.
+- Inventory every externally accessed non-UI endpoint under `/api/v1`,
+  `/api/json`, `/e2e`, `/_nixstasis/laptop`, and related generated or
+  hand-maintained API reference surfaces.
+- Classify each endpoint as `ash-backed`, `retained-controller`, `ui-only`, or
+  `deferred` before implementation.
+- Convert externally consumed resource/action contracts to Ash resources,
+  actions, or generated Ash JSON/OpenAPI routes where that improves contract
+  discoverability without weakening runtime behavior.
+- Prioritize the device runtime used by Go clients, preserving its wire,
+  authentication, status, and side-effect contracts.
+- Preserve existing contracts for Caddy domain approval, the current E2E harness,
+  builder compatibility wrappers, and any deliberately retained workflow.
+- Make generated OpenAPI canonical for `ash-backed` routes and keep retained
+  controller contracts documented under `docs/src/reference/` with explicit
+  route-specific rationale.
+- Record gray areas, such as future report export APIs, as deferred decisions
+  rather than forcing speculative conversions.
 
 ## Non-Goals
 
 - Converting browser LiveView routes or UI-only interactions into API routes.
+- Converting Caddy's `GET /api/v1/check_domain` protocol endpoint into Ash.
+- Migrating the current E2E harness or redesigning its test/reporting model as
+  part of this feature.
+- Designing a report-export API before there is a concrete external consumer.
 - Replacing Ash JSON/OpenAPI generation with a separate OpenAPI generator.
 - Changing device runtime authentication, Caddy/AuthCrunch browser
   authentication, terminal authorization, or E2E enablement gates.
 - Reworking production ingress, FRP runtime behavior, or deployment topology.
-- Forcing workflow-only endpoints into Ash when doing so would obscure behavior
-  or make the contract less safe.
+- Forcing a workflow or infrastructure protocol into Ash solely for architectural
+  uniformity.
 
 ## Current Behavior
 
-- Some API contracts are implemented as bespoke Phoenix controllers under
-  `/api/v1` and `/e2e`.
-- Ash-backed APIs are exposed separately through generated surfaces such as
-  `/api/json` and `packages/server/priv/static/openapi.yaml`.
-- API reference docs include hand-maintained OpenAPI or prose contract sections
-  for endpoints not fully represented by generated Ash OpenAPI.
-- This creates drift risk between controller code, Ash resources, generated
-  OpenAPI, and documentation.
+- The builder generic-action resource and generated `/api/json/builder_contract/*`
+  routes already exist, alongside `/api/v1` compatibility wrappers.
+- Existing Ash-backed resource groups are exposed through `/api/json` and the
+  generated `packages/server/priv/static/openapi.yaml` artifact.
+- Device runtime behavior remains in bespoke `/api/v1` controllers and is used by
+  the Go client for registration, heartbeat, command results, and payload fetches.
+- Caddy, E2E, and development-diagnostic protocols remain controller-owned.
+- Report result preview is controller-owned and has no confirmed external export
+  consumer.
+- API reference docs contain both generated OpenAPI and hand-maintained contracts,
+  so route ownership and artifact freshness must be reconciled explicitly.
 
 ## Proposed Scope
 
 In scope:
 
-- Non-UI API endpoints consumed by the Go client, Caddy, the E2E harness, builder
-  tooling, dev-laptop diagnostics, or external automation.
-- Endpoint request and response models for those non-UI APIs.
-- OpenAPI generation and reference docs for converted contracts.
-- Tests that prove converted endpoints preserve existing response shapes, status
-  codes, validation behavior, and authentication behavior.
+- A complete inventory of externally accessed non-UI routes and their consumers.
+- Reconciliation of the already-delivered builder Ash routes, generated artifact,
+  compatibility wrappers, authentication behavior, and documentation.
+- Device runtime API resources/actions and generated contract coverage, preserving
+  the Go client's existing wire and authentication behavior through compatibility
+  wrappers or an explicitly versioned client migration.
+- Endpoint request/response models, generated OpenAPI, retained-contract docs,
+  and focused server/Go compatibility tests for each migrated group.
+- Existing `/api/json` resource groups, including alert-rule APIs, where the
+  generated Ash contract already exists and only inventory/documentation evidence
+  is incomplete.
 
-Out of scope:
+Out of scope for this feature:
 
-- Browser-only LiveView interactions.
-- HTML routes and UI controller actions.
-- UI-only helper endpoints that are not intended as durable API contracts, unless
-  the inventory explicitly reclassifies them as non-UI APIs.
+- Browser-only LiveView interactions and UI controller actions.
+- Caddy's Caddy-only TLS approval protocol.
+- The current E2E harness conversion or a redesign of its test/reporting model.
+- A report export API; the existing preview route remains unchanged pending a
+  concrete external contract decision.
+- Development-only laptop diagnostics as product OpenAPI contracts.
 
 ## Endpoint Classification Rules
 
 Classify each endpoint into exactly one bucket before implementation:
 
-- `ash-backed`: resource/action-oriented behavior that should be implemented as
-  Ash resources/actions and included in generated OpenAPI.
-- `retained-controller`: workflow behavior where a Phoenix controller remains the
-  clearest boundary. These endpoints need retained reference docs and rationale.
-- `ui-only`: browser or LiveView-only behavior that is out of scope for this
-  feature.
-- `deferred`: non-UI endpoint that should eventually move to Ash but needs a
-  separate migration because of compatibility, auth, or workflow risk.
+- `ash-backed`: an externally consumed resource/action contract that benefits
+  from Ash's model, action, authorization, and generated OpenAPI support. Its
+  generated contract is canonical; a compatibility wrapper may remain when it
+  preserves an existing client wire format.
+- `retained-controller`: an infrastructure-specific or workflow-specific
+  protocol where a Phoenix controller is the clearest current boundary or where
+  conversion provides no practical benefit. It remains documented with a
+  route-specific contract and rationale.
+- `ui-only`: a browser or LiveView interaction with no durable external API
+  contract. It is outside this feature.
+- `deferred`: an externally useful contract whose future need, transport shape,
+  or migration boundary is not established enough for this feature. It remains
+  unchanged and requires a separate decision before conversion.
 
-The initial expectation is that device, command, builder, report, alert-rule, and
-E2E product-contract endpoints should be evaluated for Ash backing. Caddy TLS
-approval and terminal session workflows may remain controller-owned if the
-inventory shows Ash would make those contracts less clear.
+Initial classifications:
 
-Initial review defaults:
-
-- Caddy `GET /api/v1/check_domain` should start as `retained-controller`. It is
-  an ingress ask workflow called by Caddy, currently documented as a runtime
-  boundary, and has a simple non-resource response contract. Implementation may
-  revisit this only if an Ash action can preserve the Caddy-owned behavior without
-  obscuring the deployment contract.
-- `/e2e` run and result endpoints should start as `retained-controller` unless a
-  narrower implementation slice proves an Ash action can preserve enablement
-  gates, protocol-version checks, idempotent run reuse, environment locks, seed
-  execution, log access, and typed errors. They are non-UI APIs, but many are
-  workflow controls rather than simple resources.
-- Device registration, heartbeat, command results, command payload fetches,
-  builder schema options, builder validation, report result previews, and any
-  alert-rule APIs should be evaluated first for Ash-backed models/actions because
-  they are durable non-UI product contracts with request/response models.
-- `/_nixstasis/laptop/*` diagnostics should start as `retained-controller` or
-  `deferred`. They are development-harness diagnostics rather than product API
-  contracts and must not be promoted into production API guidance by accident.
+- Existing `/api/json` resource groups and the builder generic-action routes are
+  `ash-backed`; the builder `/api/v1` endpoints remain retained compatibility
+  wrappers.
+- Device registration, heartbeat, command results, and command payload fetches
+  are `ash-backed` priorities because Go clients consume them as a durable
+  external protocol. Their device authentication and orchestration boundaries
+  must be preserved.
+- Caddy `GET /api/v1/check_domain` is `retained-controller`. It is a Caddy-only
+  ingress protocol with no independent product API consumer.
+- Current `/e2e` run, result, cancellation, and log routes are
+  `retained-controller` for this feature. Their future OpenAPI value and test
+  model can be reconsidered separately, but this feature does not force that
+  work.
+- The current report result preview route is `deferred` for Ash migration. It
+  remains operationally unchanged until an external report/export contract is
+  actually needed.
+- `/_nixstasis/laptop/*` diagnostics are `retained-controller` development
+  routes and must not be promoted into product OpenAPI guidance.
 
 ## Compatibility Requirements
 
-- Existing Go client registration, heartbeat, command result, deferred payload,
-  and command polling behavior must continue to work unless a versioned migration
-  is explicitly documented.
+- Device runtime registration, heartbeat, command result, and deferred payload
+  behavior must preserve existing Go-client request/response shapes, status codes,
+  API-key authentication, approval/token semantics, rate limits, telemetry,
+  command delivery, and side effects unless a versioned client migration is
+  explicitly documented.
 - Existing Caddy `GET /api/v1/check_domain` behavior must remain compatible with
-  the deployment Caddyfile unless the endpoint is deliberately retained as a
-  controller with rationale.
+  the deployment Caddyfile; this route remains controller-owned.
 - E2E harness endpoints must keep current enablement gates, lock semantics,
-  idempotency behavior, and result submission contracts unless changed by a
-  documented versioned migration.
+  idempotency behavior, and result submission contracts; this feature does not
+  convert or redesign them.
 - Builder API validation and schema lookup behavior must preserve existing error
-  classes and response shapes.
-- Auth and authorization semantics for device API keys, AuthCrunch/Caddy headers,
-  E2E gates, and operator-only endpoints must remain explicit and tested.
+  classes and response shapes. Generated `/api/json` authorization and legacy
+  `/api/v1` wrapper authorization must be documented separately.
+- Deferred report preview behavior must remain unchanged until a future external
+  report/export contract is approved.
+- Auth and authorization semantics for device API keys, bearer-protected Ash
+  routes, AuthCrunch/Caddy headers, E2E gates, and operator-only endpoints must
+  remain explicit and tested.
 
 ## Implementation Approach
 
 1. Inventory routes from `packages/server/lib/nixstasis_web/router.ex` and map
-   them to controllers, Ash resources, generated OpenAPI paths, and reference
-   docs.
-2. Create a committed endpoint inventory table under this feature directory before
-   converting endpoints. The table must include route, current handler, consumer,
-   docs/source OpenAPI file, classification, migration decision, and rationale.
-3. Convert the lowest-risk non-UI resource/action endpoints first, preserving
-   response payloads and status codes with tests.
-4. Generate or refresh OpenAPI from Ash after each converted API group.
+   them to controllers, Ash resources/actions, consumers, generated OpenAPI paths,
+   and reference docs. Include existing generated resource families, not only
+   routes changed by this feature.
+2. Rebaseline the already-delivered builder Ash routes and their `/api/v1`
+   compatibility wrappers. Resolve generated-route authentication, wire-shape,
+   status, and OpenAPI artifact evidence before adding another conversion.
+3. Convert the device runtime one coherent group at a time. Define Ash-backed
+   actions and the orchestration boundary first, then preserve the existing
+   device-authenticated compatibility transport while generated OpenAPI coverage
+   and Go-client tests are added.
+4. Generate or refresh OpenAPI from Ash after each converted API group and verify
+   that the served runtime specification and committed static artifact agree.
 5. Remove duplicate hand-maintained OpenAPI sections only when generated OpenAPI
-   covers the same contract completely.
-6. For retained controllers, document the reason they are outside Ash and keep
-   their contract docs under `docs/src/reference/`.
-7. Reconcile docs and tests before marking the feature complete.
+   covers the same external contract completely; retain wrapper-specific docs when
+   the compatibility shape differs.
+6. For retained controllers, document why the protocol remains outside Ash and
+   keep its current contract under `docs/src/reference/`. For deferred contracts,
+   record the future decision boundary without changing runtime behavior.
+7. Reconcile docs and tests before marking the feature complete. Report export and
+   E2E-contract redesign remain separate follow-up decisions.
 8. Before designing Ash route changes, consult the in-repo Ash, Ash JSON:API, and
    Ash Phoenix usage rules under `packages/server/deps/*/usage-rules.md` or the
    `mix usage_rules.*` tasks so generated route/schema work follows dependency
@@ -184,8 +220,13 @@ Existing bespoke OpenAPI files that must be reconciled:
 - `packages/server/lib/nixstasis_web/controllers/builder_config_validation_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`
 - `packages/server/lib/nixstasis/domain.ex`
+- `packages/server/lib/nixstasis/devices/`
+- `packages/server/lib/nixstasis/monitoring.ex`
 - Ash resources and actions under `packages/server/lib/nixstasis/`
-- Server controller, domain, and OpenAPI tests under `packages/server/test/`
+- `packages/client/internal/transport/`
+- Server controller, domain, OpenAPI, and compatibility tests under
+  `packages/server/test/`
+- Go transport and runtime contract tests under `packages/client/`
 
 ## Validation
 
@@ -196,8 +237,12 @@ Existing bespoke OpenAPI files that must be reconciled:
 - Tests prove converted endpoints preserve existing request/response shapes,
   status codes, validation errors, and authentication behavior.
 - Go client transport tests continue to pass for registration, heartbeat, command
-  polling, command results, and deferred payload fetches.
-- E2E harness tests continue to pass for converted or retained `/e2e` contracts.
+  polling, command results, and deferred payload fetches before and after each
+  device migration group.
+- Device API-key authentication, approval, telemetry, command delivery, and
+  response-shape compatibility tests pass.
+- E2E harness tests continue to pass for the retained `/e2e` contract; no E2E
+  conversion is required by this feature.
 - `mix ash.codegen --check` passes when Ash resources change.
 - Ash/Ash JSON:API usage rules are consulted before implementing route/schema
   changes.
@@ -222,26 +267,34 @@ Existing bespoke OpenAPI files that must be reconciled:
 
 ## Risks And Tradeoffs
 
-- Some controller APIs are workflow protocols rather than clean resource actions;
-  forcing them into Ash can obscure behavior or create compatibility risk.
+- Device runtime conversion crosses API-key authentication, telemetry, command
+  delivery, and compatibility boundaries; forcing a JSON:API transport without
+  preserving those semantics could break every Go client.
+- Some controller APIs are infrastructure or workflow protocols rather than clean
+  resource actions; forcing Caddy or E2E into Ash would add complexity without a
+  current contract benefit.
 - Generated OpenAPI may expose schema details differently than hand-maintained
   docs, requiring careful review before removing bespoke references.
 - Byte-for-byte compatibility may be expensive for endpoints with custom errors or
   status codes; each deviation needs explicit review.
 - Migrating too many API groups at once can make regressions hard to isolate.
-- Leaving too many retained controllers weakens the project goal unless each
-  retained endpoint has a concrete rationale.
+- Deferred report/export and E2E decisions must remain visible without expanding
+  the current feature opportunistically.
 
 ## Implementation Assumptions
 
-- The first implementation should land one API group at a time behind this feature
-  spec rather than converting all eligible endpoints in one large change.
+- The builder Ash slice is existing implementation to reconcile, not a second
+  conversion pass.
+- Device runtime is the first new implementation group and lands one coherent
+  endpoint group at a time behind this feature spec.
 - Runtime compatibility is stricter than schema aesthetics: generated OpenAPI may
   be organized differently, but runtime JSON, status codes, auth failures, and
   typed errors for existing consumers must remain compatible unless a versioned
   migration is explicitly documented.
-- Retained-controller endpoints are acceptable only with route-specific rationale
-  in the endpoint inventory and reference docs.
+- Retained-controller endpoints are acceptable when they have a route-specific
+  infrastructure/workflow rationale and current contract documentation.
+- Deferred endpoints remain unchanged until a separate external-consumer decision
+  establishes their required contract.
 
 ## Metadata
 
@@ -252,72 +305,112 @@ Existing bespoke OpenAPI files that must be reconciled:
 
 ## Feature Summary
 
-Move durable resource and action contracts to Ash-generated JSON:API and OpenAPI where the mapping is clear, while
-retaining workflow controllers with explicit rationale and wire compatibility.
+Use Ash-generated models, actions, and OpenAPI for externally consumed API contracts
+that benefit from a well-defined generated contract. Prioritize the device runtime
+used by Go clients while retaining UI-only, Caddy-only, and current E2E workflow
+routes where Ash provides no current benefit.
 
 ## User Intent
 
-Client authors and maintainers need one discoverable contract source without destabilizing device, Caddy, report, or E2E
-protocols that are clearer as bespoke workflows.
+Client authors and maintainers need one discoverable contract source for APIs that
+external consumers depend on. The device runtime is especially important because
+Go clients communicate with the server through it. Caddy's protocol endpoint and
+UI-only routes do not need Ash merely for uniformity; report export and E2E API
+value remain future decisions.
 
 ## User-Facing Behavior
 
-Generated builder contracts are available under `/api/json/builder_contract/*`; retained `/api/v1` wrappers and workflow
-routes continue to preserve established payloads, status codes, and authentication.
+Generated builder and other Ash-backed contracts remain available through
+`/api/json` and the generated OpenAPI artifact. Existing `/api/v1` compatibility
+wrappers, Caddy checks, E2E workflows, and retained diagnostics preserve their
+current payloads, status codes, authentication, and workflow behavior while the
+device runtime is migrated incrementally.
 
 ## Requirements
 
-The endpoint inventory, classification rules, compatibility requirements, and incremental implementation approach above
-remain authoritative. No route moves solely to satisfy architectural uniformity.
+The endpoint inventory, classification rules, compatibility requirements, and
+incremental implementation approach above are authoritative. A route moves to
+Ash because it is an externally consumed contract that benefits from generated
+OpenAPI and can preserve its behavior, not solely to satisfy architectural
+uniformity.
 
 ## Proposed Design
 
-Apply the incremental endpoint classification and compatibility approach documented above, using Ash actions for clear
-resource contracts and retained controllers for workflow protocols.
+Reconcile the existing builder implementation and generated artifacts, then
+migrate the device runtime through Ash-backed actions/resources and generated
+contract coverage one coherent endpoint group at a time. Keep Caddy and current
+E2E protocols controller-owned, keep UI-only interactions outside scope, and defer
+report export until an external contract is needed.
 
 ## Existing Context
 
-Ash resources, generated OpenAPI, retained bespoke OpenAPI, Phoenix controllers, the Go client, and E2E harness all
-already own parts of the HTTP surface.
+Ash resources, generated OpenAPI, retained bespoke OpenAPI, Phoenix controllers,
+the Go client, Caddy, and the E2E harness already own different HTTP surfaces.
+The migration must connect these boundaries without replacing protocol-specific
+authentication or workflow orchestration with generic CRUD.
 
 ## Architecture Consistency
 
-Ash owns durable resource/action contracts. Controllers remain appropriate for Caddy asks, device polling, report
-preview, E2E orchestration, and diagnostics when workflow semantics are clearer and safer.
+Ash owns externally consumed resource/action contracts where generated OpenAPI
+provides a concrete benefit. Context modules and thin compatibility controllers may
+orchestrate Ash actions and preserve legacy transport/authentication. Controllers
+remain appropriate for Caddy asks, E2E orchestration, development diagnostics, and
+future report decisions when those boundaries are clearer than generated Ash
+routes.
 
 ## Operational Considerations
 
-Every migration must preserve public authorization, device credentials, E2E gating, error semantics, and generated
-artifact reproducibility. Contract drift must be visible in OpenAPI and integration tests.
+Every device migration must preserve API-key authentication, authorization,
+telemetry, command delivery, error semantics, and client compatibility. Caddy and
+E2E gates remain unchanged. Generated OpenAPI must be reproducible and its runtime
+and committed artifacts must not drift.
 
 ## Documentation Impact
 
-Update `docs/src/reference/contracts.md`, `docs/src/reference/openapi/`, `docs/src/client-server-interface.md`, and the
-server API module pages as each endpoint group reaches a final owner.
+Update `docs/src/reference/contracts.md`, `docs/src/reference/openapi/`,
+`docs/src/client-server-interface.md`, and the server API module pages as each
+endpoint group reaches a final owner. Keep explicit rationale for retained Caddy,
+E2E, and diagnostic routes, and record the deferred report/export boundary.
 
 ## Validation Strategy
 
-Diff generated OpenAPI and run focused domain, controller, authorization, Go transport, E2E, and documentation checks for
-each migrated group.
+For each migrated group, diff generated OpenAPI and run focused Ash/domain,
+controller, authorization, Go transport, compatibility, and documentation checks.
+The device runtime must pass server and Go-client contract tests before its
+compatibility wrapper or canonical generated route is considered complete.
 
 ## Implementation Decomposition
 
-Migrate one coherent endpoint group at a time: inventory and classify, expose an Ash action where appropriate, preserve
-or wrap compatibility routes, regenerate OpenAPI, test, and reconcile documentation.
+1. Reconcile the existing builder slice, route inventory, auth matrix, and generated
+   OpenAPI artifact.
+2. Define the device runtime Ash action/resource and orchestration boundary.
+3. Migrate device registration, heartbeat, command result, and payload contracts in
+   bounded groups while preserving the existing client transport.
+4. Regenerate OpenAPI, test server/Go compatibility, and reconcile docs after each
+   group.
+5. Keep Caddy/E2E/diagnostics retained and report export deferred.
 
 ## Dependencies and Parallelism
 
-Endpoint groups can be reviewed independently after shared authentication and error-shape rules are fixed. Generated
-OpenAPI and compatibility tests follow each implementation slice.
+Inventory and documentation reconciliation can proceed after shared authentication
+and error-shape rules are fixed. Device endpoint groups may be reviewed separately,
+but generated OpenAPI, compatibility wrappers, and Go tests follow each group.
 
 ## Rejected Alternatives
 
-A forced all-at-once controller conversion and a second OpenAPI generator remain rejected.
+A forced all-at-once conversion of every controller protocol, converting Caddy-only
+or current E2E routes without a benefit case, and a second OpenAPI generator remain
+rejected.
 
 ## Open Questions
 
-The remaining open work is route-specific classification and close-out evidence, not a change to the governing rules.
+The remaining implementation questions are route-specific device action design,
+API-key security representation in generated OpenAPI, and exact compatibility
+transport boundaries. They do not change the scope decision above.
 
 ## Deferred Decisions
 
-Further device, report, and E2E migrations remain deferred until individual endpoint evidence supports Ash ownership.
+- Whether a future report export API warrants an Ash-backed contract.
+- Whether the E2E harness should be redesigned or exposed as a generated contract.
+- Whether any retained development diagnostic route ever becomes a supported
+  external product API.
