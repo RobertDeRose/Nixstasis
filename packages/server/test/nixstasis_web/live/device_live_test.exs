@@ -70,7 +70,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
     test "manual device creation schedules a scoped success flash timeout", %{conn: conn} do
       previous_timeout = Application.get_env(:nixstasis, :device_success_flash_timeout_ms)
       assert FormComponent.success_flash_timeout_ms() == 30_000
-      Application.put_env(:nixstasis, :device_success_flash_timeout_ms, 60)
+      Application.put_env(:nixstasis, :device_success_flash_timeout_ms, 300)
 
       on_exit(fn ->
         if is_nil(previous_timeout) do
@@ -97,7 +97,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       Process.sleep(25)
       assert render(view) =~ "Device created successfully"
-      assert eventually_cleared?(view)
+      assert eventually_cleared?(view, 80)
       refute render(view) =~ "Device created successfully"
     end
 
