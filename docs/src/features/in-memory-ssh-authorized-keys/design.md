@@ -361,71 +361,73 @@ configuration rather than bypassing OpenSSH with direct shell access.
   are preserved on upgrade only if a future change reintroduces a file-based
   path; the current implementation does not touch them.
 
-## Docs And Pages Likely Affected
+## Documentation Impact
 
-- `docs/src/client-server-interface.md`
-- `docs/src/data-flow.md`
-- `docs/src/runtime-boundaries.md`
-- `docs/src/modules/client-command-handler.md`
-- `docs/src/modules/client-transport.md`
-- `docs/src/modules/client-frp-manager.md`
-- `docs/src/modules/edge-frp.md`
-- `docs/src/modules/server-devices.md`
-- `docs/src/modules/deployment-compose.md`
-- `docs/src/reference/openapi/device-api.yaml`
-- `docs/src/features/index.md`
-- `docs/src/SUMMARY.md`
-- `packages/client/README.md`
-- `packages/server/README.md`
-- `docs/src/planned-features.md`
+Each reader-facing page has one explicit purpose. Pages marked **verify** are
+checked for stale claims but are not changed when their boundary is unaffected.
+
+| Page                                                       | Purpose                                                                 | Ownership                               |
+|------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------|
+| `docs/src/client-server-interface.md`                      | Wire shape, acknowledgement, and failure behavior for terminal commands | Update                                  |
+| `docs/src/data-flow.md`                                    | Browser-to-device sequence, IPC lookup, and revoke flow                 | Update                                  |
+| `docs/src/runtime-boundaries.md`                           | Server/client/OpenSSH/FRP authority boundaries                          | Update                                  |
+| `docs/src/modules/client-command-handler.md`               | Client command types and dynamic SSH handling                           | Update                                  |
+| `docs/src/modules/client-transport.md`                     | Heartbeat command fields and result transport                           | Verify                                  |
+| `docs/src/modules/client-frp-manager.md`                   | Confirm FRP lifecycle is unchanged                                      | Verify                                  |
+| `docs/src/modules/edge-frp.md`                             | Confirm TCP mux transport is unchanged                                  | Verify                                  |
+| `docs/src/modules/server-devices.md`                       | Session sequencing, target user, and cleanup                            | Update                                  |
+| `docs/src/modules/deployment-compose.md`                   | Container accounts, socket, and smoke prerequisites                     | Update                                  |
+| `docs/src/reference/contracts.md`                          | Standalone SSH terminal authorization contract                          | Update                                  |
+| `docs/src/reference/openapi/device-api.yaml`               | `ssh_authorize`/`ssh_revoke` command schema                             | Update                                  |
+| `docs/src/features/index.md`                               | Delivered-feature discoverability                                       | Update at close-out                     |
+| `docs/src/features/in-memory-ssh-authorized-keys/index.md` | Implementation evidence and audit history                               | Create at close-out                     |
+| `docs/src/SUMMARY.md`                                      | mdBook navigation for design and delivered record                       | Update at close-out                     |
+| `packages/client/README.md`                                | Native client installation and support-account behavior                 | Update                                  |
+| `deploy/compose/README.md`                                 | Compose SSH account and operator flow                                   | Update                                  |
+| `packages/server/README.md`                                | Confirm no feature-specific server contract is documented there         | Verify                                  |
+| `docs/src/planned-features.md`                             | Roadmap status and scope                                                | Update as implementation status changes |
+
+Product documentation must stand alone; readers must not need to open the
+feature design to obtain the command JSON, helper argv, IPC request/response,
+socket permissions, account rules, or fail-closed behavior.
 
 ## Validation Plan
 
 - Unit tests for the client in-memory authorization store: add, match, expiry,
   revoke, restart-empty initialization, malformed-key rejection, and wrong-user
-  denial.
+  denial. Include a deterministic expiry cleanup assertion without requiring a
+  later lookup.
 - Unit tests for the helper with a fake Unix socket: allow, deny, timeout,
   malformed argv input, invalid response, missing socket, wrong OpenSSH token
-  shape, and oversized payload handling.
+  shape, oversized payload, and canonical allow-response mismatch handling.
 - Unit tests for the IPC server request/response behavior, stale socket cleanup,
   and socket permission checks where practical.
 - Client command-handler tests proving dynamic `ssh_authorize` stores keys in
-  memory and that no file-based fallback path exists.
+  memory, validates the exact versioned payload and session binding, enforces
+  the shared TTL maximum, handles `ssh_revoke`, and has no file-based fallback.
 - Server tests proving heartbeat command serialization includes the exact dynamic
-  `ssh_authorize` JSON shape, TTL/session fields, target user, and top-level
-  public-key handling.
+  `ssh_authorize` JSON shape, versioned content type, TTL/session fields, target
+  user, and top-level public-key handling. Test `ssh_revoke` payloads as well.
 - Server tests proving terminal startup creates session refs before queueing,
-  cleans up on queue/ack failure, gates terminal token activation on OK command
-  result, and uses `nixstasis-support` as the SSH destination user.
-- Packaging tests or scripted checks for installed helper path, sshd drop-in,
-  support user, authority user, socket group/modes, sudo/run0 separation,
-  public-key-only support login, and absence of new-install browser-terminal file
-  writes.
-- Container integration test with real sshd where `AuthorizedKeysCommand` invokes
-  the helper with `%u %t %k`, authenticates a short-lived key, and denies it
-  after TTL expiry. The current implementation is a Go integration test in
-  `packages/client/internal/sshauth/sshd_integration_test.go` that forks the
-  host's `/usr/sbin/sshd` on a high loopback port, points
-  `AuthorizedKeysCommand` at a wrapper which execs a freshly built
-  `nixstasis ssh-authorized-keys`, and exercises allow / unknown / expired /
-  wrong-user / revoked-session flows through the system `ssh` client. The
-  test is Linux-only (CI) and skips on macOS developer workstations because
-  the platform OpenSSH build's `safe_path` check rejects otherwise valid
-  helper paths. The wrapper script
-  `deploy/compose/scripts/ssh_terminal_smoke.sh` invokes the test and is the
-  entry point for the dev-lab smoke step below.
-- Compose dev-lab smoke test that launches a browser terminal, runs `whoami` and
-  verifies `nixstasis-support`, runs a safe diagnostic command such as
-  `sudo systemctl status nixstasis-poll.service` or
-  `run0 systemctl status nixstasis-poll.service`, closes the session, and
-  verifies a later expired key is denied. In this implementation the
-  end-to-end SSH flow is validated by the Go real-sshd integration test
-  above (which already covers allow, deny, expiry, and revoked-session
-  flows through the system `ssh` client). The
-  `deploy/compose/scripts/ssh_terminal_smoke.sh` wrapper is the dev-lab
-  entry point and is suitable for inclusion in the Compose smoke pipeline.
-- Documentation validation for changed mdBook pages and OpenAPI schema checks for
-  the device command contract.
+  exposes the terminal token only after the matching OK result, rejects omitted
+  or unrelated command IDs, cleans up on queue/ack/offline/join/close/expiry
+  failure, and uses `nixstasis-support` as the SSH destination user.
+- Packaging tests or scripted checks for every native installer and the container:
+  helper path, sshd drop-in, support user, locked authority user, socket group,
+  runtime directory/socket modes, sudo/run0 separation, safe sshd reload, and
+  public-key-only support login. Existing operator-owned files are preserved and
+  no browser-terminal key is written to an `authorized_keys` file.
+- Host real-sshd integration where `AuthorizedKeysCommand` invokes the helper with
+  `%u %t %k`, authenticates a short-lived key, and denies unknown/expired/
+  wrong-user/revoked keys. This Linux-only test is focused coverage and may skip
+  on macOS when the platform OpenSSH `safe_path` rule rejects the helper path.
+- Compose dev-lab/browser smoke that launches the actual deployed terminal,
+  verifies `whoami` returns `nixstasis-support`, runs a safe diagnostic, closes
+  the session, and verifies later expiry/revocation denial. The wrapper must not
+  claim host real-sshd coverage as Compose/browser coverage; unavailable lab
+  prerequisites are recorded explicitly by validation.
+- Documentation validation for all changed mdBook pages and OpenAPI schema
+  checks for the device command contract.
 
 ## Reconciliation Bookends
 
@@ -469,7 +471,8 @@ closed. Client restart clears all ephemeral authorizations.
 ## Requirements
 
 The detailed runtime, helper, server, client, packaging, security, and compatibility requirements above remain
-authoritative. Outstanding work is limited to the focused validation and close-out tasks represented in Beads.
+authoritative. Remaining work includes corrective hardening, contract/documentation reconciliation, focused validation,
+and close-out tasks represented in Beads.
 
 ## Proposed Design
 
@@ -491,25 +494,65 @@ owns login enforcement; FRP only transports the connection. No boundary grants a
 Packaging must install the helper, authority user, socket permissions, sshd drop-in, support privileges, and safe reload
 behavior. Missing client or IPC state denies access rather than falling back to files.
 
-## Documentation Impact
+## Specification Review Reconciliation
 
-Update `docs/src/client-server-interface.md`, `docs/src/runtime-boundaries.md`, client and deployment module pages,
-`packages/client/README.md`, and the device API reference when the remaining reconciliation work closes.
+The initial implementation evidence exposed clear contract gaps without changing the
+product intent. The authoritative design therefore retains these decisions:
+
+- Terminal socket-token exposure and channel startup require the matching
+  `ssh_authorize` command result, not merely a queued command or arbitrary command ID.
+- Every post-creation failure clears server private-key material and issues an
+  idempotent best-effort device revoke; authorization timeout stops browser retries.
+- `nixstasis-support` is the only dynamic terminal target. Configured SSH users
+  cannot override that account, and the authorization TTL cannot exceed the
+  terminal-session lifetime.
+- Both server and client require the exact versioned payload content type,
+  `payload.name == session_ref`, and canonical key/allow-response agreement.
+- The installed client and helper use the fixed trusted socket path
+  `/run/nixstasis/ssh-authority.sock`; the helper does not load general client
+  configuration or accept an untrusted socket path.
+- Native installers are first-class supported deployment paths and must provision
+  the same authority user, socket group, runtime directory, helper permissions,
+  and safe sshd reload behavior as the container image.
+- The host real-sshd test and Compose/browser smoke are separate evidence classes;
+  neither is reported as the other.
+- The exact SSH command/IPC contract belongs in reader-facing reference docs and
+  OpenAPI, including `ssh_revoke`; the feature design remains planning authority.
 
 ## Validation Strategy
 
-Run focused client store, helper, IPC, command-handler, real-sshd, server payload, packaging-contract, and documentation
-checks listed in the validation plan above.
+Run focused client store, helper, IPC, command-handler, real-sshd, server payload,
+terminal lifecycle, packaging-contract, Compose/browser, and documentation checks
+listed in the validation plan above.
 
 ## Implementation Decomposition
 
-Beads retains the remaining test, packaging, stale-reference search, documentation validation, and final consistency
-work. Existing implementation tasks and imported evidence remain beneath the feature root.
+The imported implementation history remains beneath `nixstasis-bdv.7` as
+provenance. Current corrective work is bounded as follows:
+
+- `.7.74`: terminal acknowledgement gate and command/session binding.
+- `.7.75`: exception-safe terminal key cleanup and revoke lifecycle.
+- `.7.76`: native SSH authority packaging and installer verification.
+- `.7.77`: dynamic SSH payload, key, TTL, and helper invariants.
+- `.7.78`: fixed trusted client/helper IPC socket configuration.
+- `.7.79`: reader-facing SSH command contracts, OpenAPI, and documentation.
+- `.7.80`: actual Compose/browser terminal smoke acceptance.
+- `.7.65-.7.67` and `.7.70-.7.71`: focused validation and stale-reference
+  checks, gated on the relevant corrective children.
+
+Each corrective child has a dependency on `.6` and owns its implementation,
+tests, and bounded commit. Historical closed tasks are not reopened merely to
+rewrite provenance; a current corrective child carries each actionable finding.
 
 ## Dependencies and Parallelism
 
-Client helper/store tests and server payload tests can proceed independently. Packaging and end-to-end SSH validation
-depend on the final helper and payload contract.
+`.7.74`, `.7.75`, `.7.76`, `.7.77`, and `.7.78` can proceed independently after
+spec-reconcile, with server, client, and packaging ownership kept separate.
+`.7.79` follows the stale-reference search `.7.71`; documentation validation
+`.7.70` follows `.7.79`. Focused client tests `.7.65` follow `.7.77-.78`,
+server tests `.7.66` follow `.7.74-.75-.77`, package verification `.7.67`
+follows `.7.76`, and Compose/browser smoke `.7.80` follows the terminal,
+packaging, client-contract, and socket corrections.
 
 ## Risks and Tradeoffs
 
