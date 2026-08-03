@@ -631,8 +631,10 @@ cohort instead of relying only on product, account, status, and search filters.
 - Legacy `/api/v1/builder-*` controller routes remain compatibility wrappers
   around the Ash actions and keep the hand-maintained wrapper contract in
   `docs/src/reference/openapi/builder-api.yaml`.
-- Device runtime remains controller-backed in the current implementation but is
-  now the next Ash-backed migration priority because Go clients consume it.
+- Device runtime now has an additive Ash-backed generated contract for list,
+  registration, heartbeat, command-result acknowledgement, and deferred-payload
+  fetch. The Go client remains on the controller-backed `/api/v1` compatibility
+  transport until a separately reviewed migration is approved.
 - Caddy TLS ask and current E2E workflow remain retained controllers, report
   preview is deferred pending an export consumer, and laptop diagnostics remain
   development-only controller routes.

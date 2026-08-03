@@ -96,9 +96,9 @@
 
 - Device `/api/v1` runtime routes remain the Go-client compatibility boundary
   while their additive Ash-backed actions are enabled incrementally. List,
-  registration, and heartbeat now have generated counterparts; command result
-  acknowledgement and deferred payload retrieval remain ordered follow-on work.
-  Compatibility tests continue to cover authentication, pending/approved
+  registration, heartbeat, command result acknowledgement, and deferred payload
+  retrieval now have generated counterparts. Compatibility tests continue to cover
+  authentication, pending/approved
   registration token behavior, heartbeat directives, command results, payloads,
   and status-code semantics.
 - `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
@@ -132,10 +132,9 @@ Device runtime migration has two deliberate HTTP surfaces:
   generated action has runtime and transport evidence.
 - The generated target is `/api/json/device_runtime/devices`: an operator-gated
   filtered list, a public registration action, and API-key-gated heartbeat,
-  command-result, and payload actions. The list, registration, and heartbeat
-  routes are enabled; command-result and payload routes remain ordered follow-up
-  work. The API key is the `api_key` query value
-  represented by the generated OpenAPI `deviceApiKey` scheme.
+  command-result, and payload actions. All five routes are enabled, while the Go
+  client remains on the compatibility surface. The API key is the `api_key` query
+  value represented by the generated OpenAPI `deviceApiKey` scheme.
 
 `Device` owns resource/action contracts. `Devices` owns registration, token
 issuance, device authentication, filters, pending commands, and payload lookup;

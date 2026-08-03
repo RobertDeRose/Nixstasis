@@ -6,6 +6,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Scripts
   alias NixstasisWeb.Plugs.JsonApiPermissions
 
   setup do
@@ -271,6 +272,270 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert response = request.(conn)
     assert response.status == 200
     assert %{"error" => %{"code" => "rate_limited"}} = json_response(request.(conn), 429)
+  end
+
+  test "generated command results preserves acknowledgement and replay behavior", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    {:ok, command} = Devices.queue_command(approved, %{"type" => "update"})
+
+    payload = %{
+      "data" => %{
+        "results" => [
+          %{
+            "command_id" => command.id,
+            "status" => "OK",
+            "output" => %{"updated" => true}
+          }
+        ]
+      }
+    }
+
+    request = fn conn ->
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}", payload)
+    end
+
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(request.(conn), 202)
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(request.(conn), 202)
+  end
+
+  test "generated command results preserves command policy delivery side effects", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "command_policy_audit")
+
+    {:ok, assignment} =
+      Domain.create_command_policy_assignment(%{
+        device_id: approved.id,
+        revision: 1,
+        version: "policy-generated",
+        resolved_policy: %{"commands" => %{"df" => "/usr/bin/df"}}
+      })
+
+    {:ok, command} = Devices.queue_command_policy_assignment(assignment)
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post(
+        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        %{
+          "data" => %{
+            "results" => [
+              %{
+                "command_id" => command.id,
+                "status" => "OK",
+                "output" => %{"commands_applied" => 1}
+              }
+            ]
+          }
+        }
+      )
+
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+    assert {:ok, assignment} = Domain.get_command_policy_assignment(assignment.id)
+    assert assignment.status == :acknowledged
+    assert_receive {:command_policy_audit, %{action: :assignment_acknowledged}}
+  end
+
+  test "generated command results rejects non-list bodies as JSON:API errors", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post(
+        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        %{"data" => %{"results" => "not-a-list"}}
+      )
+
+    assert is_list(json_response(conn, 400)["errors"])
+  end
+
+  test "generated command results uses the device API-key boundary", %{
+    conn: conn,
+    pending: pending,
+    approved: approved,
+    token: token
+  } do
+    path = "/api/json/device_runtime/devices/#{approved.id}/command_results"
+
+    conn = post(conn, path, %{"data" => %{"results" => []}})
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = post(build_conn(), "#{path}?api_key=wrong", %{"data" => %{"results" => []}})
+    assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
+
+    conn =
+      build_conn()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("#{path}?api_key=#{token}", %{"data" => %{"results" => []}})
+
+    assert json_response(conn, 202)["data"]["acknowledged_count"] == 0
+
+    {:ok, other} =
+      Devices.create_device(%{
+        mac_address: "AA:BB:CC:DD:EE:04",
+        product_name: "other-runtime",
+        approval_status: :approved
+      })
+
+    {:ok, _other, other_token} = Devices.issue_device_token(other)
+
+    conn =
+      post(
+        build_conn(),
+        "#{path}?api_key=#{other_token}",
+        %{"data" => %{"results" => []}}
+      )
+
+    assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
+
+    conn =
+      post(
+        build_conn(),
+        "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/command_results?api_key=wrong",
+        %{"data" => %{"results" => []}}
+      )
+
+    assert %{"errors" => [%{"code" => "device_not_found"}]} = json_response(conn, 404)
+
+    conn =
+      post(
+        build_conn(),
+        "/api/json/device_runtime/devices/#{pending.id}/command_results?api_key=anything",
+        %{"data" => %{"results" => []}}
+      )
+
+    assert %{"errors" => [%{"code" => "device_not_approved"}]} = json_response(conn, 403)
+  end
+
+  test "generated command results preserves script ingestion side effects", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "generated-result-script",
+        front_matter: %{"name" => "generated-result-script", "schema" => %{"type" => "object"}},
+        body: "def main():\\n    return {}\\n"
+      })
+
+    {:ok, version} =
+      Domain.create_script_version(%{
+        script_draft_id: draft.id,
+        version: "1",
+        status: :validated,
+        front_matter: draft.front_matter,
+        body: draft.body,
+        rendered_content: Scripts.render_draft(draft)
+      })
+
+    {:ok, run} =
+      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [approved])
+
+    %{id: command_id} =
+      approved
+      |> Devices.pop_pending_commands()
+      |> Enum.find(&(&1.command_payload["type"] == "run_script"))
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post(
+        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        %{
+          "data" => %{
+            "results" => [
+              %{
+                "command_id" => command_id,
+                "status" => "OK",
+                "output" => %{"status" => "passed", "validation" => "valid"}
+              }
+            ]
+          }
+        }
+      )
+
+    assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
+    completed = Domain.list_script_test_runs() |> elem(1) |> Enum.find(&(&1.id == run.id))
+    assert completed.status == :passed
+  end
+
+  test "generated deferred payload returns the raw payload shape", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    {:ok, _command} =
+      Devices.queue_command(approved, %{
+        "type" => "install_script",
+        "payload_ref" => "generated-payload",
+        "payload" => %{
+          "content_type" => "text/plain",
+          "name" => "generated",
+          "data" => "echo generated"
+        }
+      })
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/generated-payload?api_key=#{token}")
+
+    assert %{
+             "content_type" => "text/plain",
+             "name" => "generated",
+             "data" => "echo generated"
+           } = json_response(conn, 200)
+  end
+
+  test "generated deferred payload returns 404 when the payload is missing", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload?api_key=#{token}")
+
+    assert is_list(json_response(conn, 404)["errors"])
+  end
+
+  test "generated deferred payload uses the device API-key boundary", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    path = "/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload"
+
+    conn = get(conn, path)
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = get(build_conn(), "#{path}?api_key=wrong")
+    assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
+
+    conn =
+      build_conn()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> get("#{path}?api_key=#{token}")
+
+    assert is_list(json_response(conn, 404)["errors"])
   end
 
   test "generated registration returns a JSON:API validation error for a missing schema", %{conn: conn} do

@@ -7512,6 +7512,36 @@ paths:
                 x-struct:
                 x-validate:
           description: Success
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '429':
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    type: object
+                required:
+                  - error
+                type: object
+          description: Rate limit exceeded
         default:
           $ref: '#/components/responses/errors'
       security:
@@ -7672,9 +7702,314 @@ paths:
                 x-struct:
                 x-validate:
           description: Success
+        '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '429':
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    type: object
+                required:
+                  - error
+                type: object
+          description: Rate limit exceeded
         default:
           $ref: '#/components/responses/errors'
       security: []
+      tags:
+        - device
+  /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: fetch_command_payload operation on device resource
+      operationId: fetch_command_payload
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  content_type:
+                    anyOf:
+                      - type: string
+                        x-struct:
+                        x-validate:
+                      - type: 'null'
+                  data:
+                    anyOf:
+                      - type: string
+                        x-struct:
+                        x-validate:
+                      - type: 'null'
+                  name:
+                    anyOf:
+                      - type: string
+                        x-struct:
+                        x-validate:
+                      - type: 'null'
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        '401':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '404':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '429':
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    type: object
+                required:
+                  - error
+                type: object
+          description: Rate limit exceeded
+        default:
+          $ref: '#/components/responses/errors'
+      security:
+        - deviceApiKey: []
+      tags:
+        - device
+  /api/json/device_runtime/devices/{device_id}/command_results:
+    post:
+      callbacks: {}
+      deprecated: false
+      description: acknowledge_command_results operation on device resource
+      operationId: acknowledge_command_results
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      requestBody:
+        content:
+          application/vnd.api+json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  additionalProperties: false
+                  properties:
+                    results:
+                      items:
+                        additionalProperties: false
+                        properties:
+                          command_id:
+                            type: string
+                            x-struct:
+                            x-validate:
+                          error:
+                            anyOf:
+                              - type: string
+                                x-struct:
+                                x-validate:
+                              - type: 'null'
+                          output:
+                            anyOf:
+                              - type: object
+                                x-struct:
+                                x-validate:
+                              - type: 'null'
+                          status:
+                            type: string
+                            x-struct:
+                            x-validate:
+                        required:
+                          - command_id
+                          - status
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type: array
+                      x-struct:
+                      x-validate:
+                  required:
+                    - results
+                  type: object
+                  x-struct:
+                  x-validate:
+              required:
+                - data
+              type: object
+              x-struct:
+              x-validate:
+        description: Request body for the acknowledge_command_results operation on device resource
+        required: true
+      responses:
+        '202':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  data:
+                    additionalProperties: false
+                    properties:
+                      acknowledged_count:
+                        type: integer
+                        x-struct:
+                        x-validate:
+                    required:
+                      - acknowledged_count
+                    type: object
+                    x-struct:
+                    x-validate:
+                required:
+                  - data
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '401':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '404':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '429':
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    type: object
+                required:
+                  - error
+                type: object
+          description: Rate limit exceeded
+        default:
+          $ref: '#/components/responses/errors'
+      security:
+        - deviceApiKey: []
       tags:
         - device
   /api/json/device_runtime/devices/{device_id}/heartbeat:
@@ -7868,6 +8203,69 @@ paths:
                 x-struct:
                 x-validate:
           description: Success
+        '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '401':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '404':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '429':
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    type: object
+                required:
+                  - error
+                type: object
+          description: Rate limit exceeded
         default:
           $ref: '#/components/responses/errors'
       security:

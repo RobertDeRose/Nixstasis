@@ -63,10 +63,9 @@ Traceable references:
 
 ## Device Runtime Ash/OpenAPI Boundary
 
-The Go client continues to use the `/api/v1` mapping above. The list,
-registration, and heartbeat actions are now available in the additive generated
-route family; command-result and payload actions follow in the ordered migration
-children. The canonical contract for new integrations is:
+The Go client continues to use the `/api/v1` mapping above. All five device
+runtime actions are now available in the additive generated route family. The
+canonical contract for new integrations is:
 
 - `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
   boundary and the device list filters, including `ipv4_address` and
@@ -78,10 +77,16 @@ children. The canonical contract for new integrations is:
   `command_inventory`, returns `data.commands` plus optional remote-access and
   probe directives with status `200`, and preserves the same orchestration as
   the compatibility endpoint.
-- Heartbeat, command-result, and deferred-payload actions use
-  `?api_key=...` with the generated OpenAPI `deviceApiKey` scheme (`apiKey`, query
-  parameter named `api_key`). The device-runtime permission boundary performs
-  lookup and authentication before the Ash action; unknown devices are `404`,
+- `POST /api/json/device_runtime/devices/:device_id/command_results` accepts
+  `results` and returns `data.acknowledged_count` with status `202`; duplicate
+  results retain the observed replay/count behavior.
+- `GET /api/json/device_runtime/devices/:device_id/command_payloads/:ref`
+  returns the raw `{content_type, name, data}` payload with status `200` and
+  `404` when the payload is absent.
+- Heartbeat, command-result, and deferred-payload actions use `?api_key=...`
+  with the generated OpenAPI `deviceApiKey` scheme (`apiKey`, query parameter
+  named `api_key`). The device-runtime permission boundary performs lookup and
+  authentication before the Ash action; unknown devices are `404`,
   missing/invalid keys are `401`, and unapproved devices are `403`.
 
 Generated action schemas are canonical for Ash consumers and use the Ash

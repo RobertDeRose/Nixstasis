@@ -32,9 +32,8 @@ until a separate migration decision changes ownership.
 
 The device API file documents the current compatibility transport while device
 runtime migration is in progress; it must remain aligned with generated Ash
-coverage and Go-client behavior. The generated artifact now includes the list, registration, and heartbeat
-actions; command-result and payload actions remain the next migration children.
-The approved generated target is the additive
+coverage and Go-client behavior. The generated artifact now includes all five
+device runtime actions. The approved generated target is the additive
 `/api/json/device_runtime/devices` family. Its OpenAPI uses route-level
 `deviceApiKey` query security for heartbeat, command results, and payload fetches;
 registration is unauthenticated at the application layer and the generated list

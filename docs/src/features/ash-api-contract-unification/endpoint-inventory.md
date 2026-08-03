@@ -59,7 +59,8 @@ the existing `JsonApiPermissions` pipeline, sets the authenticated device actor,
 and enables the list/registration routes. `.7.41` adds the generated heartbeat
 action and preserves its 200 response, telemetry/inventory side effects,
 command delivery, probe, remote-access, and heartbeat-rate-limit behavior;
-`.7.42` reuses the same branch for command results and payloads. Generated
+`.7.42` adds command-result acknowledgement and payload-fetch actions while
+reusing the same branch. Generated
 action schemas and the compatibility `device-api.yaml` sections remain side by
 side until runtime tests prove complete coverage in
 `packages/server/priv/static/openapi.yaml`.

@@ -33,6 +33,12 @@ defmodule Nixstasis.Domain do
         route :post, "/:device_id/heartbeat", :heartbeat,
           name: "heartbeat",
           modify_conn: &__MODULE__.put_ok_status/4
+
+        route :post, "/:device_id/command_results", :acknowledge_command_results,
+          name: "acknowledge_command_results",
+          modify_conn: &__MODULE__.put_accepted_status/4
+
+        route :get, "/:device_id/command_payloads/:ref", :fetch_command_payload, name: "fetch_command_payload"
       end
 
       base_route "/devices", Nixstasis.Devices.Device do
@@ -92,6 +98,9 @@ defmodule Nixstasis.Domain do
   end
 
   def put_ok_status(conn, _subject, _result, _request), do: Plug.Conn.put_status(conn, :ok)
+
+  def put_accepted_status(conn, _subject, _result, _request),
+    do: Plug.Conn.put_status(conn, :accepted)
 
   def preview_command_policy(attrs), do: PolicyResolver.preview(attrs)
   def preview_catalog_command_compatibility(attrs), do: CatalogResolver.preview(attrs)

@@ -11,8 +11,10 @@ defmodule Nixstasis.Devices.Device do
     domain: Nixstasis.Domain,
     extensions: [AshJsonApi.Resource]
 
+  alias Nixstasis.CommandAllowlists
   alias Nixstasis.Devices
   alias Nixstasis.Monitoring
+  alias Nixstasis.Scripts
 
   @runtime_device_fields [
     id: [type: :uuid, allow_nil?: false],
@@ -88,6 +90,27 @@ defmodule Nixstasis.Devices.Device do
 
   @heartbeat_response_fields [
     data: [type: :map, allow_nil?: false, constraints: [fields: @heartbeat_data_fields]]
+  ]
+
+  @command_result_fields [
+    command_id: [type: :string, allow_nil?: false],
+    status: [type: :string, allow_nil?: false],
+    output: [type: :map],
+    error: [type: :string]
+  ]
+
+  @acknowledge_response_fields [
+    data: [
+      type: :map,
+      allow_nil?: false,
+      constraints: [fields: [acknowledged_count: [type: :integer, allow_nil?: false]]]
+    ]
+  ]
+
+  @command_payload_fields [
+    content_type: [type: :string],
+    name: [type: :string],
+    data: [type: :string]
   ]
 
   postgres do
@@ -223,6 +246,59 @@ defmodule Nixstasis.Devices.Device do
 
           {:error, _reason} ->
             {:error, "device not found"}
+        end
+      end
+    end
+
+    action :acknowledge_command_results, :map do
+      constraints fields: @acknowledge_response_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+
+      argument :results, {:array, :map},
+        allow_nil?: false,
+        constraints: [items: [fields: @command_result_fields]]
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            results = input.arguments.results
+            Scripts.ingest_command_results(device, results)
+            CommandAllowlists.ingest_command_results(device, results)
+
+            case Devices.acknowledge_command_results(device, results) do
+              {:ok, count} -> {:ok, %{data: %{acknowledged_count: count}}}
+              {:error, reason} -> {:error, reason}
+            end
+
+          {:ok, nil} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+
+          {:error, _reason} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+        end
+      end
+    end
+
+    action :fetch_command_payload, :map do
+      constraints fields: @command_payload_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+      argument :ref, :string, allow_nil?: false
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            case Devices.get_command_payload(device, input.arguments.ref) do
+              {:ok, payload} -> {:ok, payload}
+              {:error, :not_found} -> {:error, Ash.Error.Query.NotFound.exception()}
+            end
+
+          {:ok, nil} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+
+          {:error, _reason} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
         end
       end
     end

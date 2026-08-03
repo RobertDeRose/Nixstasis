@@ -119,7 +119,7 @@ Candidate endpoints:
 - `POST /api/v1/devices/:device_id/command_results`
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
 
-The device runtime is the next Ash-backed implementation group, not a deferred
+The device runtime is an Ash-backed implementation group, not a deferred
 candidate. The contract is split into an Ash-generated surface and an unchanged
 compatibility surface so the Go client does not need an unversioned migration.
 
@@ -206,17 +206,18 @@ exception, operator list policy, device lookup/API-key validation,
 precedence. The list and registration generated routes are enabled by `.7.40`.
 `.7.41` adds the generated heartbeat orchestration action, 200 response,
 heartbeat-rate-limit classification, and OpenAPI/runtime coverage while reusing
-this branch. `.7.42` must reuse the same branch for command results and payloads;
-its remaining work is action/orchestration implementation and OpenAPI coverage.
+this branch. `.7.42` adds the generated command-result acknowledgement and
+payload-fetch actions, preserves 202/200 status and not-found/replay behavior,
+and reuses the same branch for command-result side effects.
 
 Both generated and compatibility routes use the existing API rate limiter:
 heartbeat is 30 requests per 60 seconds per device identity and other API routes
 are 120 requests per 60 seconds. The generated heartbeat path is included in
-heartbeat detection and uses the same 30-request limit. The committed
-`docs/src/reference/openapi/device-api.yaml` remains the reference for the
-compatibility paths until each generated path has runtime tests and appears in
-the generated static artifact; duplicate hand-maintained sections are removed
-only after that evidence exists.
+heartbeat detection and uses the same 30-request limit. All five generated paths
+now have runtime tests and appear in the generated static artifact; the committed
+`docs/src/reference/openapi/device-api.yaml` remains the compatibility reference
+for `/api/v1` wrappers. Duplicate hand-maintained sections are removed only after
+that evidence exists and a separate documentation reconciliation approves it.
 
 #### Current `/api/v1` compatibility contract
 

@@ -105,12 +105,12 @@ builder actions. The generated contracts for those actions are published under
 `application/json` `data` envelopes, while validation returns its raw JSON result
 and all wrappers preserve their legacy status/error behavior.
 
-The device runtime, report result preview, and Caddy TLS ask endpoints remain
-controller-backed in the current implementation. Device runtime routes are the
-next Ash-backed migration priority and require Go-client compatibility before
-transport changes; report result preview remains a deferred external-contract
-decision; and `GET /api/v1/check_domain` remains a Caddy-only ingress workflow
-boundary.
+The device runtime retains controller-backed `/api/v1` compatibility wrappers,
+while all five additive generated Ash actions are available under
+`/api/json/device_runtime/devices`. They require the same Go-client compatibility
+behavior before any client transport migration; report result preview remains a
+deferred external-contract decision; and `GET /api/v1/check_domain` remains a
+Caddy-only ingress workflow boundary.
 
 ### E2E Routes
 
