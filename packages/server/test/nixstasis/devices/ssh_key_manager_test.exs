@@ -32,7 +32,8 @@ defmodule Nixstasis.Devices.SshKeyManagerTest do
     assert {:ok, %{private_key: ^private_key}} =
              SshKeyManager.fetch_terminal_session(session_ref, "device-1")
 
-    SshKeyManager.clear_terminal_session(session_ref)
+    assert :ok = SshKeyManager.clear_terminal_session(session_ref)
+    assert :ok = SshKeyManager.clear_terminal_session(session_ref)
     assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, "device-1")
   end
 

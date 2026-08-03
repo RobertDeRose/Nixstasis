@@ -520,6 +520,17 @@ defmodule Nixstasis.DevicesTest do
       assert %{"session_ref" => "session-abc"} = Jason.decode!(payload["data"])
     end
 
+    test "does not queue duplicate revokes for a known session ref" do
+      device = device_fixture(%{mac_address: "74:74:74:74:74:74", approval_status: :approved})
+
+      assert :ok = Devices.queue_terminal_revoke(device, "session-deduplicated")
+      assert :ok = Devices.queue_terminal_revoke(device, "session-deduplicated")
+
+      commands = Devices.pop_pending_commands(device)
+      assert length(commands) == 1
+      assert hd(commands).command_payload["type"] == "ssh_revoke"
+    end
+
     test "logs queue failures without blocking terminal cleanup" do
       device = device_fixture(%{mac_address: "73:73:73:73:73:73", approval_status: :approved})
       missing_device = %{device | id: Ecto.UUID.generate()}

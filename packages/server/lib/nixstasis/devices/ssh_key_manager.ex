@@ -98,8 +98,13 @@ defmodule Nixstasis.Devices.SshKeyManager do
   Removes terminal SSH key material for a session ref.
   """
   def clear_terminal_session(session_ref) when is_binary(session_ref) do
-    ensure_terminal_sessions_manager!()
-    GenServer.call(@terminal_sessions_name, {:clear_terminal_session, session_ref})
+    if Process.whereis(@terminal_sessions_name) do
+      GenServer.call(@terminal_sessions_name, {:clear_terminal_session, session_ref})
+    else
+      :ok
+    end
+  catch
+    :exit, _reason -> :ok
   end
 
   def clear_terminal_session(_session_ref), do: :ok

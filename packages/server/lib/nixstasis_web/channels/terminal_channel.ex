@@ -28,40 +28,65 @@ defmodule NixstasisWeb.TerminalChannel do
     columns = parse_terminal_dimension(payload["columns"], 80)
     rows = parse_terminal_dimension(payload["rows"], 24)
 
-    with {:ok, %{private_key: private_key}} <-
-           SshKeyManager.fetch_terminal_session(session_ref, device_id),
-         :ok <- authorize_terminal_join(socket, device_id),
-         :ok <- ensure_ssh_authorized(device_id, command_id),
-         {:ok, device} <- get_device(device_id),
-         {:ok, pid} <- start_ssh_client(device, private_key, columns, rows) do
-      SshKeyManager.clear_terminal_session(session_ref)
+    case SshKeyManager.fetch_terminal_session(session_ref, device_id) do
+      {:ok, %{private_key: private_key}} ->
+        result =
+          try do
+            with :ok <- authorize_terminal_join(socket, device_id),
+                 :ok <- ensure_ssh_authorized(device_id, command_id),
+                 {:ok, device} <- get_device(device_id),
+                 {:ok, pid} <- start_ssh_client(device, private_key, columns, rows) do
+              safe_clear_terminal_session(session_ref)
 
-      Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
+              Logger.info("Client joined terminal for device #{device_id} with SSH Client #{inspect(pid)}")
 
-      Process.send_after(self(), :max_duration_reached, @max_session_duration)
-      idle_timer = schedule_idle_warning(0)
+              Process.send_after(self(), :max_duration_reached, @max_session_duration)
+              idle_timer = schedule_idle_warning(0)
 
-      socket =
-        socket
-        |> assign(:terminal_device_id, device_id)
-        |> assign(:terminal_session_ref, session_ref)
-        |> assign(:ssh_client, pid)
-        |> assign(:ssh_client_module, ssh_client_module())
-        |> assign(:idle_timer, idle_timer)
-        |> assign(:idle_generation, 0)
+              socket =
+                socket
+                |> assign(:terminal_device_id, device_id)
+                |> assign(:terminal_session_ref, session_ref)
+                |> assign(:ssh_client, pid)
+                |> assign(:ssh_client_module, ssh_client_module())
+                |> assign(:idle_timer, idle_timer)
+                |> assign(:idle_generation, 0)
 
-      {:ok, socket}
-    else
+              {:ok, socket}
+            end
+          rescue
+            exception -> {:error, exception}
+          catch
+            kind, reason -> {:error, {kind, reason}}
+          end
+
+        case result do
+          {:ok, socket} ->
+            {:ok, socket}
+
+          {:error, reason} ->
+            cleanup_terminal_session(device_id, session_ref)
+            Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
+            {:error, terminal_join_error(reason)}
+        end
+
       {:error, reason} ->
-        maybe_clear_terminal_session(session_ref, reason)
-        queue_revoke(device_id, session_ref)
         Logger.warning("Terminal join failed for device #{device_id}: #{inspect(reason)}")
         {:error, terminal_join_error(reason)}
     end
   end
 
-  defp maybe_clear_terminal_session(_session_ref, :ssh_authorization_pending), do: :ok
-  defp maybe_clear_terminal_session(session_ref, _reason), do: SshKeyManager.clear_terminal_session(session_ref)
+  defp cleanup_terminal_session(device_id, session_ref) do
+    safe_clear_terminal_session(session_ref)
+    queue_revoke(device_id, session_ref)
+    :ok
+  end
+
+  defp safe_clear_terminal_session(session_ref) do
+    SshKeyManager.clear_terminal_session(session_ref)
+  catch
+    _, _ -> :ok
+  end
 
   defp authorize_terminal_join(socket, device_id) do
     terminal_device_id = socket.assigns[:terminal_device_id]
@@ -77,7 +102,7 @@ defmodule NixstasisWeb.TerminalChannel do
   defp ensure_ssh_authorized(_device_id, ""), do: :ok
 
   defp ensure_ssh_authorized(device_id, command_id) do
-    wait_until_ssh_authorized(device_id, command_id, @ssh_authorization_wait_attempts)
+    wait_until_ssh_authorized(device_id, command_id, ssh_authorization_wait_attempts())
   end
 
   defp wait_until_ssh_authorized(device_id, command_id, attempts) when attempts > 0 do
@@ -89,12 +114,20 @@ defmodule NixstasisWeb.TerminalChannel do
         {:error, :ssh_authorization_failed}
 
       :pending ->
-        Process.sleep(@ssh_authorization_wait_interval_ms)
+        Process.sleep(ssh_authorization_wait_interval_ms())
         wait_until_ssh_authorized(device_id, command_id, attempts - 1)
     end
   end
 
   defp wait_until_ssh_authorized(_device_id, _command_id, 0), do: {:error, :ssh_authorization_pending}
+
+  defp ssh_authorization_wait_attempts do
+    Application.get_env(:nixstasis, :ssh_authorization_wait_attempts, @ssh_authorization_wait_attempts)
+  end
+
+  defp ssh_authorization_wait_interval_ms do
+    Application.get_env(:nixstasis, :ssh_authorization_wait_interval_ms, @ssh_authorization_wait_interval_ms)
+  end
 
   # Handle input from the browser terminal
   @impl true
@@ -181,9 +214,7 @@ defmodule NixstasisWeb.TerminalChannel do
 
   @impl true
   def terminate(_reason, socket) do
-    session_ref = socket.assigns[:terminal_session_ref]
-    SshKeyManager.clear_terminal_session(session_ref)
-    queue_revoke(socket.assigns[:terminal_device_id], session_ref)
+    cleanup_terminal_session(socket.assigns[:terminal_device_id], socket.assigns[:terminal_session_ref])
     stop_ssh_client(socket.assigns[:ssh_client_module], socket.assigns[:ssh_client])
     :ok
   end

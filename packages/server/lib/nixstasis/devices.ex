@@ -998,27 +998,60 @@ defmodule Nixstasis.Devices do
   """
   def queue_terminal_revoke(%Device{} = device, session_ref)
       when is_binary(session_ref) and session_ref != "" do
-    payload_data =
-      Jason.encode!(%{session_ref: session_ref})
+    if terminal_revoke_queued?(device.id, session_ref) do
+      :ok
+    else
+      payload_data =
+        Jason.encode!(%{session_ref: session_ref})
 
-    case queue_command(device, %{
-           "type" => "ssh_revoke",
-           "payload" => %{
-             "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
-             "name" => session_ref,
-             "data" => payload_data
-           }
-         }) do
-      {:ok, _command} ->
-        :ok
+      case queue_command(device, %{
+             "type" => "ssh_revoke",
+             "payload" => %{
+               "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+               "name" => session_ref,
+               "data" => payload_data
+             }
+           }) do
+        {:ok, _command} ->
+          :ok
 
-      {:error, reason} ->
-        Logger.warning("failed to queue terminal revoke for device #{device.id}: #{inspect(reason)}")
-        :ok
+        {:error, reason} ->
+          log_terminal_revoke_failure(device, reason)
+      end
     end
+  rescue
+    exception ->
+      log_terminal_revoke_failure(device, exception)
+  catch
+    kind, reason ->
+      log_terminal_revoke_failure(device, {kind, reason})
   end
 
   def queue_terminal_revoke(_device, _session_ref), do: :ok
+
+  defp terminal_revoke_queued?(device_id, session_ref) do
+    case Repo.query(
+           """
+           SELECT 1
+           FROM pending_commands
+           WHERE device_id = $1
+             AND command_payload->>'type' = 'ssh_revoke'
+             AND command_payload->'payload'->>'name' = $2
+           LIMIT 1
+           """,
+           [device_id, session_ref]
+         ) do
+      {:ok, %{rows: [_row | _rest]}} -> true
+      _ -> false
+    end
+  rescue
+    _ -> false
+  end
+
+  defp log_terminal_revoke_failure(device, reason) do
+    Logger.warning("failed to queue terminal revoke for device #{device.id}: #{inspect(reason)}")
+    :ok
+  end
 
   def pop_pending_commands(%Device{} = device) do
     Repo.transaction(fn ->

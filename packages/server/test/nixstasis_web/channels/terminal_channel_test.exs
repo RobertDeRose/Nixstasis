@@ -164,6 +164,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
                    "token" => session_ref
                  })
       end)
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
   end
 
   test "returns structured error for expired terminal session" do
@@ -202,6 +204,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
                    "token" => Ecto.UUID.generate()
                  })
       end)
+
+    assert Nixstasis.Domain.list_pending_commands!() == []
   end
 
   test "keeps terminal session usable while ssh authorization is pending" do
@@ -241,6 +245,49 @@ defmodule NixstasisWeb.TerminalChannelTest do
     assert_receive {:deferred_ssh_started, ^device_id}
   end
 
+  test "clears the session when authorization acknowledgement times out" do
+    previous_attempts = Application.get_env(:nixstasis, :ssh_authorization_wait_attempts)
+    previous_interval = Application.get_env(:nixstasis, :ssh_authorization_wait_interval_ms)
+    Application.put_env(:nixstasis, :ssh_authorization_wait_attempts, 1)
+    Application.put_env(:nixstasis, :ssh_authorization_wait_interval_ms, 0)
+
+    on_exit(fn ->
+      if is_nil(previous_attempts) do
+        Application.delete_env(:nixstasis, :ssh_authorization_wait_attempts)
+      else
+        Application.put_env(:nixstasis, :ssh_authorization_wait_attempts, previous_attempts)
+      end
+
+      if is_nil(previous_interval) do
+        Application.delete_env(:nixstasis, :ssh_authorization_wait_interval_ms)
+      else
+        Application.put_env(:nixstasis, :ssh_authorization_wait_interval_ms, previous_interval)
+      end
+    end)
+
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:17", product_name: "key"})
+
+    {:ok, command} =
+      Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
+
+    _ = Devices.pop_pending_commands(device)
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+
+    {_result, _log} =
+      with_log(fn ->
+        assert {:error, %{reason: "authorization_pending", code: "ssh_authorization_pending"}} =
+                 NixstasisWeb.UserSocket
+                 |> socket("user_id", %{terminal_device_id: device.id})
+                 |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+                   "token" => session_ref,
+                   "command_id" => command.id
+                 })
+      end)
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+  end
+
   test "rejects terminal join when ssh authorization command fails" do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:16", product_name: "key"})
@@ -264,6 +311,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
                    "command_id" => command.id
                  })
       end)
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
   end
 
   test "returns structured startup failure for expected ssh client errors" do

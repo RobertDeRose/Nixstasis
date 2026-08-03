@@ -8,6 +8,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Nixstasis.Devices
   alias Nixstasis.Devices.RemoteAccessLeases
+  alias Nixstasis.Devices.SshKeyManager
+  alias Nixstasis.Domain
   alias Nixstasis.Repo
   alias NixstasisWeb.DeviceLive.FormComponent
 
@@ -1031,10 +1033,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
       device = create_device!(%{mac_address: "E2:E2:E2:E2:E2:E2"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
-      %{remote_access_lease_ref: lease_ref} = :sys.get_state(view.pid).socket.assigns
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{remote_access_lease_ref: lease_ref, ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
       send(view.pid, {:remote_access_lease_expired, lease_ref})
 
       assert render(view) =~ "Remote access session expired"
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
       assert Devices.get_device!(device.id).remote_access_requested == false
     end
 
@@ -1154,6 +1161,20 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert Nixstasis.Domain.list_pending_commands!() == []
     end
 
+    test "queue failure clears a newly created terminal session", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E9"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+      before = :sys.get_state(SshKeyManager.TerminalSessions).sessions
+
+      assert :ok = Devices.delete_device(device)
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      assert :sys.get_state(SshKeyManager.TerminalSessions).sessions == before
+    end
+
     test "terminal close clears consumed session assigns", %{conn: conn} do
       device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E6"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
@@ -1169,6 +1190,13 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assigns = :sys.get_state(view.pid).socket.assigns
       assert assigns.ssh_session_started
       assert assigns.terminal_closed?
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(token, device.id)
+
+      revoke_count =
+        Domain.list_pending_commands!()
+        |> Enum.count(&(&1.command_payload["type"] == "ssh_revoke"))
+
+      assert revoke_count == 1
       assert assigns.ssh_authorize_command_id == nil
       assert assigns.terminal_socket_token == nil
 
@@ -1311,6 +1339,21 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       assert eventually_rendered?(view, "Device Offline")
       assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "offline transition clears the active terminal session", %{conn: conn} do
+      device = create_device!(%{mac_address: "E7:E7:E7:E7:E7:E8"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+      _ = view |> element("a[phx-value-tab='terminal']", "Terminal") |> render_click()
+
+      %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
+      {:ok, loaded_device} = Devices.get_device(device.id)
+
+      {:ok, _updated} =
+        Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
+
+      assert eventually_rendered?(view, "Device Offline")
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
     end
 
     test "redirects with flash for missing device", %{conn: conn} do
