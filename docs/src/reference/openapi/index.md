@@ -30,10 +30,10 @@ Caddy TLS approval, report previews, and the current E2E harness remain bespoke
 or compatibility routes. Their wire-compatible controller contracts live here
 until a separate migration decision changes ownership.
 
-The device API file documents the current compatibility transport while device
-runtime migration is in progress; it must remain aligned with generated Ash
-coverage and Go-client behavior. The generated artifact now includes all five
-device runtime actions. The approved generated target is the additive
+The device API file documents the current compatibility transport; it remains
+aligned with generated Ash coverage and Go-client behavior. The generated
+artifact includes all five device-runtime actions. The approved generated target
+is the additive
 `/api/json/device_runtime/devices` family. Its OpenAPI uses route-level
 `deviceApiKey` query security for heartbeat, command results, and payload fetches;
 registration is unauthenticated at the application layer and the generated list
@@ -58,8 +58,9 @@ uses the operator bearer boundary.
   `/e2e` controller owns the route.
 - Keep the builder `/api/v1` contract here until all consumers can use the
   generated `/api/json/builder_contract/*` routes directly.
-- Keep device compatibility details here while the Ash-backed migration is
-  implemented, and verify generated/static OpenAPI coverage after each group.
+- Keep device compatibility details here because the Go client remains on the
+  `/api/v1` wrappers, and verify generated/static OpenAPI coverage after every
+  generated-contract change.
 - Keep the builder auth/status/body matrix aligned between the generated artifact,
   `builder-api.yaml`, and `client-server-interface.md`.
 - Link to generated Ash OpenAPI for resources such as alert rules instead of

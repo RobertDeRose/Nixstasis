@@ -2,13 +2,13 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes are Ash-backed migration priorities with an additive generated target under /api/json/device_runtime/devices. Conversion must preserve Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration and list have no application device key. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
+  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes have additive Ash-backed counterparts under /api/json/device_runtime/devices. The compatibility surface preserves Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration and list have no application device key. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
 paths:
   /api/v1/devices:
     get:
       security: []
       summary: List devices with optional filters
-      description: Current compatibility controller contract. The route is an Ash-backed migration priority; preserve device list filters and compatibility semantics, including ipv4_address, in generated/reference documentation.
+      description: Current compatibility controller contract. The additive generated list action is the canonical Ash contract; preserve device list filters and compatibility semantics, including ipv4_address, in both references.
       parameters:
         - in: query
           name: product
@@ -59,7 +59,7 @@ paths:
     post:
       security: []
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The route is an Ash-backed migration priority; preserve pending and approved token behavior through compatibility tests.
+      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The additive generated registration action shares this behavior; compatibility tests preserve pending and approved token behavior.
       requestBody:
         required: true
         content:
@@ -149,7 +149,7 @@ paths:
       security:
         - deviceApiKey: []
       summary: Submit device heartbeat and telemetry
-      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling through Go-client compatibility tests.
+      description: Current compatibility controller contract with an additive generated heartbeat action. Preserve api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling through Go-client compatibility tests.
       parameters:
         - in: path
           name: id
@@ -227,7 +227,7 @@ paths:
       security:
         - deviceApiKey: []
       summary: Submit command execution results
-      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, replay/duplicate command handling, acknowledged_count shape, malformed-results status, and rate-limit behavior through compatibility tests.
+      description: Current compatibility controller contract with an additive generated command-result action. Preserve api_key authentication, replay/duplicate command handling, acknowledged_count shape, malformed-results status, and rate-limit behavior through compatibility tests.
       parameters:
         - in: path
           name: id
@@ -280,7 +280,7 @@ paths:
       security:
         - deviceApiKey: []
       summary: Fetch deferred command payload
-      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
+      description: Current compatibility controller contract with an additive generated payload-fetch action. Preserve api_key authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
       parameters:
         - in: path
           name: id

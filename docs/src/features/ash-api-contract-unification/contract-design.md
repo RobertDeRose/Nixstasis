@@ -2,8 +2,8 @@
 
 These notes define the Ash model/action shape, compatibility boundaries, and
 retained-controller rationale for the current endpoint inventory. The builder
-contract slice already exists and is being rebaselined here; device runtime
-conversion is the next implementation priority.
+contract slice was rebaselined here, and the approved device-runtime conversion
+is now delivered as an additive generated route family.
 
 ## Usage Rule Consultation
 
@@ -87,9 +87,9 @@ action validates rather than creates data. `/api/v1` remains the compatibility
 surface for clients that require the original wrapper status/body shape.
 
 The builder slice is existing implementation, not a future conversion candidate.
-Its remaining work is to reconcile route-specific authorization, generated/static
-OpenAPI evidence, wrapper parity, and reader-facing documentation before the
-feature moves on to device runtime migration.
+Its route-specific authorization, generated/static OpenAPI evidence, wrapper
+parity, and reader-facing documentation are reconciled alongside the delivered
+device-runtime actions.
 
 ### Builder Compatibility Matrix
 
@@ -199,25 +199,24 @@ OpenAPI documents the registration exception; it does not bypass the Plug. The
 `/api/v1` controllers retain the same lookup and error precedence during the
 transition.
 
-**Implementation handoff:** `.7.40` implements the explicit `device_runtime`
-dispatch in the existing JSON API pipeline, including the public registration
-exception, operator list policy, device lookup/API-key validation,
+**Implementation handoff delivered:** `.7.40` implemented the explicit
+`device_runtime` dispatch in the existing JSON API pipeline, including the public
+registration exception, operator list policy, device lookup/API-key validation,
 `Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests for `404`/`401`/`403`
-precedence. The list and registration generated routes are enabled by `.7.40`.
-`.7.41` adds the generated heartbeat orchestration action, 200 response,
-heartbeat-rate-limit classification, and OpenAPI/runtime coverage while reusing
-this branch. `.7.42` adds the generated command-result acknowledgement and
-payload-fetch actions, preserves 202/200 status and not-found/replay behavior,
-and reuses the same branch for command-result side effects.
+precedence. `.7.41` delivered the generated heartbeat orchestration action,
+200 response, heartbeat-rate-limit classification, and OpenAPI/runtime coverage.
+`.7.42` delivered the generated command-result acknowledgement and payload-fetch
+actions, preserving 202/200 status and not-found/replay behavior while reusing
+the same branch for command-result side effects.
 
 Both generated and compatibility routes use the existing API rate limiter:
 heartbeat is 30 requests per 60 seconds per device identity and other API routes
 are 120 requests per 60 seconds. The generated heartbeat path is included in
-heartbeat detection and uses the same 30-request limit. All five generated paths
-now have runtime tests and appear in the generated static artifact; the committed
-`docs/src/reference/openapi/device-api.yaml` remains the compatibility reference
-for `/api/v1` wrappers. Duplicate hand-maintained sections are removed only after
-that evidence exists and a separate documentation reconciliation approves it.
+heartbeat detection and uses the same 30-request limit. All five generated
+paths have runtime tests and appear in the generated static artifact; the
+committed `docs/src/reference/openapi/device-api.yaml` remains the compatibility
+reference for `/api/v1` wrappers because its transport contract is distinct. Duplicate hand-maintained sections are not removed when they document
+that compatibility surface.
 
 #### Current `/api/v1` compatibility contract
 

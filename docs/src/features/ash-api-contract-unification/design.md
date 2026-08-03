@@ -319,7 +319,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 - Beads feature root: `nixstasis-zf5`
 - Feature slug: `ash-api-contract-unification`
 - Base branch: `dev`
-- Status: in progress
+- Status: implemented; delivery action pending
 
 ## Feature Summary
 

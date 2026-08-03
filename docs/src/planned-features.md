@@ -578,7 +578,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Ash API contract unification (`ash-api-contract-unification`)
 
-- Status: in-progress
+- Status: completed
 - Overview:
 - Rework the custom Phoenix controller APIs that represent durable product
   contracts so they are exposed through Ash actions/resources where practical,
@@ -638,6 +638,15 @@ cohort instead of relying only on product, account, status, and search filters.
 - Caddy TLS ask and current E2E workflow remain retained controllers, report
   preview is deferred pending an export consumer, and laptop diagnostics remain
   development-only controller routes.
+- Completion notes:
+- The generated Ash contract boundary is delivered for builder actions and all
+  five approved device-runtime actions; the Go client remains on the compatible
+  `/api/v1` wrappers pending a separately reviewed client migration.
+- Generated OpenAPI, compatibility references, endpoint inventory, route tests,
+  and reader-facing architecture/interface docs are reconciled. The implemented
+  record is `docs/src/features/ash-api-contract-unification/index.md`.
+- Future report export, E2E generated-contract treatment, development diagnostics,
+  and audited script-workbench actions remain separate decisions.
 - Dependencies:
 - `packages/server/lib/nixstasis_web/router.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex`

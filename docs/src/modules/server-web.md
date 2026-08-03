@@ -69,6 +69,19 @@ pipeline and bearer/report-view authorization, with explicit `400`, `403`, and
 `:api` pipeline and rate limiter instead; use them when the legacy `200`/`422`
 status and body shapes are required.
 
+Generated device-runtime action routes:
+
+- `GET /api/json/device_runtime/devices` — operator/device-view filtered list.
+- `POST /api/json/device_runtime/devices/register` — public registration.
+- `POST /api/json/device_runtime/devices/:device_id/heartbeat` — device-key heartbeat.
+- `POST /api/json/device_runtime/devices/:device_id/command_results` — device-key result acknowledgement.
+- `GET /api/json/device_runtime/devices/:device_id/command_payloads/:ref` — device-key deferred-payload fetch.
+
+Heartbeat, command-result, and payload actions use the `deviceApiKey` query
+scheme; registration is public at the application layer and list uses the
+operator bearer/device-view boundary. The Go client remains on the compatible
+`/api/v1` wrappers.
+
 Other generated resource routes:
 
 - `/api/json/devices`
@@ -107,10 +120,10 @@ and all wrappers preserve their legacy status/error behavior.
 
 The device runtime retains controller-backed `/api/v1` compatibility wrappers,
 while all five additive generated Ash actions are available under
-`/api/json/device_runtime/devices`. They require the same Go-client compatibility
-behavior before any client transport migration; report result preview remains a
-deferred external-contract decision; and `GET /api/v1/check_domain` remains a
-Caddy-only ingress workflow boundary.
+`/api/json/device_runtime/devices`. The Go client remains on the compatibility
+surface pending a separately reviewed client migration; report result preview
+remains a deferred external-contract decision; and `GET /api/v1/check_domain`
+remains a Caddy-only ingress workflow boundary.
 
 ### E2E Routes
 

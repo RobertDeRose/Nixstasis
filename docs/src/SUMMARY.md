@@ -64,6 +64,7 @@
   <!-- END FEATURE DESIGNS -->
 - [Implemented Features](features/index.md)
   <!-- BEGIN IMPLEMENTED FEATURES -->
+  - [Ash API Contract Unification](features/ash-api-contract-unification/index.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)
   - [Compose Dev Harness](features/compose-dev-harness/index.md)
   - [Dashboard Device Groups](features/dashboard-device-groups/index.md)

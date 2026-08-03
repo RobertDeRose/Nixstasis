@@ -94,13 +94,12 @@
 
 ## Client-Server Interaction Details
 
-- Device `/api/v1` runtime routes remain the Go-client compatibility boundary
-  while their additive Ash-backed actions are enabled incrementally. List,
-  registration, heartbeat, command result acknowledgement, and deferred payload
-  retrieval now have generated counterparts. Compatibility tests continue to cover
-  authentication, pending/approved
-  registration token behavior, heartbeat directives, command results, payloads,
-  and status-code semantics.
+- Device `/api/v1` runtime routes remain the Go-client compatibility boundary.
+  List, registration, heartbeat, command result acknowledgement, and deferred
+  payload retrieval all have additive generated Ash counterparts. Compatibility
+  tests continue to cover authentication, pending/approved registration token
+  behavior, heartbeat directives, command results, payloads, and status-code
+  semantics.
 - `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
@@ -128,8 +127,8 @@
 
 Device runtime migration has two deliberate HTTP surfaces:
 
-- The Go client remains on `/api/v1` compatibility controllers until each
-  generated action has runtime and transport evidence.
+- The Go client remains on `/api/v1` compatibility controllers after runtime
+  and transport evidence established the additive generated action contracts.
 - The generated target is `/api/json/device_runtime/devices`: an operator-gated
   filtered list, a public registration action, and API-key-gated heartbeat,
   command-result, and payload actions. All five routes are enabled, while the Go
