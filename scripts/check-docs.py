@@ -43,6 +43,29 @@ DESIGN_HEADINGS = (
     "Open Questions",
 )
 
+# These delivered features retain their pre-dstack design records as historical
+# intent. Keep this exemption exact; new or reopened features use DESIGN_HEADINGS.
+HISTORICAL_DESIGN_EXEMPTIONS = frozenset(
+    {
+        "docs/src/features/authcrunch-role-contract/design.md",
+        "docs/src/features/compose-dev-harness/design.md",
+        "docs/src/features/dashboard-home/design.md",
+        "docs/src/features/device-detail-page/design.md",
+        "docs/src/features/go-client-rewrite/design.md",
+        "docs/src/features/iot-device-monitoring/design.md",
+        "docs/src/features/packaging-deployment-migration/design.md",
+        "docs/src/features/phoenix-ui-polish/design.md",
+        "docs/src/features/production-operations-runbooks/design.md",
+        "docs/src/features/report-view-improvements/design.md",
+        "docs/src/features/rich-api-examples/design.md",
+        "docs/src/features/self-extracting-installer/design.md",
+        "docs/src/features/server-client-e2e-tests/design.md",
+        "docs/src/features/server-command-allowlist-management/design.md",
+        "docs/src/features/server-provided-frps-token/design.md",
+        "docs/src/features/starlark-script-system/design.md",
+    }
+)
+
 IMPLEMENTED_HEADINGS = (
     "Delivery Summary",
     "Delivered Capability",
@@ -318,7 +341,8 @@ def validate_feature_files(root: Path, *, migration_mode: bool) -> list[Finding]
             design_text = read_text(design)
             present = headings(design_text)
             missing = [heading for heading in DESIGN_HEADINGS if normalize_heading(heading) not in present]
-            if missing:
+            design_key = design.relative_to(root).as_posix()
+            if missing and design_key not in HISTORICAL_DESIGN_EXEMPTIONS:
                 add(
                     findings,
                     severity=("warning" if migration_mode or MIGRATION_MARKER in design_text else "error"),

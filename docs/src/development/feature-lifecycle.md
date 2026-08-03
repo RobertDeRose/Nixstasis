@@ -83,6 +83,31 @@ Add a blocking edge only when the discovery is required for safe completion.
 
 `/audit-project` periodically compares Beads, designs, current docs, implemented-feature records, code, tests, and recent commits. Drift becomes linked Beads work rather than an untracked note.
 
+## Historical design exemptions
+
+The following delivered features retain their pre-dstack design headings as historical intent. Their `index.md`
+implemented records, closed Beads epics, and reader-facing pages remain the current delivery authority:
+
+- `docs/src/features/authcrunch-role-contract/design.md`
+- `docs/src/features/compose-dev-harness/design.md`
+- `docs/src/features/dashboard-home/design.md`
+- `docs/src/features/device-detail-page/design.md`
+- `docs/src/features/go-client-rewrite/design.md`
+- `docs/src/features/iot-device-monitoring/design.md`
+- `docs/src/features/packaging-deployment-migration/design.md`
+- `docs/src/features/phoenix-ui-polish/design.md`
+- `docs/src/features/production-operations-runbooks/design.md`
+- `docs/src/features/report-view-improvements/design.md`
+- `docs/src/features/rich-api-examples/design.md`
+- `docs/src/features/self-extracting-installer/design.md`
+- `docs/src/features/server-client-e2e-tests/design.md`
+- `docs/src/features/server-command-allowlist-management/design.md`
+- `docs/src/features/server-provided-frps-token/design.md`
+- `docs/src/features/starlark-script-system/design.md`
+
+`scripts/check-docs.py` exempts only these exact paths from current design-heading completeness checks. New and reopened
+features must use the current design structure; this exemption does not apply to their designs.
+
 ## Skill maintenance
 
 After editing a canonical skill:
