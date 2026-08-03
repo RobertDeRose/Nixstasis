@@ -16,4 +16,15 @@ defmodule Nixstasis.Scripts.Authorization do
   def can_test?(session), do: can_manage?(session)
   def can_deploy?(session), do: can_manage?(session)
   def can_archive?(session), do: can_manage?(session)
+
+  @doc "Returns whether every non-empty target list is inside the trusted device scope."
+  def can_target_devices?(session, target_device_ids) when is_map(session) and is_list(target_device_ids) do
+    target_device_ids != [] and Enum.all?(target_device_ids, &is_binary/1) and
+      case Permissions.authorized_device_ids(Permissions.device_permissions(session)) do
+        nil -> true
+        authorized_device_ids -> Enum.all?(target_device_ids, &MapSet.member?(authorized_device_ids, &1))
+      end
+  end
+
+  def can_target_devices?(_session, _target_device_ids), do: false
 end

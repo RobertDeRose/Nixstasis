@@ -187,8 +187,9 @@ defmodule Nixstasis.Scripts do
       when is_list(devices) do
     with true <- Authorization.can_test?(session),
          {:ok, actor_id} <- Authorization.actor_id(session),
+         device_ids <- Enum.map(devices, &device_id/1),
+         true <- Authorization.can_target_devices?(session, device_ids),
          :ok <- require_validated_version(version) do
-      device_ids = Enum.map(devices, &device_id/1)
       rendered = version.rendered_content
 
       {:ok, test_run} =
@@ -301,8 +302,9 @@ defmodule Nixstasis.Scripts do
       when is_list(devices) do
     with true <- Authorization.can_deploy?(session),
          {:ok, actor_id} <- Authorization.actor_id(session),
+         device_ids <- Enum.map(devices, &device_id/1),
+         true <- Authorization.can_target_devices?(session, device_ids),
          :ok <- require_validated_version(version) do
-      device_ids = Enum.map(devices, &device_id/1)
       rendered = version.rendered_content
 
       {:ok, deployment_run} =

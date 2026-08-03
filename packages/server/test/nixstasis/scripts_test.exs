@@ -99,6 +99,60 @@ defmodule Nixstasis.ScriptsTest do
     assert command.command_payload["defer_payload"] == false
   end
 
+  test "queue operations enforce scoped targets before creating runs or commands", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    {:ok, other_device} =
+      Devices.register_device(%{
+        mac_address: "AA:BB:CC:DD:EE:F2",
+        product_name: "other-target"
+      })
+
+    {:ok, other_device} = Devices.approve_device(other_device)
+
+    session = %{
+      "script_permissions" => %{"can_manage" => true},
+      "device_permissions" => %{"can_manage" => true, "device_ids" => [device.id]}
+    }
+
+    {:ok, before_runs} = Domain.list_script_test_runs()
+
+    assert {:error, :unauthorized} = Scripts.queue_test_run(session, draft, version, [other_device])
+    assert {:error, :unauthorized} = Scripts.queue_test_run(session, draft, version, [device, other_device])
+    assert {:error, :unauthorized} = Scripts.queue_test_run(session, draft, version, [])
+
+    {:ok, after_runs} = Domain.list_script_test_runs()
+    assert length(after_runs) == length(before_runs)
+    assert Devices.pop_pending_commands(device) == []
+    assert Devices.pop_pending_commands(other_device) == []
+  end
+
+  test "queue operations preserve authorized scoped and unscoped targets", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    device_id = device.id
+
+    session = %{
+      "script_permissions" => %{"can_manage" => true},
+      "device_permissions" => %{"can_manage" => true, "device_ids" => [device_id]}
+    }
+
+    assert {:ok, test_run} = Scripts.queue_test_run(session, draft, version, [device])
+    assert test_run.target_device_ids == [device_id]
+    assert [%{device_id: ^device_id}] = Devices.pop_pending_commands(device)
+
+    assert {:ok, deployment_run} = Scripts.queue_deployment(session, draft, version, [device])
+    assert deployment_run.target_device_ids == [device_id]
+    assert [%{device_id: ^device_id}] = Devices.pop_pending_commands(device)
+
+    assert {:ok, _unscoped_run} =
+             Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+  end
+
   test "queue_test_run defers large payloads while preserving fetchable content", %{
     device: device,
     draft: draft,

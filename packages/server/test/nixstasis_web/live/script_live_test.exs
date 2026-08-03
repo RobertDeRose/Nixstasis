@@ -214,6 +214,30 @@ defmodule NixstasisWeb.ScriptLiveTest do
       assert html =~ ~s(data-field-level="2")
     end
 
+    test "shows only devices in the trusted operator scope", %{conn: conn, draft: draft} do
+      {:ok, visible} =
+        Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FA", product_name: "scoped-visible"})
+
+      {:ok, visible} = Devices.approve_device(visible)
+
+      {:ok, hidden} =
+        Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FB", product_name: "scoped-hidden"})
+
+      {:ok, _hidden} = Devices.approve_device(hidden)
+
+      conn =
+        put_session(conn, "device_permissions", %{
+          "can_manage" => true,
+          "device_ids" => [visible.id]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
+      html = render_click(element(view, "button[phx-value-tab='test']"))
+
+      assert html =~ "scoped-visible"
+      refute html =~ "scoped-hidden"
+    end
+
     test "can validate then queue a test without reloading", %{conn: conn, draft: draft} do
       {:ok, device} = Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FA", product_name: "live-target"})
       {:ok, device} = Devices.approve_device(device)
