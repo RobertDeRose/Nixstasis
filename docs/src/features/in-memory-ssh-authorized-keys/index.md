@@ -107,8 +107,8 @@ Known validation limitation:
 
 - Repository-wide `mise run check` remains non-clean from pre-existing Markdown,
   typo, and cold-dependency debt outside this feature. The exact output is
-  retained at `/tmp/nixstasis-bdv-close-mise-check.log`; scoped feature checks
-  and the Compose/browser smoke passed.
+  retained at `/tmp/nixstasis-bdv-close-mise-check-final.log`; scoped feature
+  checks and the Compose/browser smoke passed.
 
 ## Design Reconciliation
 
@@ -143,9 +143,8 @@ Known validation limitation:
 
 ### Deferred Work
 
-- Run and record the actual Compose/browser terminal smoke flow, including
-  support-account identity, safe diagnostic access, close/revoke, and later
-  expiry or revocation denial, when the required lab is available.
+- No feature-scope behavior is deferred. Repository-wide validation still has
+  unrelated baseline Markdown, formatter, typo, and dependency debt.
 
 ### Rejected or Removed Scope
 
@@ -185,8 +184,11 @@ Known validation limitation:
 - `77077e40` — bound terminal access to acknowledged authorization.
 - `e5cb5435` — unified the trusted client/helper IPC socket path.
 - `094ec8d7` — reconciled reader-facing SSH contracts and OpenAPI documentation.
+- `6f53da39` — created the standalone implementation record and navigation.
+- `0b258fc` — made terminal-revoke migration cleanup safe for existing data.
+- `79f5373` — added the unprivileged nested-systemd FRP fallback.
+- `faf002c` — recorded final Compose/browser smoke evidence.
 
-Implementation children `.7.74-.7.79` and validation children `.7.65-.7.71`
-are recorded in Beads. `.7.80` remains explicitly deferred and blocked pending
-the required Compose/browser lab evidence. Close-out documentation and holistic
-reviews remain tracked by `nixstasis-bdv.8-.12`.
+Implementation children `.7.74-.7.80` and validation children `.7.65-.7.71`
+are recorded in Beads; `.7.80.1` records the acceptance fixes. Close-out
+review and delivery state remain tracked by `nixstasis-bdv.10-.12`.
