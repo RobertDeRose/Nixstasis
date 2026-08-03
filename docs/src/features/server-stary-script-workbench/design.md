@@ -6,6 +6,35 @@
 
 `server-stary-script-workbench`
 
+## Metadata
+
+- Beads feature root: `nixstasis-kb6`
+- Design path: `docs/src/features/server-stary-script-workbench/design.md`
+- Implemented record: `docs/src/features/server-stary-script-workbench/index.md`
+- Base branch: `dev`
+- Implementation repository: `nixstasis`
+- Implementation path: `/Users/DeRoseR/workspace/personal/nixstasis`
+- Status: in progress
+
+## Specification Reconciliation
+
+- The server validator provides bounded front-matter, schema-shape, and
+  conservative structural preflight; the Go client remains authoritative for
+  complete Starlark parsing and runtime enforcement.
+- Script target authorization belongs in `Nixstasis.Scripts`, not only in the
+  LiveView's filtered device list.
+- Audit events carry trusted actor identity for operator actions; device result
+  ingestion remains device-authenticated and separately attributable.
+- Inline `run_script` payloads remain the compatibility baseline. Deferred
+  `run_script` hydration is a required implementation child and is not silently
+  treated as already supported by the client.
+- `ScriptVersion.rendered_content` is the immutable artifact boundary; validation
+  runs must reference the version that produced the artifact and duplicate or
+  failed validation paths must be deterministic.
+- The imported T001-T026 implementation records remain historical provenance;
+  current gaps are represented by bounded children `nixstasis-kb6.7.41` through
+  `nixstasis-kb6.7.44`, each blocked by `nixstasis-kb6.6`.
+
 ## Goal
 
 Provide a server web interface for creating, editing, validating, testing, and
@@ -26,7 +55,9 @@ authoritative execution boundary.
   schema, and supported metadata from the existing `stary` format.
 - Provide a Starlark body editor suitable for editing the script content.
 - Validate YAML front matter, Stary file structure, declared output schema, and
-  Starlark parseability before a script can be queued for test or deployment.
+  conservative server-side Starlark structure before queueing; the selected
+  client performs authoritative Starlark parsing and runtime validation before
+  execution.
 - Reuse existing client Stary semantics; do not introduce a server-only dialect.
 - Allow an operator to select one or more clients for test execution.
 - Dispatch test runs through the authenticated device command path or an
@@ -119,19 +150,23 @@ The workbench uses the existing device command transport rather than creating a
 separate testing API:
 
 - Test execution is represented as a new command type, `run_script`.
-- `run_script` carries rendered `.stary` content as a `command_payload`.
-- Small payloads may be sent inline in the command record.
-- Larger payloads should be referenced through `payload_ref` and fetched through
-  `GET /api/v1/devices/:device_id/command_payloads/:ref`.
-- The payload `content_type` should identify Stary script text so the client can
+- `run_script` carries immutable rendered `.stary` content as a `command_payload`.
+- The current inline path is the compatibility baseline for small payloads.
+- Large payloads use `payload_ref` and fetch through
+  `GET /api/v1/devices/:device_id/command_payloads/:ref`; completing that
+  `run_script` hydration path is an explicit implementation child before this
+  boundary is considered complete.
+- The payload `content_type` identifies Stary script text so the client can
   distinguish it from install/remove payloads.
-- The client responds through the existing `POST /api/v1/devices/:device_id/command_results`
-  endpoint with a single command result per execution attempt.
-- The result envelope should preserve the client-side script execution status,
-  output, warnings, validation status, error type, and error message.
-- A missing deferred payload remains a normal `404` contract and should surface
-  as a failed test result.
-- Deployment can continue to use the existing `install_script` command shape for
+- The client responds through the existing
+  `POST /api/v1/devices/:device_id/command_results` endpoint with a single
+  command result per execution attempt.
+- The result envelope preserves client-side script execution status, output,
+  warnings, validation status, error type, error message, and timing data when
+  available.
+- A missing deferred payload remains a normal `404` contract and surfaces as a
+  failed test result without installing or executing draft content.
+- Deployment continues to use the existing `install_script` command shape for
   installed script artifacts.
 
 ### Script Draft Model
@@ -170,16 +205,19 @@ objects involved in the workbench:
 
 ### Validation Boundary
 
-Server-side validation gives fast feedback for syntax, front matter, and schema
-shape. It must use the same Stary format expectations as the Go client. The
-server will delegate validation to a packaged, supervised helper rather than
-reimplementing the parser and schema checks independently in Elixir. That keeps
-the server contract aligned with the client runtime and avoids divergence in
-front-matter or JSON Schema acceptance rules.
+Server-side validation gives fast feedback for front matter, schema shape, and
+conservative Starlark structure. `Nixstasis.Scripts.Validator` owns that
+bounded preflight and canonical rendering; it does not claim to be a complete
+Starlark parser or a replacement for the Go client. A packaged supervised
+parser/helper remains deferred until its packaging and supervision boundary is
+separately designed.
 
-Runtime validation remains client-owned. Test results must preserve client
+The Go client remains authoritative for Stary parsing, schema compilation,
+builtins, output validation, execution errors, timeouts, and `exec_cmd`
+allowlisting. The server must preserve the exact rendered artifact and client
 failure reasons, including schema mismatch, runtime exceptions, timeout, and
-`exec_cmd` allowlist rejection.
+allowlist rejection. Server preflight failure prevents queueing; client
+validation or execution failure remains a normal per-client result.
 
 ### Test Execution
 
@@ -217,8 +255,16 @@ structured enough to prevent malformed metadata from routine UI edits.
 ### Authorization And Audit
 
 Script authoring, testing, and deployment are operator-only device-control
-actions. Audit records should include actor identity, action, script version,
-target clients, timestamps, and per-client result summaries.
+actions. The `Nixstasis.Scripts` context is the authorization boundary: it must
+validate every target against the trusted session's device scope before creating
+commands or run records. LiveView filtering is a presentation optimization, not
+a security control.
+
+Audit records include the trusted actor identity, action, script version, target
+clients, timestamps, and per-client result summaries. Device-originated command
+results remain attributed to the authenticated device. The audit sink and
+retention policy are documented explicitly rather than implied to be durable
+application records.
 
 ## Edge Cases
 
@@ -241,15 +287,16 @@ target clients, timestamps, and per-client result summaries.
   JSON:API routes. The current LiveView calls the domain directly; a future
   external contract requires audited, domain-specific actions rather than raw
   CRUD exposure.
-- Existing command delivery concepts should be reused where practical, but the
-  command contract may need a test-only script execution mode.
-- Script content can be larger than a normal inline heartbeat command. Test and
-  deploy commands should use the existing deferred command payload mechanism
-  when payload size or retention rules make inline delivery risky.
-- The client may need a command handler path that executes provided script
-  content without installing it.
-- The client may need to report richer script test results than the existing
-  install/remove command responses.
+- `ScriptVersion.rendered_content` is the one immutable artifact used for
+  validation, test, and deployment. A validation run references the version that
+  produced it, and repeated validation has deterministic duplicate-version
+  behavior.
+- Existing command delivery concepts are reused for `run_script` and
+  `install_script`. Inline payloads remain the baseline; deferred `run_script`
+  hydration, missing-payload handling, and retention are explicit follow-up
+  contract work.
+- The client command handler executes provided test content without installing
+  it and reports structured result envelopes through the existing result route.
 - If command request or result shapes change, the durable API contract must be
   reflected in the retained device API reference and client/server compatibility
   tests.
@@ -258,21 +305,25 @@ target clients, timestamps, and per-client result summaries.
 
 ## User-Facing Documentation Impact
 
-- Development: document how operators and developers validate Stary scripts from
-  the server UI.
-- Operations: document authorization, audit, rollout, and failure handling for
-  server-managed script deployment.
-- Architecture: document the server authoring boundary and the client execution
-  boundary.
-- Reference: update device command or API contracts if test/deploy payloads
-  become durable interfaces.
+| Documentation concern      | Exact page                                                 | Create or update        | Planned change                                                                                                                     | Owning task       |
+|----------------------------|------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------|
+| Development / operations   | `docs/src/operations/script-workbench.md`                  | Create                  | Document authoring, validation, target authorization, audit, rollout, retries, cancellation, and failure handling.                 | `nixstasis-kb6.8` |
+| Architecture               | `docs/src/modules/server-scripts.md`                       | Create                  | Document Phoenix authoring/orchestration, Ash persistence, command delivery, and the client execution boundary.                    | `nixstasis-kb6.8` |
+| Architecture               | `docs/src/architecture.md`                                 | Update                  | Add the server authoring/client execution boundary and script-workbench flow.                                                      | `nixstasis-kb6.8` |
+| Reference                  | `docs/src/client-server-interface.md`                      | Update                  | Document `run_script`, inline/deferred payloads, result envelopes, and retained `/api/v1` behavior when the contract is finalized. | `nixstasis-kb6.8` |
+| Reference                  | `docs/src/reference/contracts.md`                          | Update                  | Link the durable script command boundary and state that internal Ash records have no generic JSON:API routes.                      | `nixstasis-kb6.8` |
+| Reference                  | `docs/src/modules/client-command-handler.md`               | Update                  | Add `run_script`, test-only execution, deferred hydration, and failure behavior.                                                   | `nixstasis-kb6.8` |
+| Architecture               | `docs/src/modules/client-starlark-runtime.md`              | Update                  | Clarify that server-managed tests still use the Go runtime and preserve local safeguards.                                          | `nixstasis-kb6.8` |
+| Navigation                 | `docs/src/SUMMARY.md`                                      | Update                  | Register both new reader-facing pages and the implemented feature record.                                                          | `nixstasis-kb6.8` |
+| Implemented feature record | `docs/src/features/server-stary-script-workbench/index.md` | Create during close-out | Preserve delivered behavior, evidence, decisions, limitations, and audit history.                                                  | `nixstasis-kb6.8` |
 
 ## Validation
 
 - Server tests for script draft/version persistence, validation transitions,
   test/deploy authorization, audit events, and result recording.
-- Parser/validation contract tests that prove server-side validation accepts and
-  rejects the same Stary front matter and schemas as the Go client.
+- Parser/validation contract tests that prove server front-matter and schema
+  preflight agrees with representative Go-client acceptance cases; the Go client
+  remains the authority for complete Starlark parsing and runtime behavior.
 - LiveView tests for front-matter editing, script body editing, validation
   feedback, client selection, test execution, deployment confirmation, and
   per-client result states.
@@ -287,9 +338,11 @@ target clients, timestamps, and per-client result summaries.
 
 ### Starlark Validation Deferred
 
-Server-side Starlark parse validation is deferred to a packaged, supervised
-helper binary. No Elixir Starlark parser exists. Front-matter and schema
-validation are performed server-side in `Nixstasis.Scripts.Validator`.
+The current server validator performs front-matter, schema-shape, and
+conservative structural preflight. It is intentionally not a complete Elixir
+Starlark parser and does not replace the Go runtime. A packaged, supervised
+Starlark parser/helper remains deferred; until then, the client performs final
+parse, schema, output, builtin, timeout, and execution enforcement.
 
 ### Render Value Encoding
 
@@ -315,8 +368,9 @@ the layout wrapper.
 
 Validation requires an explicit non-empty front-matter `version`. Test and
 deployment commands use the persisted `ScriptVersion.rendered_content`, not the
-current mutable draft body, so the client executes the exact artifact that passed
-validation.
+current mutable draft body, so the client executes the exact artifact that
+passed validation. The validation run records the associated version and
+revalidation of an existing version has deterministic behavior.
 
 ### Run Refresh And Stuck Runs
 
@@ -324,13 +378,6 @@ The Script Workbench subscribes to script run PubSub events and also polls as a
 fallback while connected. Test and deployment runs expose retry actions for failed
 or partial runs. Active runs can be cancelled from the UI by marking the server
 run failed; already delivered client commands may still complete independently.
-
-## Metadata
-
-- Beads feature root: `nixstasis-kb6`
-- Feature slug: `server-stary-script-workbench`
-- Base branch: `dev`
-- Status: in progress
 
 ## Feature Summary
 
@@ -358,18 +405,29 @@ and command-policy enforcement are reused.
 
 ## Architecture Consistency
 
-Phoenix owns authoring, durable versions, audit, targeting, and orchestration. The client owns parser fidelity, builtins,
-timeouts, output validation, and final execution enforcement.
+Phoenix owns authoring, durable versions, trusted target authorization, audit,
+and orchestration. The client owns parser fidelity, builtins, timeouts, output
+validation, and final execution enforcement. Internal script Ash resources are
+not generic JSON:API resources; domain-specific actions remain the future
+external-contract boundary.
 
 ## Operational Considerations
 
-Runs are bounded, authorized, auditable, and visible when devices are offline or partial. Immutable rendered content
-prevents a mutable draft from differing from the artifact that was validated and dispatched.
+Runs are bounded, authorized at the context boundary, auditable with trusted actor
+identity, and visible when devices are offline or partial. Inline payloads are the
+current baseline; deferred payloads have an explicit follow-up contract. Immutable
+rendered content prevents a mutable draft from differing from the artifact that
+was validated and dispatched. Run listing/refresh uses the current initial-scale
+LiveView approach; pagination and retention are deferred until operational volume
+requires them.
 
 ## Documentation Impact
 
-Update script operations guidance, `docs/src/client-server-interface.md`, server and client script module pages, and API
-references for durable test and deployment payloads.
+The exact reader-facing pages are listed in the User-Facing Documentation
+Impact table above. The two new pages are
+`docs/src/operations/script-workbench.md` and
+`docs/src/modules/server-scripts.md`; product documentation must not require
+this internal design page for usage or operations guidance.
 
 ## Validation Strategy
 
@@ -378,13 +436,23 @@ and runtime tests; finish with a Compose browser smoke test and documentation va
 
 ## Implementation Decomposition
 
-Beads owns remaining close-out work. Delivered slices include persistence, editor UI, validation, immutable versions,
-test and deployment dispatch, result display, retry, cancellation, and live refresh.
+The imported T001-T026 records remain closed historical provenance. The remaining
+bounded implementation children are:
+
+- `nixstasis-kb6.7.41`: enforce device-scoped authorization at the script context boundary.
+- `nixstasis-kb6.7.42`: preserve trusted actor identity and document the audit sink/retention boundary.
+- `nixstasis-kb6.7.43`: complete deferred `run_script` payload delivery and compatibility tests.
+- `nixstasis-kb6.7.44`: align immutable artifact rendering, validation-run/version relationships, duplicate-version behavior, and failed-validation records.
+
+Each remaining child depends on `nixstasis-kb6.6` and is independently testable. Delivered slices include persistence, editor UI, baseline validation, immutable versions, inline test/deployment dispatch, result display, retry, cancellation, and live refresh.
 
 ## Dependencies and Parallelism
 
-Server UI and persistence depend on stable version and run models. Client test execution and deferred payload contracts
-can be validated independently before end-to-end reconciliation.
+All remaining implementation children depend on specification reconciliation. Target
+authorization and audit identity are server-context work; deferred payloads span
+server transport and the Go command handler; artifact/validation alignment is
+server-domain work. They can proceed in parallel after `.6`, with final
+compatibility and browser validation in `.9`.
 
 ## Risks and Tradeoffs
 
