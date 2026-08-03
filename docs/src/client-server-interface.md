@@ -434,6 +434,17 @@ is protected by the generated API permission pipeline. The validation request an
 result fields are shared by both surfaces, while their route/status/error
 contracts remain distinct.
 
+### Builder Route Contract Matrix
+
+| Surface                        | Authorization                                                                    | Success                                             | Errors                                         |
+|--------------------------------|----------------------------------------------------------------------------------|-----------------------------------------------------|------------------------------------------------|
+| `/api/json/builder_contract/*` | Bearer/report-view through `JsonApiPermissions`                                  | Raw action payloads; validation returns `201`       | JSON:API `400`, `403`, and `404` as applicable |
+| `/api/v1/builder-*`            | Compatibility `:api` pipeline and rate limiter; deployment-edge auth is separate | Legacy `application/json`; validation returns `200` | Legacy `404`/`422` error envelopes             |
+
+Use the generated routes for the canonical Ash/OpenAPI contract. Use the
+compatibility wrappers when an existing client requires the legacy envelope,
+status, or error shape.
+
 ### Legacy `/api/v1` schema option response
 
 Schema option lookup response:

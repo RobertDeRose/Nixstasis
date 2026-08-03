@@ -76,9 +76,20 @@ defmodule NixstasisWeb.OpenAPIContractTest do
         "responses"
       ])
 
+    schema_references_responses =
+      get_in(openapi, [
+        "paths",
+        "/api/json/builder_contract/schema_references",
+        "get",
+        "responses"
+      ])
+
     assert_error_response(validate_responses, "400")
+    assert_error_response(validate_responses, "403")
     assert_error_response(options_responses, "400")
+    assert_error_response(options_responses, "403")
     assert_error_response(options_responses, "404")
+    assert_error_response(schema_references_responses, "403")
   end
 
   defp assert_error_response(responses, status) do

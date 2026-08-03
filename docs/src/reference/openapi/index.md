@@ -5,7 +5,20 @@ The Ash-generated OpenAPI specification is served at `/api/json/open_api` and
 `packages/server/priv/static/openapi.yaml`. It documents the generated Ash
 JSON:API surface under `/api/json`, including builder actions, alert rules, and
 other Ash-backed resources. Regenerate the committed artifact with
-`mix openapi.generate` from `packages/server`.
+`mise x -- mix openapi.generate` from `packages/server`.
+
+The runtime `/api/json/open_api` endpoint is served by
+`NixstasisWeb.AshJsonApiRouter`; the static generator uses
+`NixstasisWeb.AshJsonApiOpenAPISpec`, which delegates to that same router spec.
+Verify that the committed artifact still matches the shared generated spec with:
+
+```bash
+mise x -- mix openapi.spec.yaml \
+  --check \
+  --spec NixstasisWeb.AshJsonApiOpenAPISpec \
+  --filename priv/static/openapi.yaml \
+  --start-app=false
+```
 
 The script-workbench persistence resources remain Ash-owned but are intentionally
 excluded from generic JSON:API and this artifact. The current LiveView uses
@@ -42,6 +55,8 @@ coverage and Go-client behavior.
   generated `/api/json/builder_contract/*` routes directly.
 - Keep device compatibility details here while the Ash-backed migration is
   implemented, and verify generated/static OpenAPI coverage after each group.
+- Keep the builder auth/status/body matrix aligned between the generated artifact,
+  `builder-api.yaml`, and `client-server-interface.md`.
 - Link to generated Ash OpenAPI for resources such as alert rules instead of
   adding retained bespoke examples for routes that are not controller-owned.
 - If an API is reference-only or planned, keep it out of these files until it is

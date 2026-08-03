@@ -24,12 +24,16 @@ defmodule NixstasisWeb.AshJsonApiRouter do
 
   defp put_builder_error_responses(%{paths: paths} = spec) do
     validate_path = "/api/json/builder_contract/builder_configurations/validate"
+    schema_references_path = "/api/json/builder_contract/schema_references"
     options_path = "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options"
 
     updated_paths =
       paths
+      |> put_in([schema_references_path, Access.key!(:get), Access.key!(:responses), 403], error_response())
       |> put_in([validate_path, Access.key!(:post), Access.key!(:responses), 400], error_response())
+      |> put_in([validate_path, Access.key!(:post), Access.key!(:responses), 403], error_response())
       |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 400], error_response())
+      |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 403], error_response())
       |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 404], error_response())
 
     %{spec | paths: updated_paths}

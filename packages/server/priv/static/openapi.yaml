@@ -6676,6 +6676,17 @@ paths:
                   - errors
                 type: object
           description: JSON:API error response
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
         default:
           $ref: '#/components/responses/errors'
       tags:
@@ -6723,6 +6734,17 @@ paths:
                 x-struct:
                 x-validate:
           description: Success
+        '403':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
         default:
           $ref: '#/components/responses/errors'
       tags:
@@ -6835,6 +6857,17 @@ paths:
                 x-validate:
           description: Success
         '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
           content:
             application/vnd.api+json:
               schema:

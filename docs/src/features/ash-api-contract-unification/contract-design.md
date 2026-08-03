@@ -41,10 +41,10 @@ Implemented model:
 - Use the existing non-persisted Ash resource
   `Nixstasis.SchemaOptions.BuilderContract` for builder option and validation
   contracts. Preserve the action names and domain fields below.
-- Add a read action `:list_builder_schemas` with no required arguments. Output
-  items preserve the current `SchemaReference` fields: `schema_id`,
-  `schema_version`, `product_name`, and `readable`.
-- Add a read action `:builder_schema_options` with required arguments
+- Use the existing read action `:list_schema_references` with no required
+  arguments. Output items preserve the current `SchemaReference` fields:
+  `schema_id`, `schema_version`, `product_name`, and `readable`.
+- Use the existing read action `:options_for` with required arguments
   `schema_id` and `schema_version`, plus an optional `builder` argument that
   defaults to `alert`. The `builder` argument is the existing enum string
   `alert` or `report`. Successful output includes the
@@ -90,6 +90,24 @@ The builder slice is existing implementation, not a future conversion candidate.
 Its remaining work is to reconcile route-specific authorization, generated/static
 OpenAPI evidence, wrapper parity, and reader-facing documentation before the
 feature moves on to device runtime migration.
+
+### Builder Compatibility Matrix
+
+The generated and compatibility routes intentionally expose different transport
+contracts while sharing the same Ash/domain behavior:
+
+| Surface                                                                              | Phoenix authorization boundary                                                | Success contract             | Error/status contract                                              |
+|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|------------------------------|--------------------------------------------------------------------|
+| `GET /api/json/builder_contract/schema_references`                                   | `JsonApiPermissions` report-view policy; bearer security in generated OpenAPI | `200`, raw JSON array        | `403` JSON:API error when permission is denied                     |
+| `GET /api/json/builder_contract/schemas/:schema_id/versions/:schema_version/options` | `JsonApiPermissions` report-view policy; bearer security in generated OpenAPI | `200`, raw options object    | `400` invalid query, `403` permission denied, `404` missing schema |
+| `POST /api/json/builder_contract/builder_configurations/validate`                    | `JsonApiPermissions` report-view policy; bearer security in generated OpenAPI | `201`, raw validation object | `400` invalid JSON:API body, `403` permission denied               |
+| `GET /api/v1/builder-schemas`                                                        | `/api/v1` `:api` pipeline and rate limiter; no JSON:API permission plug       | `200`, `{"data": [...]}`     | Legacy wrapper behavior                                            |
+| `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`            | `/api/v1` `:api` pipeline and rate limiter; deployment-edge auth is separate  | `200`, `{"data": ...}`       | `404` `schema_not_found`, `422` invalid request                    |
+| `POST /api/v1/builder-configurations/validate`                                       | `/api/v1` `:api` pipeline and rate limiter; deployment-edge auth is separate  | `200`, raw validation object | `422` `invalid_validation_payload`                                 |
+
+The generated contract is canonical for Ash action fields and OpenAPI. The
+`/api/v1` wrappers remain a separate compatibility surface because their JSON
+shape, status codes, and Phoenix pipeline differ.
 
 ### Device Runtime APIs
 

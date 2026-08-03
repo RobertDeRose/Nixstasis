@@ -63,9 +63,11 @@ Generated Ash JSON:API routes:
 These builder routes are Ash generic-action RPC endpoints exposed through the
 Ash JSON:API router. Successful responses are raw action payloads rather than
 resource `data` documents; the generated POST action uses Ash JSON:API's `201`
-success status. Generated `/api/json` routes use the JSON API permission pipeline
-and bearer/report-view authorization. Use the `/api/v1` wrappers when the legacy
-`200` validation status/body shape or compatibility authorization is required.
+success status. Generated `/api/json` routes use the `JsonApiPermissions`
+pipeline and bearer/report-view authorization, with explicit `400`, `403`, and
+`404` responses where applicable. The `/api/v1` wrappers use the compatibility
+`:api` pipeline and rate limiter instead; use them when the legacy `200`/`422`
+status and body shapes are required.
 
 Other generated resource routes:
 
@@ -99,8 +101,9 @@ Legacy `/api/v1` compatibility routes and bespoke controller routes:
 
 The `/api/v1/builder-*` routes are compatibility wrappers around Ash-backed
 builder actions. The generated contracts for those actions are published under
-`/api/json/builder_contract/*`; the `/api/v1` wrappers keep their existing
-`application/json` envelope and status behavior for current consumers.
+`/api/json/builder_contract/*`; GET wrappers keep their existing
+`application/json` `data` envelopes, while validation returns its raw JSON result
+and all wrappers preserve their legacy status/error behavior.
 
 The device runtime, report result preview, and Caddy TLS ask endpoints remain
 controller-backed in the current implementation. Device runtime routes are the

@@ -101,6 +101,69 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
     assert %{"errors" => [%{"code" => "invalid_body"}]} = json_response(conn, 400)
   end
 
+  test "all builder actions require report view when local fallback is disabled", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    validation_params = %{
+      "data" => %{
+        "builder" => "report",
+        "schema_id" => "jsonapi-v1",
+        "schema_version" => "v1",
+        "selections" => [%{"slot_id" => "a", "selected_key" => "missing"}]
+      }
+    }
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> get("/api/json/builder_contract/schema_references")
+             |> json_response(403)
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> recycle()
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> get("/api/json/builder_contract/schemas/jsonapi-v1/versions/v1/options")
+             |> json_response(403)
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} =
+             conn
+             |> recycle()
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("content-type", "application/vnd.api+json")
+             |> post("/api/json/builder_contract/builder_configurations/validate", validation_params)
+             |> json_response(403)
+
+    assert is_list(
+             conn
+             |> recycle()
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> get("/api/json/builder_contract/schema_references")
+             |> json_response(200)
+           )
+
+    assert %{"builder" => "alert"} =
+             conn
+             |> recycle()
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> get("/api/json/builder_contract/schemas/jsonapi-v1/versions/v1/options")
+             |> json_response(200)
+
+    assert %{"valid" => false} =
+             conn
+             |> recycle()
+             |> put_req_header("accept", "application/vnd.api+json")
+             |> put_req_header("content-type", "application/vnd.api+json")
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> post("/api/json/builder_contract/builder_configurations/validate", validation_params)
+             |> json_response(201)
+  end
+
   test "JSON:API resource reads require viewer role when local fallback is disabled", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)

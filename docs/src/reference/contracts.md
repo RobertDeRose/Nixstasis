@@ -125,7 +125,9 @@ Only `command_path_resolved` is sufficient for catalog-backed assignment without
   persistence resources remain internal Ash domain resources and are excluded
   from generic JSON:API until an audited external contract is designed.
 - The legacy `/api/v1/builder-*` routes remain as compatibility wrappers around
-  the Ash builder actions and keep their `application/json` response envelopes.
+  the Ash builder actions. GET wrappers keep their `application/json` `data`
+  envelopes, while validation keeps its raw `application/json` result and all
+  wrappers preserve their legacy status/error shapes.
 - Other bespoke Phoenix controller APIs under `/api/v1` and `/e2e` are documented
   by the OpenAPI files in [OpenAPI Contracts](openapi/index.md) and the
   human-readable references above; they are not covered by the Ash generated

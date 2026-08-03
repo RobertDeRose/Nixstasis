@@ -2,7 +2,12 @@ openapi: 3.0.3
 info:
   title: Nixstasis Builder Schema API
   version: 1.0.0
-  description: Legacy /api/v1 compatibility wrapper for Ash-backed schema-derived alert and report builder actions. Generated /api/json builder action contracts are emitted in packages/server/priv/static/openapi.yaml.
+  description: |
+    Legacy /api/v1 compatibility wrapper for Ash-backed schema-derived alert and
+    report builder actions. Generated /api/json builder action contracts are
+    emitted in packages/server/priv/static/openapi.yaml. These wrappers preserve
+    their application/json shapes and compatibility pipeline; generated routes
+    have separate bearer/report-view authorization and JSON:API errors.
 paths:
   /api/v1/builder-schemas:
     get:
@@ -52,8 +57,16 @@ paths:
                     $ref: "#/components/schemas/SchemaOptionsResponse"
         "404":
           description: Schema reference not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyError"
         "422":
           description: Invalid schema options request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyError"
   /api/v1/builder-configurations/validate:
     post:
       summary: Validate builder selections against an active schema version
@@ -72,8 +85,24 @@ paths:
                 $ref: "#/components/schemas/ValidationResponse"
         "422":
           description: Invalid validation payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyError"
 components:
   schemas:
+    LegacyError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
     SchemaReference:
       type: object
       required: [schema_id, schema_version]

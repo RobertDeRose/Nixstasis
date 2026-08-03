@@ -99,8 +99,9 @@ model are separate decisions, and this feature does not expand into that review.
   Ash-backed contract or compatibility wrapper and generated/reference docs.
 - `docs/src/reference/openapi/builder-api.yaml` documents compatibility wrappers;
   generated `/api/json/builder_contract/*` is the canonical Ash contract. Its
-  generated bearer/report-view authorization must be documented separately from
-  the wrapper pipeline.
+  generated bearer/report-view authorization, `403` responses, raw success
+  payloads, and `201` validation status are documented separately from the
+  `/api/v1` wrapper pipeline and its legacy `200`/`422` behavior.
 - The six script persistence resources remain Ash-owned for the workbench but
   are intentionally excluded from `/api/json` and the generated OpenAPI artifact.
   The current workbench calls the domain directly, and generic CRUD would bypass
