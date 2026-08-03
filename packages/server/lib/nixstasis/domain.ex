@@ -41,54 +41,6 @@ defmodule Nixstasis.Domain do
         delete :destroy
       end
 
-      base_route "/script_drafts", Nixstasis.Scripts.ScriptDraft do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
-      base_route "/script_versions", Nixstasis.Scripts.ScriptVersion do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
-      base_route "/script_validation_runs", Nixstasis.Scripts.ScriptValidationRun do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
-      base_route "/script_test_runs", Nixstasis.Scripts.ScriptTestRun do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
-      base_route "/script_deployment_runs", Nixstasis.Scripts.ScriptDeploymentRun do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
-      base_route "/script_client_actions", Nixstasis.Scripts.ScriptClientAction do
-        get :read
-        index :read
-        post :create
-        patch :update
-        delete :destroy
-      end
-
       base_route "/alerts", Nixstasis.Monitoring.Alert do
         get :read
         index :read

@@ -150,16 +150,10 @@ test visible for that future decision.
 
 ### Existing Ash JSON:API Resources
 
-Existing route groups under `/api/json` remain generated Ash resource APIs:
+These route groups remain generated Ash resource APIs under `/api/json`:
 
 - `devices`
 - `pending_commands`
-- `script_drafts`
-- `script_versions`
-- `script_validation_runs`
-- `script_test_runs`
-- `script_deployment_runs`
-- `script_client_actions`
 - `alerts`
 - `alert_rules`
 - `telemetry_events`
@@ -168,10 +162,12 @@ Existing route groups under `/api/json` remain generated Ash resource APIs:
 
 The existing resource groups are not rewritten as part of the device migration,
 but their inventory, authorization, generated/static OpenAPI, and route-test
-evidence must be reconciled. The six script groups are currently declared by
-`Nixstasis.Domain` but absent from the committed static OpenAPI artifact; that
-artifact/ownership mismatch must be resolved before inventory completeness is
-claimed.
+evidence must remain reconciled. The six script persistence resources remain
+Ash-owned for the LiveView workbench, but their generic JSON:API routes are
+intentionally absent. The workbench calls the domain directly, and generic CRUD
+would bypass validation, command dispatch, and audit boundaries. A future
+external script contract requires audited domain-specific actions and a new
+design decision.
 
 ## Retained Controller Rationale
 

@@ -2,6 +2,14 @@ defmodule NixstasisWeb.OpenAPIContractTest do
   use ExUnit.Case, async: true
 
   @openapi_path Path.expand("../../priv/static/openapi.yaml", __DIR__)
+  @script_resource_names ~w(
+    script_drafts
+    script_versions
+    script_validation_runs
+    script_test_runs
+    script_deployment_runs
+    script_client_actions
+  )
 
   test "generated OpenAPI includes builder contract action routes" do
     openapi = File.read!(@openapi_path)
@@ -12,6 +20,18 @@ defmodule NixstasisWeb.OpenAPIContractTest do
              "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options:"
 
     assert openapi =~ "/api/json/builder_contract/builder_configurations/validate:"
+  end
+
+  test "generated OpenAPI excludes internal script workbench resources" do
+    openapi = YamlElixir.read_from_file!(@openapi_path)
+
+    for resource <- @script_resource_names do
+      collection_path = "/api/json/#{resource}"
+      member_path = "#{collection_path}/{id}"
+
+      refute Map.has_key?(openapi["paths"], collection_path)
+      refute Map.has_key?(openapi["paths"], member_path)
+    end
   end
 
   test "generated OpenAPI includes builder contract schema fields" do

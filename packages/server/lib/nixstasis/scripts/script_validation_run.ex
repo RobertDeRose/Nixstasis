@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptValidationRun do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_validation_runs"
@@ -22,10 +21,6 @@ defmodule Nixstasis.Scripts.ScriptValidationRun do
       index [:script_version_id]
       index [:status]
     end
-  end
-
-  json_api do
-    type "script_validation_run"
   end
 
   actions do

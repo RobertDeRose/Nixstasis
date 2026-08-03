@@ -237,6 +237,10 @@ target clients, timestamps, and per-client result summaries.
 
 - New server persistence is expected for script drafts, script versions, test
   runs, deployment runs, and per-client action results.
+- These Ash resources are internal domain records and intentionally omit generic
+  JSON:API routes. The current LiveView calls the domain directly; a future
+  external contract requires audited, domain-specific actions rather than raw
+  CRUD exposure.
 - Existing command delivery concepts should be reused where practical, but the
   command contract may need a test-only script execution mode.
 - Script content can be larger than a normal inline heartbeat command. Test and

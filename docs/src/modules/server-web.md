@@ -71,17 +71,18 @@ Other generated resource routes:
 
 - `/api/json/devices`
 - `/api/json/pending_commands`
-- `/api/json/script_drafts`
-- `/api/json/script_versions`
-- `/api/json/script_validation_runs`
-- `/api/json/script_test_runs`
-- `/api/json/script_deployment_runs`
-- `/api/json/script_client_actions`
 - `/api/json/alerts`
 - `/api/json/alert_rules`
 - `/api/json/telemetry_events`
 - `/api/json/custom_reports`
 - `/api/json/system_settings`
+
+The six `script_*` persistence resources remain Ash-owned for the Stary
+workbench, but they are intentionally not generic JSON:API routes. The current
+LiveView calls `Nixstasis.Domain` directly; exposing generic CRUD would bypass
+workbench validation, command dispatch, and audit boundaries. They are therefore
+excluded from the generated OpenAPI artifact until an audited external contract
+is designed.
 
 Legacy `/api/v1` compatibility routes and bespoke controller routes:
 

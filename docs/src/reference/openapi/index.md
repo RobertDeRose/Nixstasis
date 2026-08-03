@@ -4,8 +4,13 @@ The Ash-generated OpenAPI specification is served at `/api/json/open_api` and
 `/api/json/swaggerui`, and is committed as
 `packages/server/priv/static/openapi.yaml`. It documents the generated Ash
 JSON:API surface under `/api/json`, including builder actions, alert rules, and
-other Ash-backed resource groups. Regenerate the committed artifact with
+other Ash-backed resources. Regenerate the committed artifact with
 `mix openapi.generate` from `packages/server`.
+
+The script-workbench persistence resources remain Ash-owned but are intentionally
+excluded from generic JSON:API and this artifact. The current LiveView uses
+`Nixstasis.Domain` directly; an audited external contract must be designed before
+those records become product API routes.
 
 Phoenix controller APIs used by the Go client, legacy builder compatibility,
 Caddy TLS approval, report previews, and the current E2E harness remain bespoke

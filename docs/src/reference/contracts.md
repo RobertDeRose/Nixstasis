@@ -121,7 +121,9 @@ Only `command_path_resolved` is sufficient for catalog-backed assignment without
 
 - `packages/server/priv/static/openapi.yaml` documents the generated Ash
   JSON:API surface under `/api/json`, including the builder contract action
-  routes under `/api/json/builder_contract/*`.
+  routes under `/api/json/builder_contract/*`. The six script-workbench
+  persistence resources remain internal Ash domain resources and are excluded
+  from generic JSON:API until an audited external contract is designed.
 - The legacy `/api/v1/builder-*` routes remain as compatibility wrappers around
   the Ash builder actions and keep their `application/json` response envelopes.
 - Other bespoke Phoenix controller APIs under `/api/v1` and `/e2e` are documented

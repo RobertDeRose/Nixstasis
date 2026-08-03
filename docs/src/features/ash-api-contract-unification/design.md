@@ -63,8 +63,10 @@ contract model, not UI-only routes or every internal HTTP handler.
 
 - The builder generic-action resource and generated `/api/json/builder_contract/*`
   routes already exist, alongside `/api/v1` compatibility wrappers.
-- Existing Ash-backed resource groups are exposed through `/api/json` and the
-  generated `packages/server/priv/static/openapi.yaml` artifact.
+- Existing operator/developer Ash resource groups are exposed through `/api/json`
+  and the generated `packages/server/priv/static/openapi.yaml` artifact. The six
+  script-workbench persistence resources remain Ash-owned but are domain-only;
+  their generic CRUD routes are intentionally not exposed.
 - Device runtime behavior remains in bespoke `/api/v1` controllers and is used by
   the Go client for registration, heartbeat, command results, and payload fetches.
 - Caddy, E2E, and development-diagnostic protocols remain controller-owned.
@@ -87,7 +89,8 @@ In scope:
   and focused server/Go compatibility tests for each migrated group.
 - Existing `/api/json` resource groups, including alert-rule APIs, where the
   generated Ash contract already exists and only inventory/documentation evidence
-  is incomplete.
+  is incomplete. Script-workbench persistence resources stay UI-only until an
+  audited external contract is designed.
 
 Out of scope for this feature:
 
@@ -118,9 +121,12 @@ Classify each endpoint into exactly one bucket before implementation:
 
 Initial classifications:
 
-- Existing `/api/json` resource groups and the builder generic-action routes are
-  `ash-backed`; the builder `/api/v1` endpoints remain retained compatibility
-  wrappers.
+- Existing externally consumed `/api/json` resource groups and the builder
+  generic-action routes are `ash-backed`; the builder `/api/v1` endpoints remain
+  retained compatibility wrappers. Script-workbench persistence resources are
+  `ui-only` domain resources: they remain Ash-owned, but their generic JSON:API
+  routes and generated OpenAPI paths are intentionally absent because no external
+  consumer exists and generic CRUD would bypass workflow boundaries.
 - Device registration, heartbeat, command results, and command payload fetches
   are `ash-backed` priorities because Go clients consume them as a durable
   external protocol. Their device authentication and orchestration boundaries
@@ -162,8 +168,9 @@ Initial classifications:
 
 1. Inventory routes from `packages/server/lib/nixstasis_web/router.ex` and map
    them to controllers, Ash resources/actions, consumers, generated OpenAPI paths,
-   and reference docs. Include existing generated resource families, not only
-   routes changed by this feature.
+   and reference docs. Include existing generated resource families and explicitly
+   disposition Ash-owned domain resources whose generic routes are not supported,
+   not only routes changed by this feature.
 2. Rebaseline the already-delivered builder Ash routes and their `/api/v1`
    compatibility wrappers. Resolve generated-route authentication, wire-shape,
    status, and OpenAPI artifact evidence before adding another conversion.

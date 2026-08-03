@@ -159,6 +159,65 @@ components:
       type: object
       x-struct:
       x-validate:
+    command_policy_assignment-filter-acknowledged_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
     device-filter-ipv4_address:
       additionalProperties: false
       properties:
@@ -218,6 +277,14 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -245,7 +312,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -253,7 +320,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -332,6 +399,8 @@ components:
           x-validate:
         approval_status:
           $ref: '#/components/schemas/device-filter-approval_status'
+        command_policy_assignments:
+          $ref: '#/components/schemas/command_policy_assignment-filter'
         id:
           $ref: '#/components/schemas/device-filter-id'
         ipv4_address:
@@ -460,6 +529,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -468,6 +538,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -517,6 +588,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -525,6 +597,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -541,6 +614,56 @@ components:
         not_eq:
           format: uuid
           type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-resolved_policy:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: object
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: object
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
           x-struct:
           x-validate:
       type: object
@@ -578,6 +701,124 @@ components:
         timestamp:
           $ref: '#/components/schemas/telemetry_event-filter-timestamp'
       type: deepObject
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-device_id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-failed_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
       x-struct:
       x-validate:
     alert-filter-status:
@@ -620,6 +861,10 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          enum:
+            - active
+            - resolved
+            - acknowledged
           type: string
           x-struct:
           x-validate:
@@ -628,6 +873,10 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          enum:
+            - active
+            - resolved
+            - acknowledged
           type: string
           x-struct:
           x-validate:
@@ -750,6 +999,37 @@ components:
                   items:
                     additionalProperties: false
                     description: Resource identifiers for alerts
+                    properties:
+                      id:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      meta:
+                        additionalProperties: true
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type:
+                        type: string
+                        x-struct:
+                        x-validate:
+                    required:
+                      - type
+                      - id
+                    type: object
+                  type: array
+                  uniqueItems: true
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+            command_policy_assignments:
+              properties:
+                data:
+                  description: Relationship data for command_policy_assignments
+                  items:
+                    additionalProperties: false
+                    description: Resource identifiers for command_policy_assignments
                     properties:
                       id:
                         type: string
@@ -1006,6 +1286,132 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-queued_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-revoked_at:
+      additionalProperties: false
+      properties:
+        eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: date-time
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: date-time
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -1037,6 +1443,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1045,6 +1452,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1063,6 +1471,97 @@ components:
           type: string
           x-struct:
           x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment_source:
+      additionalProperties: false
+      description: A "Resource object" representing a command_policy_assignment_source
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_policy_assignment_source
+          properties:
+            assignment_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            source_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            source_kind:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            source_snapshot:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            source_version:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+          required:
+            - source_kind
+            - source_id
+            - source_version
+            - source_snapshot
+            - assignment_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_policy_assignment_source
+          properties:
+            assignment:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for assignment
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -1090,7 +1589,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         is_nil:
@@ -1098,7 +1597,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         less_than:
@@ -1156,6 +1655,152 @@ components:
       type: deepObject
       x-struct:
       x-validate:
+    command_policy_delivery_result:
+      additionalProperties: false
+      description: A "Resource object" representing a command_policy_delivery_result
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_policy_delivery_result
+          properties:
+            assignment_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            client_payload:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            command_ref:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            failure_reason:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            pending_command_id:
+              anyOf:
+                - format: uuid
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            reported_at:
+              description: Field included by default.
+              format: date-time
+              type: string
+              x-struct:
+              x-validate:
+            status:
+              description: Field included by default.
+              enum:
+                - delivered
+                - acknowledged
+                - failed
+                - unsupported
+                - stale
+                - conflict
+                - persistence_failed
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - status
+            - client_payload
+            - reported_at
+            - assignment_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_policy_delivery_result
+          properties:
+            assignment:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for assignment
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+            pending_command:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for pending_command
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
     telemetry_event-filter-id:
       additionalProperties: false
       properties:
@@ -1184,6 +1829,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1192,6 +1838,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1357,6 +2004,118 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_catalog_package_mapping:
+      additionalProperties: false
+      description: A "Resource object" representing a command_catalog_package_mapping
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_catalog_package_mapping
+          properties:
+            catalog_command_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            command_path:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            install_hint:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            os_family:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            package_manager:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            package_name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            supported:
+              description: Field included by default.
+              type: boolean
+              x-struct:
+              x-validate:
+          required:
+            - os_family
+            - package_manager
+            - package_name
+            - command_path
+            - supported
+            - catalog_command_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_catalog_package_mapping
+          properties:
+            catalog_command:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for catalog_command
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -1419,6 +2178,84 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-version:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -1458,6 +2295,9 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          enum:
+            - offline
+            - threshold
           type: string
           x-struct:
           x-validate:
@@ -1466,6 +2306,9 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          enum:
+            - offline
+            - threshold
           type: string
           x-struct:
           x-validate:
@@ -1545,6 +2388,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -1553,6 +2397,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -1598,7 +2443,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -1606,7 +2451,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -1652,6 +2497,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1660,6 +2506,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1776,6 +2623,73 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-id:
+      additionalProperties: false
+      properties:
+        eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          format: uuid
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -1838,6 +2752,14 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -1865,7 +2787,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -1873,7 +2795,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -1919,6 +2841,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1927,6 +2850,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -1972,7 +2896,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: boolean
           x-struct:
           x-validate:
         is_nil:
@@ -1980,7 +2904,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: boolean
           x-struct:
           x-validate:
         less_than:
@@ -1993,6 +2917,56 @@ components:
           x-validate:
         not_eq:
           type: boolean
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-revision:
+      additionalProperties: false
+      properties:
+        eq:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than:
+          type: integer
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: integer
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: integer
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: integer
+          x-struct:
+          x-validate:
+        less_than:
+          type: integer
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: integer
+          x-struct:
+          x-validate:
+        not_eq:
+          type: integer
           x-struct:
           x-validate:
       type: object
@@ -2022,7 +2996,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -2030,7 +3004,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -2076,6 +3050,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -2084,6 +3059,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -2108,6 +3084,56 @@ components:
     link:
       description: "A link MUST be represented as either: a string containing the link's URL or a link object."
       type: string
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter:
+      additionalProperties: false
+      description: Filters the query to results matching the given filter object
+      example: ''
+      properties:
+        acknowledged_at:
+          $ref: '#/components/schemas/command_policy_assignment-filter-acknowledged_at'
+        and:
+          items:
+            $ref: '#/components/schemas/command_policy_assignment-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        device:
+          $ref: '#/components/schemas/device-filter'
+        device_id:
+          $ref: '#/components/schemas/command_policy_assignment-filter-device_id'
+        drift_warning:
+          $ref: '#/components/schemas/command_policy_assignment-filter-drift_warning'
+        failed_at:
+          $ref: '#/components/schemas/command_policy_assignment-filter-failed_at'
+        id:
+          $ref: '#/components/schemas/command_policy_assignment-filter-id'
+        not:
+          $ref: '#/components/schemas/command_policy_assignment-filter'
+        or:
+          items:
+            $ref: '#/components/schemas/command_policy_assignment-filter'
+          type: array
+          uniqueItems: true
+          x-struct:
+          x-validate:
+        queued_at:
+          $ref: '#/components/schemas/command_policy_assignment-filter-queued_at'
+        resolved_policy:
+          $ref: '#/components/schemas/command_policy_assignment-filter-resolved_policy'
+        revision:
+          $ref: '#/components/schemas/command_policy_assignment-filter-revision'
+        revoked_at:
+          $ref: '#/components/schemas/command_policy_assignment-filter-revoked_at'
+        source_snapshot:
+          $ref: '#/components/schemas/command_policy_assignment-filter-source_snapshot'
+        status:
+          $ref: '#/components/schemas/command_policy_assignment-filter-status'
+        version:
+          $ref: '#/components/schemas/command_policy_assignment-filter-version'
+      type: deepObject
       x-struct:
       x-validate:
     alert_rule-filter-product_name:
@@ -2169,6 +3195,14 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -2196,7 +3230,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         is_nil:
@@ -2204,7 +3238,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         less_than:
@@ -2387,6 +3421,14 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -2418,6 +3460,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -2426,6 +3469,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: uuid
           type: string
           x-struct:
           x-validate:
@@ -2506,6 +3550,14 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
       type: object
       x-struct:
       x-validate:
@@ -2537,6 +3589,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -2545,6 +3598,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -2606,6 +3660,10 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          enum:
+            - queued
+            - delivered
+            - acked
           type: string
           x-struct:
           x-validate:
@@ -2614,6 +3672,10 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          enum:
+            - queued
+            - delivered
+            - acked
           type: string
           x-struct:
           x-validate:
@@ -2639,6 +3701,56 @@ components:
             - delivered
             - acked
           type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-source_snapshot:
+      additionalProperties: false
+      properties:
+        eq:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than:
+          type: object
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: object
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: object
+          x-struct:
+          x-validate:
+        less_than:
+          type: object
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: object
+          x-struct:
+          x-validate:
+        not_eq:
+          type: object
           x-struct:
           x-validate:
       type: object
@@ -2672,6 +3784,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -2680,6 +3793,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -2698,6 +3812,158 @@ components:
           type: string
           x-struct:
           x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_allowlist_category:
+      additionalProperties: false
+      description: A "Resource object" representing a command_allowlist_category
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_allowlist_category
+          properties:
+            description:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            display_name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            slug:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - slug
+            - display_name
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_allowlist_category
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
+    command_allowlist_entry_category:
+      additionalProperties: false
+      description: A "Resource object" representing a command_allowlist_entry_category
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_allowlist_entry_category
+          properties:
+            category_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            command_entry_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - command_entry_id
+            - category_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_allowlist_entry_category
+          properties:
+            category:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for category
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+            command_entry:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for command_entry
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -2741,6 +4007,10 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          enum:
+            - pending
+            - approved
+            - rejected
           type: string
           x-struct:
           x-validate:
@@ -2749,6 +4019,10 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          enum:
+            - pending
+            - approved
+            - rejected
           type: string
           x-struct:
           x-validate:
@@ -2774,6 +4048,56 @@ components:
             - approved
             - rejected
           type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment-filter-drift_warning:
+      additionalProperties: false
+      properties:
+        eq:
+          type: boolean
+          x-struct:
+          x-validate:
+        greater_than:
+          type: boolean
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: boolean
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: boolean
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: boolean
+          x-struct:
+          x-validate:
+        less_than:
+          type: boolean
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: boolean
+          x-struct:
+          x-validate:
+        not_eq:
+          type: boolean
           x-struct:
           x-validate:
       type: object
@@ -2822,6 +4146,254 @@ components:
       type: object
       x-struct:
       x-validate:
+    command_policy_assignment-filter-status:
+      additionalProperties: false
+      properties:
+        eq:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            enum:
+              - pending
+              - queued
+              - acknowledged
+              - failed
+              - revoked
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          enum:
+            - pending
+            - queued
+            - acknowledged
+            - failed
+            - revoked
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_policy_assignment:
+      additionalProperties: false
+      description: A "Resource object" representing a command_policy_assignment
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_policy_assignment
+          properties:
+            acknowledged_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            device_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            drift_warning:
+              description: Field included by default.
+              type: boolean
+              x-struct:
+              x-validate:
+            failed_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            queued_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            resolved_policy:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            revision:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+            revoked_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            source_snapshot:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            status:
+              description: Field included by default.
+              enum:
+                - pending
+                - queued
+                - acknowledged
+                - failed
+                - revoked
+              type: string
+              x-struct:
+              x-validate:
+            version:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - status
+            - revision
+            - version
+            - resolved_policy
+            - source_snapshot
+            - drift_warning
+            - device_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_policy_assignment
+          properties:
+            device:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for device
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
+      type: object
+      x-struct:
+      x-validate:
     custom_report-filter-config:
       additionalProperties: false
       properties:
@@ -2846,7 +4418,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -2854,7 +4426,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -2869,6 +4441,113 @@ components:
           type: object
           x-struct:
           x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_allowlist_entry_version:
+      additionalProperties: false
+      description: A "Resource object" representing a command_allowlist_entry_version
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_allowlist_entry_version
+          properties:
+            archived_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            command_entry_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            command_path:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            description:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            name_key:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            version:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+          required:
+            - version
+            - name
+            - name_key
+            - command_path
+            - command_entry_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_allowlist_entry_version
+          properties:
+            command_entry:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for command_entry
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -2896,7 +4575,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         is_nil:
@@ -2904,7 +4583,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: integer
           x-struct:
           x-validate:
         less_than:
@@ -2986,6 +4665,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -2994,6 +4674,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -3012,6 +4693,57 @@ components:
           type: string
           x-struct:
           x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_catalog_category:
+      additionalProperties: false
+      description: A "Resource object" representing a command_catalog_category
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_catalog_category
+          properties:
+            description:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            display_name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            slug:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - slug
+            - display_name
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_catalog_category
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -3074,6 +4806,140 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_catalog_command:
+      additionalProperties: false
+      description: A "Resource object" representing a command_catalog_command
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_catalog_command
+          properties:
+            active:
+              description: Field included by default.
+              type: boolean
+              x-struct:
+              x-validate:
+            category_slugs:
+              description: Field included by default.
+              items:
+                type: string
+                x-struct:
+                x-validate:
+              type: array
+              x-struct:
+              x-validate:
+            current_version:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+            description:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            display_name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            install_guidance:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            name_key:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            risk_notes:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+          required:
+            - name
+            - name_key
+            - display_name
+            - category_slugs
+            - current_version
+            - active
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_catalog_command
+          properties:
+            mappings:
+              properties:
+                data:
+                  description: Relationship data for mappings
+                  items:
+                    additionalProperties: false
+                    description: Resource identifiers for mappings
+                    properties:
+                      id:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      meta:
+                        additionalProperties: true
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type:
+                        type: string
+                        x-struct:
+                        x-validate:
+                    required:
+                      - type
+                      - id
+                    type: object
+                  type: array
+                  uniqueItems: true
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -3105,6 +4971,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -3113,6 +4980,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          format: date-time
           type: string
           x-struct:
           x-validate:
@@ -3193,6 +5061,86 @@ components:
           type: string
           x-struct:
           x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    command_allowlist_entry:
+      additionalProperties: false
+      description: A "Resource object" representing a command_allowlist_entry
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a command_allowlist_entry
+          properties:
+            archived_at:
+              anyOf:
+                - format: date-time
+                  nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            command_path:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            current_version:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+            description:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            name:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            name_key:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+          required:
+            - name
+            - name_key
+            - command_path
+            - current_version
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a command_allowlist_entry
+          properties: {}
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:
@@ -3220,7 +5168,7 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         is_nil:
@@ -3228,7 +5176,7 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
-          type: string
+          type: object
           x-struct:
           x-validate:
         less_than:
@@ -3314,6 +5262,17 @@ components:
           x-struct:
           x-validate:
         is_distinct_from:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
           type: string
           x-struct:
           x-validate:
@@ -3322,6 +5281,17 @@ components:
           x-struct:
           x-validate:
         is_not_distinct_from:
+          enum:
+            - '>'
+            - <
+            - =
+            - '!='
+            - '>='
+            - <=
+            - contains
+            - doesn't contain
+            - is
+            - is not
           type: string
           x-struct:
           x-validate:
@@ -3370,6 +5340,129 @@ components:
           type: string
           x-struct:
           x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device_command_inventory_snapshot:
+      additionalProperties: false
+      description: A "Resource object" representing a device_command_inventory_snapshot
+      properties:
+        attributes:
+          additionalProperties: false
+          description: An attributes object for a device_command_inventory_snapshot
+          properties:
+            architecture:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            commands:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            device_id:
+              description: Field included by default.
+              format: uuid
+              type: string
+              x-struct:
+              x-validate:
+            observed_at:
+              description: Field included by default.
+              format: date-time
+              type: string
+              x-struct:
+              x-validate:
+            os_family:
+              anyOf:
+                - nullable: true
+                  type: string
+                  x-struct:
+                  x-validate:
+                - type: 'null'
+              description: Field included by default.
+            os_release:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            package_manager:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            packages:
+              description: Field included by default.
+              type: object
+              x-struct:
+              x-validate:
+            probe_catalog_version:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
+            schema_version:
+              description: Field included by default.
+              type: integer
+              x-struct:
+              x-validate:
+          required:
+            - schema_version
+            - probe_catalog_version
+            - observed_at
+            - architecture
+            - os_release
+            - package_manager
+            - packages
+            - commands
+            - device_id
+          type: object
+          x-struct:
+          x-validate:
+        id:
+          type: string
+        relationships:
+          additionalProperties: false
+          description: A relationships object for a device_command_inventory_snapshot
+          properties:
+            device:
+              properties:
+                data:
+                  additionalProperties: false
+                  description: An identifier for device
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    meta:
+                      additionalProperties: true
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type:
+                      type: string
+                      x-struct:
+                      x-validate:
+                  required:
+                    - type
+                    - id
+                  type: object
+                  x-struct:
+                  x-validate:
+              x-struct:
+              x-validate:
+          type: object
+          x-struct:
+          x-validate:
+        type:
+          type: string
+          x-struct:
+          x-validate:
+      required:
+        - type
+        - id
       type: object
       x-struct:
       x-validate:

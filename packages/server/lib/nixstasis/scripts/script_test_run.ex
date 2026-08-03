@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptTestRun do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_test_runs"
@@ -22,10 +21,6 @@ defmodule Nixstasis.Scripts.ScriptTestRun do
       index [:script_version_id]
       index [:status]
     end
-  end
-
-  json_api do
-    type "script_test_run"
   end
 
   actions do
