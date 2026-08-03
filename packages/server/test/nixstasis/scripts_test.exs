@@ -3,6 +3,7 @@ defmodule Nixstasis.ScriptsTest do
 
   alias Nixstasis.Devices
   alias Nixstasis.Domain
+  alias Nixstasis.Monitoring
   alias Nixstasis.Scripts
 
   setup do
@@ -61,6 +62,34 @@ defmodule Nixstasis.ScriptsTest do
     assert action.kind == :test
     assert action.status == :queued
     assert action.device_id == device.id
+
+    [command] = Devices.pop_pending_commands(device)
+    assert command.command_payload["defer_payload"] == false
+  end
+
+  test "queue_test_run defers large payloads while preserving fetchable content", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    large_content = String.duplicate("x", 5_000)
+    {:ok, version} = Domain.update_script_version(version, %{rendered_content: large_content})
+
+    assert {:ok, run} =
+             Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    [command] = Devices.pop_pending_commands(device)
+    assert command.command_payload["defer_payload"] == true
+    assert command.command_payload["payload_ref"] == run.id
+
+    response = Monitoring.heartbeat_response_data(device, [command])
+    [heartbeat_command] = response.commands
+    refute Map.has_key?(heartbeat_command, :payload)
+    assert heartbeat_command.payload_ref == run.id
+
+    assert {:ok, payload} = Devices.get_command_payload(device, run.id)
+    assert payload["content_type"] == "text/x-stary"
+    assert payload["data"] == large_content
   end
 
   test "ingest_test_results records client actions and finalizes the test run", %{

@@ -18,8 +18,9 @@ import (
 )
 
 type fakeCommandHandler struct {
-	called  bool
-	results []transport.CommandResult
+	called   bool
+	commands []transport.CommandRequest
+	results  []transport.CommandResult
 }
 
 func TestPollIntervalUsesConfiguredValue(t *testing.T) {
@@ -54,8 +55,9 @@ func TestInitialCommandPolicyUsesPersistedServerPolicyBeforeLocalConfig(t *testi
 	}
 }
 
-func (f *fakeCommandHandler) ExecuteBatch(_ context.Context, _ []transport.CommandRequest) []transport.CommandResult {
+func (f *fakeCommandHandler) ExecuteBatch(_ context.Context, commands []transport.CommandRequest) []transport.CommandResult {
 	f.called = true
+	f.commands = commands
 	return f.results
 }
 
@@ -390,6 +392,32 @@ func TestRuntimeFRPConfigFallsBackToGeneratedDeviceIDNameOnly(t *testing.T) {
 	// load time. runtimeFRPConfig only derives Name from MAC.
 	if got.ServerAddr != "" {
 		t.Fatalf("runtimeFRPConfig() should not default server addr, got %q", got.ServerAddr)
+	}
+}
+
+func TestGivenDeferredRunScriptCommand_WhenHandleCommandResponses_ThenHydratesBeforeExecution(t *testing.T) {
+	handler := &fakeCommandHandler{
+		results: []transport.CommandResult{{CommandID: "cmd-script", Status: transport.CommandStatusOK}},
+	}
+	client := &fakeCommandClient{}
+	fetcher := &fakePayloadFetcher{}
+	commands := []transport.CommandRequest{{
+		CommandID:  "cmd-script",
+		Type:       "run_script",
+		PayloadRef: "script-payload",
+	}}
+
+	if err := handleCommandResponses(context.Background(), client, fetcher, handler, "device-1", commands); err != nil {
+		t.Fatalf("expected deferred run_script handling to succeed, got %v", err)
+	}
+	if len(handler.commands) != 1 {
+		t.Fatalf("expected one hydrated command, got %+v", handler.commands)
+	}
+	if handler.commands[0].PayloadRef != "script-payload" {
+		t.Fatalf("payload ref = %q", handler.commands[0].PayloadRef)
+	}
+	if handler.commands[0].Payload == nil || handler.commands[0].Payload.Data != "script-payload" {
+		t.Fatalf("expected hydrated payload, got %+v", handler.commands[0].Payload)
 	}
 }
 

@@ -14,6 +14,8 @@ defmodule Nixstasis.Scripts do
   alias Nixstasis.Scripts.ScriptVersion
   alias Nixstasis.Scripts.Validator
 
+  @inline_script_payload_limit 4_096
+
   def list_drafts, do: Domain.list_script_drafts()
 
   def ingest_command_results(%Device{} = device, results) when is_list(results) do
@@ -183,20 +185,15 @@ defmodule Nixstasis.Scripts do
           status: :running,
           started_at: DateTime.utc_now(),
           target_device_ids: device_ids,
-          command_payload: %{type: "run_script", payload: %{content_type: "text/x-stary", data: rendered}},
+          command_payload: %{},
           notes: %{}
         })
 
+      command_payload = script_command_payload("run_script", draft.name, test_run.id, rendered)
+      {:ok, test_run} = Domain.update_script_test_run(test_run, %{command_payload: command_payload})
+
       Enum.each(devices, fn device ->
-        Devices.queue_command(device, %{
-          "type" => "run_script",
-          "payload_ref" => test_run.id,
-          "payload" => %{
-            "content_type" => "text/x-stary",
-            "name" => draft.name,
-            "data" => rendered
-          }
-        })
+        Devices.queue_command(device, command_payload)
 
         Domain.create_script_client_action(%{
           device_id: device.id,
@@ -204,7 +201,7 @@ defmodule Nixstasis.Scripts do
           kind: :test,
           status: :queued,
           payload_ref: test_run.id,
-          payload: %{"content_type" => "text/x-stary", "name" => draft.name, "data" => rendered}
+          payload: command_payload["payload"]
         })
       end)
 
@@ -273,20 +270,17 @@ defmodule Nixstasis.Scripts do
           status: :running,
           started_at: DateTime.utc_now(),
           target_device_ids: device_ids,
-          command_payload: %{type: "install_script", payload: %{content_type: "text/x-stary", data: rendered}},
+          command_payload: %{},
           notes: %{}
         })
 
+      command_payload = script_command_payload("install_script", draft.name, deployment_run.id, rendered)
+
+      {:ok, deployment_run} =
+        Domain.update_script_deployment_run(deployment_run, %{command_payload: command_payload})
+
       Enum.each(devices, fn device ->
-        Devices.queue_command(device, %{
-          "type" => "install_script",
-          "payload_ref" => deployment_run.id,
-          "payload" => %{
-            "content_type" => "text/x-stary",
-            "name" => draft.name,
-            "data" => rendered
-          }
-        })
+        Devices.queue_command(device, command_payload)
 
         Domain.create_script_client_action(%{
           device_id: device.id,
@@ -294,7 +288,7 @@ defmodule Nixstasis.Scripts do
           kind: :deploy,
           status: :queued,
           payload_ref: deployment_run.id,
-          payload: %{"content_type" => "text/x-stary", "name" => draft.name, "data" => rendered}
+          payload: command_payload["payload"]
         })
       end)
 
@@ -394,6 +388,19 @@ defmodule Nixstasis.Scripts do
     else
       {:error, :unauthorized}
     end
+  end
+
+  defp script_command_payload(type, name, payload_ref, rendered) do
+    %{
+      "type" => type,
+      "payload_ref" => payload_ref,
+      "defer_payload" => byte_size(rendered) > @inline_script_payload_limit,
+      "payload" => %{
+        "content_type" => "text/x-stary",
+        "name" => name,
+        "data" => rendered
+      }
+    }
   end
 
   defp draft_version(%ScriptDraft{front_matter: front_matter}) do
