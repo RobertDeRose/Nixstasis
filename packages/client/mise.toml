@@ -77,6 +77,11 @@ description = "Verify release artifacts"
 dir = "{{config_root}}"
 run = "./build/bin/verify_artifacts.sh"
 
+[tasks."test:packaging"]
+description = "Verify native SSH packaging contracts"
+dir = "{{config_root}}"
+run = "./build/tests/native_packaging_test.sh"
+
 [tasks."mock-api"]
 description = "Run the mock API server"
 run = "go run ./scripts/mock_api -log=stderr"

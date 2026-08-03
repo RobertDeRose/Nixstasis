@@ -80,11 +80,16 @@ RUN chmod 0755 /usr/libexec/nixstasis/pcp-metrics.sh && \
 # Create service and remote-support users, plus the dedicated
 # nixstasis-ssh-authority account that sshd drops privileges to when
 # running AuthorizedKeysCommand.
-RUN groupadd --system nixstasis-ssh && \
-    useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis && \
-    useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash nixstasis-support && \
-    useradd --system --no-create-home --home-dir /var/lib/empty --shell /usr/sbin/nologin -G nixstasis-ssh nixstasis-ssh-authority && \
-    install -d -m 0750 -o root -g nixstasis-ssh /run/nixstasis && \
+RUN groupadd --system nixstasis && \
+    groupadd --system nixstasis-support && \
+    groupadd --system nixstasis-ssh && \
+    useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin --gid nixstasis nixstasis && \
+    useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash --gid nixstasis-support nixstasis-support && \
+    useradd --system --no-create-home --home-dir /var/lib/empty --shell /usr/sbin/nologin --gid nixstasis-ssh -G nixstasis-ssh nixstasis-ssh-authority && \
+    passwd --lock nixstasis-ssh-authority && \
+    usermod --append --groups nixstasis-ssh nixstasis && \
+    install -d -m 0750 -o nixstasis -g nixstasis /etc/nixstasis && \
+    install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis && \
     mkdir -p /var/lib/nixstasis/.ssh /var/lib/nixstasis-support/.ssh /etc/sudoers.d && \
     chown -R nixstasis:nixstasis /var/lib/nixstasis && \
     chown -R nixstasis-support:nixstasis-support /var/lib/nixstasis-support && \

@@ -7,6 +7,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=nixstasis
+Group=nixstasis-ssh
+SupplementaryGroups=nixstasis
 SyslogIdentifier=nixstasis
 ExecStart=/usr/bin/nixstasis register
 PrivateTmp=true

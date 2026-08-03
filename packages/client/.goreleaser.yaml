@@ -55,6 +55,7 @@ nfpms:
       - deb
       - rpm
     dependencies:
+      - openssh-server
       - sudo
     scripts:
       postinstall: ./build/debian/postinstall.sh

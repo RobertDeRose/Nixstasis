@@ -22,6 +22,8 @@ CLIENT_DOCKERFILE="$ROOT_DIR/packages/client/Dockerfile"
 CLIENT_POSTINSTALL="$ROOT_DIR/packages/client/build/debian/postinstall.sh"
 CLIENT_PMCD_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-pmcd.service"
 CLIENT_PMLOGGER_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-pmlogger.service"
+CLIENT_POLL_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-poll.service"
+CLIENT_REGISTRATION_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-registration.service"
 CLIENT_CONFIG_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml"
 CLIENT_FRPC_TEMPLATE="$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/frpc.toml"
 CLIENT_CONTAINER_ENTRYPOINT="$ROOT_DIR/packages/client/build/container-entrypoint.sh"
@@ -100,6 +102,8 @@ for file in \
   "$CLIENT_POSTINSTALL" \
   "$CLIENT_PMCD_UNIT" \
   "$CLIENT_PMLOGGER_UNIT" \
+  "$CLIENT_POLL_UNIT" \
+  "$CLIENT_REGISTRATION_UNIT" \
   "$CLIENT_CONFIG_TEMPLATE" \
   "$CLIENT_FRPC_TEMPLATE" \
   "$CLIENT_CONTAINER_ENTRYPOINT" \
@@ -290,16 +294,45 @@ require_text "$CLIENT_PMCD_UNIT" '/usr/lib/pcp/bin/pmcd -f -A'
 require_text "$CLIENT_PMLOGGER_UNIT" 'pmlogger -L -P'
 require_text "$CLIENT_DOCKERFILE" 'sudo'
 require_text "$CLIENT_DOCKERFILE" 'systemctl add-wants multi-user\.target systemd-user-sessions\.service'
-require_text "$CLIENT_DOCKERFILE" 'useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis'
-require_text "$CLIENT_DOCKERFILE" 'useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash nixstasis-support'
+require_text "$CLIENT_DOCKERFILE" 'groupadd --system nixstasis-ssh'
+require_text "$CLIENT_DOCKERFILE" 'useradd --system --create-home --home-dir /var/lib/nixstasis'
+require_text "$CLIENT_DOCKERFILE" '--shell /usr/sbin/nologin --gid nixstasis nixstasis'
+require_text "$CLIENT_DOCKERFILE" 'useradd --system --create-home --home-dir /var/lib/nixstasis-support'
+require_text "$CLIENT_DOCKERFILE" '--shell /bin/bash --gid nixstasis-support nixstasis-support'
+require_text "$CLIENT_DOCKERFILE" 'passwd --lock nixstasis-ssh-authority'
+require_text "$CLIENT_DOCKERFILE" 'usermod --append --groups nixstasis-ssh nixstasis'
+require_text "$CLIENT_DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis /etc/nixstasis'
+require_text "$CLIENT_DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis'
 require_text "$CLIENT_DOCKERFILE" 'nixstasis-support ALL=\(ALL\) NOPASSWD:ALL'
-require_text "$CLIENT_POSTINSTALL" 'useradd --system --create-home --home-dir /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis'
-require_text "$CLIENT_POSTINSTALL" 'usermod --home /var/lib/nixstasis nixstasis'
-require_text "$CLIENT_POSTINSTALL" 'useradd --system --create-home --home-dir /var/lib/nixstasis-support --shell /bin/bash nixstasis-support'
+require_text "$CLIENT_POSTINSTALL" 'usermod --home /var/lib/nixstasis --shell /usr/sbin/nologin nixstasis'
+require_text "$CLIENT_POSTINSTALL" 'useradd --system --create-home --home-dir /var/lib/nixstasis'
+require_text "$CLIENT_POSTINSTALL" '--shell /usr/sbin/nologin nixstasis'
+require_text "$CLIENT_POSTINSTALL" 'useradd --system --create-home --home-dir /var/lib/nixstasis-support'
+require_text "$CLIENT_POSTINSTALL" '--shell /bin/bash nixstasis-support'
 require_text "$CLIENT_POSTINSTALL" 'usermod --home /var/lib/nixstasis-support --shell /bin/bash nixstasis-support'
+require_text "$CLIENT_POSTINSTALL" 'ensure_group nixstasis-ssh'
+require_text "$CLIENT_POSTINSTALL" 'useradd --system --no-create-home --home-dir /var/lib/empty'
+require_text "$CLIENT_POSTINSTALL" '--gid nixstasis-ssh nixstasis-ssh-authority'
+require_text "$CLIENT_POSTINSTALL" 'usermod --lock nixstasis-ssh-authority'
+require_text "$CLIENT_POSTINSTALL" 'usermod --append --groups nixstasis-ssh nixstasis'
 require_text "$CLIENT_POSTINSTALL" 'chown -R nixstasis:nixstasis /var/lib/nixstasis'
 require_text "$CLIENT_POSTINSTALL" 'chown -R nixstasis-support:nixstasis-support /var/lib/nixstasis-support'
+require_text "$CLIENT_POSTINSTALL" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis'
+require_literal "$CLIENT_POSTINSTALL" '"$sshd_bin" -t'
+require_text "$CLIENT_POSTINSTALL" 'systemctl reload sshd.service'
+require_text "$CLIENT_POSTINSTALL" 'systemctl reload ssh.service'
+require_text "$CLIENT_POSTINSTALL" 'systemctl daemon-reload'
+require_text "$CLIENT_POSTINSTALL" 'chown root:root /usr/libexec/nixstasis/ssh-authorized-keys'
+require_text "$CLIENT_POSTINSTALL" 'chmod 0644 /etc/ssh/sshd_config.d/nixstasis-support.conf'
 require_text "$CLIENT_POSTINSTALL" 'nixstasis-support ALL=\(ALL\) NOPASSWD:ALL'
+require_text "$CLIENT_POLL_UNIT" '^User=nixstasis$'
+require_text "$CLIENT_POLL_UNIT" '^Group=nixstasis-ssh$'
+require_text "$CLIENT_POLL_UNIT" '^SupplementaryGroups=nixstasis$'
+require_text "$CLIENT_POLL_UNIT" '^RuntimeDirectory=nixstasis$'
+require_text "$CLIENT_POLL_UNIT" '^RuntimeDirectoryMode=0750$'
+require_text "$CLIENT_REGISTRATION_UNIT" '^User=nixstasis$'
+require_text "$CLIENT_REGISTRATION_UNIT" '^Group=nixstasis-ssh$'
+require_text "$CLIENT_REGISTRATION_UNIT" '^SupplementaryGroups=nixstasis$'
 require_text "$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-simulator-http.service" 'nixstasis-simulator-http'
 require_text "$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/simulator-http.sh" 'openssl s_server'
 require_text "$CLIENT_FRPC_TEMPLATE" 'serverAddr = "\{\{ \.Envs\.FRPS_SERVER_ADDR \}\}"'
