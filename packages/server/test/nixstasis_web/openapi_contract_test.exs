@@ -39,6 +39,37 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "name"]) == "api_key"
   end
 
+  test "generated OpenAPI includes heartbeat action fields and its 200 status" do
+    openapi = YamlElixir.read_from_file!(@openapi_path)
+
+    heartbeat =
+      get_in(openapi, [
+        "paths",
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        "post"
+      ])
+
+    assert heartbeat["operationId"] == "heartbeat"
+    assert heartbeat["security"] == [%{"deviceApiKey" => []}]
+    assert Map.has_key?(heartbeat["responses"], "200")
+    refute Map.has_key?(heartbeat["responses"], "201")
+
+    request_properties =
+      get_in(heartbeat, [
+        "requestBody",
+        "content",
+        "application/vnd.api+json",
+        "schema",
+        "properties",
+        "data",
+        "properties"
+      ])
+
+    assert Map.has_key?(request_properties, "telemetry")
+    assert Map.has_key?(request_properties, "connection_status")
+    assert Map.has_key?(request_properties, "command_inventory")
+  end
+
   test "generated OpenAPI excludes internal script workbench resources" do
     openapi = YamlElixir.read_from_file!(@openapi_path)
 

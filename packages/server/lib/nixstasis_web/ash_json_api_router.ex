@@ -19,6 +19,7 @@ defmodule NixstasisWeb.AshJsonApiRouter do
     spec
     |> Map.update!(:security, fn _security -> [%{"bearerAuth" => []}] end)
     |> put_device_runtime_security()
+    |> put_device_runtime_statuses()
     |> put_builder_load_time_minimum()
     |> put_builder_error_responses()
   end
@@ -65,6 +66,38 @@ defmodule NixstasisWeb.AshJsonApiRouter do
       )
 
     %{spec | paths: paths, components: %{components | securitySchemes: security_schemes}}
+  end
+
+  defp put_device_runtime_statuses(%{paths: paths} = spec) do
+    paths =
+      move_operation_response_status(
+        paths,
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        :post,
+        201,
+        200
+      )
+
+    %{spec | paths: paths}
+  end
+
+  defp move_operation_response_status(paths, path, verb, from, to) do
+    case Map.get(paths, path) do
+      %{^verb => operation} = path_item ->
+        responses = Map.get(operation, :responses, %{})
+
+        case Map.pop(responses, from) do
+          {nil, _responses} ->
+            paths
+
+          {response, responses} ->
+            operation = Map.put(operation, :responses, Map.put(responses, to, response))
+            Map.put(paths, path, Map.put(path_item, verb, operation))
+        end
+
+      _ ->
+        paths
+    end
   end
 
   defp put_operation_security(paths, path, verb, security) do

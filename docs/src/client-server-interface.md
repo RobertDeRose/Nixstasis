@@ -37,7 +37,7 @@ When the limit is exceeded the server responds with HTTP `429` and body:
 ```
 
 Limits are configurable via application config (`:nixstasis, :rate_limit`
-keyword list with `:limit` and `:window_ms` keys).
+keyword list with `:limit`, `:heartbeat_limit`, and `:window_ms` keys).
 
 Traceable references:
 
@@ -63,9 +63,9 @@ Traceable references:
 
 ## Device Runtime Ash/OpenAPI Boundary
 
-The Go client continues to use the `/api/v1` mapping above. The list and
-registration actions are now available in the additive generated route family;
-heartbeat, command-result, and payload actions follow in the ordered migration
+The Go client continues to use the `/api/v1` mapping above. The list,
+registration, and heartbeat actions are now available in the additive generated
+route family; command-result and payload actions follow in the ordered migration
 children. The canonical contract for new integrations is:
 
 - `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
@@ -73,6 +73,11 @@ children. The canonical contract for new integrations is:
   `connectivity_status`.
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device API key.
+- `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated
+  heartbeat action. It accepts `telemetry`, `connection_status`, and optional
+  `command_inventory`, returns `data.commands` plus optional remote-access and
+  probe directives with status `200`, and preserves the same orchestration as
+  the compatibility endpoint.
 - Heartbeat, command-result, and deferred-payload actions use
   `?api_key=...` with the generated OpenAPI `deviceApiKey` scheme (`apiKey`, query
   parameter named `api_key`). The device-runtime permission boundary performs

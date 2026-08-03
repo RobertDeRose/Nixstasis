@@ -7677,6 +7677,203 @@ paths:
       security: []
       tags:
         - device
+  /api/json/device_runtime/devices/{device_id}/heartbeat:
+    post:
+      callbacks: {}
+      deprecated: false
+      description: heartbeat operation on device resource
+      operationId: heartbeat
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            format: uuid
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      requestBody:
+        content:
+          application/vnd.api+json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  additionalProperties: false
+                  properties:
+                    command_inventory:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    connection_status:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    telemetry:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                  type: object
+                  x-struct:
+                  x-validate:
+              required:
+                - data
+              type: object
+              x-struct:
+              x-validate:
+        description: Request body for the heartbeat operation on device resource
+        required: false
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  data:
+                    additionalProperties: false
+                    properties:
+                      command_inventory_probe:
+                        anyOf:
+                          - additionalProperties: false
+                            properties:
+                              catalog_version:
+                                type: string
+                                x-struct:
+                                x-validate:
+                              command_probes:
+                                items:
+                                  additionalProperties: false
+                                  properties:
+                                    command_path:
+                                      type: string
+                                      x-struct:
+                                      x-validate:
+                                    name:
+                                      type: string
+                                      x-struct:
+                                      x-validate:
+                                    os_family:
+                                      anyOf:
+                                        - type: string
+                                          x-struct:
+                                          x-validate:
+                                        - type: 'null'
+                                    package_name:
+                                      anyOf:
+                                        - type: string
+                                          x-struct:
+                                          x-validate:
+                                        - type: 'null'
+                                  required:
+                                    - name
+                                    - command_path
+                                  type: object
+                                  x-struct:
+                                  x-validate:
+                                type: array
+                                x-struct:
+                                x-validate:
+                              package_names:
+                                items:
+                                  type: string
+                                  x-struct:
+                                  x-validate:
+                                type: array
+                                x-struct:
+                                x-validate:
+                            required:
+                              - catalog_version
+                              - package_names
+                              - command_probes
+                            type: object
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      commands:
+                        items:
+                          additionalProperties: false
+                          properties:
+                            args:
+                              items:
+                                type: string
+                                x-struct:
+                                x-validate:
+                              type: array
+                              x-struct:
+                              x-validate:
+                            command_id:
+                              type: string
+                              x-struct:
+                              x-validate:
+                            payload:
+                              anyOf:
+                                - type: object
+                                  x-struct:
+                                  x-validate:
+                                - type: 'null'
+                            payload_ref:
+                              anyOf:
+                                - type: string
+                                  x-struct:
+                                  x-validate:
+                                - type: 'null'
+                            public_key:
+                              anyOf:
+                                - type: string
+                                  x-struct:
+                                  x-validate:
+                                - type: 'null'
+                            queued_at:
+                              format: date-time
+                              type: string
+                              x-struct:
+                              x-validate:
+                            type:
+                              type: string
+                              x-struct:
+                              x-validate:
+                          required:
+                            - command_id
+                            - type
+                            - args
+                            - queued_at
+                          type: object
+                          x-struct:
+                          x-validate:
+                        type: array
+                        x-struct:
+                        x-validate:
+                      remote_access_token:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                    required:
+                      - commands
+                    type: object
+                    x-struct:
+                    x-validate:
+                required:
+                  - data
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      security:
+        - deviceApiKey: []
+      tags:
+        - device
   /api/json/devices:
     get:
       callbacks: {}

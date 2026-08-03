@@ -12,6 +12,7 @@ defmodule Nixstasis.Devices.Device do
     extensions: [AshJsonApi.Resource]
 
   alias Nixstasis.Devices
+  alias Nixstasis.Monitoring
 
   @runtime_device_fields [
     id: [type: :uuid, allow_nil?: false],
@@ -44,6 +45,49 @@ defmodule Nixstasis.Devices.Device do
   @runtime_list_response_fields [
     data: [type: {:array, :map}, allow_nil?: false, constraints: [items: [fields: @runtime_list_device_fields]]],
     meta: [type: :map, allow_nil?: false]
+  ]
+
+  @heartbeat_command_fields [
+    command_id: [type: :string, allow_nil?: false],
+    type: [type: :string, allow_nil?: false],
+    args: [type: {:array, :string}, allow_nil?: false],
+    payload: [type: :map],
+    public_key: [type: :string],
+    payload_ref: [type: :string],
+    queued_at: [type: :utc_datetime, allow_nil?: false]
+  ]
+
+  @heartbeat_probe_fields [
+    catalog_version: [type: :string, allow_nil?: false],
+    package_names: [type: {:array, :string}, allow_nil?: false],
+    command_probes: [
+      type: {:array, :map},
+      allow_nil?: false,
+      constraints: [
+        items: [
+          fields: [
+            name: [type: :string, allow_nil?: false],
+            os_family: [type: :string],
+            package_name: [type: :string],
+            command_path: [type: :string, allow_nil?: false]
+          ]
+        ]
+      ]
+    ]
+  ]
+
+  @heartbeat_data_fields [
+    commands: [
+      type: {:array, :map},
+      allow_nil?: false,
+      constraints: [items: [fields: @heartbeat_command_fields]]
+    ],
+    remote_access_token: [type: :string],
+    command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
+  ]
+
+  @heartbeat_response_fields [
+    data: [type: :map, allow_nil?: false, constraints: [fields: @heartbeat_data_fields]]
   ]
 
   postgres do
@@ -154,6 +198,38 @@ defmodule Nixstasis.Devices.Device do
         Devices.register_runtime_device(input.arguments)
       end
     end
+
+    action :heartbeat, :map do
+      constraints fields: @heartbeat_response_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+      argument :telemetry, :map, default: %{}
+      argument :connection_status, :map, default: %{}
+      argument :command_inventory, :map
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            case Monitoring.heartbeat(device, heartbeat_payload(input.arguments)) do
+              {:ok, updated_device, commands} ->
+                {:ok, %{data: Monitoring.heartbeat_response_data(updated_device, commands)}}
+
+              {:error, _reason} ->
+                {:error, "heartbeat processing failed"}
+            end
+
+          {:ok, nil} ->
+            {:error, "device not found"}
+
+          {:error, _reason} ->
+            {:error, "device not found"}
+        end
+      end
+    end
+  end
+
+  defp heartbeat_payload(arguments) do
+    Map.take(arguments, [:telemetry, :connection_status, :command_inventory])
   end
 
   attributes do

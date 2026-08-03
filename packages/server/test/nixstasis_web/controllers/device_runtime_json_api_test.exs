@@ -1,7 +1,11 @@
 defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   use NixstasisWeb.ConnCase
 
+  require Ash.Query
+
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
+  alias Nixstasis.Monitoring.Telemetry
   alias NixstasisWeb.Plugs.JsonApiPermissions
 
   setup do
@@ -132,6 +136,143 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert :ok = Devices.authenticate_device(updated, new_token)
   end
 
+  test "generated heartbeat preserves telemetry, inventory, commands, probe, and remote access", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    {:ok, _} = Devices.queue_command(approved, %{"cmd" => "update"})
+
+    {:ok, command} =
+      Domain.create_command_catalog_command(%{
+        name: "df",
+        display_name: "Disk free",
+        category_slugs: ["diagnostics"],
+        active: true
+      })
+
+    {:ok, _mapping} =
+      Domain.create_command_catalog_mapping(%{
+        catalog_command_id: command.id,
+        os_family: "debian",
+        package_manager: "apt",
+        package_name: "coreutils",
+        command_path: "/usr/bin/df"
+      })
+
+    {:ok, approved} = Devices.set_remote_access(approved, true)
+    future_observed_at = DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+
+    payload = %{
+      "data" => %{
+        "telemetry" => %{"scripts" => %{"disk" => %{"usage_pct" => 73.2}}},
+        "connection_status" => %{"connected" => true},
+        "command_inventory" => %{
+          "schema_version" => 1,
+          "probe_catalog_version" => "catalog-v1",
+          "observed_at" => future_observed_at,
+          "architecture" => "x86_64",
+          "package_manager" => "apt",
+          "os_release" => %{"ID" => "ubuntu"},
+          "packages" => %{"coreutils" => %{"installed" => true}},
+          "commands" => %{"df" => %{"path" => "/usr/bin/df"}}
+        }
+      }
+    }
+
+    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
+      conn =
+        conn
+        |> put_req_header("accept", "application/vnd.api+json")
+        |> put_req_header("content-type", "application/vnd.api+json")
+        |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", payload)
+
+      assert %{
+               "data" => %{
+                 "commands" => [%{"command_id" => command_id, "payload" => %{"cmd" => "update"}}],
+                 "command_inventory_probe" => probe,
+                 "remote_access_token" => "shared-secret"
+               }
+             } = json_response(conn, 200)
+
+      assert command_id
+      assert probe["catalog_version"] == "catalog-v1"
+      assert "coreutils" in probe["package_names"]
+      assert Enum.any?(probe["command_probes"], &(&1["name"] == "df"))
+    end)
+
+    updated = Devices.get_device!(approved.id)
+    refute is_nil(updated.last_seen_at)
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^approved.id)
+      |> Ash.read!(domain: Domain)
+
+    assert [%{payload: telemetry_payload}] = telemetry
+    assert telemetry_payload["scripts"]["disk"]["usage_pct"] == 73.2
+    assert telemetry_payload["connection_status"]["connected"]
+    refute Map.has_key?(telemetry_payload, "command_inventory")
+
+    snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
+    assert [%{device_id: device_id}] = Enum.filter(snapshots, &(&1.device_id == approved.id))
+    assert device_id == approved.id
+  end
+
+  test "generated heartbeat ignores malformed inventory while delivering commands", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    {:ok, _} = Devices.queue_command(approved, %{"cmd" => "update"})
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post(
+        "/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}",
+        %{"data" => %{"command_inventory" => %{"schema_version" => "bad"}}}
+      )
+
+    assert %{"data" => %{"commands" => [%{"payload" => %{"cmd" => "update"}}]}} =
+             json_response(conn, 200)
+
+    snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
+    refute Enum.any?(snapshots, &(&1.device_id == approved.id))
+  end
+
+  test "generated heartbeat is limited at the heartbeat rate", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    previous = Application.get_env(:nixstasis, :rate_limit)
+    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1)
+    :ets.delete_all_objects(:nixstasis_rate_limiter)
+
+    on_exit(fn ->
+      if previous do
+        Application.put_env(:nixstasis, :rate_limit, previous)
+      else
+        Application.delete_env(:nixstasis, :rate_limit)
+      end
+    end)
+
+    request = fn conn ->
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+        "data" => %{}
+      })
+    end
+
+    assert response = request.(conn)
+    assert response.status == 200
+    assert %{"error" => %{"code" => "rate_limited"}} = json_response(request.(conn), 429)
+  end
+
   test "generated registration returns a JSON:API validation error for a missing schema", %{conn: conn} do
     params = %{"data" => %{"mac_address" => "AA:BB:CC:DD:EE:04"}}
 
@@ -173,6 +314,20 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     refute conn.halted
     assert Ash.PlugHelpers.get_actor(conn).id == approved.id
   end
+
+  defp with_env(name, value, fun) do
+    previous = System.get_env(name)
+    System.put_env(name, value)
+
+    try do
+      fun.()
+    after
+      restore_env(name, previous)
+    end
+  end
+
+  defp restore_env(name, nil), do: System.delete_env(name)
+  defp restore_env(name, value), do: System.put_env(name, value)
 
   defp runtime_permission_conn(conn, device_id, query_params) do
     conn

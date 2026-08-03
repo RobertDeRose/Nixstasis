@@ -56,7 +56,10 @@ raw key is assigned by the device-runtime permission plug and is not an Ash acti
 argument. Unknown devices remain `404`, missing or invalid keys `401`, and
 unapproved devices `403`. `.7.40` implements the `device_runtime` dispatch in
 the existing `JsonApiPermissions` pipeline, sets the authenticated device actor,
-and enables the list/registration routes; `.7.41` and `.7.42` reuse it. Generated
+and enables the list/registration routes. `.7.41` adds the generated heartbeat
+action and preserves its 200 response, telemetry/inventory side effects,
+command delivery, probe, remote-access, and heartbeat-rate-limit behavior;
+`.7.42` reuses the same branch for command results and payloads. Generated
 action schemas and the compatibility `device-api.yaml` sections remain side by
 side until runtime tests prove complete coverage in
 `packages/server/priv/static/openapi.yaml`.

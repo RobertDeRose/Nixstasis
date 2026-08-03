@@ -94,13 +94,15 @@
 
 ## Client-Server Interaction Details
 
-- Device `/api/v1` runtime routes are the next Ash-backed API migration priority.
-  The current controller transport remains the compatibility boundary until strict
-  Go client compatibility tests cover authentication, pending/approved
-  registration token behavior, heartbeat remote-access directives, command result
-  acknowledgement, deferred payload retrieval, and status-code semantics.
+- Device `/api/v1` runtime routes remain the Go-client compatibility boundary
+  while their additive Ash-backed actions are enabled incrementally. List,
+  registration, and heartbeat now have generated counterparts; command result
+  acknowledgement and deferred payload retrieval remain ordered follow-on work.
+  Compatibility tests continue to cover authentication, pending/approved
+  registration token behavior, heartbeat directives, command results, payloads,
+  and status-code semantics.
 - `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
-- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands.
+- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
@@ -130,7 +132,9 @@ Device runtime migration has two deliberate HTTP surfaces:
   generated action has runtime and transport evidence.
 - The generated target is `/api/json/device_runtime/devices`: an operator-gated
   filtered list, a public registration action, and API-key-gated heartbeat,
-  command-result, and payload actions. The API key is the `api_key` query value
+  command-result, and payload actions. The list, registration, and heartbeat
+  routes are enabled; command-result and payload routes remain ordered follow-up
+  work. The API key is the `api_key` query value
   represented by the generated OpenAPI `deviceApiKey` scheme.
 
 `Device` owns resource/action contracts. `Devices` owns registration, token

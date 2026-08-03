@@ -29,6 +29,10 @@ defmodule Nixstasis.Domain do
         route :get, "/", :list_runtime_devices, name: "list_runtime_devices"
 
         route :post, "/register", :register_runtime_device, name: "register_runtime_device"
+
+        route :post, "/:device_id/heartbeat", :heartbeat,
+          name: "heartbeat",
+          modify_conn: &__MODULE__.put_ok_status/4
       end
 
       base_route "/devices", Nixstasis.Devices.Device do
@@ -86,6 +90,8 @@ defmodule Nixstasis.Domain do
       end
     end
   end
+
+  def put_ok_status(conn, _subject, _result, _request), do: Plug.Conn.put_status(conn, :ok)
 
   def preview_command_policy(attrs), do: PolicyResolver.preview(attrs)
   def preview_catalog_command_compatibility(attrs), do: CatalogResolver.preview(attrs)

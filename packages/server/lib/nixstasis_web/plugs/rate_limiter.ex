@@ -31,6 +31,13 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
   end
 
   defp heartbeat_request?(%{method: "POST", path_info: ["api", "v1", "devices", _id, "heartbeat"]}), do: true
+
+  defp heartbeat_request?(%{
+         method: "POST",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "heartbeat"]
+       }),
+       do: true
+
   defp heartbeat_request?(_conn), do: false
 
   defp rate_limited_request?(%{path_info: ["api", "json" | _]}), do: true
@@ -39,7 +46,7 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
 
   defp request_limit(conn, opts) do
     if heartbeat_request?(conn),
-      do: rate_limit(opts, :limit, @heartbeat_limit),
+      do: rate_limit(opts, :heartbeat_limit, rate_limit(opts, :limit, @heartbeat_limit)),
       else: rate_limit(opts, :limit, @default_limit)
   end
 
@@ -50,6 +57,12 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
 
   defp heartbeat_device_id(%{path_params: %{"device_id" => device_id}}), do: device_id
   defp heartbeat_device_id(%{path_info: ["api", "v1", "devices", device_id, "heartbeat"]}), do: device_id
+
+  defp heartbeat_device_id(%{
+         path_info: ["api", "json", "device_runtime", "devices", device_id, "heartbeat"]
+       }),
+       do: device_id
+
   defp heartbeat_device_id(_conn), do: nil
 
   defp remote_ip(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()

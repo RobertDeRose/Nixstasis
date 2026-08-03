@@ -204,14 +204,15 @@ dispatch in the existing JSON API pipeline, including the public registration
 exception, operator list policy, device lookup/API-key validation,
 `Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests for `404`/`401`/`403`
 precedence. The list and registration generated routes are enabled by `.7.40`.
-`.7.41` and `.7.42` must reuse this branch before exposing generated heartbeat or
-command routes; their remaining work is action/orchestration implementation and
-OpenAPI coverage.
+`.7.41` adds the generated heartbeat orchestration action, 200 response,
+heartbeat-rate-limit classification, and OpenAPI/runtime coverage while reusing
+this branch. `.7.42` must reuse the same branch for command results and payloads;
+its remaining work is action/orchestration implementation and OpenAPI coverage.
 
 Both generated and compatibility routes use the existing API rate limiter:
 heartbeat is 30 requests per 60 seconds per device identity and other API routes
-are 120 requests per 60 seconds. The generated heartbeat path must be included in
-heartbeat detection before it is enabled. The committed
+are 120 requests per 60 seconds. The generated heartbeat path is included in
+heartbeat detection and uses the same 30-request limit. The committed
 `docs/src/reference/openapi/device-api.yaml` remains the reference for the
 compatibility paths until each generated path has runtime tests and appears in
 the generated static artifact; duplicate hand-maintained sections are removed
