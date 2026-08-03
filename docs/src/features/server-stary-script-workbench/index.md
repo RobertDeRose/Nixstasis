@@ -3,13 +3,13 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-kb6`
-- Status: ready for delivery
-- Pull request: not created
-- Merge commit: pending explicit delivery action
+- Status: delivered
+- Pull request: not created; no PR action was selected
+- Merge commit: `bfda24f3ddb27493f9b453d5aed4f98807553dd3` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
-The implementation is complete on `feat/server-stary-script-workbench`; close-out
-reconciliation and validation are recorded before the delivery choice.
+The implementation, close-out reconciliation, validation, and Beads evidence were
+fast-forwarded into `dev`.
 
 ## Delivered Capability
 
@@ -138,5 +138,7 @@ Implementation commits:
 - `356bb9b81a9042a2c3ffc24260fcbb4edb29abda` — context-level target authorization.
 
 Close-out documentation and validation are tracked by `nixstasis-kb6.8` and
-`nixstasis-kb6.9`; delivery review, drift review, and delivery remain explicit lifecycle
-steps. No remote push or pull request has been performed.
+`nixstasis-kb6.9`; delivery review and drift review are closed under `.10` and `.11`.
+`bfda24f3ddb27493f9b453d5aed4f98807553dd3` records the fast-forward delivery and
+includes the feature's Beads interaction evidence. No remote push or pull request was
+performed.
