@@ -50,6 +50,10 @@
 - `run_script` executes a supplied Stary artifact for a test without installing it into the
   normal polling script directory. It is serialized with install/remove and other
   filesystem-affecting commands.
+- `ssh_authorize` validates the exact versioned payload, target user, session
+  binding, TTL, and public key before storing it in the in-memory SSH authority;
+  `ssh_revoke` removes the matching session ref as an idempotent no-op when it is
+  already absent. Neither command writes browser-terminal keys to disk.
 - Commands with deferred payload references are hydrated through `FetchCommandPayload` in
   the poll loop before execution. A failed or invalid hydration produces a failed command
   result and the command handler is not invoked with incomplete content.

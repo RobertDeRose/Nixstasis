@@ -73,6 +73,7 @@
   - [Dashboard Home](features/dashboard-home/index.md)
   - [Device Detail Page](features/device-detail-page/index.md)
   - [Go Client Rewrite](features/go-client-rewrite/index.md)
+  - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/index.md)
   - [IoT Device Monitoring](features/iot-device-monitoring/index.md)
   - [Packaging and Deployment Migration](features/packaging-deployment-migration/index.md)
   - [Phoenix UI Polish](features/phoenix-ui-polish/index.md)

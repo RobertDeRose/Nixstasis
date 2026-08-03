@@ -14,6 +14,7 @@ historical decisions needed to audit each feature. Active and future work remain
 - [Dashboard Home](dashboard-home/index.md)
 - [Device Detail Page](device-detail-page/index.md)
 - [Go Client Rewrite](go-client-rewrite/index.md)
+- [In-Memory SSH Authorized Keys](in-memory-ssh-authorized-keys/index.md)
 - [IoT Device Monitoring](iot-device-monitoring/index.md)
 - [Packaging and Deployment Migration](packaging-deployment-migration/index.md)
 - [Phoenix UI Polish](phoenix-ui-polish/index.md)

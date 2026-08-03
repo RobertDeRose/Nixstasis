@@ -41,6 +41,27 @@ Traceable references:
 - `packages/client/internal/frp/manager.go`
 - `packages/client/cmd/nixstasis/frp_session.go`
 
+### Browser-Terminal SSH Authorization
+
+- Phoenix owns operator authorization, ephemeral SSH key generation, terminal
+  session refs, acknowledgement gating, and server-side private-key cleanup.
+- The Go client owns the device-local in-memory authorization store, strict
+  `ssh_authorize`/`ssh_revoke` validation, TTL expiry, and the local IPC server.
+- The root-owned OpenSSH helper is a narrow adapter: it validates `%u %t %k`,
+  queries `/run/nixstasis/ssh-authority.sock`, and prints a key only for an
+  exact allow response. It cannot execute client commands or use a file fallback.
+- OpenSSH owns authentication enforcement for `nixstasis-support`; FRP transports
+  the SSH connection but does not authorize the key. Client restart, expiry,
+  revoke, or IPC failure therefore fails closed.
+
+Traceable references:
+
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`
+- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`
+- `packages/client/internal/sshauth/store.go`
+- `packages/client/internal/sshauth/ipc.go`
+- `packages/client/build/root-dir/etc/ssh/sshd_config.d/nixstasis-support.conf`
+
 ### Starlark Execution Environment
 
 - `script.Runtime` executes Starlark scripts using `go.starlark.net/starlark`.
