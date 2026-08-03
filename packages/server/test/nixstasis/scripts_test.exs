@@ -99,7 +99,7 @@ defmodule Nixstasis.ScriptsTest do
     assert version.status == :validated
   end
 
-  test "validate_draft requires front matter version" do
+  test "validate_draft requires front matter version and records a failed run" do
     {:ok, draft} =
       Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
         name: "missing-version",
@@ -109,6 +109,74 @@ defmodule Nixstasis.ScriptsTest do
 
     assert {:error, "front matter version is required"} =
              Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
+
+    {:ok, runs} = Domain.list_script_validation_runs()
+    run = Enum.find(runs, &(&1.script_draft_id == draft.id))
+    assert run.status == :failed
+    assert run.error_message == "front matter version is required"
+    assert is_nil(run.script_version_id)
+  end
+
+  test "validate_draft reuses an immutable version and links each validation run" do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "repeatable-validation",
+        front_matter: %{
+          "name" => "repeatable-validation",
+          "schema" => %{"type" => "object"},
+          "version" => "1"
+        },
+        body: "def main():\n    return {\"value\": \"ok\"}\n"
+      })
+
+    assert {:ok, first_run} = Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
+    assert {:ok, second_run} = Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
+
+    {:ok, versions} = Domain.list_script_versions()
+    versions = Enum.filter(versions, &(&1.script_draft_id == draft.id))
+    assert [%{id: version_id, rendered_content: rendered_content}] = versions
+    assert first_run.script_version_id == version_id
+    assert second_run.script_version_id == version_id
+    assert first_run.rendered_content == rendered_content
+    assert second_run.rendered_content == rendered_content
+  end
+
+  test "validate_draft rejects changed content for an existing version and records failure" do
+    {:ok, draft} =
+      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
+        name: "immutable-version",
+        front_matter: %{
+          "name" => "immutable-version",
+          "schema" => %{"type" => "object"},
+          "version" => "1"
+        },
+        body: "def main():\n    return {\"value\": \"original\"}\n"
+      })
+
+    assert {:ok, _run} = Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, draft)
+
+    {:ok, changed_draft} =
+      Scripts.update_draft(%{"script_permissions" => %{"can_manage" => true}}, draft, %{
+        body: "def main():\n    return {\"value\": \"changed\"}\n"
+      })
+
+    assert {:error, reason} =
+             Scripts.validate_draft(%{"script_permissions" => %{"can_manage" => true}}, changed_draft)
+
+    assert reason == "version 1 already exists with different content"
+
+    {:ok, versions} = Domain.list_script_versions()
+    assert Enum.count(versions, &(&1.script_draft_id == draft.id)) == 1
+
+    {:ok, runs} = Domain.list_script_validation_runs()
+
+    failed_run =
+      runs
+      |> Enum.filter(&(&1.script_draft_id == draft.id))
+      |> Enum.find(&(&1.status == :failed))
+
+    assert failed_run.error_message == reason
+    assert is_nil(failed_run.script_version_id)
   end
 
   test "queue_test_run uses validated version content", %{device: device, draft: draft, version: version} do

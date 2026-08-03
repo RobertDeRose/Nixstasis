@@ -61,44 +61,113 @@ defmodule Nixstasis.Scripts do
     do: Validator.render_stary(front_matter, body)
 
   def validate_draft(session, %ScriptDraft{} = draft) do
-    with true <- Authorization.can_validate?(session),
-         {:ok, version} <- draft_version(draft),
-         rendered <- render_draft(draft),
-         {:ok, payload} <- Validator.validate_content(rendered) do
-      {:ok, _version} =
+    if Authorization.can_validate?(session) do
+      rendered = render_draft(draft)
+
+      validation =
+        with {:ok, version} <- draft_version(draft),
+             rendered_content when is_binary(rendered_content) <- rendered,
+             {:ok, payload} <- Validator.validate_content(rendered_content) do
+          {:ok, version, payload}
+        else
+          {:error, reason} -> {:error, reason}
+          _ -> {:error, "stary content could not be rendered"}
+        end
+
+      case validation do
+        {:ok, version, payload} ->
+          persist_validated_draft(draft, version, payload)
+
+        {:error, reason} ->
+          record_failed_validation(draft, rendered, reason)
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  defp persist_validated_draft(%ScriptDraft{} = draft, version, payload) do
+    case get_or_create_script_version(draft, version, payload) do
+      {:ok, script_version} ->
+        with {:ok, _draft} <- Domain.update_script_draft(draft, %{status: :validated}),
+             {:ok, result} <-
+               Domain.create_script_validation_run(%{
+                 script_draft_id: draft.id,
+                 script_version_id: script_version.id,
+                 status: :passed,
+                 validated_at: DateTime.utc_now(),
+                 front_matter: payload.front_matter,
+                 rendered_content: script_version.rendered_content,
+                 details: %{}
+               }) do
+          audit_result(result, :validation_passed, %{script_draft_id: draft.id, script_version_id: script_version.id})
+          broadcast_script(draft.id)
+          {:ok, result}
+        end
+
+      {:error, reason} ->
+        record_failed_validation(draft, payload.rendered_content, reason)
+    end
+  end
+
+  defp get_or_create_script_version(%ScriptDraft{} = draft, version, payload) do
+    case find_script_version(draft.id, version) do
+      {:error, reason} ->
+        {:error, reason}
+
+      nil ->
         Domain.create_script_version(%{
           script_draft_id: draft.id,
           version: version,
           status: :validated,
           front_matter: payload.front_matter,
-          body: draft.body,
+          body: payload.body,
           rendered_content: payload.rendered_content
         })
 
-      {:ok, _draft} = Domain.update_script_draft(draft, %{status: :validated})
+      %ScriptVersion{rendered_content: rendered_content} = script_version
+      when rendered_content == payload.rendered_content ->
+        case script_version.status do
+          :candidate -> Domain.update_script_version(script_version, %{status: :validated})
+          _status -> {:ok, script_version}
+        end
 
-      result =
-        Domain.create_script_validation_run(%{
-          script_draft_id: draft.id,
-          status: :passed,
-          validated_at: DateTime.utc_now(),
-          front_matter: payload.front_matter,
-          rendered_content: payload.rendered_content,
-          details: %{}
-        })
-
-      audit_result(result, :validation_passed, %{script_draft_id: draft.id})
-      broadcast_script(draft.id)
-      result
-    else
-      false ->
-        {:error, :unauthorized}
-
-      {:error, reason} ->
-        Audit.emit(:validation_failed, %{script_draft_id: draft.id, reason: reason})
-        {:error, reason}
+      %ScriptVersion{} ->
+        {:error, "version #{version} already exists with different content"}
     end
   end
+
+  defp find_script_version(draft_id, version) do
+    case Domain.list_script_versions() do
+      {:ok, versions} -> Enum.find(versions, &(&1.script_draft_id == draft_id and &1.version == version))
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp record_failed_validation(%ScriptDraft{} = draft, rendered, reason) do
+    message = validation_error_message(reason)
+
+    _result =
+      Domain.create_script_validation_run(%{
+        script_draft_id: draft.id,
+        status: :failed,
+        front_matter: draft.front_matter,
+        rendered_content: validation_rendered_content(rendered),
+        error_type: "validation",
+        error_message: message,
+        details: %{"reason" => message}
+      })
+
+    Audit.emit(:validation_failed, %{script_draft_id: draft.id, reason: message})
+    broadcast_script(draft.id)
+    {:error, reason}
+  end
+
+  defp validation_rendered_content(rendered) when is_binary(rendered), do: rendered
+  defp validation_rendered_content(_rendered), do: ""
+
+  defp validation_error_message(reason) when is_binary(reason), do: reason
+  defp validation_error_message(reason), do: inspect(reason)
 
   def queue_test_run(session, %ScriptDraft{} = draft, %ScriptVersion{} = version, devices)
       when is_list(devices) do
