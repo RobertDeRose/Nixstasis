@@ -16,6 +16,7 @@
   - [Server Web](modules/server-web.md)
   - [Server Devices](modules/server-devices.md)
   - [Server Monitoring](modules/server-monitoring.md)
+  - [Server Scripts](modules/server-scripts.md)
   - [Server Reporting](modules/server-reporting.md)
   - [Server E2E](modules/server-e2e.md)
   - [Client CLI](modules/client-cli.md)
@@ -46,6 +47,7 @@
   - [Health Checks](operations/health-checks.md)
   - [Device Groups](operations/device-groups.md)
   - [Command Policies](operations/command-policies.md)
+  - [Stary Script Workbench](operations/script-workbench.md)
   - [Incident Response](operations/incidents.md)
   - [Upgrades And Rollbacks](operations/upgrades-rollbacks.md)
   - [HA And Scaling](operations/ha-scaling.md)
@@ -81,6 +83,7 @@
   - [Server-Client E2E Tests](features/server-client-e2e-tests/index.md)
   - [Server Command Allowlist Management](features/server-command-allowlist-management/index.md)
   - [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/index.md)
+  - [Server Stary Script Workbench](features/server-stary-script-workbench/index.md)
   - [Server-Provided FRPS Token](features/server-provided-frps-token/index.md)
   - [Starlark Script System](features/starlark-script-system/index.md)
   <!-- END IMPLEMENTED FEATURES -->

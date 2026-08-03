@@ -80,6 +80,28 @@ Only `command_path_resolved` is sufficient for catalog-backed assignment without
   alerts, and offline checks.
 - [Server Reporting](../modules/server-reporting.md): custom report and query
   builder behavior.
+- [Server Scripts](../modules/server-scripts.md): internal workbench records,
+  target authorization, immutable artifacts, command orchestration, and audit
+  boundaries.
+
+## Server Script Workbench Contract
+
+The workbench's six `script_*` persistence resources are internal Ash records, not generic
+JSON:API resources. Operators use `/scripts` and `/scripts/:id` through Phoenix LiveView;
+`Nixstasis.Scripts` performs domain-specific authorization and orchestration.
+
+- `run_script` is a test-only command and does not install the supplied artifact.
+- `install_script` deploys a validated `ScriptVersion.rendered_content` artifact.
+- Payloads up to 4,096 bytes are inline; larger payloads use the existing authenticated
+  deferred-payload endpoint and are hydrated by the Go poll loop before execution.
+- Server target authorization runs before any run or pending-command side effect.
+- The client remains authoritative for Stary parsing, builtins, timeouts, output validation,
+  and `exec_cmd` policy enforcement.
+- Audit events are Logger/PubSub events with trusted operator or authenticated device actor
+  identity; no separate audit table is created.
+
+See [Stary Script Workbench operations](../operations/script-workbench.md) for operator
+workflow, recovery, and retention guidance.
 
 ## Runtime And Deployment
 

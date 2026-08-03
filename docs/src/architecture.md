@@ -62,6 +62,35 @@ See [Project Structure](repository-structure.md) for path-by-path details.
 - The Go client executes supported command types and posts command results back to Phoenix.
 - Browser terminal sessions connect through Phoenix Channels on `terminal:*` and server-side `Nixstasis.Devices.SshClient` opens an SSH process through FRP TCP muxing.
 
+## Server-managed Stary scripts
+
+The Script Workbench adds a server authoring and orchestration boundary without moving
+Stary runtime authority out of the client:
+
+```mermaid
+sequenceDiagram
+    participant O as Operator LiveView
+    participant S as Nixstasis.Scripts
+    participant D as Devices/Monitoring
+    participant C as Go client
+    O->>S: edit, validate, select targets
+    S->>S: authorize scope and render immutable version
+    S->>D: queue run_script or install_script
+    D-->>C: deliver during heartbeat
+    C->>C: parse, execute, validate output
+    C-->>D: authenticated command result
+    D->>S: ingest device-attributed result
+    S-->>O: refresh run state via PubSub
+```
+
+Phoenix owns draft/version persistence, bounded server preflight, target authorization,
+operator audit emission, and run orchestration. `Nixstasis.Devices` owns pending-command
+queueing and device authentication. The Go client owns complete Stary parsing, builtins,
+command-policy enforcement, timeouts, output validation, and execution. Script persistence
+resources remain internal Ash domain records rather than generic JSON:API CRUD routes.
+
+See [Server Scripts](modules/server-scripts.md) and [Stary Script Workbench operations](operations/script-workbench.md).
+
 ## Product Data Model
 
 The server treats managed devices as long-lived identities with dynamic

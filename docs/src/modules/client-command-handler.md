@@ -45,11 +45,19 @@
 ## Client-Server Interaction Details
 
 - Commands originate in `PollResponse.Commands` from `POST /api/v1/devices/:device_id/heartbeat`.
-- Supported command types are `list_scripts`, `install_script`, `remove_script`,
-  `ssh_authorize`, `ssh_revoke`, and `apply_command_policy`.
-- Commands with deferred payload references are hydrated through `FetchCommandPayload` before execution.
+- Supported command types are `list_scripts`, `run_script`, `install_script`,
+  `remove_script`, `ssh_authorize`, `ssh_revoke`, and `apply_command_policy`.
+- `run_script` executes a supplied Stary artifact for a test without installing it into the
+  normal polling script directory. It is serialized with install/remove and other
+  filesystem-affecting commands.
+- Commands with deferred payload references are hydrated through `FetchCommandPayload` in
+  the poll loop before execution. A failed or invalid hydration produces a failed command
+  result and the command handler is not invoked with incomplete content.
 - `apply_command_policy` succeeds only after the client updates runtime config and durably writes the persisted server policy outside the script directory.
 - Results are sent to `POST /api/v1/devices/:device_id/command_results`.
+- `run_script` uses `text/x-stary` (or the compatibility `text/stary`) payload content types,
+  preserves client validation/runtime output, and is bounded by the handler's five-second
+  command timeout.
 
 Traceable references:
 

@@ -61,6 +61,59 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
 
+## Server-managed Stary command contract
+
+The Script Workbench is an operator LiveView workflow, not a public script CRUD API. The
+server context queues the existing device command shapes and the Go client continues to use
+the `/api/v1` runtime protocol.
+
+### Test and deployment commands
+
+A test command uses `run_script` and executes the supplied `.stary` content without installing
+it into the client's normal polling script directory. Deployment uses `install_script` and
+the immutable validated version artifact. The common command request shape is:
+
+```json
+{
+  "command_id": "uuid",
+  "type": "run_script",
+  "payload": {
+    "content_type": "text/x-stary",
+    "name": "disk",
+    "data": "---\\nname: disk\\n..."
+  },
+  "payload_ref": "optional-reference"
+}
+```
+
+Small rendered scripts are sent inline. The server marks scripts larger than 4,096 bytes as
+deferred and retains the content behind `payload_ref`. During the poll cycle the Go client:
+
+1. validates the reference;
+2. fetches `GET /api/v1/devices/:device_id/command_payloads/:ref?api_key=...`;
+3. attaches the response payload to the command; and
+4. invokes the serial `run_script` handler.
+
+A missing, invalid, or failed fetch produces a failed command result with a deterministic
+`payload_fetch_failed` or `invalid_payload_ref` error and does not execute partial content.
+The existing `install_script` deferred-payload behavior remains unchanged.
+
+### Result and authorization boundaries
+
+The client returns one `CommandResult` per command through
+`POST /api/v1/devices/:device_id/command_results?api_key=...`. The result output preserves
+client status, output, validation details, runtime errors, warnings, and timing when
+available. Phoenix authenticates the device token before associating the result with a
+script test or deployment run.
+
+The browser operator's trusted device scope is checked by `Nixstasis.Scripts` before any
+run or pending command is created. This server-side check is independent of LiveView's
+filtered target list. Script audit events identify the trusted operator; result events
+identify the authenticated device.
+
+See [Stary Script Workbench operations](operations/script-workbench.md) for workflow and
+recovery guidance.
+
 ## Device Runtime Ash/OpenAPI Boundary
 
 The Go client continues to use the `/api/v1` mapping above. All five device

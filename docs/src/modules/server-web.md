@@ -99,6 +99,18 @@ workbench validation, command dispatch, and audit boundaries. They are therefore
 excluded from the generated OpenAPI artifact until an audited external contract
 is designed.
 
+## Stary Script Workbench boundary
+
+The `/scripts` LiveViews call `Nixstasis.Scripts` for domain-specific authoring, bounded
+validation, target authorization, test/deployment queueing, retry, cancellation, and audit
+emission. The context checks the trusted browser device scope before creating a run or
+pending command; filtering the device list in the LiveView is not the security boundary.
+
+`ScriptVersion.rendered_content` is the immutable artifact used by validation, `run_script`
+test commands, and `install_script` deployment commands. Device results enter through the
+authenticated device command controller and remain separate from operator audit identity.
+See [Server Scripts](server-scripts.md) and [Stary Script Workbench](../operations/script-workbench.md).
+
 Legacy `/api/v1` compatibility routes and bespoke controller routes:
 
 - `GET /api/v1/builder-schemas`

@@ -468,7 +468,9 @@ remain rejected.
 
 ## Open Questions
 
-The remaining open evidence is final browser smoke coverage and documentation reconciliation.
+The remaining open evidence is final browser smoke coverage against a live Compose-managed
+client. Documentation reconciliation is complete; no unresolved design decision blocks the
+current delivery choice.
 
 ## Deferred Decisions
 

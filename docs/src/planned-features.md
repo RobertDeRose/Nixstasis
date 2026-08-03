@@ -870,9 +870,9 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### Server stary script workbench (`server-stary-script-workbench`)
 
-- Status: in-progress
+- Status: implemented
 - Overview:
-- Add a server web interface for creating, editing, validating, testing, and
+- Delivered a server web interface for creating, editing, validating, testing, and
   deploying Stary scripts. The UI should include a structured front-matter
   editor, a script body editor, syntax/schema validation, and a workflow for
   running candidate scripts on one or more selected clients before rollout.
@@ -965,14 +965,19 @@ cohort instead of relying only on product, account, status, and search filters.
 - `packages/server/lib/nixstasis/domain.ex`
 - Implementation status:
 - Server persistence, LiveView inventory/detail screens, structured front-matter
-  editing, CodeMirror body editing, validation, test queueing, deployment
-  queueing, per-device action display, live refresh, retry, and cancel/mark
-  failed controls are implemented.
-- Validation now requires an explicit front-matter version, and test/deploy
-  commands use the immutable validated version content rather than the mutable
-  draft body.
-- Remaining close-out work is documentation reconciliation and any final browser
-  smoke testing against the Compose dev lab.
+  editing, body editing, validation, scoped test/deployment queueing, per-device
+  action display, live refresh, retry, and cancel/mark-failed controls are
+  implemented.
+- Validation requires an explicit front-matter version, and test/deploy commands
+  use immutable validated version content rather than the mutable draft body.
+- Deferred `run_script` payloads are hydrated by the client poll loop before
+  execution; missing payloads produce failed client results.
+- Operator audit events carry trusted actor identity, device results remain device-
+  attributed, and audit retention follows deployment structured logging rather
+  than a new application table.
+- Reader-facing documentation is delivered in the Server Scripts and Stary Script
+  Workbench operations pages; browser smoke testing against a Compose device lab
+  remains a separately recorded validation limitation when that lab is unavailable.
 - Suggested validation:
 - Server tests for script draft persistence, status transitions, authorization,
   and audit event creation.
@@ -989,7 +994,8 @@ cohort instead of relying only on product, account, status, and search filters.
 - End-to-end test that runs an `exec_cmd` script against a selected client and
   shows the client's allowlist rejection as a test result when the command is
   not enabled.
-- Suggested first workflow command: `/start-feature server-stary-script-workbench`
+- Delivered documentation: [Stary Script Workbench operations](operations/script-workbench.md),
+  [Server Scripts](modules/server-scripts.md), and the [implemented feature record](features/server-stary-script-workbench/index.md).
 
 ### Server command allowlist management (`server-command-allowlist-management`)
 

@@ -77,12 +77,17 @@
 ## Client-Server Interaction Details
 
 - Script outputs are transformed into telemetry reports during `pollOnce` and sent inside the heartbeat `telemetry` object.
-- Server-issued commands can install/remove scripts and can replace the effective `exec_cmd` allowlist through `internal/commands.Handler`.
+- Server-issued commands can run test-only Stary content, install/remove scripts, and can replace the effective `exec_cmd` allowlist through `internal/commands.Handler`.
+- `run_script` uses the same Go parser, schema compiler, builtins, timeout, output validation,
+  and command-policy checks as normal script execution, but does not install the test content.
+- Deferred server payloads are fetched by the poll loop before the command reaches the handler;
+  missing payloads become failed command results.
 - `.stary` scripts contain YAML front matter plus a Starlark body. Validation
   compiles front matter schemas before installed scripts can contribute
   telemetry.
 - Script execution is bounded: executions have a five-second timeout and emit a
-  slow-script warning after three seconds.
+  slow-script warning after three seconds. The command handler applies the same five-second
+  bound to server-issued `run_script` commands.
 - When a persisted server command policy exists, it overrides locally configured `runtime.exec_commands`; local config is fallback only before the first successful server policy write.
 - Catalog-backed command policies use the same persisted `apply_command_policy` payload as manual policies: a version, revision, and command-name to absolute-path map.
 - Package names, catalog IDs, and command inventory evidence are not runtime authority. They are server-side compatibility inputs only and do not expand `exec_cmd` permissions unless the server later delivers an absolute-path policy.
