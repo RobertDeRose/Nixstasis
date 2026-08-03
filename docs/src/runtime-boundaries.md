@@ -29,8 +29,10 @@ Traceable references:
 - `script.Executor` runs discovered scripts concurrently with goroutines and a `sync.WaitGroup`.
 - `commands.Handler` executes batches concurrently where command type allows it.
 - `frp.Manager` launches a `nixstasis-frpc` transient systemd unit with
-  `systemd-run`; that unit runs the hidden `nixstasis frp-session` subcommand,
-  which starts the bundled `frpc` process with a one-hour timeout.
+  `systemd-run` when permitted; in an unprivileged nested-systemd client it
+  falls back to a poll-owned `nixstasis frp-session` child. Both paths start the
+  bundled `frpc` process with a one-hour timeout and stop it when remote access
+  is withdrawn.
 
 Traceable references:
 

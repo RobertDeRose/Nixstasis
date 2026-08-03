@@ -55,7 +55,10 @@ configuration. The helper and client must be available for support SSH login;
 missing client or IPC state denies authentication rather than falling back to a
 file. The supported IPC path is fixed at
 `/run/nixstasis/ssh-authority.sock`; non-default runtime socket settings are
-ignored with a warning.
+ignored with a warning. In the nested-systemd Compose client, an unprivileged
+poll service falls back to a poll-owned, one-hour-bounded FRP session when the
+system manager denies `systemd-run`; native root-managed installations retain
+the transient systemd unit path.
 
 The host real-sshd integration is focused Linux coverage. The separate
 Compose/browser smoke remains deferred until a configured lab provides runtime
@@ -69,6 +72,7 @@ secrets, authenticated Caddy/OIDC, a managed device, and browser automation.
 - [Runtime Boundaries](../../runtime-boundaries.md)
 - [Server Devices](../../modules/server-devices.md)
 - [Client Command Handler](../../modules/client-command-handler.md)
+- [Client FRP Manager](../../modules/client-frp-manager.md)
 - [Client Transport](../../modules/client-transport.md)
 - [Deployment Compose](../../modules/deployment-compose.md)
 - [OpenAPI Contracts](../../reference/openapi/device-api.yaml)
@@ -79,7 +83,17 @@ secrets, authenticated Caddy/OIDC, a managed device, and browser automation.
 
 Passed for the implementation commits:
 
-- Server `mix precommit`: 592 tests, 0 failures.
+- Server `mix precommit`: 593 tests, 0 failures, including the terminal-revoke
+  migration regression test.
+- Compose/browser smoke: `mise run deploy:dev -- up --clients 3` completed after
+  rebuilding the feature images; browser terminal login returned
+  `nixstasis-support`, `whoami` returned the support identity, navigation away
+  closed the session, and the client acknowledged the revoke. The revoked
+  public key was then submitted to the installed helper and produced empty
+  output (denied).
+
+Additional implementation evidence:
+
 - Focused server authorization, device, channel, LiveView, and cleanup tests:
   114 and 27 tests, 0 failures respectively.
 - Client `GOEXPERIMENT=jsonv2 go test ./...`: passed; Linux real-sshd coverage is
@@ -89,14 +103,12 @@ Passed for the implementation commits:
 - `uv run scripts/check-docs.py`: 0 errors and 16 existing legacy warnings.
 - `mdbook build docs`, targeted Rumdl, YAML parsing, and `git diff --check` passed.
 
-Unavailable and blocking for merge:
+Known validation limitation:
 
-- Compose/browser terminal smoke acceptance (`nixstasis-bdv.7.80`) is blocked
-  because this macOS session has no configured Compose lab, runtime secrets,
-  authenticated Caddy/OIDC provider, managed device, or browser automation.
-  The host real-sshd test is not substituted for this evidence.
 - Repository-wide `mise run check` remains non-clean from pre-existing Markdown,
-  typo, and cold-dependency debt outside this feature.
+  typo, and cold-dependency debt outside this feature. The exact output is
+  retained at `/tmp/nixstasis-bdv-close-mise-check.log`; scoped feature checks
+  and the Compose/browser smoke passed.
 
 ## Design Reconciliation
 
@@ -121,6 +133,11 @@ Unavailable and blocking for merge:
   selection.
 - Host real-sshd integration and Compose/browser smoke are recorded as separate
   evidence classes; the former does not claim the latter.
+- Nested-systemd Compose clients use a bounded poll-owned FRP session when the
+  unprivileged poll service cannot create a system transient unit; native
+  root-managed systemd remains the primary lifecycle path.
+- The terminal-revoke migration now removes older duplicate revoke rows before
+  creating its uniqueness constraint, preserving unrelated command rows.
 - The reader-facing command contract is maintained in reference/OpenAPI docs,
   while the design remains planning authority.
 
@@ -148,6 +165,7 @@ Unavailable and blocking for merge:
 - `docs/src/data-flow.md`
 - `docs/src/runtime-boundaries.md`
 - `docs/src/modules/client-command-handler.md`
+- `docs/src/modules/client-frp-manager.md`
 - `docs/src/modules/deployment-compose.md`
 - `docs/src/modules/server-devices.md`
 - `docs/src/reference/contracts.md`
@@ -155,6 +173,8 @@ Unavailable and blocking for merge:
 - `docs/src/reference/openapi/index.md`
 - `packages/client/README.md`
 - `deploy/compose/README.md`
+- `packages/client/internal/frp/manager.go`
+- `packages/server/priv/repo/migrations/20260803120000_deduplicate_terminal_revokes.exs`
 
 ## Audit Trail
 

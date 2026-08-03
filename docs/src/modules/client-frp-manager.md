@@ -67,6 +67,11 @@
 - FRPS auth is passed to the transient unit as a systemd credential and converted
   to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure in
   `systemd-run --setenv` metadata.
+- If an unprivileged poll service is denied access to the system manager (as in
+  the nested systemd Compose client), the manager starts a poll-owned
+  `frp-session` child with the same bounded timeout and stops it when remote
+  access is withdrawn. Native root-managed systemd installations retain the
+  transient-unit path.
 
 Traceable references:
 
