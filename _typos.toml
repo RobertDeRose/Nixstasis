@@ -4,4 +4,10 @@ extend-ignore-re = ["[0-9a-f]{7,40}"]
 [default.extend-words]
 inh = "inh"
 [files]
-extend-exclude = [".beads/interactions.jsonl", "migration/workflow-migration.json"]
+# Generated/minified assets are not maintainable prose sources.
+extend-exclude = [
+  ".beads/interactions.jsonl",
+  "migration/workflow-migration.json",
+  "docs/mermaid.min.js",
+  "packages/server/priv/static/codemirror/codemirror.min.js",
+]

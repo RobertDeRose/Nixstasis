@@ -237,8 +237,8 @@ Execution rules:
 - mark `PENDING_REVIEW`
 - record in `PIPELINE_STATE.md`: Worktree ID, Source Commit SHA,
 
-     Integration Commit SHA [None until cherry-pick], Validation Commands,
-     Validation Result
+  Integration Commit SHA [None until cherry-pick], Validation Commands,
+  Validation Result
 
 5. Review agent pass
    - invoke a second agent with the `task` tool using `subagent_type: general`
@@ -258,20 +258,20 @@ Execution rules:
 - Approval Recommendation: [APPROVE | REQUIRES CHANGES | REJECT]
 ```
 
-   - if the review returns `APPROVE`, mark `APPROVED`
-   - if the review returns `REQUIRES CHANGES` and every finding is actionable
-     inside the planned worktree scope, implement the fixes, validate, commit a
-     follow-up using `git commit -F`, and repeat the review agent pass until it
-     returns `APPROVE`
-   - if the review returns `REJECT`, or a required review fix is outside planned
-     scope or requires a new design decision, mark `BLOCKED`
-   - if review-fix commits were created, fold them into one approved worktree
-     commit boundary before integration using `git reset --soft <original-commit>^`
-     followed by `git commit -F <message-file>`, then re-run validation and record the
-     final approved source commit SHA in `PIPELINE_STATE.md`
-   - record in `PIPELINE_STATE.md`: Worktree ID, Review Verdict, Integration
+- if the review returns `APPROVE`, mark `APPROVED`
+- if the review returns `REQUIRES CHANGES` and every finding is actionable
+  inside the planned worktree scope, implement the fixes, validate, commit a
+  follow-up using `git commit -F`, and repeat the review agent pass until it
+  returns `APPROVE`
+- if the review returns `REJECT`, or a required review fix is outside planned
+  scope or requires a new design decision, mark `BLOCKED`
+- if review-fix commits were created, fold them into one approved worktree
+  commit boundary before integration using `git reset --soft <original-commit>^`
+  followed by `git commit -F <message-file>`, then re-run validation and record the
+  final approved source commit SHA in `PIPELINE_STATE.md`
+- record in `PIPELINE_STATE.md`: Worktree ID, Review Verdict, Integration
 
-     Ready [YES | NO]
+  Ready [YES | NO]
 
 6. Post-review integration
    - verify the approved source commit SHA is still the intended complete

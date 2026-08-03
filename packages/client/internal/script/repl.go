@@ -52,7 +52,7 @@ var (
 // Before evaluating each expression, it sets the Starlark thread local
 // variable named "context" to a context.Context that is canceled by a
 // SIGINT (Control-C). Client-supplied global functions may use this
-// context to make long-running operations interruptable.
+// context to make long-running operations interruptible.
 func REPLOptions(opts *syntax.FileOptions, thread *starlark.Thread, globals starlark.StringDict) {
 	signal.Notify(interrupted, os.Interrupt)
 	defer signal.Stop(interrupted)

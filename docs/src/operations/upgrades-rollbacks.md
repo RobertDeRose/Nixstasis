@@ -31,7 +31,6 @@ references in `.env`; do not use mutable tags for production service images.
 3. Decide whether the release contains only backward-compatible online
    migrations. If not, enter a maintenance window and stop Caddy or otherwise
    remove public traffic before changing the database schema.
-
 4. Confirm PostgreSQL is available, then run migrations explicitly with the new
    `nixstasis` image:
 

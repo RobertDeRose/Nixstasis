@@ -8,3 +8,9 @@ indent = 2
 line-length = 120
 reflow = true
 reflow-mode = "normalize"
+
+[per-file-ignores]
+# Command definitions use YAML front matter as their title metadata.
+".opencode/commands/*.md" = ["MD041"]
+# This sealed migration artifact is byte-identity evidence, not source documentation.
+"migration/baseline.md" = ["MD064", "MD077"]

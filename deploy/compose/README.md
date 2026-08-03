@@ -7,13 +7,13 @@ variables it needs in its `environment:` block.
 
 ## Services
 
-| Service    | Description                                    |
-|------------|------------------------------------------------|
-| `nixstasis`| Phoenix server                                 |
-| `postgres` | PostgreSQL database                            |
-| `caddy`    | Reverse proxy, TLS termination, AuthCrunch     |
-| `frps`     | FRP server for NAT-busting device tunnels      |
-| `client`   | Device simulator (systemd + PCP + sshd + frpc + client binary) |
+| Service     | Description                                                    |
+|-------------|----------------------------------------------------------------|
+| `nixstasis` | Phoenix server                                                 |
+| `postgres`  | PostgreSQL database                                            |
+| `caddy`     | Reverse proxy, TLS termination, AuthCrunch                     |
+| `frps`      | FRP server for NAT-busting device tunnels                      |
+| `client`    | Device simulator (systemd + PCP + sshd + frpc + client binary) |
 
 ## Quick Start (Development)
 
@@ -62,9 +62,9 @@ mise run deploy:dev -- exec nixstasis /bin/bash
 
 ### Options
 
-| Flag         | Default | Description                                      |
-|--------------|---------|--------------------------------------------------|
-| `--clients N`| 1       | Number of real Go client containers to start     |
+| Flag          | Default | Description                                  |
+|---------------|---------|----------------------------------------------|
+| `--clients N` | 1       | Number of real Go client containers to start |
 
 ## Production
 
@@ -81,25 +81,25 @@ targeting the compose `postgres` host.
 
 ## Environment Files
 
-| File            | Purpose                              |
-|-----------------|--------------------------------------|
-| `dev.env`       | Tracked defaults for local dev/test  |
-| `.env.example`  | Template for production              |
-| `.env`          | Operator-created, git-ignored        |
+| File           | Purpose                             |
+|----------------|-------------------------------------|
+| `dev.env`      | Tracked defaults for local dev/test |
+| `.env.example` | Template for production             |
+| `.env`         | Operator-created, git-ignored       |
 
 ### Key env vars that differ between dev and prod
 
-| Variable             | Dev                          | Prod                        |
-|----------------------|------------------------------|-----------------------------|
-| `BIND_HOST`          | `127.0.0.1`                  | `0.0.0.0`                   |
-| `PHOENIX_BIND_HOST`  | `127.0.0.1`                  | `127.0.0.1`                 |
-| `CADDY_CONFIG`       | `./caddy/Caddyfile.dev`      | `./caddy/Caddyfile`         |
-| `CHECK_ORIGIN_EXTRA` | `nixstasis.localhost,127.0.0.1:4000` | (unset)             |
-| `NIXSTASIS_FORCE_SSL`| `false`                      | (unset, defaults to true)   |
-| `NIXSTASIS_SESSION_COOKIE_SECURE` | `false`          | `true`                      |
-| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`           | `false`                     |
-| `NIXSTASIS_SSH_FRP_HOST` | `frps`                    | reachable FRPS TCP mux host |
-| `*_IMAGE_REF`        | Local tags (`*:dev`)         | Digest-pinned GHCR refs     |
+| Variable                           | Dev                                  | Prod                        |
+|------------------------------------|--------------------------------------|-----------------------------|
+| `BIND_HOST`                        | `127.0.0.1`                          | `0.0.0.0`                   |
+| `PHOENIX_BIND_HOST`                | `127.0.0.1`                          | `127.0.0.1`                 |
+| `CADDY_CONFIG`                     | `./caddy/Caddyfile.dev`              | `./caddy/Caddyfile`         |
+| `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                     |
+| `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)   |
+| `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                      |
+| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                     |
+| `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host |
+| `*_IMAGE_REF`                      | Local tags (`*:dev`)                 | Digest-pinned GHCR refs     |
 
 ## Runtime Contract
 
