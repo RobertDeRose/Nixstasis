@@ -50,6 +50,10 @@ a `workflow:feature` epic.
 Use Beads instead of ad hoc Markdown task lists for executable work. Use
 `bd remember` for durable cross-feature knowledge.
 
+The former `docs/src/reference/tasks.md` page was migration-only and is not a
+reader-facing reference. Its path and imported evidence remain preserved in
+the finalized migration baseline.
+
 ## Enforcement boundary
 
 Repository policy lives in `AGENTS.md` and the dstack workflow documentation.
