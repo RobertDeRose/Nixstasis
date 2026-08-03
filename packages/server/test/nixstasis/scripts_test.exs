@@ -5,6 +5,7 @@ defmodule Nixstasis.ScriptsTest do
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring
   alias Nixstasis.Scripts
+  alias Nixstasis.Scripts.Audit
 
   setup do
     {:ok, device} =
@@ -43,6 +44,37 @@ defmodule Nixstasis.ScriptsTest do
                front_matter: draft.front_matter,
                body: draft.body
              })
+  end
+
+  test "operator mutations include trusted actor identity in audit events" do
+    Audit.subscribe()
+
+    assert {:ok, _draft} =
+             Scripts.create_draft(
+               %{
+                 "operator_context" => %{"subject" => "operator-1"},
+                 "script_permissions" => %{"can_manage" => true}
+               },
+               %{
+                 name: "audited-script",
+                 front_matter: %{"name" => "audited-script", "schema" => %{"type" => "object"}},
+                 body: "def main():\n    return {}\n"
+               }
+             )
+
+    assert_receive {:script_audit, %{action: :draft_created, actor_id: "operator-1", actor_type: :operator}}
+  end
+
+  test "operator mutations fail closed without actor identity" do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    assert {:error, :missing_actor} =
+             Scripts.create_draft(
+               %{"script_permissions" => %{"can_manage" => true}},
+               %{name: "missing-actor", front_matter: %{}, body: ""}
+             )
   end
 
   test "queue_test_run creates queued client actions and command payloads", %{
@@ -90,6 +122,27 @@ defmodule Nixstasis.ScriptsTest do
     assert {:ok, payload} = Devices.get_command_payload(device, run.id)
     assert payload["content_type"] == "text/x-stary"
     assert payload["data"] == large_content
+  end
+
+  test "device result audit events use authenticated device identity", %{
+    device: device,
+    draft: draft,
+    version: version
+  } do
+    Audit.subscribe()
+
+    assert {:ok, _run} =
+             Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [device])
+
+    [command] = Devices.pop_pending_commands(device)
+
+    Scripts.ingest_command_results(device, [
+      %{"command_id" => command.id, "status" => "OK", "output" => %{"status" => "passed"}}
+    ])
+
+    assert_receive {:script_audit, %{action: :test_client_result, actor_id: device_id, actor_type: :device}}
+    assert device_id == device.id
+    assert_receive {:script_audit, %{action: :test_completed, actor_id: ^device_id, actor_type: :device}}
   end
 
   test "ingest_test_results records client actions and finalizes the test run", %{

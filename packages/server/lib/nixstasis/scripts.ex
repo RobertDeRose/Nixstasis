@@ -24,12 +24,12 @@ defmodule Nixstasis.Scripts do
     |> Enum.each(fn
       {{:test, run_id}, grouped_results} ->
         with %ScriptTestRun{} = run <- get_test_run(run_id) do
-          ingest_test_results(system_session(), run, attach_device_id(device, grouped_results))
+          ingest_test_results_from_device(device, run, attach_device_id(device, grouped_results))
         end
 
       {{:deploy, run_id}, grouped_results} ->
         with %ScriptDeploymentRun{} = run <- get_deployment_run(run_id) do
-          ingest_deployment_results(system_session(), run, attach_device_id(device, grouped_results))
+          ingest_deployment_results_from_device(device, run, attach_device_id(device, grouped_results))
         end
 
       _ ->
@@ -40,22 +40,26 @@ defmodule Nixstasis.Scripts do
   def ingest_command_results(_device, _results), do: :ok
 
   def create_draft(session, attrs) do
-    if Authorization.can_create?(session) do
+    with true <- Authorization.can_create?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session) do
       result = Domain.create_script_draft(attrs)
-      audit_result(result, :draft_created, attrs)
+      audit_result(result, :draft_created, attrs, actor_id)
       result
     else
-      {:error, :unauthorized}
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
     end
   end
 
   def update_draft(session, %ScriptDraft{} = draft, attrs) do
-    if Authorization.can_edit?(session) do
+    with true <- Authorization.can_edit?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session) do
       result = Domain.update_script_draft(draft, attrs)
-      audit_result(result, :draft_updated, Map.merge(%{draft_id: draft.id}, attrs))
+      audit_result(result, :draft_updated, Map.merge(%{draft_id: draft.id}, attrs), actor_id)
       result
     else
-      {:error, :unauthorized}
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -63,7 +67,8 @@ defmodule Nixstasis.Scripts do
     do: Validator.render_stary(front_matter, body)
 
   def validate_draft(session, %ScriptDraft{} = draft) do
-    if Authorization.can_validate?(session) do
+    with true <- Authorization.can_validate?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session) do
       rendered = render_draft(draft)
 
       validation =
@@ -78,17 +83,18 @@ defmodule Nixstasis.Scripts do
 
       case validation do
         {:ok, version, payload} ->
-          persist_validated_draft(draft, version, payload)
+          persist_validated_draft(draft, version, payload, actor_id)
 
         {:error, reason} ->
-          record_failed_validation(draft, rendered, reason)
+          record_failed_validation(draft, rendered, reason, actor_id)
       end
     else
-      {:error, :unauthorized}
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  defp persist_validated_draft(%ScriptDraft{} = draft, version, payload) do
+  defp persist_validated_draft(%ScriptDraft{} = draft, version, payload, actor_id) do
     case get_or_create_script_version(draft, version, payload) do
       {:ok, script_version} ->
         with {:ok, _draft} <- Domain.update_script_draft(draft, %{status: :validated}),
@@ -102,13 +108,19 @@ defmodule Nixstasis.Scripts do
                  rendered_content: script_version.rendered_content,
                  details: %{}
                }) do
-          audit_result(result, :validation_passed, %{script_draft_id: draft.id, script_version_id: script_version.id})
+          audit_result(
+            result,
+            :validation_passed,
+            %{script_draft_id: draft.id, script_version_id: script_version.id},
+            actor_id
+          )
+
           broadcast_script(draft.id)
           {:ok, result}
         end
 
       {:error, reason} ->
-        record_failed_validation(draft, payload.rendered_content, reason)
+        record_failed_validation(draft, payload.rendered_content, reason, actor_id)
     end
   end
 
@@ -146,7 +158,7 @@ defmodule Nixstasis.Scripts do
     end
   end
 
-  defp record_failed_validation(%ScriptDraft{} = draft, rendered, reason) do
+  defp record_failed_validation(%ScriptDraft{} = draft, rendered, reason, actor_id) do
     message = validation_error_message(reason)
 
     _result =
@@ -160,7 +172,7 @@ defmodule Nixstasis.Scripts do
         details: %{"reason" => message}
       })
 
-    Audit.emit(:validation_failed, %{script_draft_id: draft.id, reason: message})
+    Audit.emit(:validation_failed, actor_id, %{script_draft_id: draft.id, reason: message})
     broadcast_script(draft.id)
     {:error, reason}
   end
@@ -174,6 +186,7 @@ defmodule Nixstasis.Scripts do
   def queue_test_run(session, %ScriptDraft{} = draft, %ScriptVersion{} = version, devices)
       when is_list(devices) do
     with true <- Authorization.can_test?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
       rendered = version.rendered_content
@@ -205,23 +218,42 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      Audit.emit(:test_queued, %{
-        script_draft_id: draft.id,
-        script_version_id: version.id,
-        target_device_ids: device_ids
-      })
+      Audit.emit(
+        :test_queued,
+        actor_id,
+        %{
+          script_draft_id: draft.id,
+          script_version_id: version.id,
+          target_device_ids: device_ids
+        }
+      )
 
       broadcast_script(draft.id)
       {:ok, test_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
+      {:error, reason} -> {:error, reason}
       _ -> {:error, :unauthorized}
     end
   end
 
   def ingest_test_results(session, %ScriptTestRun{} = test_run, results) when is_list(results) do
     with true <- Authorization.can_test?(session),
-         %ScriptTestRun{status: :running} = current_run <- latest_test_run_by_id(test_run.id) do
+         {:ok, actor_id} <- Authorization.actor_id(session) do
+      ingest_test_results_with_actor(test_run, results, :operator, actor_id)
+    else
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ingest_test_results_from_device(%Device{} = device, test_run, results) do
+    ingest_test_results_with_actor(test_run, results, :device, device.id)
+  end
+
+  defp ingest_test_results_with_actor(%ScriptTestRun{} = test_run, results, actor_type, actor_id)
+       when is_list(results) do
+    with %ScriptTestRun{status: :running} = current_run <- latest_test_run_by_id(test_run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -238,27 +270,37 @@ defmodule Nixstasis.Scripts do
           })
 
         upsert_client_action(attrs)
-        Audit.emit(:test_client_result, %{script_test_run_id: test_run.id, device_id: device_id, status: status})
+
+        emit_result_audit(actor_type, :test_client_result, actor_id, %{
+          script_test_run_id: test_run.id,
+          device_id: device_id,
+          status: status
+        })
       end)
 
       final_status = test_run_status(current_run)
       attrs = run_update_attrs(final_status)
       result = Domain.update_script_test_run(current_run, attrs)
 
-      if final_status != :running,
-        do: Audit.emit(:test_completed, %{script_test_run_id: test_run.id, status: final_status})
+      if final_status != :running do
+        emit_result_audit(actor_type, :test_completed, actor_id, %{
+          script_test_run_id: test_run.id,
+          status: final_status
+        })
+      end
 
       broadcast_script(test_run.script_draft_id)
       result
     else
       %ScriptTestRun{} = run -> {:ok, run}
-      _ -> {:error, :unauthorized}
+      _ -> ingest_result_error(actor_type)
     end
   end
 
   def queue_deployment(session, %ScriptDraft{} = draft, %ScriptVersion{} = version, devices)
       when is_list(devices) do
     with true <- Authorization.can_deploy?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session),
          :ok <- require_validated_version(version) do
       device_ids = Enum.map(devices, &device_id/1)
       rendered = version.rendered_content
@@ -292,23 +334,42 @@ defmodule Nixstasis.Scripts do
         })
       end)
 
-      Audit.emit(:deployment_queued, %{
-        script_draft_id: draft.id,
-        script_version_id: version.id,
-        target_device_ids: device_ids
-      })
+      Audit.emit(
+        :deployment_queued,
+        actor_id,
+        %{
+          script_draft_id: draft.id,
+          script_version_id: version.id,
+          target_device_ids: device_ids
+        }
+      )
 
       broadcast_script(draft.id)
       {:ok, deployment_run}
     else
       {:error, :unvalidated_version} -> {:error, :unvalidated_version}
+      {:error, reason} -> {:error, reason}
       _ -> {:error, :unauthorized}
     end
   end
 
   def ingest_deployment_results(session, %ScriptDeploymentRun{} = run, results) when is_list(results) do
     with true <- Authorization.can_deploy?(session),
-         %ScriptDeploymentRun{status: :running} = current_run <- latest_deployment_run_by_id(run.id) do
+         {:ok, actor_id} <- Authorization.actor_id(session) do
+      ingest_deployment_results_with_actor(run, results, :operator, actor_id)
+    else
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ingest_deployment_results_from_device(%Device{} = device, run, results) do
+    ingest_deployment_results_with_actor(run, results, :device, device.id)
+  end
+
+  defp ingest_deployment_results_with_actor(%ScriptDeploymentRun{} = run, results, actor_type, actor_id)
+       when is_list(results) do
+    with %ScriptDeploymentRun{status: :running} = current_run <- latest_deployment_run_by_id(run.id) do
       Enum.each(results, fn result ->
         device_id = Map.get(result, "device_id") || Map.get(result, :device_id)
         status = result_status(result)
@@ -326,7 +387,7 @@ defmodule Nixstasis.Scripts do
 
         upsert_client_action(attrs)
 
-        Audit.emit(:deployment_client_result, %{
+        emit_result_audit(actor_type, :deployment_client_result, actor_id, %{
           script_deployment_run_id: run.id,
           device_id: device_id,
           status: status
@@ -337,56 +398,66 @@ defmodule Nixstasis.Scripts do
       attrs = run_update_attrs(final_status)
       result = Domain.update_script_deployment_run(current_run, attrs)
 
-      if final_status != :running,
-        do: Audit.emit(:deployment_completed, %{script_deployment_run_id: run.id, status: final_status})
+      if final_status != :running do
+        emit_result_audit(actor_type, :deployment_completed, actor_id, %{
+          script_deployment_run_id: run.id,
+          status: final_status
+        })
+      end
 
       broadcast_script(run.script_draft_id)
       result
     else
       %ScriptDeploymentRun{} = run -> {:ok, run}
-      _ -> {:error, :unauthorized}
+      _ -> ingest_result_error(actor_type)
     end
   end
 
   def cancel_test_run(session, %ScriptTestRun{} = run) do
     with true <- Authorization.can_test?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session),
          %ScriptTestRun{} = current_run <- latest_test_run_by_id(run.id),
          true <- current_run.status in [:pending, :running] do
       result = Domain.update_script_test_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
       mark_client_actions_failed(:test, current_run.id)
-      audit_result(result, :test_cancelled, %{script_test_run_id: run.id})
+      audit_result(result, :test_cancelled, %{script_test_run_id: run.id}, actor_id)
       broadcast_script(run.script_draft_id)
       result
     else
       false -> {:error, :not_running}
       %ScriptTestRun{} -> {:error, :not_running}
+      {:error, reason} -> {:error, reason}
       _ -> {:error, :unauthorized}
     end
   end
 
   def cancel_deployment_run(session, %ScriptDeploymentRun{} = run) do
     with true <- Authorization.can_deploy?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session),
          %ScriptDeploymentRun{} = current_run <- latest_deployment_run_by_id(run.id),
          true <- current_run.status in [:pending, :running] do
       result = Domain.update_script_deployment_run(current_run, %{status: :failed, completed_at: DateTime.utc_now()})
       mark_client_actions_failed(:deploy, current_run.id)
-      audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id})
+      audit_result(result, :deployment_cancelled, %{script_deployment_run_id: run.id}, actor_id)
       broadcast_script(run.script_draft_id)
       result
     else
       false -> {:error, :not_running}
       %ScriptDeploymentRun{} -> {:error, :not_running}
+      {:error, reason} -> {:error, reason}
       _ -> {:error, :unauthorized}
     end
   end
 
   def archive_draft(session, %ScriptDraft{} = draft) do
-    if Authorization.can_archive?(session) do
+    with true <- Authorization.can_archive?(session),
+         {:ok, actor_id} <- Authorization.actor_id(session) do
       result = Domain.update_script_draft(draft, %{status: :archived})
-      audit_result(result, :draft_archived, %{draft_id: draft.id})
+      audit_result(result, :draft_archived, %{draft_id: draft.id}, actor_id)
       result
     else
-      {:error, :unauthorized}
+      false -> {:error, :unauthorized}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -494,10 +565,6 @@ defmodule Nixstasis.Scripts do
     Enum.map(results, &Map.put(&1, "device_id", device_id))
   end
 
-  defp system_session do
-    %{"script_permissions" => %{"can_manage" => true}}
-  end
-
   defp timestamp_client_result(%{status: :acknowledged} = attrs) do
     Map.put(attrs, :acknowledged_at, DateTime.utc_now())
   end
@@ -553,11 +620,17 @@ defmodule Nixstasis.Scripts do
     end
   end
 
-  defp audit_result({:ok, value}, action, attrs) do
-    Audit.emit(action, Map.put(attrs, :resource_id, Map.get(value, :id)))
+  defp emit_result_audit(:operator, action, actor_id, attrs), do: Audit.emit(action, actor_id, attrs)
+  defp emit_result_audit(:device, action, device_id, attrs), do: Audit.emit_device(action, device_id, attrs)
+
+  defp ingest_result_error(:operator), do: {:error, :unauthorized}
+  defp ingest_result_error(:device), do: {:error, :not_running}
+
+  defp audit_result({:ok, value}, action, attrs, actor_id) do
+    Audit.emit(action, actor_id, Map.put(attrs, :resource_id, Map.get(value, :id)))
   end
 
-  defp audit_result(_, _action, _attrs), do: :ok
+  defp audit_result(_, _action, _attrs, _actor_id), do: :ok
 
   defp broadcast_script(draft_id) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "scripts:#{draft_id}", {:script_runs_changed, draft_id})

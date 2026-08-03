@@ -428,11 +428,17 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     token: token
   } do
     {:ok, draft} =
-      Scripts.create_draft(%{"script_permissions" => %{"can_manage" => true}}, %{
-        name: "generated-result-script",
-        front_matter: %{"name" => "generated-result-script", "schema" => %{"type" => "object"}},
-        body: "def main():\\n    return {}\\n"
-      })
+      Scripts.create_draft(
+        %{
+          "operator_context" => %{"subject" => "test-operator"},
+          "script_permissions" => %{"can_manage" => true}
+        },
+        %{
+          name: "generated-result-script",
+          front_matter: %{"name" => "generated-result-script", "schema" => %{"type" => "object"}},
+          body: "def main():\\n    return {}\\n"
+        }
+      )
 
     {:ok, version} =
       Domain.create_script_version(%{
@@ -445,7 +451,15 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       })
 
     {:ok, run} =
-      Scripts.queue_test_run(%{"script_permissions" => %{"can_manage" => true}}, draft, version, [approved])
+      Scripts.queue_test_run(
+        %{
+          "operator_context" => %{"subject" => "test-operator"},
+          "script_permissions" => %{"can_manage" => true}
+        },
+        draft,
+        version,
+        [approved]
+      )
 
     %{id: command_id} =
       approved

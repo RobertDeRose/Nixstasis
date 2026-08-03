@@ -5,6 +5,8 @@ defmodule Nixstasis.Scripts.Authorization do
 
   alias NixstasisWeb.Permissions
 
+  def actor_id(session), do: Permissions.actor_id(session)
+
   def can_view?(session), do: Permissions.can_view_scripts?(session)
   def can_manage?(session), do: Permissions.can_manage_scripts?(session)
 

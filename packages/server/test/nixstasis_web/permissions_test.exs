@@ -22,6 +22,22 @@ defmodule NixstasisWeb.PermissionsTest do
     refute Permissions.can_manage_scripts?(%{})
   end
 
+  test "actor_id prefers trusted subject and falls back to trusted email" do
+    assert {:ok, "operator-1"} =
+             Permissions.actor_id(%{"operator_context" => %{"subject" => "operator-1", "email" => "ops@example.com"}})
+
+    assert {:ok, "ops@example.com"} =
+             Permissions.actor_id(%{"operator_context" => %{"subject" => " ", "email" => "ops@example.com"}})
+  end
+
+  test "actor_id fails closed when no trusted actor exists and local fallback is disabled" do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+    on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
+
+    assert {:error, :missing_actor} = Permissions.actor_id(%{})
+  end
+
   test "command policy permissions separate status, details, and management" do
     viewer = %{
       "command_policy_permissions" => %{

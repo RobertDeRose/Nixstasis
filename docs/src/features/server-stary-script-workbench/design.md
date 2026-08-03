@@ -262,9 +262,11 @@ a security control.
 
 Audit records include the trusted actor identity, action, script version, target
 clients, timestamps, and per-client result summaries. Device-originated command
-results remain attributed to the authenticated device. The audit sink and
-retention policy are documented explicitly rather than implied to be durable
-application records.
+results remain attributed to the authenticated device. `Nixstasis.Scripts.Audit`
+logs each event through `Logger` and broadcasts `{:script_audit, payload}` on the
+`script_audit` PubSub topic; it does not write a separate audit table. Retention,
+export, and access control therefore follow the deployment's structured-log
+collection policy, while the in-process PubSub event is not durable.
 
 ## Edge Cases
 

@@ -103,6 +103,30 @@ defmodule NixstasisWeb.Permissions do
   def can_manage_scripts?(session) when is_map(session), do: script_permissions(session)["can_manage"] == true
   def can_manage_scripts?(_session), do: false
 
+  @doc "Returns the trusted operator subject or email used for audit attribution."
+  def actor_id(session) when is_map(session) do
+    case Map.get(session, "operator_context") do
+      context when is_map(context) ->
+        case normalize_actor_id(context["subject"]) || normalize_actor_id(context["email"]) do
+          nil -> {:error, :missing_actor}
+          actor_id -> {:ok, actor_id}
+        end
+
+      _context ->
+        case local_actor_id() do
+          nil -> {:error, :missing_actor}
+          actor_id -> {:ok, actor_id}
+        end
+    end
+  end
+
+  def actor_id(_session) do
+    case local_actor_id() do
+      nil -> {:error, :missing_actor}
+      actor_id -> {:ok, actor_id}
+    end
+  end
+
   def can_view_command_policy_status?(session) when is_map(session),
     do: command_policy_permissions(session)["can_view_status"] == true
 
@@ -141,23 +165,10 @@ defmodule NixstasisWeb.Permissions do
     end)
   end
 
-  defp group_actor_id(session) do
-    case Map.get(session, "operator_context") do
-      context when is_map(context) ->
-        context
-        |> then(&(normalize_actor_id(&1["subject"]) || normalize_actor_id(&1["email"])))
-        |> case do
-          nil -> {:error, :missing_actor}
-          actor_id -> {:ok, actor_id}
-        end
+  defp group_actor_id(session), do: actor_id(session)
 
-      _context ->
-        if Application.get_env(:nixstasis, :local_browser_auth_fallback?, false) do
-          {:ok, "local-development"}
-        else
-          {:error, :missing_actor}
-        end
-    end
+  defp local_actor_id do
+    if Application.get_env(:nixstasis, :local_browser_auth_fallback?, false), do: "local-development"
   end
 
   defp normalize_actor_id(value) when is_binary(value) do
