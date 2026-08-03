@@ -23,6 +23,17 @@ type fakeCommandHandler struct {
 	results  []transport.CommandResult
 }
 
+func TestSSHAuthoritySocketPathUsesFixedTrustedPath(t *testing.T) {
+	if got := sshAuthoritySocketPath(&config.Config{}); got != "/run/nixstasis/ssh-authority.sock" {
+		t.Fatalf("sshAuthoritySocketPath() default = %q", got)
+	}
+
+	configured := &config.Config{Runtime: config.RuntimeConfig{SSHAuthoritySocket: "/tmp/custom.sock"}}
+	if got := sshAuthoritySocketPath(configured); got != "/run/nixstasis/ssh-authority.sock" {
+		t.Fatalf("sshAuthoritySocketPath() custom = %q", got)
+	}
+}
+
 func TestPollIntervalUsesConfiguredValue(t *testing.T) {
 	configured := &config.Config{Poll: config.PollConfig{Interval: 45 * time.Second}}
 	if got := pollInterval(configured); got != 45*time.Second {

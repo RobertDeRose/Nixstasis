@@ -20,6 +20,7 @@ SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_DOCKERFILE="$ROOT_DIR/packages/client/Dockerfile"
 CLIENT_POSTINSTALL="$ROOT_DIR/packages/client/build/debian/postinstall.sh"
+CLIENT_SSH_HELPER="$ROOT_DIR/packages/client/build/root-dir/usr/libexec/nixstasis/ssh-authorized-keys"
 CLIENT_PMCD_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-pmcd.service"
 CLIENT_PMLOGGER_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-pmlogger.service"
 CLIENT_POLL_UNIT="$ROOT_DIR/packages/client/build/root-dir/lib/systemd/system/nixstasis-poll.service"
@@ -324,6 +325,8 @@ require_text "$CLIENT_POSTINSTALL" 'systemctl reload ssh.service'
 require_text "$CLIENT_POSTINSTALL" 'systemctl daemon-reload'
 require_text "$CLIENT_POSTINSTALL" 'chown root:root /usr/libexec/nixstasis/ssh-authorized-keys'
 require_text "$CLIENT_POSTINSTALL" 'chmod 0644 /etc/ssh/sshd_config.d/nixstasis-support.conf'
+require_literal "$CLIENT_SSH_HELPER" 'exec /usr/bin/nixstasis ssh-authorized-keys "$@"'
+reject_text "$CLIENT_SSH_HELPER" 'NIXSTASIS_SSH_AUTHORITY_SOCKET'
 require_text "$CLIENT_POSTINSTALL" 'nixstasis-support ALL=\(ALL\) NOPASSWD:ALL'
 require_text "$CLIENT_POLL_UNIT" '^User=nixstasis$'
 require_text "$CLIENT_POLL_UNIT" '^Group=nixstasis-ssh$'

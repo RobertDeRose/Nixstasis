@@ -81,11 +81,12 @@ func runPoll(cfg *config.Config) error {
 	}
 	frpManager := frp.NewManager()
 	sshAuthStore := sshauth.NewStore()
-	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
+	sshAuthoritySocket := sshAuthoritySocketPath(cfg)
+	sshAuthServer := sshauth.NewServer(sshAuthoritySocket, sshAuthStore)
 	if err := sshAuthServer.Start(ctx); err != nil {
 		return fmt.Errorf("start ssh authorization server: %w", err)
 	}
-	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
+	slog.Info("SSH authorization server listening", "socket", sshAuthoritySocket)
 	cmdHandler := commands.NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg, policyStore)
 
 	var consecutiveFailures int
@@ -120,6 +121,22 @@ func runPoll(cfg *config.Config) error {
 			timer.Reset(nextDelay)
 		}
 	}
+}
+
+func sshAuthoritySocketPath(cfg *config.Config) string {
+	const fixedPath = sshauth.DefaultSocketPath
+
+	if cfg != nil && cfg.Runtime.SSHAuthoritySocket != "" && cfg.Runtime.SSHAuthoritySocket != fixedPath {
+		slog.Warn(
+			"ignoring non-default SSH authority socket; using fixed installation path",
+			"configured_socket",
+			cfg.Runtime.SSHAuthoritySocket,
+			"socket",
+			fixedPath,
+		)
+	}
+
+	return fixedPath
 }
 
 func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string, revision int) {

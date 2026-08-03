@@ -7,12 +7,11 @@
 # script itself. The script is mode 0755 root:root so the dedicated
 # `nixstasis-ssh-authority` non-root helper identity can read+execute it.
 #
-# The wrapper exports the trusted local IPC socket path so the
-# `nixstasis ssh-authorized-keys` helper can look up the offered key
-# against the in-memory store, then execs the helper with the sshd
-# arguments (%u %t %k → username, key type, base64 key blob).
+# The poll service and this locked helper use the fixed local IPC socket
+# path /run/nixstasis/ssh-authority.sock. The wrapper does not load the
+# general client configuration or inherit an untrusted socket override.
+# It execs the helper with the sshd arguments (%u %t %k → username, key
+# type, base64 key blob).
 set -eu
-
-export NIXSTASIS_SSH_AUTHORITY_SOCKET="${NIXSTASIS_SSH_AUTHORITY_SOCKET:-/run/nixstasis/ssh-authority.sock}"
 
 exec /usr/bin/nixstasis ssh-authorized-keys "$@"

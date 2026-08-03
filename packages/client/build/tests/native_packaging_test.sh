@@ -58,6 +58,10 @@ require_literal "$GORELEASER" 'openssh-server'
 require_literal "$VERIFY" 'usr/libexec/nixstasis/ssh-authorized-keys'
 require_literal "$VERIFY" 'etc/ssh/sshd_config.d/nixstasis-support.conf'
 require_literal "$VERIFY" 'lib/systemd/system/nixstasis-poll.service'
+require_literal "$HELPER" 'exec /usr/bin/nixstasis ssh-authorized-keys "$@"'
+if grep -Fq 'NIXSTASIS_SSH_AUTHORITY_SOCKET' "$HELPER"; then
+  fail "$HELPER must use the fixed trusted socket path"
+fi
 
 require_literal "$DOCKERFILE" 'passwd --lock nixstasis-ssh-authority'
 require_literal "$DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis'

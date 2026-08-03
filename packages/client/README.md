@@ -114,7 +114,10 @@ Container first, then Docker, then Podman. The script rewrites the API host for 
 
 ## Configuration
 
-Configuration is loaded from `/etc/nixstasis/config.yaml`.
+Configuration is loaded from `/etc/nixstasis/config.yaml`. The poll service and the
+root-owned SSH `AuthorizedKeysCommand` helper use the fixed trusted socket
+`/run/nixstasis/ssh-authority.sock`; a configured non-default
+`runtime.ssh_authority_socket` is ignored with a warning.
 
 ```yaml
 api:
