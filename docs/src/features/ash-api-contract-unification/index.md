@@ -174,10 +174,10 @@ route-specific boundaries without requiring semantic changes.
 
 ## Audit Trail
 
-The reviewed design and execution graph were committed in `c0e2cd8`. Builder
-and generated-resource reconciliation followed in `a633fa7` and `82e594b`.
+The reviewed design and execution graph were committed in `3e16618`. Builder
+and generated-resource reconciliation followed in `5efcb71` and `be52a7b`.
 Device contract design and implementation were delivered through
-`5d555e1`, `4a431bc`, `46c4d43`, and `6eec2c4`.
+`fbd38b6`, `96b1a1d`, `c2be6df`, and `7fad4bc`.
 
 The implementation coordinator `nixstasis-zf5.7` closed after required children
 `.7.37` through `.7.42` passed acceptance. Child review artifacts and final

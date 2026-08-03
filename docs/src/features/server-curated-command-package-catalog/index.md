@@ -108,11 +108,11 @@ Known unrelated limitation: full client `go test ./...` currently fails in untou
 
 ## Audit Trail
 
-- `bf954e7` — reviewed design and implementation graph.
-- `d564990` — server catalog resources, resolver, seed data, and tests.
-- `2f56849` — command policy catalog authoring UI and compatibility preview.
-- `132e320` — client inventory collection and heartbeat reporting.
-- `fe2e578` — heartbeat inventory persistence/probe response and absolute-path delivery validation.
-- `82a8742` — catalog policy client enforcement/revocation validation and tooling docs.
+- `844da2a` — reviewed design and implementation graph.
+- `8fb1af8` — server catalog resources, resolver, seed data, and tests.
+- `afbd3dc` — command policy catalog authoring UI and compatibility preview.
+- `ad28af6` — client inventory collection and heartbeat reporting.
+- `c25a271` — heartbeat inventory persistence/probe response and absolute-path delivery validation.
+- `6bd2319` — catalog policy client enforcement/revocation validation and tooling docs.
 
 Implementation review artifacts were recorded in Beads for `nixstasis-o4t.7.1` through `nixstasis-o4t.7.5`. Close-out holistic review artifacts are recorded on `nixstasis-o4t.10` and `nixstasis-o4t.11`.

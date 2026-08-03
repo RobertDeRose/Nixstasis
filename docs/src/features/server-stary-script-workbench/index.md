@@ -5,7 +5,7 @@
 - Beads feature root: `nixstasis-kb6`
 - Status: delivered
 - Pull request: not created; no PR action was selected
-- Merge commit: `bfda24f3ddb27493f9b453d5aed4f98807553dd3` (fast-forward into `dev`)
+- Merge commit: `3dc4580b25ae935ff1d78d01310e6cbc5fca7e0b` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
 The implementation, close-out reconciliation, validation, and Beads evidence were
@@ -132,13 +132,13 @@ Specification review and reconciliation are recorded in Beads under `nixstasis-k
 
 Implementation commits:
 
-- `197c2d5cf2e1f175e2cbb940975613ada65b484b` — immutable validation artifacts.
-- `4a9682873bd2dbb79bfa239b16eaf4ae7f290e07` — deferred `run_script` payload hydration.
-- `49f928d3b263083db1e49834ae0d358b302874c2` — trusted audit actor identity.
-- `356bb9b81a9042a2c3ffc24260fcbb4edb29abda` — context-level target authorization.
+- `506136dea03441b0460c28b60ae75004b987fd7a` — immutable validation artifacts.
+- `d423a835d4a4b1974bbeb4e4c034ed5ed7d4ea89` — deferred `run_script` payload hydration.
+- `a07fa09673e00675ab994955693015401a12daad` — trusted audit actor identity.
+- `ddd4550d0a909d0030e17e8bc0e65f9c6b4ffc7e` — context-level target authorization.
 
 Close-out documentation and validation are tracked by `nixstasis-kb6.8` and
 `nixstasis-kb6.9`; delivery review and drift review are closed under `.10` and `.11`.
-`bfda24f3ddb27493f9b453d5aed4f98807553dd3` records the fast-forward delivery and
+`3dc4580b25ae935ff1d78d01310e6cbc5fca7e0b` records the fast-forward delivery and
 includes the feature's Beads interaction evidence. No remote push or pull request was
 performed.
