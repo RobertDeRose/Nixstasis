@@ -13,7 +13,7 @@ disabled-rules = [
   "MD032",
   # First visible content in a Markdown file to be an # Heading
   "MD041",
-  # Orphaned files -- picks up .md files outside docs/src/ (openspec, .opencode, etc.)
+  # Orphaned files -- picks up .md files outside docs/src/ (openspec, etc.)
   "MDBOOK005",
   # Part titles must be h1 -- mdBook supports ## for part titles in SUMMARY.md
   "MDBOOK003",

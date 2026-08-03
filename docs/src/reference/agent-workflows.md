@@ -1,67 +1,57 @@
 # Agent Workflows
 
-This repository includes native OpenCode workflow commands under:
+This repository uses the dstack workflow skills for planning, implementation,
+review, documentation reconciliation, and delivery. The command definitions
+are provided by the installed dstack skills rather than embedded in the
+repository.
 
-- `.opencode/commands/`
+## Installing dstack skills
 
-Available OpenCode commands:
+Install or refresh the skills with:
 
-- `/plan-features`
-- `/start-feature`
-- `/review-feature-spec`
-- `/implement-feature`
-- `/close-feature`
-- `/project-alignment-review`
-- `/project-alignment-execute`
-- `/project-alignment-land`
+```bash
+npx --yes skills@1.5.16 add RobertDeRose/dstack
+npx skills update
+```
 
-## Intent
+## Feature workflow
 
-These command files execute the repository workflow consistently.
+Use the following commands for feature work:
 
-They assume the native OpenCode runtime for execution, including runtime tools
-such as `task` when a command explicitly requires a second-agent review step.
+1. `/plan-features <idea>` creates feature designs, documentation structure,
+   and the Beads dependency graph.
+2. `/start-feature <slug>` activates and reviews a planned feature.
+3. `/implement-feature <slug>` implements the next ready feature task.
+4. `/close-feature <slug>` reconciles documentation, validates delivery, and
+   prepares the requested delivery action.
 
-The repository policy still lives in:
+Use `/implement-task <exact Beads ID or title>` for one standalone task outside
+a `workflow:feature` epic.
 
-- `docs/src/development.md`
-- `docs/src/features/index.md`
-- `AGENTS.md`
+## Project maintenance
 
-## Workflow Roles
+- `/setup-project` initializes a new dstack-managed project.
+- `/update-project` updates the project scaffold or routes legacy workflow
+  migration.
+- `/audit-project` reconciles Beads, designs, documentation, code, tests, and
+  migration state.
 
-`/plan-features` is for creating, refining, and inspecting the planned feature roadmap.
+## Sources of truth
 
-`/start-feature` is for opening a feature branch with initial `design.md` and
-`tasks.md`.
+- **Beads** owns executable work state, dependencies, priorities, claims,
+  findings, and evidence.
+- `docs/src/features/<slug>/design.md` owns intended feature behavior,
+  boundaries, decisions, validation, and documentation impact.
+- Reader-facing pages under `docs/src/` own current supported behavior.
+- `docs/src/features/<slug>/index.md` owns delivered-feature reconciliation
+  and audit history.
+- Code and tests provide implementation evidence.
 
-`/review-feature-spec` is for checking whether a feature spec is
-implementation-ready.
+Use Beads instead of ad hoc Markdown task lists for executable work. Use
+`bd remember` for durable cross-feature knowledge.
 
-`/implement-feature` is for executing the feature tasks.
+## Enforcement boundary
 
-`/close-feature` is for reconciling delivered implementation with the docs.
-
-`/project-alignment-review`, `/project-alignment-execute`, and
-`/project-alignment-land` are the deterministic repository-wide alignment
-pipeline.
-
-## Workflow Mapping
-
-Recommended sequence:
-
-1. Use `/plan-features` to create or inspect the planned feature roadmap.
-2. Use `/start-feature` when creating a feature.
-3. Use `/review-feature-spec` before major implementation work.
-4. Use `/implement-feature` to execute the feature tasks.
-5. Use `/close-feature` before opening or finalizing the pull request.
-6. Use `/project-alignment-review`, `/project-alignment-execute`, and
-   `/project-alignment-land` when you want the repository-wide deterministic
-   alignment pipeline.
-
-## Enforcement Boundary
-
-`hk` hooks enforce structural repository rules.
-
-The command files help with consistency, but they do not replace human review
-after the initial release when pull requests are required.
+Repository policy lives in `AGENTS.md` and the dstack workflow documentation.
+The skills coordinate the workflow, while code, tests, and documentation remain
+the authoritative evidence for implementation and supported behavior.
