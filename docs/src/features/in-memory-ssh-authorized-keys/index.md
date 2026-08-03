@@ -61,8 +61,9 @@ system manager denies `systemd-run`; native root-managed installations retain
 the transient systemd unit path.
 
 The host real-sshd integration is focused Linux coverage. The separate
-Compose/browser smoke remains deferred until a configured lab provides runtime
-secrets, authenticated Caddy/OIDC, a managed device, and browser automation.
+Compose/browser smoke also passed in the configured lab: it exercised the
+support-account login, safe diagnostic, terminal close, FRP cleanup, and
+post-revoke helper denial.
 
 ## Reference and Contracts
 
