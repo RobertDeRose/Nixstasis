@@ -172,7 +172,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
       true ->
         clear_ssh_session(socket)
 
-        with {:ok, %{private_key: private_key, public_key: public_key}} <-
+        with :ok <- validate_ssh_authorization_ttl(),
+             {:ok, %{private_key: private_key, public_key: public_key}} <-
                SshKeyManager.generate_key_pair(),
              {:ok, session_ref} <- SshKeyManager.create_terminal_session(device.id, private_key),
              {:ok, command} <-
@@ -221,10 +222,21 @@ defmodule NixstasisWeb.DeviceLive.Show do
     }
   end
 
+  defp validate_ssh_authorization_ttl do
+    case Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds) do
+      nil -> :ok
+      seconds when is_integer(seconds) and seconds > 0 -> :ok
+      _ -> {:error, "Invalid SSH authorization TTL configuration"}
+    end
+  end
+
   defp ssh_authorization_ttl_seconds do
     case Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds) do
-      seconds when is_integer(seconds) and seconds > 0 -> seconds
-      _ -> 300
+      seconds when is_integer(seconds) and seconds > 0 ->
+        min(seconds, SshKeyManager.terminal_session_ttl_seconds())
+
+      _ ->
+        300
     end
   end
 

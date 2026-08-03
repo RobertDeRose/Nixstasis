@@ -1097,6 +1097,63 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert device_id == device.id
     end
 
+    test "caps configured SSH authorization TTL at the terminal session lifetime", %{conn: conn} do
+      previous_ttl = Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds)
+
+      on_exit(fn ->
+        if is_nil(previous_ttl) do
+          Application.delete_env(:nixstasis, :ssh_authorization_ttl_seconds)
+        else
+          Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, previous_ttl)
+        end
+      end)
+
+      Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, 2 * 60 * 60)
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E7"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      _html =
+        view
+        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> render_click()
+
+      [command] = Nixstasis.Domain.list_pending_commands!()
+      payload_data = Jason.decode!(command.command_payload["payload"]["data"])
+      assert payload_data["ttl_seconds"] == 60 * 60
+    end
+
+    test "rejects non-positive configured SSH authorization TTL", %{conn: conn} do
+      previous_ttl = Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds)
+
+      on_exit(fn ->
+        if is_nil(previous_ttl) do
+          Application.delete_env(:nixstasis, :ssh_authorization_ttl_seconds)
+        else
+          Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, previous_ttl)
+        end
+      end)
+
+      Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, 0)
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E8"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      html =
+        view
+        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> render_click()
+
+      assert html =~ "Invalid SSH authorization TTL configuration"
+      assert Nixstasis.Domain.list_pending_commands!() == []
+    end
+
     test "terminal close clears consumed session assigns", %{conn: conn} do
       device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E6"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")

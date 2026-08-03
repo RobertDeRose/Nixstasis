@@ -15,6 +15,11 @@ defmodule Nixstasis.Devices.SshKeyManager do
     GenServer.start_link(__MODULE__, :terminal_sessions, name: @terminal_sessions_name)
   end
 
+  @doc """
+  Returns the maximum lifetime of server-side terminal key material in seconds.
+  """
+  def terminal_session_ttl_seconds, do: div(@terminal_session_ttl_ms, 1000)
+
   @impl true
   def handle_call({:create_terminal_session, device_id, private_key, ttl_ms}, _from, state) do
     session_ref = Ecto.UUID.generate()

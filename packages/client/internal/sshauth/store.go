@@ -18,14 +18,19 @@ type Entry struct {
 
 // Store keeps ephemeral SSH authorizations in process memory only.
 type Store struct {
-	mu      sync.RWMutex
-	entries map[string]Entry
-	now     func() time.Time
+	mu           sync.RWMutex
+	entries      map[string]Entry
+	expiryTimers map[string]*time.Timer
+	now          func() time.Time
 }
 
 // NewStore creates an empty authorization store.
 func NewStore() *Store {
-	return &Store{entries: make(map[string]Entry), now: time.Now}
+	return &Store{
+		entries:      make(map[string]Entry),
+		expiryTimers: make(map[string]*time.Timer),
+		now:          time.Now,
+	}
 }
 
 // NewStoreWithClock creates an empty store with a test-controlled clock.
@@ -33,7 +38,11 @@ func NewStoreWithClock(now func() time.Time) *Store {
 	if now == nil {
 		now = time.Now
 	}
-	return &Store{entries: make(map[string]Entry), now: now}
+	return &Store{
+		entries:      make(map[string]Entry),
+		expiryTimers: make(map[string]*time.Timer),
+		now:          now,
+	}
 }
 
 // Add stores a key for targetUser until now+ttl.
@@ -56,7 +65,14 @@ func (s *Store) Add(publicKey, targetUser, commandID, sessionRef string, ttl tim
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.purgeExpiredLocked(now)
-	s.entries[entryKey(targetUser, key.Type, key.Blob)] = entry
+	keyID := entryKey(targetUser, key.Type, key.Blob)
+	if timer := s.expiryTimers[keyID]; timer != nil {
+		timer.Stop()
+	}
+	s.entries[keyID] = entry
+	s.expiryTimers[keyID] = time.AfterFunc(ttl, func() {
+		s.expire(keyID, entry.ExpiresAt)
+	})
 	return entry, nil
 }
 
@@ -111,6 +127,10 @@ func (s *Store) RevokeAll() int {
 	now := s.now().UTC()
 	s.purgeExpiredLocked(now)
 	count := len(s.entries)
+	for key, timer := range s.expiryTimers {
+		timer.Stop()
+		delete(s.expiryTimers, key)
+	}
 	s.entries = make(map[string]Entry)
 	return count
 }
@@ -132,6 +152,10 @@ func (s *Store) deleteMatchingLocked(match func(Entry) bool) int {
 		entry := s.entries[key]
 		if match(entry) {
 			delete(s.entries, key)
+			if timer := s.expiryTimers[key]; timer != nil {
+				timer.Stop()
+				delete(s.expiryTimers, key)
+			}
 			count++
 		}
 	}
@@ -143,8 +167,24 @@ func (s *Store) purgeExpiredLocked(now time.Time) {
 		entry := s.entries[key]
 		if !entry.ExpiresAt.After(now) {
 			delete(s.entries, key)
+			if timer := s.expiryTimers[key]; timer != nil {
+				timer.Stop()
+				delete(s.expiryTimers, key)
+			}
 		}
 	}
+}
+
+func (s *Store) expire(keyID string, expiresAt time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, ok := s.entries[keyID]
+	if !ok || !entry.ExpiresAt.Equal(expiresAt) {
+		return
+	}
+	delete(s.entries, keyID)
+	delete(s.expiryTimers, keyID)
 }
 
 func entryKey(targetUser, keyType, keyBlob string) string {

@@ -51,8 +51,7 @@ defmodule Nixstasis.Devices.SshClient do
   end
 
   def ssh_user do
-    config = Application.get_env(:nixstasis, :ssh_client, [])
-    config |> Keyword.get(:user, "nixstasis-support") |> to_string()
+    "nixstasis-support"
   end
 
   def terminal_type do

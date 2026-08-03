@@ -99,6 +99,8 @@ Semantics:
   server.
 - `target_user` is required and must be `nixstasis-support`.
 - `ttl_seconds` must be positive and bounded by the server terminal-session TTL.
+  The shared maximum is 3,600 seconds (one hour), and the client must enforce
+  the same value before storing a key.
 - `session_ref` is stored with the authorization so explicit revocation can
   remove the key later.
 - The heartbeat JSON boundary must serialize the exact response shape consumed

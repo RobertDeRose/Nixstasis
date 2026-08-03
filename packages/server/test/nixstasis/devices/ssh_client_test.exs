@@ -89,14 +89,14 @@ defmodule Nixstasis.Devices.SshClientTest do
     assert SshClient.ssh_user() == "nixstasis-support"
   end
 
-  test "ssh_user can be configured" do
+  test "ssh_user ignores configured accounts other than nixstasis-support" do
     previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
 
     on_exit(fn -> restore_env(:ssh_client, previous_ssh_client) end)
 
     Application.put_env(:nixstasis, :ssh_client, user: "support-admin")
 
-    assert SshClient.ssh_user() == "support-admin"
+    assert SshClient.ssh_user() == "nixstasis-support"
   end
 
   test "terminal_type defaults to xterm-256color" do

@@ -45,3 +45,27 @@ func TestChownSocketGroupReturnsChownFailure(t *testing.T) {
 		t.Fatalf("chownSocketGroupWith() error = %v, want error containing %q", err, want)
 	}
 }
+
+func TestDecodeJSONMessageRejectsTrailingData(t *testing.T) {
+	var response QueryResponse
+	err := decodeJSONMessage(
+		strings.NewReader(`{"authorized":true}
+not-json
+`),
+		&response,
+	)
+	if err == nil {
+		t.Fatal("decodeJSONMessage() accepted trailing data")
+	}
+}
+
+func TestDecodeJSONMessageRejectsOversizedFrame(t *testing.T) {
+	var response QueryResponse
+	err := decodeJSONMessage(
+		strings.NewReader(strings.Repeat("x", maxIPCMessageBytes+1)+"\n"),
+		&response,
+	)
+	if err == nil {
+		t.Fatal("decodeJSONMessage() accepted an oversized message")
+	}
+}
