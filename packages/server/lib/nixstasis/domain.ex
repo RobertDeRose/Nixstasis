@@ -25,6 +25,12 @@ defmodule Nixstasis.Domain do
           name: "validate_builder_configuration"
       end
 
+      base_route "/device_runtime/devices", Nixstasis.Devices.Device do
+        route :get, "/", :list_runtime_devices, name: "list_runtime_devices"
+
+        route :post, "/register", :register_runtime_device, name: "register_runtime_device"
+      end
+
       base_route "/devices", Nixstasis.Devices.Device do
         get :read
         index :read

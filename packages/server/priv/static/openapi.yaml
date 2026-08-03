@@ -5472,6 +5472,11 @@ components:
       description: JWT for bearer authentication
       scheme: bearer
       type: http
+    deviceApiKey:
+      description: Registration-issued device token for runtime operations.
+      in: query
+      name: api_key
+      type: apiKey
 info:
   title: Nixstasis JSON API
   version: 1.0.0
@@ -7382,6 +7387,296 @@ paths:
           $ref: '#/components/responses/errors'
       tags:
         - custom_report
+  /api/json/device_runtime/devices:
+    get:
+      callbacks: {}
+      deprecated: false
+      description: list_runtime_devices operation on device resource
+      operationId: list_runtime_devices
+      parameters:
+        - in: query
+          name: account_number
+          required: false
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: approval_status
+          required: false
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: connectivity_status
+          required: false
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: ipv4_address
+          required: false
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+        - in: query
+          name: product
+          required: false
+          schema:
+            type: string
+            x-struct:
+            x-validate:
+          style: form
+      responses:
+        '200':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  data:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        account_number:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        approval_status:
+                          enum:
+                            - pending
+                            - approved
+                            - rejected
+                          type: string
+                          x-struct:
+                          x-validate:
+                        id:
+                          format: uuid
+                          type: string
+                          x-struct:
+                          x-validate:
+                        last_seen_at:
+                          anyOf:
+                            - format: date-time
+                              type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        mac_address:
+                          type: string
+                          x-struct:
+                          x-validate:
+                        metadata:
+                          type: object
+                          x-struct:
+                          x-validate:
+                        product_name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        schema:
+                          type: object
+                          x-struct:
+                          x-validate:
+                      required:
+                        - id
+                        - mac_address
+                        - approval_status
+                        - schema
+                        - metadata
+                      type: object
+                      x-struct:
+                      x-validate:
+                    type: array
+                    x-struct:
+                    x-validate:
+                  meta:
+                    type: object
+                    x-struct:
+                    x-validate:
+                required:
+                  - data
+                  - meta
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      security:
+        - bearerAuth: []
+      tags:
+        - device
+  /api/json/device_runtime/devices/register:
+    post:
+      callbacks: {}
+      deprecated: false
+      description: register_runtime_device operation on device resource
+      operationId: register_runtime_device
+      parameters: []
+      requestBody:
+        content:
+          application/vnd.api+json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  additionalProperties: false
+                  properties:
+                    account_number:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    ipv4_address:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    mac_address:
+                      type: string
+                      x-struct:
+                      x-validate:
+                    metadata:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    product_name:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    remote_access_requested:
+                      anyOf:
+                        - type: boolean
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    schema:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    schema_definition:
+                      anyOf:
+                        - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                  required:
+                    - mac_address
+                  type: object
+                  x-struct:
+                  x-validate:
+              required:
+                - data
+              type: object
+              x-struct:
+              x-validate:
+        description: Request body for the register_runtime_device operation on device resource
+        required: true
+      responses:
+        '201':
+          content:
+            application/vnd.api+json:
+              schema:
+                additionalProperties: false
+                properties:
+                  data:
+                    additionalProperties: false
+                    properties:
+                      account_number:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      api_token:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      approval_status:
+                        enum:
+                          - pending
+                          - approved
+                          - rejected
+                        type: string
+                        x-struct:
+                        x-validate:
+                      id:
+                        format: uuid
+                        type: string
+                        x-struct:
+                        x-validate:
+                      last_seen_at:
+                        anyOf:
+                          - format: date-time
+                            type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      mac_address:
+                        type: string
+                        x-struct:
+                        x-validate:
+                      metadata:
+                        type: object
+                        x-struct:
+                        x-validate:
+                      product_name:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      remote_access_requested:
+                        type: boolean
+                        x-struct:
+                        x-validate:
+                      schema:
+                        type: object
+                        x-struct:
+                        x-validate:
+                    required:
+                      - id
+                      - mac_address
+                      - approval_status
+                      - schema
+                      - metadata
+                      - remote_access_requested
+                    type: object
+                    x-struct:
+                    x-validate:
+                required:
+                  - data
+                type: object
+                x-struct:
+                x-validate:
+          description: Success
+        default:
+          $ref: '#/components/responses/errors'
+      security: []
+      tags:
+        - device
   /api/json/devices:
     get:
       callbacks: {}

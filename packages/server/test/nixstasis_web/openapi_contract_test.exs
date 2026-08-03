@@ -22,6 +22,23 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert openapi =~ "/api/json/builder_contract/builder_configurations/validate:"
   end
 
+  test "generated OpenAPI includes device runtime registration/list routes and security" do
+    openapi = YamlElixir.read_from_file!(@openapi_path)
+
+    list_operation = get_in(openapi, ["paths", "/api/json/device_runtime/devices", "get"])
+
+    registration_operation =
+      get_in(openapi, ["paths", "/api/json/device_runtime/devices/register", "post"])
+
+    assert list_operation["operationId"] == "list_runtime_devices"
+    assert registration_operation["operationId"] == "register_runtime_device"
+    assert list_operation["security"] == [%{"bearerAuth" => []}]
+    assert registration_operation["security"] == []
+    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "type"]) == "apiKey"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "in"]) == "query"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "name"]) == "api_key"
+  end
+
   test "generated OpenAPI excludes internal script workbench resources" do
     openapi = YamlElixir.read_from_file!(@openapi_path)
 

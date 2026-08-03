@@ -11,6 +11,41 @@ defmodule Nixstasis.Devices.Device do
     domain: Nixstasis.Domain,
     extensions: [AshJsonApi.Resource]
 
+  alias Nixstasis.Devices
+
+  @runtime_device_fields [
+    id: [type: :uuid, allow_nil?: false],
+    mac_address: [type: :string, allow_nil?: false],
+    product_name: [type: :string],
+    account_number: [type: :string],
+    approval_status: [type: Nixstasis.Types.ApprovalStatus, allow_nil?: false],
+    last_seen_at: [type: :utc_datetime],
+    schema: [type: :map, allow_nil?: false],
+    metadata: [type: :map, allow_nil?: false],
+    remote_access_requested: [type: :boolean, allow_nil?: false],
+    api_token: [type: :string]
+  ]
+
+  @runtime_list_device_fields [
+    id: [type: :uuid, allow_nil?: false],
+    mac_address: [type: :string, allow_nil?: false],
+    product_name: [type: :string],
+    account_number: [type: :string],
+    approval_status: [type: Nixstasis.Types.ApprovalStatus, allow_nil?: false],
+    last_seen_at: [type: :utc_datetime],
+    schema: [type: :map, allow_nil?: false],
+    metadata: [type: :map, allow_nil?: false]
+  ]
+
+  @runtime_response_fields [
+    data: [type: :map, allow_nil?: false, constraints: [fields: @runtime_device_fields]]
+  ]
+
+  @runtime_list_response_fields [
+    data: [type: {:array, :map}, allow_nil?: false, constraints: [items: [fields: @runtime_list_device_fields]]],
+    meta: [type: :map, allow_nil?: false]
+  ]
+
   postgres do
     table "devices"
     repo Nixstasis.Repo
@@ -87,6 +122,37 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
       validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
+    end
+
+    action :list_runtime_devices, :map do
+      constraints fields: @runtime_list_response_fields
+
+      argument :product, :string
+      argument :account_number, :string
+      argument :approval_status, :string
+      argument :connectivity_status, :string
+      argument :ipv4_address, :string
+
+      run fn input, _context ->
+        {:ok, Devices.runtime_list(input.arguments)}
+      end
+    end
+
+    action :register_runtime_device, :map do
+      constraints fields: @runtime_response_fields
+
+      argument :mac_address, :string, allow_nil?: false
+      argument :product_name, :string
+      argument :account_number, :string
+      argument :ipv4_address, :string
+      argument :schema_definition, :map
+      argument :schema, :map
+      argument :metadata, :map
+      argument :remote_access_requested, :boolean
+
+      run fn input, _context ->
+        Devices.register_runtime_device(input.arguments)
+      end
     end
   end
 

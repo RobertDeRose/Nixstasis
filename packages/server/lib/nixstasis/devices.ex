@@ -338,6 +338,64 @@ defmodule Nixstasis.Devices do
     |> Ash.read!(domain: Domain)
   end
 
+  @doc """
+  Returns the generated device-runtime list contract.
+
+  The action keeps filter normalization and the compatibility response fields in
+  the Devices context so generated and `/api/v1` transports use the same boundary.
+  """
+  def runtime_list(params \\ %{}) when is_map(params) do
+    filter = %{
+      approval_status: runtime_param(params, :approval_status),
+      connectivity_status: runtime_param(params, :connectivity_status),
+      product: runtime_param(params, :product),
+      account_number: runtime_param(params, :account_number),
+      ipv4_address: runtime_param(params, :ipv4_address)
+    }
+
+    %{
+      data:
+        list_devices(filter: filter)
+        |> Enum.map(&runtime_list_device_data/1),
+      meta: %{active_filters: runtime_active_filters(params)}
+    }
+  end
+
+  @doc """
+  Runs public registration for the generated device-runtime action.
+
+  Approved re-registration rotates the returned token just as the compatibility
+  controller does; pending devices receive no token.
+  """
+  def register_runtime_device(attrs) when is_map(attrs) do
+    with {:ok, device} <- register_public_device(attrs) do
+      {device, token} = runtime_registration_credentials(device)
+      {:ok, %{data: runtime_device_data(device, token)}}
+    end
+  end
+
+  def runtime_device_data(%Device{} = device, token \\ nil) do
+    data = %{
+      id: device.id,
+      mac_address: device.mac_address,
+      product_name: device.product_name,
+      account_number: device.account_number,
+      approval_status: device.approval_status,
+      last_seen_at: device.last_seen_at,
+      schema: device.schema,
+      metadata: device.metadata,
+      remote_access_requested: device.remote_access_requested
+    }
+
+    if is_binary(token), do: Map.put(data, :api_token, token), else: data
+  end
+
+  defp runtime_list_device_data(%Device{} = device) do
+    device
+    |> runtime_device_data()
+    |> Map.delete(:remote_access_requested)
+  end
+
   @doc "Returns active groups visible within the trusted device scope."
   def list_device_groups(%GroupAuthorization{} = authorization, opts \\ []) do
     include_archived? =
@@ -470,6 +528,42 @@ defmodule Nixstasis.Devices do
   end
 
   def normalize_connectivity_status_filter(_), do: nil
+
+  defp runtime_registration_credentials(%Device{approval_status: :approved} = device) do
+    case issue_device_token(device) do
+      {:ok, updated_device, token} -> {updated_device, token}
+      {:error, _reason} -> {device, nil}
+    end
+  end
+
+  defp runtime_registration_credentials(%Device{} = device), do: {device, nil}
+
+  defp runtime_active_filters(params) do
+    %{
+      "approval_status" =>
+        params
+        |> runtime_param(:approval_status)
+        |> normalize_approval_status_filter()
+        |> normalize_runtime_atom(),
+      "connectivity_status" =>
+        params
+        |> runtime_param(:connectivity_status)
+        |> normalize_connectivity_status_filter()
+        |> normalize_runtime_atom(),
+      "product" => runtime_param(params, :product) |> Device.normalize_filter_value(),
+      "account_number" => runtime_param(params, :account_number) |> Device.normalize_filter_value(),
+      "ipv4_address" => runtime_param(params, :ipv4_address) |> Device.normalize_filter_value()
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp runtime_param(params, key) do
+    Map.get(params, Atom.to_string(key)) || Map.get(params, key)
+  end
+
+  defp normalize_runtime_atom(nil), do: nil
+  defp normalize_runtime_atom(value) when is_atom(value), do: Atom.to_string(value)
 
   defp maybe_load_device_groups(query, true), do: Ash.Query.load(query, :device_groups)
   defp maybe_load_device_groups(query, false), do: query

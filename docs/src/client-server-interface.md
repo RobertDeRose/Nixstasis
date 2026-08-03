@@ -63,8 +63,10 @@ Traceable references:
 
 ## Device Runtime Ash/OpenAPI Boundary
 
-The Go client continues to use the `/api/v1` mapping above. The canonical
-contract for new integrations is the additive generated Ash route family:
+The Go client continues to use the `/api/v1` mapping above. The list and
+registration actions are now available in the additive generated route family;
+heartbeat, command-result, and payload actions follow in the ordered migration
+children. The canonical contract for new integrations is:
 
 - `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
   boundary and the device list filters, including `ipv4_address` and

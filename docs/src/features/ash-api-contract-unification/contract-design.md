@@ -199,15 +199,14 @@ OpenAPI documents the registration exception; it does not bypass the Plug. The
 `/api/v1` controllers retain the same lookup and error precedence during the
 transition.
 
-**Implementation handoff:** the current `JsonApiPermissions` plug intentionally
-has no `device_runtime` branch yet; `.7.39` records the boundary without enabling
-these routes. `.7.40` is the bounded prerequisite owner for adding the explicit
-`device_runtime` dispatch in the existing JSON API pipeline, the public
-registration exception, operator list policy, device lookup/API-key validation,
-`Ash.PlugHelpers.set_actor/2`, and route tests for `404`/`401`/`403` precedence.
-`.7.41` and `.7.42` must reuse that branch and may not expose generated heartbeat
-or command routes before it passes. This is the required security follow-up before
-any device-runtime generated route is enabled.
+**Implementation handoff:** `.7.40` implements the explicit `device_runtime`
+dispatch in the existing JSON API pipeline, including the public registration
+exception, operator list policy, device lookup/API-key validation,
+`Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests for `404`/`401`/`403`
+precedence. The list and registration generated routes are enabled by `.7.40`.
+`.7.41` and `.7.42` must reuse this branch before exposing generated heartbeat or
+command routes; their remaining work is action/orchestration implementation and
+OpenAPI coverage.
 
 Both generated and compatibility routes use the existing API rate limiter:
 heartbeat is 30 requests per 60 seconds per device identity and other API routes

@@ -54,9 +54,9 @@ query named `api_key`; it applies only to the last three operations. Registratio
 has `security: []`, and the generated list uses the operator bearer boundary. The
 raw key is assigned by the device-runtime permission plug and is not an Ash action
 argument. Unknown devices remain `404`, missing or invalid keys `401`, and
-unapproved devices `403`. `.7.40` is the bounded prerequisite for adding the
-`device_runtime` dispatch to the existing `JsonApiPermissions` pipeline and for
-setting the authenticated device actor; `.7.41` and `.7.42` reuse it. Generated
+unapproved devices `403`. `.7.40` implements the `device_runtime` dispatch in
+the existing `JsonApiPermissions` pipeline, sets the authenticated device actor,
+and enables the list/registration routes; `.7.41` and `.7.42` reuse it. Generated
 action schemas and the compatibility `device-api.yaml` sections remain side by
 side until runtime tests prove complete coverage in
 `packages/server/priv/static/openapi.yaml`.

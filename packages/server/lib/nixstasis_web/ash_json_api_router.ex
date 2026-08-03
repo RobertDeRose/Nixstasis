@@ -18,8 +18,63 @@ defmodule NixstasisWeb.AshJsonApiRouter do
   def modify_open_api(spec, _conn, _opts) do
     spec
     |> Map.update!(:security, fn _security -> [%{"bearerAuth" => []}] end)
+    |> put_device_runtime_security()
     |> put_builder_load_time_minimum()
     |> put_builder_error_responses()
+  end
+
+  defp put_device_runtime_security(%{paths: paths, components: components} = spec) do
+    paths =
+      paths
+      |> put_operation_security(
+        "/api/json/device_runtime/devices",
+        :get,
+        [%{"bearerAuth" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/register",
+        :post,
+        []
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        :post,
+        [%{"deviceApiKey" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/command_results",
+        :post,
+        [%{"deviceApiKey" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}",
+        :get,
+        [%{"deviceApiKey" => []}]
+      )
+
+    security_schemes =
+      (components.securitySchemes || %{})
+      |> Map.put(
+        "deviceApiKey",
+        %OpenApiSpex.SecurityScheme{
+          type: "apiKey",
+          in: "query",
+          name: "api_key",
+          description: "Registration-issued device token for runtime operations."
+        }
+      )
+
+    %{spec | paths: paths, components: %{components | securitySchemes: security_schemes}}
+  end
+
+  defp put_operation_security(paths, path, verb, security) do
+    case Map.get(paths, path) do
+      nil ->
+        paths
+
+      path_item ->
+        Map.put(paths, path, Map.update!(path_item, verb, &%{&1 | security: security}))
+    end
   end
 
   defp put_builder_error_responses(%{paths: paths} = spec) do
