@@ -343,18 +343,34 @@ components:
           type: string
         type:
           type: string
-          enum: [list_scripts, install_script, remove_script, ssh_authorize]
+          enum: [list_scripts, install_script, remove_script, ssh_authorize, ssh_revoke]
+          description: Dynamic SSH authorization commands use the exact versioned payload below; `ssh_revoke` removes a terminal session from the client in-memory store.
         args:
           type: array
           items:
             type: string
         public_key:
           type: string
-          description: SSH public key used when `type` is `ssh_authorize`.
+          description: Full authorized_keys-style SSH public key. Present only for `ssh_authorize` and remains top-level for client compatibility.
         payload_ref:
           type: string
         payload:
           type: object
+          description: For SSH commands, this object has the exact versioned content_type, name, and data fields described below; other command types may use their existing payload shape.
+          properties:
+            content_type:
+              type: string
+              enum:
+                - application/vnd.nixstasis.ssh-authorize+json;version=1
+                - application/vnd.nixstasis.ssh-revoke+json;version=1
+              description: Exact versioned dynamic SSH command content type.
+            name:
+              type: string
+              format: uuid
+              description: Terminal session ref; must match data.session_ref.
+            data:
+              type: string
+              description: JSON-encoded metadata. Authorize data includes target_user=nixstasis-support, ttl_seconds, and session_ref; revoke data includes session_ref.
           additionalProperties: true
     CommandResult:
       type: object

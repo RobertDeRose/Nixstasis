@@ -118,6 +118,8 @@ targeting the compose `postgres` host.
 - `NIXSTASIS_SSH_FRP_HOST` is the hostname Phoenix uses for browser terminal SSH
   connections to FRPS TCP mux. In Compose it should stay `frps`; outside Compose
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
+- The client poll service and root-owned SSH helper use the fixed local socket
+  `/run/nixstasis/ssh-authority.sock`; custom socket paths are unsupported.
 - The tracked dev/test env uses `./caddy/Caddyfile.dev`, which keeps the stack
   loopback-only and relies on Phoenix's explicit local auth fallback. Use
   `./caddy/Caddyfile.laptop` only when validating AuthCrunch with real OIDC
@@ -170,8 +172,10 @@ If the image is run with an explicit command instead of systemd, the entrypoint
 starts PCP directly before executing that command so PCP tooling can still be
 tested in non-systemd container runs.
 The image keeps `systemd-user-sessions.service` enabled so `/run/nologin` is
-removed during boot and browser SSH terminal sessions can log in as `nixstasis`.
-The tracked dev env enables the simulator HTTPS endpoint so
+removed during boot and browser SSH terminal sessions can log in as
+`nixstasis-support`. The `nixstasis` account remains the service identity, and
+`nixstasis-ssh-authority` runs only the narrow key lookup helper. The tracked dev
+env enables the simulator HTTPS endpoint so
 `atom-<normalized-device-id>.localhost` can traverse Caddy, FRPS, FRPC, and a
 real client-local TLS listener. Production env examples keep that endpoint
 disabled.

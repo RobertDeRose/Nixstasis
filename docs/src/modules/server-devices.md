@@ -113,10 +113,13 @@
   `session_ref`. The in-memory `ssh_authorize` payload is the only shape the
   server emits; there is no file-based fallback and no capability gate.
 - Browser terminal token activation is gated on an OK `ssh_authorize` command
-  result from the device.
-- Server queues an `ssh_revoke` command (`content_type:
+  result from the device. The channel requires the matching command ID and
+  session binding before starting SSH.
+- Server queues an idempotent `ssh_revoke` command (`content_type:
   application/vnd.nixstasis.ssh-revoke+json;version=1`) on terminal close,
-  session expiry, or cleanup paths as a best-effort early invalidation signal.
+  offline/lease expiry, queue failure, failed join, or other cleanup paths as a
+  best-effort early invalidation signal. The complete wire contract is in
+  [API & Runtime Contracts](../reference/contracts.md#browser-terminal-ssh-authorization-contract).
 - Device detail is reached through `/devices/:id`; opening remote-access tabs may
   set `remote_access_requested`, and close/cleanup paths must clear stale remote
   access intent.

@@ -115,6 +115,11 @@
 - `NIXSTASIS_SIMULATOR_HTTP_ENABLED`: enables the client simulator's local HTTPS
   endpoint for FRP HTTP-route smoke tests. Dev enables it; production examples
   keep it disabled.
+- Browser terminal SSH uses the dedicated `nixstasis-support` account and the
+  fixed client/helper IPC socket `/run/nixstasis/ssh-authority.sock`. The
+  service identity is `nixstasis`; `nixstasis-ssh-authority` is the locked
+  `AuthorizedKeysCommandUser`. New installs use `AuthorizedKeysFile none` and
+  do not write browser-terminal keys to a persistent file.
 
 ### Hostnames
 
@@ -166,6 +171,9 @@
   to point at an external managed database.
 - The bundled PostgreSQL volume mounts at `/var/lib/postgresql` for compatibility
   with PostgreSQL 18+ image data directories.
+- The Compose client provisions `/run/nixstasis` for the poll service and uses
+  the same fixed SSH authority socket as the installed helper; custom socket
+  paths are not part of the supported deployment contract.
 - Release image references are pinned in Compose configuration; local development
   builds images locally with `dev` tags.
 - `packages/frp` currently provides FRPS image build assets and the shared FRP

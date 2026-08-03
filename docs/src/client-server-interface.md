@@ -857,8 +857,22 @@ Traceable references:
 - The high-level split between browser, device, Caddy, Ash JSON:API, and E2E
   API surfaces is summarized in [Architecture Overview](architecture.md).
 - Terminal sockets require Phoenix tokens:
-  - socket token signed for `terminal_socket`.
-  - join payload contains an opaque server-side terminal session ref.
+  - the `terminal_socket` token is exposed only after the matching
+    `ssh_authorize` command result is `OK`;
+  - join payloads contain an opaque server-side terminal session ref and the
+    non-empty matching `command_id`;
+  - the channel revalidates device ownership, command type, versioned content
+    type, and `payload.name`/`data.session_ref` binding.
+- Device heartbeat commands use the exact dynamic SSH contracts:
+  - `ssh_authorize` has top-level `public_key` and a versioned payload targeting
+    `nixstasis-support` with positive TTL and session ref;
+  - `ssh_revoke` has versioned payload content type
+    `application/vnd.nixstasis.ssh-revoke+json;version=1` and matching session
+    ref, and is an idempotent best-effort cleanup command.
+- The client and installed OpenSSH helper use the fixed local socket
+  `/run/nixstasis/ssh-authority.sock`; no browser-terminal key is persisted in
+  an `authorized_keys` file. See [API & Runtime Contracts](reference/contracts.md#browser-terminal-ssh-authorization-contract)
+  for the complete command payloads.
 - Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as an `api_key` query parameter.
 - `apply_command_policy` uses the same heartbeat + optional command-payload-ref transport as other runtime commands; clients persist the accepted policy outside the script directory and use it to override local `runtime.exec_commands` until a newer server policy replaces it.
 - E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled`.

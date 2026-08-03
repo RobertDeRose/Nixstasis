@@ -113,6 +113,76 @@ workflow, recovery, and retention guidance.
 - [Runtime Boundaries](../runtime-boundaries.md): process, network, data, secret,
   and test-only boundaries.
 
+## Browser Terminal SSH Authorization Contract
+
+Browser operator authorization and device-side SSH authorization are separate
+boundaries. Caddy/AuthCrunch and Phoenix authorize the operator; the managed
+client and OpenSSH authorize the ephemeral device-side key.
+
+The server emits only the dynamic command forms below. It does not send an
+`authorized_keys_path`, capability flag, or file-based browser-terminal fallback.
+
+### `ssh_authorize`
+
+`ssh_authorize` is delivered in the device heartbeat `commands` array:
+
+```json
+{
+  "command_id": "<uuid>",
+  "type": "ssh_authorize",
+  "public_key": "ssh-ed25519 AAAA... nixstasis-remote-access",
+  "payload": {
+    "content_type": "application/vnd.nixstasis.ssh-authorize+json;version=1",
+    "name": "<session-ref>",
+    "data": "{\"target_user\":\"nixstasis-support\",\"ttl_seconds\":300,\"session_ref\":\"<session-ref>\"}"
+  }
+}
+```
+
+- `public_key` remains top-level and is the full authorized-keys-style public
+  key consumed by the Go client.
+- `payload.name` and the JSON `data.session_ref` must equal the opaque terminal
+  session ref. `target_user` is always `nixstasis-support`.
+- `ttl_seconds` is positive and cannot exceed the shared one-hour terminal
+  lifetime (`3,600` seconds).
+- The client validates the exact versioned content type and stores the key only
+  in memory. Client restart, expiry, or revoke invalidates it.
+
+The LiveView creates the session ref and queues this command first. It exposes
+no terminal socket token until the matching command result is `OK`. The
+TerminalChannel requires the non-empty matching command ID and revalidates the
+command type, device ownership, content type, and session ref before starting
+SSH. Authorization failure or the bounded timeout clears the server session
+and stops browser retry.
+
+### `ssh_revoke`
+
+When a terminal closes, expires, goes offline, or fails after session creation,
+the server best-effort queues an idempotent revoke command:
+
+```json
+{
+  "command_id": "<uuid>",
+  "type": "ssh_revoke",
+  "payload": {
+    "content_type": "application/vnd.nixstasis.ssh-revoke+json;version=1",
+    "name": "<session-ref>",
+    "data": "{\"session_ref\":\"<session-ref>\"}"
+  }
+}
+```
+
+The revoke is device-scoped and duplicate queue attempts for one session are
+collapsed. Queue failure never prevents server key cleanup. Unknown session
+refs are not revoked by failed browser joins, and the client treats an unknown
+revoke as a no-op.
+
+The client poller and installed root-owned `AuthorizedKeysCommand` wrapper use
+the fixed local Unix socket `/run/nixstasis/ssh-authority.sock`. The helper does
+not load general client configuration or trust a per-request path. New installs
+use `nixstasis-support` for the terminal, `nixstasis` for the service, and the
+locked `nixstasis-ssh-authority` account to run the helper.
+
 ## Browser Authorization Contract
 
 - Caddy/AuthCrunch is the production browser authentication and authorization

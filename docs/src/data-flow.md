@@ -124,7 +124,7 @@ Traceable references:
 4. Client receives commands in `PollResponse.Commands`.
 5. Client fetches any deferred payload with `GET /api/v1/devices/:uuid/command_payloads/:ref`.
 6. Client command handler executes supported commands: `list_scripts`,
-   `install_script`, `remove_script`, and `ssh_authorize`.
+   `install_script`, `remove_script`, `ssh_authorize`, and `ssh_revoke`.
 7. Client posts results to `POST /api/v1/devices/:uuid/command_results?api_key=...`.
 8. Phoenix `DeviceCommandController.command_results/2` calls `Devices.acknowledge_command_results/2`.
 
@@ -208,10 +208,12 @@ sequenceDiagram
     LiveView->>Devices: Generate SSH key pair
     LiveView->>Devices: Create terminal session ref
     LiveView->>Devices: Queue ssh_authorize command
+    LiveView-->>Browser: Keep terminal socket token withheld
     Client->>Devices: Heartbeat claims command
     Client->>Client: Validate payload, store key in memory
     Client->>IPC: ssh-authority.sock (key stored)
     Device-->>Devices: OK command result
+    LiveView->>Devices: Verify command type and session binding
     LiveView->>Browser: Activate terminal socket token
     Browser->>Socket: Join terminal:<device_id>
     Socket->>Devices: Resolve terminal session ref
@@ -244,12 +246,21 @@ sequenceDiagram
     and starts `Nixstasis.Devices.SshClient` targeting `nixstasis-support`.
 11. `SshClient` writes private key to a temp file and opens an `ssh` Port using
     `ncat` as HTTP proxy to the FRP TCP mux endpoint.
-12. Device-side sshd invokes `AuthorizedKeysCommand` with `%u %t %k`; the helper
-    queries the client IPC server and prints the authorized key on match.
+12. Device-side sshd invokes `AuthorizedKeysCommand` with `%u %t %k`; the
+    root-owned helper uses the fixed `/run/nixstasis/ssh-authority.sock`, queries
+    the client IPC server, and prints the authorized key on an exact match.
 13. Browser input is sent to `SshClient.send_data/2`.
 14. SSH process output is pushed back as channel `output` events.
-15. Session stops on SSH exit, idle timeout, or max duration. Server queues an
-    `ssh_revoke` command as a best-effort early cleanup signal.
+15. Session stops on SSH exit, idle timeout, or max duration. Server clears
+    server-side key material first, then best-effort queues an idempotent
+    `ssh_revoke` command with content type
+    `application/vnd.nixstasis.ssh-revoke+json;version=1` and matching
+    `name`/`data.session_ref`. Offline, lease-expiry, queue-failure, and failed
+    join paths use the same cleanup boundary; unknown join refs do not create a
+    revoke.
+
+The exact command payload and cleanup contract is documented in
+[API & Runtime Contracts](reference/contracts.md#browser-terminal-ssh-authorization-contract).
 
 Traceable references:
 

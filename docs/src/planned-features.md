@@ -408,7 +408,7 @@ cohort instead of relying only on product, account, status, and search filters.
   `authorized_keys` file for browser-terminal keys.
 - Add an OpenSSH config snippet equivalent to:
   `Match User nixstasis-support`, `AuthorizedKeysFile none`,
-  `AuthorizedKeysCommand /usr/libexec/nixstasis/ssh-authorized-keys %u %k`,
+  `AuthorizedKeysCommand /usr/libexec/nixstasis/ssh-authorized-keys %u %t %k`,
   and `AuthorizedKeysCommandUser nixstasis-ssh-authority`.
 - Add a locked-down `nixstasis-ssh-authority` system user for running the helper;
   it must not be the `nixstasis-support` operator account.
@@ -421,9 +421,9 @@ cohort instead of relying only on product, account, status, and search filters.
 - The Go client must maintain an in-memory set of ephemeral SSH public keys with
   metadata such as target user, command/session id, issued time, expiry time,
   and optional device/session context.
-- The Go client must expose a local-only IPC endpoint, preferably a Unix-domain
-  socket under `/run/nixstasis/`, for the helper to query current SSH key
-  authorization state.
+- The Go client must expose a local-only IPC endpoint at the fixed Unix-domain
+  socket `/run/nixstasis/ssh-authority.sock` for the helper to query current SSH
+  key authorization state.
 - The IPC socket must have strict permissions so only the helper identity and the
   client runtime can access it.
 - The client must enforce key TTL and remove keys after expiry, explicit terminal
@@ -464,10 +464,11 @@ cohort instead of relying only on product, account, status, and search filters.
   device with the public key, target user `nixstasis-support`, and a short TTL.
 - Client receives the command during polling and stores the public key in memory
   only.
-- Server opens the browser terminal channel and starts `ssh` through FRP as
-  `nixstasis-support@atom-<device>-ssh`.
+- The server waits for the matching `ssh_authorize` command result to be `OK`,
+  then exposes the terminal socket token and opens the browser terminal channel.
+- The server starts `ssh` through FRP as `nixstasis-support@atom-<device>-ssh`.
 - Device `sshd` receives the public-key authentication attempt and invokes
-  `/usr/libexec/nixstasis/ssh-authorized-keys %u %k` as
+  `/usr/libexec/nixstasis/ssh-authorized-keys %u %t %k` as
   `nixstasis-ssh-authority`.
 - The helper sends the username and offered key to the client IPC socket.
 - The client checks the in-memory authorization set, TTL, and target user.
@@ -475,8 +476,10 @@ cohort instead of relying only on product, account, status, and search filters.
   successfully; OpenSSH continues login.
 - If not authorized, expired, or the client is unavailable, the helper prints
   nothing and OpenSSH denies the key.
-- When the terminal closes, the server may send an explicit revoke/close command
-  if available; independently, the client expires the key by TTL.
+- When the terminal closes or fails, the server clears its private key material
+  and queues an idempotent `ssh_revoke` command with
+  `application/vnd.nixstasis.ssh-revoke+json;version=1`; independently, the
+  client expires the key by TTL.
 - Packaging and installer requirements:
 - Client installers must create or update `nixstasis-support` for operator SSH
   sessions.
@@ -494,9 +497,9 @@ cohort instead of relying only on product, account, status, and search filters.
   unless the design explicitly defines cleanup; avoid deleting operator-owned
   keys unexpectedly.
 - Migration and compatibility notes:
-- The dynamic `ssh_authorize` payload is the only path. There is no
-  `runtime.authorized_keys_path` runtime config and no file-based fallback for
-  browser-terminal SSH keys.
+- The dynamic `ssh_authorize` and `ssh_revoke` payloads are the only paths. There
+  is no `runtime.authorized_keys_path` runtime config and no file-based fallback
+  for browser-terminal SSH keys.
 - Server command payloads do not need a compatibility shape: the dynamic JSON
   payload is the only `ssh_authorize` shape the server emits, and the Go client
   always writes offered keys into its in-memory store.
