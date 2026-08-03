@@ -61,6 +61,30 @@ Traceable references:
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
 
+## Device Runtime Ash/OpenAPI Boundary
+
+The Go client continues to use the `/api/v1` mapping above. The canonical
+contract for new integrations is the additive generated Ash route family:
+
+- `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
+  boundary and the device list filters, including `ipv4_address` and
+  `connectivity_status`.
+- `POST /api/json/device_runtime/devices/register` is the public registration
+  action; it does not use a device API key.
+- Heartbeat, command-result, and deferred-payload actions use
+  `?api_key=...` with the generated OpenAPI `deviceApiKey` scheme (`apiKey`, query
+  parameter named `api_key`). The device-runtime permission boundary performs
+  lookup and authentication before the Ash action; unknown devices are `404`,
+  missing/invalid keys are `401`, and unapproved devices are `403`.
+
+Generated action schemas are canonical for Ash consumers and use the Ash
+JSON:API media type. The `/api/v1` endpoints remain compatibility wrappers with
+the exact JSON envelopes and status codes documented below. Both surfaces share
+the same device, monitoring, pending-command, script, and command-policy
+orchestration; the generated route must not turn heartbeat or command delivery
+into generic CRUD. Heartbeat remains limited to 30 requests per device per
+60-second window, while other API routes use the 120-request default.
+
 ## Request and Response Formats
 
 ### Device Registration
@@ -92,6 +116,11 @@ Request:
   }
 }
 ```
+
+The request may also carry `ipv4_address` directly; when it is absent, the
+server derives it from `metadata.ip_address`. Public registration accepts either
+`schema_definition` or the legacy `schema` alias, but the schema must include a
+`product` value.
 
 Pending approval response:
 
@@ -785,8 +814,10 @@ Traceable references:
 - Runtime device API requests without `api_key` return HTTP `401` with code `missing_api_key`.
 - Runtime device API requests with an invalid `api_key` return HTTP `401` with code `invalid_api_key`.
 - Heartbeat rejects unapproved devices with HTTP `403` and code `device_not_approved`.
-- Command results without a results list return HTTP `400`.
-- Command-result processing errors return HTTP `422`.
+- Command results without a results list return HTTP `400`; the current list-input
+  controller path has no reachable `422` processing-error branch.
+- Generated device action routes use explicit JSON:API validation/error documents;
+  that generated contract does not change the `/api/v1` wrapper behavior.
 - Command payload lookup returns HTTP `404` for missing payloads.
 - TLS domain denial returns HTTP `401` and `{"error":"The host is not permitted"}`.
 - E2E create returns typed error codes in an `error` object.

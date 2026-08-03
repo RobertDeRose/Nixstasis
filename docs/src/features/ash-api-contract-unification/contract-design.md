@@ -119,39 +119,168 @@ Candidate endpoints:
 - `POST /api/v1/devices/:device_id/command_results`
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
 
-Proposed model:
+The device runtime is the next Ash-backed implementation group, not a deferred
+candidate. The contract is split into an Ash-generated surface and an unchanged
+compatibility surface so the Go client does not need an unversioned migration.
 
-- Treat the device runtime as the next Ash-backed implementation group, not as a
-  deferred candidate. First capture the existing wire/auth/status/side-effect
-  contract and define the domain orchestration boundary.
-- Use `Nixstasis.Devices.Device` for device-centric registration and read actions.
-  Use domain-specific actions around `Devices` and `PendingCommand` for runtime
-  operations rather than modeling heartbeat and command delivery as simple CRUD.
-- Target `Device.read` or a filtered read action for `GET /api/v1/devices`,
-  preserving filters `product`, `account_number`, `approval_status`,
-  `connectivity_status`, and `ipv4_address`.
-- Target `Device.register` for `POST /api/v1/devices/register`, preserving
-  request fields `mac_address`, `product_name`, and dynamic `metadata`, and
-  response fields currently emitted by `DeviceController.device_data/2`.
-- Add a heartbeat action or orchestration action that owns the existing
-  `Monitoring.heartbeat/2` behavior, preserving telemetry, inventory,
-  offline-alert resolution, command delivery, rate limits, and
-  `remote_access_token`/`commands` responses.
-- Add domain-specific command-result acknowledgement and deferred-payload
-  actions, preserving the `results` array, `acknowledged_count`,
-  `content_type`, `name`, and `data`.
-- Preserve Go client runtime compatibility exactly, including status codes,
-  `api_key` query authentication, pending/approved registration tokens, heartbeat
-  responses, command result acknowledgement, and command payload shape.
-- Publish generated OpenAPI coverage where it can represent the device contract;
-  retain a thin `/api/v1` compatibility wrapper when existing transport or
-  device-authenticated semantics cannot be replaced without a versioned client
-  migration.
-- Reconcile the undocumented `ipv4_address` device list filter before conversion.
+#### Ash ownership and orchestration boundary
 
-Device runtime APIs are high risk because they are consumed by the Go client.
-Baseline compatibility tests, OpenAPI diffs, and explicit authentication design
-must precede each conversion group.
+- `Nixstasis.Devices.Device` owns the persisted device resource and the existing
+  `:read` and `:register` Ash actions. Registration remains a domain action rather
+  than generic device creation because it validates the public schema, preserves
+  the MAC identity/approval state, and issues a token only after an approved
+  result.
+- The generated runtime action boundary uses five explicit non-CRUD action names:
+  `:list_runtime_devices`, `:register_runtime_device`, `:heartbeat`,
+  `:acknowledge_command_results`, and `:fetch_command_payload`. The first two
+  adapt `Device.read`/`Device.register` and `Devices` normalization; the latter
+  three delegate to the existing orchestration contexts. Their Ash action inputs
+  and outputs must be explicit in generated OpenAPI.
+- `Nixstasis.Devices` owns registration normalization and token issuance,
+  device lookup/authentication, list filter normalization, pending-command
+  claiming/acknowledgement, and deferred-payload extraction.
+- `Nixstasis.Monitoring` remains the heartbeat orchestrator. The heartbeat action
+  delegates to it for last-seen updates, sanitized telemetry persistence,
+  best-effort inventory persistence, offline-alert resolution, rule evaluation,
+  and pending-command delivery. `Nixstasis.Scripts` and
+  `Nixstasis.CommandAllowlists` retain command-result side effects.
+- The web layer owns only transport adaptation: parsing the legacy body/query
+  shape, selecting the compatibility status/error envelope, and delegating to
+  the Ash/domain action. It must not reimplement authentication or workflow
+  side effects in each controller.
+
+#### Generated transport and security decision
+
+The canonical generated target is an additive Ash JSON:API route family under
+`/api/json/device_runtime/devices`. It is intentionally separate from the
+operator CRUD family at `/api/json/devices`:
+
+| Generated route                                                           | Ash/domain boundary                                                                                                 | Authentication                                                                          |
+|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| `GET /api/json/device_runtime/devices`                                    | `:list_runtime_devices`, which adapts `Devices.list_devices/1` and returns normalized active-filter metadata.       | Operator bearer/device-view permission; this is not a device-runtime API-key operation. |
+| `POST /api/json/device_runtime/devices/register`                          | `:register_runtime_device`, which calls `Device.register` through public normalization and approved-token issuance. | No application API key; deployment-edge protection remains separate.                    |
+| `POST /api/json/device_runtime/devices/{device_id}/heartbeat`             | `:heartbeat`, delegating to `Monitoring.heartbeat/2`.                                                               | `deviceApiKey` query security.                                                          |
+| `POST /api/json/device_runtime/devices/{device_id}/command_results`       | `:acknowledge_command_results`, with `Scripts` and `CommandAllowlists` ingestion.                                   | `deviceApiKey` query security.                                                          |
+| `GET /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}` | `:fetch_command_payload`, backed by `Devices.get_command_payload/2`.                                                | `deviceApiKey` query security.                                                          |
+
+The generated family uses the Ash JSON:API media type and an explicit OpenAPI
+schema for each action. POST action inputs are JSON:API `data` objects; the
+compatibility wrappers continue to accept their current plain JSON objects. The
+required generated inputs are `mac_address` plus `schema_definition` or legacy
+`schema` for registration; `telemetry`, `connection_status`, and optional
+`command_inventory` for heartbeat; and a required `results` array for command
+acknowledgement. List filters are query inputs (`product`, `account_number`,
+`approval_status`, `connectivity_status`, and `ipv4_address`); payload fetch uses
+`device_id` and `ref` path inputs. These are generic Ash action routes, not generic
+CRUD:
+`list_runtime_devices` returns the logical `data` collection and normalized
+`meta.active_filters`; `register_runtime_device` returns the logical registration
+fields and optional token; `heartbeat` returns `data.commands` plus optional probe
+and remote-access fields; `acknowledge_command_results` returns
+`data.acknowledged_count`; and `fetch_command_payload` returns the raw payload
+fields. Generated action routes explicitly set statuses `200`, `201`, `200`,
+`202`, and `200` respectively, and use JSON:API error documents for auth,
+validation, and not-found failures. The current `/api/v1` paths remain the
+compatibility transport with their exact `application/json` body/status/error
+behavior. Both surfaces call the same Ash/domain boundary; the Go client remains
+on `/api/v1` until a separately reviewed client migration is approved.
+
+`deviceApiKey` is the route-level generated OpenAPI security scheme:
+`type: apiKey`, `in: query`, `name: api_key`. The existing `/api/json` pipeline
+must dispatch these paths explicitly before its generic `JsonApiPermissions`
+policy: `GET` list uses the existing operator bearer/device-view check,
+`POST .../register` is an application-level public exception, and the three
+runtime actions fetch the device and authenticate the query key. The permission
+boundary sets the authenticated device with `Ash.PlugHelpers.set_actor/2` (and
+context when needed) before forwarding to `AshJsonApiRouter`; the raw key is never
+an action argument. It must preserve error precedence: unknown device `404`,
+missing/invalid key `401`, and unapproved device `403`. `security: []` in generated
+OpenAPI documents the registration exception; it does not bypass the Plug. The
+`/api/v1` controllers retain the same lookup and error precedence during the
+transition.
+
+**Implementation handoff:** the current `JsonApiPermissions` plug intentionally
+has no `device_runtime` branch yet; `.7.39` records the boundary without enabling
+these routes. `.7.40` is the bounded prerequisite owner for adding the explicit
+`device_runtime` dispatch in the existing JSON API pipeline, the public
+registration exception, operator list policy, device lookup/API-key validation,
+`Ash.PlugHelpers.set_actor/2`, and route tests for `404`/`401`/`403` precedence.
+`.7.41` and `.7.42` must reuse that branch and may not expose generated heartbeat
+or command routes before it passes. This is the required security follow-up before
+any device-runtime generated route is enabled.
+
+Both generated and compatibility routes use the existing API rate limiter:
+heartbeat is 30 requests per 60 seconds per device identity and other API routes
+are 120 requests per 60 seconds. The generated heartbeat path must be included in
+heartbeat detection before it is enabled. The committed
+`docs/src/reference/openapi/device-api.yaml` remains the reference for the
+compatibility paths until each generated path has runtime tests and appears in
+the generated static artifact; duplicate hand-maintained sections are removed
+only after that evidence exists.
+
+#### Current `/api/v1` compatibility contract
+
+The following behavior is the baseline that every generated action and wrapper
+must preserve at the domain/side-effect level:
+
+- **List — `GET /api/v1/devices`:** the current `:api` pipeline has no
+  application-level authentication (deployment-edge protection is separate) and
+  uses the 120/60-second limit. `Devices.list_devices/1` applies exact product,
+  account, approval, connectivity, and `ipv4_address` filters. Connectivity is
+  online when `last_seen_at` is within five minutes and offline when it is older
+  or nil. Success is `200` with `{"data": [...], "meta": {"active_filters": ...}}`;
+  filter values are normalized before being echoed. The route has no mutation
+  side effects and returns `429` when its 120/60-second limit is exceeded.
+- **Registration — `POST /api/v1/devices/register`:** the current `:api`
+  pipeline has no device API-key requirement and uses the 120/60-second limit.
+  `schema_definition` is copied to `schema`; `schema` is the legacy alias; public
+  registration requires a schema with `product`; and `ipv4_address` may be taken
+  from either the direct field or `metadata.ip_address`. The Ash upsert is by MAC
+  and preserves `id` and `approval_status` during persistence. An approved
+  re-registration then rotates the token hash and returns the new `api_token`; a
+  pending device receives no token. Success is `201` with `data` containing the
+  device fields and the token only when the resulting device is approved. Invalid
+  or missing schema and Ash validation failures are `422` errors; the route also
+  returns `429` when its 120/60-second limit is exceeded.
+- **Heartbeat — `POST /api/v1/devices/:device_id/heartbeat`:** the controller
+  fetches the device before authenticating `api_key`; approved devices require a
+  secure token match. The route is limited to 30/60 seconds per device. A
+  successful `200` response contains `data.commands` and may contain the
+  server-owned `command_inventory_probe` and the FRPS `remote_access_token`.
+  Telemetry is sanitized so top-level and nested `command_inventory` do not enter
+  the telemetry event; inventory is persisted separately and malformed inventory
+  is best effort. The heartbeat updates last-seen state, resolves offline alerts,
+  evaluates rules, and claims at most 50 queued pending commands in FIFO order.
+  Failure classes are `404` device-not-found, `401` missing/invalid key, `403`
+  unapproved device, `422` heartbeat failure, and `429` rate limit.
+- **Command results — `POST /api/v1/devices/:device_id/command_results`:** the
+  request requires a list under `results`; success is `202` with
+  `data.acknowledged_count`. Scripts and command-policy consumers ingest results
+  before matching pending commands are acknowledged. Unknown or non-matching
+  command IDs are ignored. A repeated ID currently re-reads an already-acked
+  pending command, merges the result again, and increments the acknowledgement
+  count; this is the observed compatibility behavior, not an idempotency guarantee.
+  Missing/invalid keys, unknown devices, and unapproved devices retain
+  `401`/`404`/`403`; a non-list body is `400`. The current controller has no
+  reachable `422` processing-error branch for a list input, so `.7.42` must not
+  invent one or silently change replay behavior; any future hardening requires an
+  explicit versioned contract decision. The route returns `429` when its
+  120/60-second limit is exceeded.
+- **Deferred payload — `GET /api/v1/devices/:device_id/command_payloads/:ref`:**
+  lookup and API-key authentication use the same precedence and `120/60-second`
+  route limit. Success is `200` with the raw `{content_type, name, data}` payload;
+  missing device or payload is `404`, missing/invalid key is `401`, and an
+  unapproved device is `403`. Fetching a payload has no command acknowledgement
+  side effect; rate limiting returns `429`.
+
+The required baseline is covered by the server controller/domain tests and the
+Go transport tests before each conversion group. Source references are the five
+routes in `packages/server/lib/nixstasis_web/router.ex`,
+`DeviceController`, `HeartbeatController`, `DeviceCommandController`,
+`Nixstasis.Devices`, `Nixstasis.Monitoring`,
+`packages/client/internal/transport/client.go`, and the focused tests under
+`packages/server/test/nixstasis_web/controllers/` plus
+`packages/client/internal/transport/`.
 
 ### Report Result API
 

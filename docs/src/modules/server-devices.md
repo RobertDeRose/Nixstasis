@@ -122,6 +122,24 @@
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 
+## Ash API Boundary
+
+Device runtime migration has two deliberate HTTP surfaces:
+
+- The Go client remains on `/api/v1` compatibility controllers until each
+  generated action has runtime and transport evidence.
+- The generated target is `/api/json/device_runtime/devices`: an operator-gated
+  filtered list, a public registration action, and API-key-gated heartbeat,
+  command-result, and payload actions. The API key is the `api_key` query value
+  represented by the generated OpenAPI `deviceApiKey` scheme.
+
+`Device` owns resource/action contracts. `Devices` owns registration, token
+issuance, device authentication, filters, pending commands, and payload lookup;
+`Monitoring` owns heartbeat orchestration and telemetry/inventory/alert side effects; scripts and command-policy contexts retain result ingestion. The
+compatibility controllers only adapt legacy JSON/status/error envelopes. See the
+[client-server interface](../client-server-interface.md) for the route matrix and
+wire invariants.
+
 ## Device Group Contracts
 
 - Device groups are browser control-plane data. The server exposes no public

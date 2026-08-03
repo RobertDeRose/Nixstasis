@@ -128,7 +128,13 @@ Only `command_path_resolved` is sufficient for catalog-backed assignment without
   the Ash builder actions. GET wrappers keep their `application/json` `data`
   envelopes, while validation keeps its raw `application/json` result and all
   wrappers preserve their legacy status/error shapes.
+- The device runtime is the next generated-contract group. Its approved target
+  is `/api/json/device_runtime/devices`; route-level `deviceApiKey` query
+  security applies to heartbeat, command-result, and deferred-payload actions,
+  while registration is public at the application layer and the generated list
+  uses the operator bearer boundary. The Go client remains on `/api/v1` until
+  compatibility evidence is complete.
 - Other bespoke Phoenix controller APIs under `/api/v1` and `/e2e` are documented
   by the OpenAPI files in [OpenAPI Contracts](openapi/index.md) and the
   human-readable references above; they are not covered by the Ash generated
-  OpenAPI document.
+  OpenAPI document unless a route group is explicitly migrated.

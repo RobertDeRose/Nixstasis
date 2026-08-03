@@ -67,8 +67,12 @@ contract model, not UI-only routes or every internal HTTP handler.
   and the generated `packages/server/priv/static/openapi.yaml` artifact. The six
   script-workbench persistence resources remain Ash-owned but are domain-only;
   their generic CRUD routes are intentionally not exposed.
-- Device runtime behavior remains in bespoke `/api/v1` controllers and is used by
-  the Go client for registration, heartbeat, command results, and payload fetches.
+- The Go client remains on the bespoke `/api/v1` compatibility transport for
+  registration, heartbeat, command results, and payload fetches during migration.
+  The canonical generated target is the additive
+  `/api/json/device_runtime/devices` route family with route-level operator,
+  public-registration, and `deviceApiKey` security as defined in
+  `contract-design.md`.
 - Caddy, E2E, and development-diagnostic protocols remain controller-owned.
 - Report result preview is controller-owned and has no confirmed external export
   consumer.
@@ -174,10 +178,13 @@ Initial classifications:
 2. Rebaseline the already-delivered builder Ash routes and their `/api/v1`
    compatibility wrappers. Resolve generated-route authentication, wire-shape,
    status, and OpenAPI artifact evidence before adding another conversion.
-3. Convert the device runtime one coherent group at a time. Define Ash-backed
-   actions and the orchestration boundary first, then preserve the existing
-   device-authenticated compatibility transport while generated OpenAPI coverage
-   and Go-client tests are added.
+3. Convert the device runtime one coherent group at a time. The approved target
+   is `/api/json/device_runtime/devices`: an operator-gated filtered list, a public
+   registration action, and API-key-gated heartbeat/command actions. Define the
+   Ash actions, device-runtime permission plug, route-level OpenAPI security, and
+   orchestration boundary first; preserve the existing device-authenticated
+   `/api/v1` compatibility transport while generated coverage and Go-client tests
+   are added.
 4. Generate or refresh OpenAPI from Ash after each converted API group and verify
    that the served runtime specification and committed static artifact agree.
 5. Remove duplicate hand-maintained OpenAPI sections only when generated OpenAPI
@@ -298,6 +305,10 @@ Existing bespoke OpenAPI files that must be reconciled:
   be organized differently, but runtime JSON, status codes, auth failures, and
   typed errors for existing consumers must remain compatible unless a versioned
   migration is explicitly documented.
+- The device-runtime generated surface uses `deviceApiKey` as a query API-key
+  scheme for heartbeat, command-result, and payload actions. Registration has no
+  application key; the generated list uses the operator bearer boundary. The raw
+  key is a permission-plug concern, not an Ash action argument.
 - Retained-controller endpoints are acceptable when they have a route-specific
   infrastructure/workflow rationale and current contract documentation.
 - Deferred endpoints remain unchanged until a separate external-consumer decision
@@ -328,10 +339,11 @@ value remain future decisions.
 ## User-Facing Behavior
 
 Generated builder and other Ash-backed contracts remain available through
-`/api/json` and the generated OpenAPI artifact. Existing `/api/v1` compatibility
-wrappers, Caddy checks, E2E workflows, and retained diagnostics preserve their
-current payloads, status codes, authentication, and workflow behavior while the
-device runtime is migrated incrementally.
+`/api/json` and the generated OpenAPI artifact. The additive generated device
+runtime family is `/api/json/device_runtime/devices`; existing `/api/v1`
+compatibility wrappers, Caddy checks, E2E workflows, and retained diagnostics
+preserve their current payloads, status codes, authentication, and workflow
+behavior while the device runtime is migrated incrementally.
 
 ## Requirements
 
@@ -390,9 +402,14 @@ compatibility wrapper or canonical generated route is considered complete.
 
 1. Reconcile the existing builder slice, route inventory, auth matrix, and generated
    OpenAPI artifact.
-2. Define the device runtime Ash action/resource and orchestration boundary.
+2. Define the device runtime Ash action/resource and orchestration boundary using
+   `:list_runtime_devices`, `:register_runtime_device`, `:heartbeat`,
+   `:acknowledge_command_results`, and `:fetch_command_payload`, with explicit
+   route-level `deviceApiKey` security and the existing JSON:API permission
+   pipeline dispatch.
 3. Migrate device registration, heartbeat, command result, and payload contracts in
-   bounded groups while preserving the existing client transport.
+   bounded groups while preserving the existing client transport and observed
+   replay/malformed-input behavior.
 4. Regenerate OpenAPI, test server/Go compatibility, and reconcile docs after each
    group.
 5. Keep Caddy/E2E/diagnostics retained and report export deferred.
@@ -411,9 +428,13 @@ rejected.
 
 ## Open Questions
 
-The remaining implementation questions are route-specific device action design,
-API-key security representation in generated OpenAPI, and exact compatibility
-transport boundaries. They do not change the scope decision above.
+No device-runtime boundary question remains open: action names, orchestration
+ownership, generated route family, API-key security scheme, route-specific
+authentication, compatibility wrapper, and error-precedence rules are defined in
+`docs/src/features/ash-api-contract-unification/contract-design.md`. The remaining
+work is implementation and evidence, not another boundary decision. Report export,
+E2E generated-contract treatment, and development diagnostics remain deferred or
+retained as listed below.
 
 ## Deferred Decisions
 

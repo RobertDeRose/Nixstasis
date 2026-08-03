@@ -2,10 +2,11 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes are Ash-backed migration priorities; conversion must preserve Go-client token, authentication, status-code, and response-shape behavior. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
+  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes are Ash-backed migration priorities with an additive generated target under /api/json/device_runtime/devices. Conversion must preserve Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration and list have no application device key. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
 paths:
   /api/v1/devices:
     get:
+      security: []
       summary: List devices with optional filters
       description: Current compatibility controller contract. The route is an Ash-backed migration priority; preserve device list filters and compatibility semantics, including ipv4_address, in generated/reference documentation.
       parameters:
@@ -52,8 +53,11 @@ paths:
                       active_filters:
                         type: object
                         additionalProperties: true
+        "429":
+          description: Device-list rate limit exceeded
   /api/v1/devices/register:
     post:
+      security: []
       summary: Register a managed device
       description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The route is an Ash-backed migration priority; preserve pending and approved token behavior through compatibility tests.
       requestBody:
@@ -89,6 +93,10 @@ paths:
                 metadata:
                   type: object
                   additionalProperties: true
+                ipv4_address:
+                  type: string
+                  format: ipv4
+                  description: Optional direct IPv4 value; when absent, registration may use metadata.ip_address.
               anyOf:
                 - required: [schema_definition]
                 - required: [schema]
@@ -134,8 +142,12 @@ paths:
                         description: Present only after server approval.
         "422":
           description: Missing or invalid registration schema
+        "429":
+          description: Registration rate limit exceeded
   /api/v1/devices/{id}/heartbeat:
     post:
+      security:
+        - deviceApiKey: []
       summary: Submit device heartbeat and telemetry
       description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling through Go-client compatibility tests.
       parameters:
@@ -212,8 +224,10 @@ paths:
           description: Heartbeat rejected by rate limit
   /api/v1/devices/{id}/command_results:
     post:
+      security:
+        - deviceApiKey: []
       summary: Submit command execution results
-      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, duplicate command handling, acknowledged_count shape, and processing-error status codes through compatibility tests.
+      description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, replay/duplicate command handling, acknowledged_count shape, malformed-results status, and rate-limit behavior through compatibility tests.
       parameters:
         - in: path
           name: id
@@ -259,10 +273,12 @@ paths:
           description: Device is not approved
         "404":
           description: Device not found
-        "422":
-          description: Command result processing failed
+        "429":
+          description: Command-result rate limit exceeded
   /api/v1/devices/{id}/command_payloads/{ref}:
     get:
+      security:
+        - deviceApiKey: []
       summary: Fetch deferred command payload
       description: Current compatibility controller contract and Ash-backed migration priority. Preserve api_key authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
       parameters:
@@ -295,6 +311,8 @@ paths:
           description: Device is not approved
         "404":
           description: Device or payload not found
+        "429":
+          description: Payload-fetch rate limit exceeded
   /api/v1/check_domain:
     get:
       summary: Authorize Caddy on-demand TLS host
@@ -311,6 +329,12 @@ paths:
         "401":
           description: Domain is not permitted
 components:
+  securitySchemes:
+    deviceApiKey:
+      type: apiKey
+      in: query
+      name: api_key
+      description: Registration-issued device token used by runtime heartbeat and command operations.
   schemas:
     CommandRequest:
       type: object
