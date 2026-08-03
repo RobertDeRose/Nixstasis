@@ -3,9 +3,9 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-bdv`
-- Status: implemented and reconciled; delivery action pending
-- Pull request: not created; no PR action selected
-- Merge commit: not merged; fast-forward delivery remains available
+- Status: delivered
+- Pull request: not created; no PR action was selected
+- Merge commit: `0dc7964fc5be0bded21ace7cae871c162348ac3d` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -189,7 +189,9 @@ Known validation limitation:
 - `0b258fc` — made terminal-revoke migration cleanup safe for existing data.
 - `79f5373` — added the unprivileged nested-systemd FRP fallback.
 - `faf002c` — recorded final Compose/browser smoke evidence.
+- `0dc7964` — rebased the feature onto the delivered Stary base and fast-forwarded
+  the SSH implementation and Beads evidence into `dev`.
 
 Implementation children `.7.74-.7.80` and validation children `.7.65-.7.71`
 are recorded in Beads; `.7.80.1` records the acceptance fixes. Close-out
-review and delivery state remain tracked by `nixstasis-bdv.10-.12`.
+review and delivery are closed under `nixstasis-bdv.10-.12`.

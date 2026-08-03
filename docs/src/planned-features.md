@@ -374,7 +374,7 @@ cohort instead of relying only on product, account, status, and search filters.
 
 ### In memory ssh authorized keys (`in-memory-ssh-authorized-keys`)
 
-- Status: implemented; delivery pending
+- Status: delivered
 - Overview:
 - Replace file-based browser-terminal SSH key authorization with an OpenSSH
   `AuthorizedKeysCommand` integration backed by the Go client runtime. The
