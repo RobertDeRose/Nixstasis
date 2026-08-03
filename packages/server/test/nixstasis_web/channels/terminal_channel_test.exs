@@ -82,15 +82,17 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     private_key = "dummy_private_key"
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
+    command = authorize_terminal_session!(device, session_ref)
 
     {:ok, _, socket} =
       NixstasisWeb.UserSocket
       |> socket("user_id", %{terminal_device_id: device.id})
       |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-        "token" => session_ref
+        "token" => session_ref,
+        "command_id" => command.id
       })
 
-    %{socket: socket, device: device, private_key: private_key, session_ref: session_ref}
+    %{socket: socket, device: device, private_key: private_key, session_ref: session_ref, command: command}
   end
 
   test "joins with device topic", %{socket: socket, device: device} do
@@ -99,12 +101,14 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
   test "passes initial terminal size to ssh client", %{device: device} do
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "dummy_private_key")
+    command = authorize_terminal_session!(device, session_ref)
 
     assert {:ok, _, _socket} =
              NixstasisWeb.UserSocket
              |> socket("user_id", %{terminal_device_id: device.id})
              |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
                "token" => session_ref,
+               "command_id" => command.id,
                "columns" => 132,
                "rows" => 43
              })
@@ -142,6 +146,63 @@ defmodule NixstasisWeb.TerminalChannelTest do
     assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(wrong_ref, session_ref)
   end
 
+  test "rejects a terminal join without an authorization command id", %{device: device} do
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+
+    assert {:error, %{reason: "authorization_required", code: "missing_command_id"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref
+             })
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+  end
+
+  test "rejects a malformed authorization command id", %{device: device} do
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+
+    assert {:error, %{reason: "authorization_invalid", code: "invalid_command_id"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref,
+               "command_id" => "not-a-uuid"
+             })
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+  end
+
+  test "rejects an authorization command for another session", %{device: device} do
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, Ecto.UUID.generate())
+
+    assert {:error, %{reason: "authorization_invalid", code: "session_mismatch"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref,
+               "command_id" => command.id
+             })
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+  end
+
+  test "rejects a command with the wrong type", %{device: device} do
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    {:ok, command} = Devices.queue_command(device, %{"type" => "diagnostic"})
+
+    assert {:error, %{reason: "authorization_invalid", code: "invalid_command_type"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref,
+               "command_id" => command.id
+             })
+
+    assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+  end
+
   test "returns structured error when ssh executable is missing" do
     Application.put_env(:nixstasis, :terminal_ssh_client, MissingExecutableSshClient)
 
@@ -149,6 +210,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:11", product_name: "key"})
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref)
 
     {_result, _log} =
       with_log(fn ->
@@ -161,7 +223,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
                  NixstasisWeb.UserSocket
                  |> socket("user_id", %{terminal_device_id: device.id})
                  |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-                   "token" => session_ref
+                   "token" => session_ref,
+                   "command_id" => command.id
                  })
       end)
 
@@ -205,7 +268,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
                  })
       end)
 
-    assert Nixstasis.Domain.list_pending_commands!() == []
+    refute Enum.any?(Nixstasis.Domain.list_pending_commands!(), &(&1.command_payload["type"] == "ssh_revoke"))
   end
 
   test "keeps terminal session usable while ssh authorization is pending" do
@@ -216,9 +279,9 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     device_id = device.id
 
-    {:ok, command} = Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
-    _ = Devices.pop_pending_commands(device)
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref, acknowledge?: false)
+    _ = Devices.pop_pending_commands(device)
 
     ack_task =
       Task.async(fn ->
@@ -268,15 +331,14 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:17", product_name: "key"})
 
-    {:ok, command} =
-      Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref, acknowledge?: false)
 
     _ = Devices.pop_pending_commands(device)
-    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
 
     {_result, _log} =
       with_log(fn ->
-        assert {:error, %{reason: "authorization_pending", code: "ssh_authorization_pending"}} =
+        assert {:error, %{reason: "authorization_timeout", code: "ssh_authorization_timeout"}} =
                  NixstasisWeb.UserSocket
                  |> socket("user_id", %{terminal_device_id: device.id})
                  |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
@@ -292,9 +354,9 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:16", product_name: "key"})
 
-    {:ok, command} = Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
-    _ = Devices.pop_pending_commands(device)
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref, acknowledge?: false)
+    _ = Devices.pop_pending_commands(device)
 
     assert {:ok, 1} =
              Devices.acknowledge_command_results(device, [
@@ -322,13 +384,15 @@ defmodule NixstasisWeb.TerminalChannelTest do
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:14", product_name: "key"})
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref)
 
     {result, log} =
       with_log(fn ->
         NixstasisWeb.UserSocket
         |> socket("user_id", %{terminal_device_id: device.id})
         |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
-          "token" => session_ref
+          "token" => session_ref,
+          "command_id" => command.id
         })
       end)
 
@@ -376,5 +440,29 @@ defmodule NixstasisWeb.TerminalChannelTest do
   test "disconnects on max duration", %{socket: socket} do
     send(socket.channel_pid, :max_duration_reached)
     assert_push("output", %{data: "\r\n[Session time limit reached (60m). Disconnecting...]\r\n"})
+  end
+
+  defp authorize_terminal_session!(device, session_ref, opts \\ []) do
+    payload = %{
+      "type" => "ssh_authorize",
+      "public_key" => "ssh-ed25519 test",
+      "payload" => %{
+        "content_type" => "application/vnd.nixstasis.ssh-authorize+json;version=1",
+        "name" => session_ref,
+        "data" => Jason.encode!(%{"session_ref" => session_ref, "target_user" => "nixstasis-support"})
+      }
+    }
+
+    {:ok, command} = Devices.queue_command(device, payload)
+    _ = Devices.pop_pending_commands(device)
+
+    if Keyword.get(opts, :acknowledge?, true) do
+      assert {:ok, 1} =
+               Devices.acknowledge_command_results(device, [
+                 %{"command_id" => command.id, "status" => "OK", "output" => %{}}
+               ])
+    end
+
+    command
   end
 end

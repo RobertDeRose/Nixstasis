@@ -979,6 +979,39 @@ defmodule Nixstasis.Devices do
 
   def command_succeeded?(_device_id, _command_id), do: false
 
+  @doc """
+  Returns the acknowledgement state for a terminal `ssh_authorize` command.
+
+  The command must belong to the device, use the dynamic SSH authorization type,
+  and bind both payload names to the supplied terminal session ref.
+  """
+  def terminal_authorization_status(device_id, command_id, session_ref)
+      when is_binary(device_id) and is_binary(command_id) and command_id != "" and is_binary(session_ref) do
+    with {:ok, command_id} <- Ecto.UUID.cast(command_id),
+         %PendingCommand{} = command <- read_pending_command(device_id, command_id),
+         :ok <- validate_terminal_authorize_payload(command.command_payload, session_ref) do
+      case command.status do
+        :acked ->
+          if command.command_payload["result_status"] == "ok", do: {:ok, :ok}, else: {:ok, :failed}
+
+        _ ->
+          {:ok, :pending}
+      end
+    else
+      :error -> {:error, :invalid_command_id}
+      nil -> {:error, :command_not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def terminal_authorization_status(_device_id, command_id, _session_ref)
+      when is_nil(command_id) or command_id == "" do
+    {:error, :missing_command_id}
+  end
+
+  def terminal_authorization_status(_device_id, _command_id, _session_ref),
+    do: {:error, :invalid_command_id}
+
   def command_payload_for_result(%Device{} = device, result) when is_map(result) do
     command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
 
@@ -1628,6 +1661,39 @@ defmodule Nixstasis.Devices do
 
       nil
   end
+
+  defp validate_terminal_authorize_payload(payload, session_ref) when is_map(payload) do
+    nested_payload = Map.get(payload, "payload", %{})
+
+    cond do
+      payload["type"] != "ssh_authorize" ->
+        {:error, :invalid_command_type}
+
+      not is_map(nested_payload) ->
+        {:error, :invalid_command_payload}
+
+      nested_payload["content_type"] != "application/vnd.nixstasis.ssh-authorize+json;version=1" ->
+        {:error, :invalid_command_payload}
+
+      nested_payload["name"] != session_ref ->
+        {:error, :session_mismatch}
+
+      true ->
+        validate_terminal_authorize_data(nested_payload["data"], session_ref)
+    end
+  end
+
+  defp validate_terminal_authorize_payload(_payload, _session_ref), do: {:error, :invalid_command_payload}
+
+  defp validate_terminal_authorize_data(data, session_ref) when is_binary(data) do
+    case Jason.decode(data) do
+      {:ok, %{"session_ref" => ^session_ref}} -> :ok
+      {:ok, _payload} -> {:error, :session_mismatch}
+      {:error, _reason} -> {:error, :invalid_command_payload}
+    end
+  end
+
+  defp validate_terminal_authorize_data(_data, _session_ref), do: {:error, :invalid_command_payload}
 
   defp pending_command_result_status(device_id, command_id) do
     case read_pending_command(device_id, command_id) do

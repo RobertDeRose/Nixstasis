@@ -466,6 +466,49 @@ defmodule Nixstasis.DevicesTest do
     end
   end
 
+  describe "terminal_authorization_status/3" do
+    test "binds authorization status to the command type and session ref" do
+      device = device_fixture(%{mac_address: "78:78:78:78:78:78", approval_status: :approved})
+      session_ref = Ecto.UUID.generate()
+
+      payload = %{
+        "type" => "ssh_authorize",
+        "payload" => %{
+          "content_type" => "application/vnd.nixstasis.ssh-authorize+json;version=1",
+          "name" => session_ref,
+          "data" => Jason.encode!(%{"session_ref" => session_ref})
+        }
+      }
+
+      {:ok, command} = Devices.queue_command(device, payload)
+      assert Devices.terminal_authorization_status(device.id, command.id, session_ref) == {:ok, :pending}
+
+      assert Devices.terminal_authorization_status(device.id, command.id, Ecto.UUID.generate()) ==
+               {:error, :session_mismatch}
+
+      assert {:ok, 1} =
+               Devices.acknowledge_command_results(device, [
+                 %{"command_id" => command.id, "status" => "OK"}
+               ])
+
+      assert Devices.terminal_authorization_status(device.id, command.id, session_ref) == {:ok, :ok}
+
+      assert Devices.terminal_authorization_status(device.id, "not-a-uuid", session_ref) ==
+               {:error, :invalid_command_id}
+
+      assert Devices.terminal_authorization_status(device.id, nil, session_ref) ==
+               {:error, :missing_command_id}
+    end
+
+    test "rejects a non-ssh authorization command" do
+      device = device_fixture(%{mac_address: "79:79:79:79:79:79", approval_status: :approved})
+      {:ok, command} = Devices.queue_command(device, %{"type" => "diagnostic"})
+
+      assert Devices.terminal_authorization_status(device.id, command.id, Ecto.UUID.generate()) ==
+               {:error, :invalid_command_type}
+    end
+  end
+
   describe "queue_command_policy_assignment/1" do
     test "queues apply_command_policy and supersedes older queued policy commands" do
       device = device_fixture(%{mac_address: "71:71:71:71:71:71", approval_status: :approved})

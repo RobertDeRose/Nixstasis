@@ -12,6 +12,14 @@ export default {
       return
     }
 
+    const socketToken = this.el.dataset.socketToken || null
+    if (window.connectTerminalSocket && socketToken && socketToken !== this.currentSocketToken && this.el.dataset.closed !== "true" && !this.channel && !this.hasConnected) {
+      this.currentSocketToken = socketToken
+      this.socket = window.connectTerminalSocket(socketToken)
+      this.fitBeforeJoin()
+      return
+    }
+
     if (this.term && this.el.dataset.active === "true") {
       requestAnimationFrame(() => this.fitAndReportSize())
     }
@@ -22,13 +30,12 @@ export default {
     }
   },
   destroyed() {
-    this.clearAuthorizationRetry()
     this.clearJoinTimeout()
 
     if (this._resizeHandler) {
       window.removeEventListener('resize', this._resizeHandler)
     }
-    this.notifyClosed()
+    this.notifyClosed(true)
     if (this.channel) {
       this.channel.leave()
     }
@@ -38,6 +45,7 @@ export default {
   },
   initTerminal() {
     this.currentToken = this.el.dataset.token || null
+    this.currentSocketToken = this.el.dataset.socketToken || null
     this.terminalClosedNotified = false
     this.closedMessageWritten = false
 
@@ -75,6 +83,8 @@ export default {
     if (window.connectTerminalSocket && socketToken) {
         this.socket = window.connectTerminalSocket(socketToken)
         this.fitBeforeJoin()
+    } else if (this.el.dataset.commandId) {
+        this.term.write("Waiting for device authorization...\r\n")
     } else {
         console.error("UserSocket not available for Terminal")
         this.term.write("Error: Connection unavailable.\r\n")
@@ -82,7 +92,6 @@ export default {
   },
 
   resetTerminal() {
-    this.clearAuthorizationRetry()
     this.clearJoinTimeout()
 
     if (this.channel) {
@@ -98,14 +107,11 @@ export default {
       this.term = null
     }
 
-    this.waitingForAuthorization = false
     this.terminalClosedNotified = false
     this.closedMessageWritten = false
   },
 
   joinChannel() {
-    this.clearAuthorizationRetry()
-
     const deviceId = this.el.dataset.deviceId
     const token = this.el.dataset.token
     const commandId = this.el.dataset.commandId
@@ -120,10 +126,12 @@ export default {
         return
     }
 
-    if (commandId) {
-      this.term.write("Waiting for device authorization...\r\n")
-      this.waitingForAuthorization = true
+    if (!commandId) {
+        this.term.write("Error: No authorization command provided.\r\n")
+        return
     }
+
+    this.term.write("Waiting for device authorization...\r\n")
 
     const terminalSize = this.fitTerminal()
     this.lastReportedSize = terminalSize
@@ -145,19 +153,18 @@ export default {
       .receive("error", resp => {
         this.clearJoinTimeout()
         console.error("Join error", resp)
-        if (resp.code === "ssh_authorization_pending") {
-          if (!this.waitingForAuthorization) {
-            this.term.write("Waiting for device authorization...\r\n")
-            this.waitingForAuthorization = true
-          }
-          this.scheduleAuthorizationRetry()
+        if (resp.code === "ssh_authorization_pending" || resp.code === "ssh_authorization_timeout") {
+          this.term.write(`Unable to join terminal session: ${resp.reason || 'Authorization timed out'}. Start a new session to retry.\r\n`)
+          this.notifyClosed(true)
           return
         }
         this.term.write(`Unable to join terminal session: ${resp.reason || 'Unknown error'}.\r\n`)
+        this.notifyClosed(true)
       })
       .receive("timeout", () => {
         this.clearJoinTimeout()
         this.term.write("Unable to join terminal session: SSH connection timed out. Start a new session to retry.\r\n")
+        this.notifyClosed(true)
       })
 
     this.joinTimeoutTimer = window.setTimeout(() => {
@@ -241,28 +248,6 @@ export default {
     })
   },
 
-  scheduleAuthorizationRetry() {
-    this.clearAuthorizationRetry()
-    this.authorizationRetryTimer = window.setTimeout(() => {
-      if (this.channel) {
-        const channel = this.channel
-        this.channel = null
-        channel.leave()
-      }
-
-      if (this.el.dataset.token === this.currentToken && this.el.dataset.closed !== "true") {
-        this.joinChannel()
-      }
-    }, 1000)
-  },
-
-  clearAuthorizationRetry() {
-    if (this.authorizationRetryTimer) {
-      window.clearTimeout(this.authorizationRetryTimer)
-      this.authorizationRetryTimer = null
-    }
-  },
-
   clearJoinTimeout() {
     if (this.joinTimeoutTimer) {
       window.clearTimeout(this.joinTimeoutTimer)
@@ -270,12 +255,12 @@ export default {
     }
   },
 
-  notifyClosed() {
+  notifyClosed(force = false) {
     if (this.terminalClosedNotified) return
     this.terminalClosedNotified = true
     const token = this.el.dataset.token
     const connected = this.channel?.state === "joined" || this.hasConnected
-    if (token && connected) this.pushEvent("terminal_closed", {token: token})
+    if (token && (connected || force)) this.pushEvent("terminal_closed", {token: token})
   },
 
   showWarning(message) {
