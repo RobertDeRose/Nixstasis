@@ -192,7 +192,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:rest, :global,
     include:
       ~w(accept autocomplete autocapitalize autocorrect capture cols disabled form inputmode list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size spellcheck step)
+                multiple pattern placeholder readonly required rows size spellcheck step aria-describedby aria-invalid)
   )
 
   def input(%{field: %FormField{} = field} = assigns) do

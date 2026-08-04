@@ -3,6 +3,8 @@ defmodule Nixstasis.Monitoring do
   The Monitoring context.
   """
 
+  import Ecto.Query, only: [from: 2, where: 3]
+
   require Logger
   require Ash.Query
 
@@ -14,6 +16,7 @@ defmodule Nixstasis.Monitoring do
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.Monitoring.RuleEvaluator
   alias Nixstasis.Notifications.Email
+  alias Nixstasis.Repo
   alias Nixstasis.Notifications.Webhook
   alias Nixstasis.Settings
 
@@ -187,6 +190,33 @@ defmodule Nixstasis.Monitoring do
   def delete_rule(%AlertRule{} = rule) do
     Domain.destroy_rule(rule)
   end
+
+  @doc "Returns whether an alert rule name is already used, ignoring case."
+  def alert_rule_name_taken?(name, except_id \\ nil)
+
+  def alert_rule_name_taken?(name, except_id) when is_binary(name) do
+    if String.trim(name) == "" do
+      false
+    else
+      query =
+        from(rule in "alert_rules",
+          where: fragment("lower(?) = lower(?)", rule.name, ^name),
+          select: rule.id,
+          limit: 1
+        )
+
+      query =
+        if is_nil(except_id) do
+          query
+        else
+          where(query, [rule], rule.id != ^except_id)
+        end
+
+      not is_nil(Repo.one(query))
+    end
+  end
+
+  def alert_rule_name_taken?(_name, _except_id), do: false
 
   def list_rules_for_product(product_name) do
     AlertRule

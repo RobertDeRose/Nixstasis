@@ -28,13 +28,14 @@ validation, keyboard interaction, and accessible feedback.
 - Confirm close/cancel only when unsaved changes exist.
 - In edit mode, keep only rule name immutable.
 - Success feedback auto-dismisses; error feedback persists until user action or correction.
+- Enforce globally case-insensitive alert-rule names and provide actionable duplicate-name feedback.
 - Meet WCAG 2.1 AA expectations for modal dialogs and form validation feedback.
 
 ## Proposed Design
 
 The feature refines the existing alert rule LiveViews and modal component state.
-It focuses on interaction quality and validation recovery rather than changing
-alert-rule semantics.
+It focuses on interaction quality, validation recovery, and the accepted global
+alert-rule-name uniqueness invariant without changing evaluation or notification semantics.
 
 ## Validation
 
@@ -67,13 +68,14 @@ Deliver report-modal parity, accessible keyboard behavior, validation recovery, 
 ## User-Facing Behavior
 
 The modal provides one primary save action, inline persistent errors, auto-dismissed success, focus placement and
-containment, command-enter save, safe plain-enter behavior, and dirty-close confirmation.
+containment, command-enter save, safe plain-enter behavior, dirty-close confirmation, and case-insensitive duplicate-name
+feedback.
 
 ## Non-Goals
 
-The feature does not change alert-rule semantics, evaluation, notification delivery, or the broader alert information
-architecture. The legacy `/alerts/rules` LiveView remains outside this focused modal work; route consolidation or
-retirement is deferred.
+The feature does not change alert evaluation, notification delivery, rule schema/operator semantics, or the broader
+alert information architecture. It does add the accepted global case-insensitive rule-name invariant. The legacy
+`/alerts/rules` LiveView remains outside this focused modal work; route consolidation or retirement is deferred.
 
 ## Existing Context
 
@@ -91,8 +93,10 @@ not require conversion to an Ash JSON:API route, a Phoenix controller, or a refa
 
 ## Operational Considerations
 
-Duplicate and rapid submissions must remain idempotent. Validation failures preserve input and enough state for support
-diagnosis without logging sensitive operator data.
+Duplicate and rapid submissions must remain idempotent. The database enforces global case-insensitive rule-name
+uniqueness, and the migration refuses to proceed while existing conflicts remain so operators can reconcile them without
+silent data changes. Validation failures preserve input and enough state for support diagnosis without logging sensitive
+operator data.
 
 ## Documentation Impact
 
@@ -103,14 +107,15 @@ Update the exact reader-facing pages when externally visible behavior or keyboar
 
 ## Validation Strategy
 
-Run alert LiveView tests for create, edit, validation, focus order, keyboard shortcuts, duplicate submits, dirty close,
-accessible dialog/error associations, and feedback persistence, then complete the outstanding measured success-criteria tasks.
+Run alert LiveView and domain tests for create, edit, validation, global case-insensitive name uniqueness, focus order,
+keyboard shortcuts, duplicate submits, dirty close, accessible dialog/error associations, and feedback persistence, then
+complete the outstanding measured success-criteria tasks.
 
 ## Implementation Decomposition
 
 Beads retains the remaining baseline and timed usability measurements. Implementation slices cover modal parity,
-validation recovery, keyboard behavior, dirty state, feedback lifecycle, accessible dialog/error associations, and
-single-save behavior under duplicate submissions.
+validation recovery, keyboard behavior, dirty state, feedback lifecycle, accessible dialog/error associations,
+global case-insensitive name uniqueness, and single-save behavior under duplicate submissions.
 
 ## Dependencies and Parallelism
 

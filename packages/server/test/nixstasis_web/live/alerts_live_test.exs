@@ -85,6 +85,43 @@ defmodule NixstasisWeb.AlertsLiveTest do
            )
   end
 
+  test "duplicate rule names are rejected case-insensitively with preserved values", %{conn: conn} do
+    {:ok, _existing_rule} =
+      Domain.create_rule(%{
+        name: "High Temperature",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    duplicate_params = %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "high temperature",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    }
+
+    render_change(element(view, "#alert-rule-form"), duplicate_params)
+
+    assert has_element?(view, "#alert-rule-name-error", "Alert rule name is already used.")
+    assert has_element?(view, "#alert-rule-name[aria-describedby='alert-rule-name-error'][aria-invalid='true']")
+    assert has_element?(view, "#alert-rule-save[disabled]")
+
+    render_submit(element(view, "#alert-rule-form"), duplicate_params)
+
+    assert has_element?(view, "#rule-modal")
+    assert has_element?(view, "#alert-rule-name[value='high temperature']")
+    assert render(view) =~ "Alert rule name is already used."
+    assert length(Enum.filter(Domain.list_rules!(), &(String.downcase(&1.name) == "high temperature"))) == 1
+  end
+
   test "duplicate modal submissions persist one rule and emit one success measurement", %{conn: conn} do
     handler_id = "alert-rule-success-#{System.unique_integer([:positive])}"
 

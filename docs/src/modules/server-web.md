@@ -54,10 +54,11 @@
 
 Alert rule creation and editing use the `/alerts/new` and `/alerts/:id/edit`
 LiveView modal flow. The modal exposes explicit accessible title and
-description targets, announces validation errors, keeps keyboard focus within
-the active modal (including discard confirmation), and ignores duplicate save
-events while a save is being processed. The legacy `/alerts/rules` route remains
-a separate UI surface.
+description targets, announces validation errors, enforces globally
+case-insensitive rule names, keeps keyboard focus within the active modal
+(including discard confirmation), and ignores duplicate save events while a
+save is being processed. The legacy `/alerts/rules` route remains a separate UI
+surface.
 
 ### JSON API Routes
 

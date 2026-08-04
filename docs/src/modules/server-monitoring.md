@@ -64,11 +64,12 @@
 ### Alert rule modal contract
 
 The `/alerts` Add/Edit Rule modal remains a browser-only LiveView interaction.
-It preserves alert-rule evaluation semantics while providing explicit dialog
-name/description associations, announced validation feedback, contained
-keyboard focus (including nested discard confirmation), and server-side
-protection against duplicate save events. Validation failures preserve the
-entered draft so the operator can correct and resubmit.
+It preserves alert-rule evaluation semantics while providing globally
+case-insensitive rule names, explicit dialog name/description associations,
+announced validation feedback, contained keyboard focus (including nested
+discard confirmation), and server-side protection against duplicate save
+events. Validation failures preserve the entered draft so the operator can
+correct and resubmit.
 
 Traceable references:
 

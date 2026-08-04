@@ -1286,11 +1286,11 @@ from the current roadmap narrative.
 ### Add rule modal improvements (`add-rule-modal-improvements`)
 
 - Status: implemented; measured success criteria deferred
-- Overview: Improve Add Rule validation, keyboard and accessibility behavior, dirty-close recovery, and first-attempt save usability without changing alert-rule semantics.
+- Overview: Improve Add Rule validation, keyboard and accessibility behavior, dirty-close recovery, first-attempt save usability, and globally case-insensitive rule-name uniqueness without changing alert evaluation semantics.
 - Beads root: `nixstasis-inh`
 - Design: [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
 - Delivered record: [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
-- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, and per-LiveView duplicate-submit protection. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. Legacy `/alerts/rules` consolidation remains outside scope.
+- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, and per-LiveView duplicate-submit protection. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. Legacy `/alerts/rules` consolidation remains outside scope.
 
 ### Dashboard home (`dashboard-home`)
 

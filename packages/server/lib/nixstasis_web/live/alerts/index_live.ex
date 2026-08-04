@@ -4,11 +4,13 @@ defmodule NixstasisWeb.AlertLive.Index do
   require Ash.Query
 
   alias Nixstasis.Domain
+  alias Nixstasis.Monitoring
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.SchemaOptions
 
   @success_flash_timeout_ms 3_000
+  @duplicate_rule_name_message "Alert rule name is already used."
 
   def mount(_params, _session, socket) do
     alerts =
@@ -32,6 +34,7 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:schema_options, [])
      |> assign(:schema_option_types, %{})
      |> assign(:schema_issue, nil)
+     |> assign(:rule_name_issue, nil)
      |> assign(:rule_dirty?, false)
      |> assign(:rule_initial_draft, %{})
      |> assign(:rule_editing, nil)
@@ -91,6 +94,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         else: AlertRule.validation_issues(schema_option_types, normalized_params)
 
     draft = draft_state_from(schema_id, schema_version, normalized_params)
+    rule_name_issue = rule_name_issue(socket, Map.get(normalized_params, "name", ""))
 
     {:noreply,
      socket
@@ -104,6 +108,7 @@ defmodule NixstasisWeb.AlertLive.Index do
        if(edit_blocked?, do: nil, else: schema_issue(condition_field, valid_field?, issues))
      )
      |> assign(:no_schema_fields_message, no_schema_fields_message)
+     |> assign(:rule_name_issue, rule_name_issue)
      |> assign(:rule_dirty?, dirty_draft?(socket.assigns.rule_initial_draft, draft))
      |> assign(:show_discard_confirm, false)}
   end
@@ -113,6 +118,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       {:noreply, socket}
     else
       {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
+      rule_name_issue = rule_name_issue(socket, Map.get(rule_params, "name", ""))
       operator = Map.get(rule_params, "operator")
       threshold_value = Map.get(rule_params, "threshold_value")
 
@@ -148,6 +154,7 @@ defmodule NixstasisWeb.AlertLive.Index do
           no_schema_fields_message: no_schema_fields_message,
           validation: validation,
           issues: issues,
+          rule_name_issue: rule_name_issue,
           rule_params: rule_params,
           rule_edit_blocked_reason: socket.assigns.rule_edit_blocked_reason
         })
@@ -457,8 +464,19 @@ defmodule NixstasisWeb.AlertLive.Index do
                 type="text"
                 label="Rule Name"
                 placeholder="e.g. High temperature"
+                aria-describedby={if @rule_name_issue, do: "alert-rule-name-error", else: nil}
+                aria-invalid={if @rule_name_issue, do: "true", else: nil}
                 disabled={@live_action == :edit}
               />
+              <p
+                :if={@rule_name_issue}
+                id="alert-rule-name-error"
+                class="mt-1.5 flex gap-2 items-center text-sm text-error"
+                role="alert"
+              >
+                <.icon name="hero-exclamation-circle" class="size-5" />
+                {@rule_name_issue}
+              </p>
               <input
                 :if={@live_action == :edit}
                 type="hidden"
@@ -577,6 +595,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                   selected_schema_id: @selected_schema_id,
                   schema_options: @schema_options,
                   schema_issue: @schema_issue,
+                  rule_name_issue: @rule_name_issue,
                   no_schema_fields_message: @no_schema_fields_message,
                   condition_field: @form[:condition_field].value,
                   operator: @form[:operator].value,
@@ -665,6 +684,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     socket
     |> assign(:page_title, "Add Rule")
+    |> assign(:rule_name_issue, nil)
     |> assign(:modal_focus_id, "alert-rule-name")
     |> assign(:form, form)
     |> assign(:schema_refs, schema_refs)
@@ -729,6 +749,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     socket
     |> assign(:page_title, "Edit Rule")
+    |> assign(:rule_name_issue, nil)
     |> assign(:modal_focus_id, "alert-schema-id")
     |> assign(:form, form)
     |> assign(:schema_refs, schema_refs)
@@ -753,6 +774,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Alerts")
+    |> assign(:rule_name_issue, nil)
     |> assign_rules(Domain.list_rules!())
     |> assign(:form, nil)
     |> assign(:schema_refs, [])
@@ -915,6 +937,36 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp first_issue_message([%{message: message} | _]) when is_binary(message), do: message
   defp first_issue_message(_), do: nil
 
+  defp rule_name_issue(socket, name) do
+    except_id = socket.assigns.rule_editing && socket.assigns.rule_editing.id
+
+    if present?(name) and Monitoring.alert_rule_name_taken?(name, except_id) do
+      @duplicate_rule_name_message
+    end
+  end
+
+  defp duplicate_rule_name_form_error?(form) do
+    form
+    |> AshPhoenix.Form.raw_errors()
+    |> Enum.any?(&duplicate_rule_name_error?/1)
+  end
+
+  defp duplicate_rule_name_error?(%Ash.Error.Invalid{errors: errors}) when is_list(errors) do
+    Enum.any?(errors, fn error ->
+      field = Map.get(error, :field)
+      validation = Map.get(error, :validation)
+      message = Map.get(error, :message, "")
+      context = Map.get(error, :context, %{})
+
+      field in [:name, "name"] and
+        (validation == :unique or
+           String.contains?(String.downcase(to_string(message)), "unique") or
+           Map.get(context, :constraint) == "alert_rules_unique_name_index")
+    end)
+  end
+
+  defp duplicate_rule_name_error?(_), do: false
+
   defp save_rule_result(socket, context) do
     schema_id = context.schema_id
     schema_options = context.schema_options
@@ -924,8 +976,17 @@ defmodule NixstasisWeb.AlertLive.Index do
     issues = context.issues
     rule_params = context.rule_params
     rule_edit_blocked_reason = Map.get(context, :rule_edit_blocked_reason)
+    rule_name_issue = Map.get(context, :rule_name_issue)
 
     cond do
+      present?(rule_name_issue) ->
+        record_invalid_attempt()
+
+        {:noreply,
+         socket
+         |> assign(:rule_name_issue, rule_name_issue)
+         |> put_flash(:error, rule_name_issue)}
+
       present?(rule_edit_blocked_reason) ->
         record_invalid_attempt()
 
@@ -1002,6 +1063,13 @@ defmodule NixstasisWeb.AlertLive.Index do
          |> push_patch(to: ~p"/alerts?tab=rules")}
 
       {:error, form} ->
+        duplicate_name? = duplicate_rule_name_form_error?(form)
+
+        error_message =
+          if duplicate_name?,
+            do: @duplicate_rule_name_message,
+            else: "Unable to save rule. Correct the highlighted fields."
+
         {:noreply,
          socket
          |> assign(:rule_save_in_flight?, false)
@@ -1011,8 +1079,9 @@ defmodule NixstasisWeb.AlertLive.Index do
          |> assign(:schema_options, schema_options)
          |> assign(:schema_option_types, schema_option_types)
          |> assign(:schema_issue, nil)
+         |> assign(:rule_name_issue, if(duplicate_name?, do: @duplicate_rule_name_message, else: nil))
          |> assign(:no_schema_fields_message, no_schema_fields_message)
-         |> put_flash(:error, "Unable to save rule. Correct the highlighted fields.")}
+         |> put_flash(:error, error_message)}
     end
   end
 
@@ -1247,6 +1316,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       assigns.selected_schema_id not in [nil, ""] and
       is_list(assigns.schema_options) and assigns.schema_options != [] and
       is_nil(assigns.schema_issue) and
+      is_nil(assigns.rule_name_issue) and
       is_nil(assigns.rule_edit_blocked_reason) and
       is_nil(assigns.no_schema_fields_message) and
       present?(assigns.condition_field) and
