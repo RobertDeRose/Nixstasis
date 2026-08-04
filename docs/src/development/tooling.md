@@ -20,8 +20,10 @@ mise run docs:serve
 Use `/update-project` for the recorded template channel, or `/update-project --stable` / `--unstable` to change it. The
 update always records the exact resolved template commit.
 
-`check` is read-only. `fix` changes the working tree. Contextlint checks links, anchors, and image targets across README
-and `docs/**/*.md`. The pre-commit hook may fix files while safely stashing unrelated unstaged work. The commit-message
+`check` is read-only. `fix` changes the working tree. The server warning-as-error compile step uses
+`--no-optional-deps`; the optional LiveDebugger dependency is compiled only when explicitly enabled as documented in
+`packages/server/README.md`. Contextlint checks links, anchors, and image targets across README and `docs/**/*.md`. The
+pre-commit hook may fix files while safely stashing unrelated unstaged work. The commit-message
 hook enforces Conventional Commits, required scopes for changelog-visible changes, grammar, 72/100-character line
 limits, and canonical optional `Beads:` footers. Harper applies its full native rule set to human-authored text after
 filtering Git comments/diffs, canonical release subjects, and the canonical machine-readable footer. Run `cog changelog`
