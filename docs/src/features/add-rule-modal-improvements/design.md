@@ -67,9 +67,9 @@ Deliver report-modal parity, accessible keyboard behavior, validation recovery, 
 
 ## User-Facing Behavior
 
-The modal provides one primary save action, inline persistent errors, auto-dismissed success, focus placement and
-containment, command-enter save, safe plain-enter behavior, dirty-close confirmation, and case-insensitive duplicate-name
-feedback.
+The modal provides one primary save action, inline persistent errors, a polite success status that auto-dismisses after
+the configured short lifetime, focus placement and containment, opener-focus restoration when available, command-enter
+save, safe plain-enter behavior, dirty-close confirmation, and case-insensitive duplicate-name feedback.
 
 ## Non-Goals
 

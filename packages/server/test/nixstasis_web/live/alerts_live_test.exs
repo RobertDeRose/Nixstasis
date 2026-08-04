@@ -75,6 +75,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert_patch(view, ~p"/alerts?tab=rules")
     assert render(view) =~ "Rule created successfully"
+    assert has_element?(view, "#alert-rule-success[role='status']", "Rule created successfully")
 
     rules = Domain.list_rules!()
 
@@ -180,10 +181,10 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert render(view) =~ "Rule created successfully"
 
-    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+    assert_receive {:trace, ^pid, :receive, {:clear_rule_success, 1}}, @success_flash_timeout_ms + 500
 
     :sys.get_state(pid)
-    refute render(view) =~ "Rule created successfully"
+    refute has_element?(view, "#alert-rule-success[role='status']")
   end
 
   test "older success flash timer does not clear a newer success message", %{conn: conn} do
@@ -220,7 +221,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     })
 
     assert render(view) =~ "Rule created successfully"
-    assert_receive {:trace, ^pid, :receive, {:clear_flash, :info, 1}}, @success_flash_timeout_ms + 500
+    assert_receive {:trace, ^pid, :receive, {:clear_rule_success, 1}}, @success_flash_timeout_ms + 500
 
     :sys.get_state(pid)
     assert render(view) =~ "Rule created successfully"
@@ -240,6 +241,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert html =~ "Edit Rule"
     assert has_element?(view, "#alert-rule-save", "Save Changes")
     assert has_element?(view, "#alert-rule-form[data-initial-focus-id='alert-schema-id']")
+    refute has_element?(view, "#rule-modal[data-focus-return-target]")
 
     render_submit(element(view, "#alert-rule-form"), %{
       "schema_id" => "alert-schema-product",
@@ -462,6 +464,8 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert html =~ "phx-hook=\"AlertRuleBuilderKeyboard\""
     assert has_element?(view, "#alert-rule-form[data-initial-focus-id='alert-rule-name']")
+    refute has_element?(view, "#rule-modal[data-focus-return-target]")
+    assert has_element?(view, "#alert-add-rule")
     assert has_element?(view, "#alert-schema-id")
     assert has_element?(view, "#alert-rule-save")
   end
@@ -651,6 +655,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     render_click(element(view, "button[phx-click='edit_rule'][phx-value-id='#{rule.id}']"))
 
     assert_patch(view, ~p"/alerts/#{rule.id}/edit?tab=rules")
+    assert has_element?(view, "#rule-modal[data-focus-return-target='alert-edit-rule-#{rule.id}']")
     assert has_element?(view, "#rule-modal")
     assert render(view) =~ "Edit Rule"
   end

@@ -511,6 +511,17 @@ const AlertRuleBuilderKeyboard = {
 
     this.modalObserver?.disconnect()
     if (this.focusTimer) clearTimeout(this.focusTimer)
+
+    const focusReturnId = this.modalRoot?.dataset.focusReturnTarget
+    if (!focusReturnId) return
+
+    const restoreFocus = () => {
+      const target = document.getElementById(focusReturnId)
+      if (target && this.isVisible(target)) target.focus()
+    }
+
+    requestAnimationFrame(restoreFocus)
+    setTimeout(restoreFocus, 80)
   },
 }
 

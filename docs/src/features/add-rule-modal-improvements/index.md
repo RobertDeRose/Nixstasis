@@ -23,6 +23,8 @@ now globally unique without regard to case; evaluation and notification semantic
 - Focus stays within the active modal, including the nested discard confirmation; Escape closes the active layer.
 - `Ctrl+Enter`/`Cmd+Enter` saves, while plain Enter in text fields does not submit the modal.
 - Unchanged modals close immediately; dirty modals ask whether to keep editing or discard changes.
+- Closing a modal returns focus to its opening control when the modal was opened from the rules table or Add Rule trigger.
+- Successful saves expose an accessible status message before the short auto-dismiss timeout; errors remain visible until correction or action.
 - Rapid or duplicate save events are ignored while a save is in flight, so one valid submission produces one save and
   one success telemetry event.
 
@@ -56,7 +58,8 @@ visible until correction or user action; success feedback continues to auto-dism
 - Alert-rule uniqueness/domain and LiveView tests passed: 27 tests, 0 failures.
 - `mix ash.codegen --check` passed; named migration and alert-rule resource snapshot are aligned.
 - `node --check assets/js/app.js` passed.
-- Manual feature-branch browser checks confirmed `#alert-rule-name` initial focus, visible-only focus trapping, discard-dialog focus on `Keep Editing`, and focus restoration after `Keep Editing`.
+- Manual feature-branch browser checks confirmed `#alert-rule-name` initial focus, visible-only focus trapping, discard-dialog focus on `Keep Editing`, focus restoration after `Keep Editing`, opener-focus restoration after new/edit close, and visible success status auto-dismissal.
+- Manual concurrent-tab browser checks confirmed a case-insensitive duplicate save remains in the modal with preserved values and actionable error feedback.
 - `uv run scripts/check-docs.py` and `mdbook build docs` passed.
 - SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
   controlled observation window exists, so no metric pass/fail is claimed.
@@ -99,7 +102,8 @@ JSON:API or controller routes, remains outside the feature boundary.
 The reviewed design and lifecycle evidence were recorded in `1c09c4f` and `9d8cb49`. The LiveView boundary and
 reader-facing documentation were clarified in `84249de`; duplicate-save protection and its regression coverage were
 delivered in `d295dcf`; accessibility, nested-modal focus handling, and accessible feedback were delivered in
-`2a2c274`. The follow-up focus-management correction is pending delivery in the current feature worktree. Global
+`2a2c274`; the first focus-management correction was delivered in `0657d3f`; and browser validation found and addressed
+success-status visibility and opener-focus restoration in the current follow-up task `nixstasis-inh.14`. Global
 case-insensitive rule-name uniqueness was added after validation review and is tracked by `nixstasis-inh.13`. Beads
 implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34` through `.7.37`
 are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; no pull request or

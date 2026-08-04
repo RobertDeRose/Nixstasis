@@ -43,6 +43,8 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:show_discard_confirm, false)
      |> assign(:no_schema_fields_message, nil)
      |> assign(:modal_focus_id, nil)
+     |> assign(:modal_focus_return_id, nil)
+     |> assign(:rule_success_message, nil)
      |> assign(:success_flash_generation, 0)
      |> assign(:rule_save_in_flight?, false)}
   end
@@ -186,7 +188,10 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   def handle_event("edit_rule", %{"id" => id}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/alerts/#{id}/edit?tab=rules")}
+    {:noreply,
+     socket
+     |> assign(:modal_focus_return_id, "alert-edit-rule-#{id}")
+     |> push_patch(to: ~p"/alerts/#{id}/edit?tab=rules")}
   end
 
   def handle_event("confirm_delete_rule", %{"id" => id}, socket) do
@@ -273,9 +278,9 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> apply_rule_filters()}
   end
 
-  def handle_info({:clear_flash, key, generation}, socket) do
+  def handle_info({:clear_rule_success, generation}, socket) do
     if socket.assigns.success_flash_generation == generation do
-      {:noreply, clear_flash(socket, key)}
+      {:noreply, assign(socket, :rule_success_message, nil)}
     else
       {:noreply, socket}
     end
@@ -288,7 +293,11 @@ defmodule NixstasisWeb.AlertLive.Index do
         Alerts
         <:subtitle>System notifications and device alerts</:subtitle>
         <:actions>
-          <.link :if={@alerts_tab == "rules"} patch={~p"/alerts/new?tab=rules"}>
+          <.link
+            :if={@alerts_tab == "rules"}
+            id="alert-add-rule"
+            patch={~p"/alerts/new?tab=rules"}
+          >
             <.button>Add Rule</.button>
           </.link>
         </:actions>
@@ -313,6 +322,17 @@ defmodule NixstasisWeb.AlertLive.Index do
         >
           Edit Alert Rules
         </button>
+      </div>
+
+      <div
+        :if={@rule_success_message}
+        id="alert-rule-success"
+        role="status"
+        aria-live="polite"
+        class="mb-4 flex items-center gap-2 rounded-lg border border-info/30 bg-info/10 px-4 py-3 text-sm text-info"
+      >
+        <.icon name="hero-check-circle" class="size-5 shrink-0" />
+        <span>{@rule_success_message}</span>
       </div>
 
       <div :if={@alerts_tab == "active"}>
@@ -400,6 +420,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                     <div class="grid grid-cols-[1.5rem_1.5rem] items-center gap-2">
                       <%= if is_nil(rule.edit_disabled_reason) do %>
                         <button
+                          id={"alert-edit-rule-#{rule.id}"}
                           type="button"
                           phx-click="edit_rule"
                           phx-value-id={rule.id}
@@ -439,6 +460,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         :if={@live_action in [:new, :edit]}
         id="rule-modal"
         show
+        focus_return_target={@modal_focus_return_id}
         on_cancel={JS.push("request_close_rule_modal")}
         close_on_cancel={false}
       >
@@ -657,8 +679,9 @@ defmodule NixstasisWeb.AlertLive.Index do
     """
   end
 
-  defp apply_action(socket, :new, _params) do
+  defp apply_action(socket, :new, params) do
     schema_refs = SchemaOptions.list_schema_references()
+    modal_focus_return_id = if Map.get(params, "tab") == "rules", do: "alert-add-rule"
     selected_schema_id = schema_refs |> List.first() |> then(&if(&1, do: &1.schema_id, else: nil))
     selected_schema_version = first_schema_version(schema_refs, selected_schema_id)
 
@@ -686,6 +709,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:page_title, "Add Rule")
     |> assign(:rule_name_issue, nil)
     |> assign(:modal_focus_id, "alert-rule-name")
+    |> assign(:modal_focus_return_id, modal_focus_return_id)
     |> assign(:form, form)
     |> assign(:schema_refs, schema_refs)
     |> assign(:selected_schema_id, selected_schema_id)
@@ -776,6 +800,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:page_title, "Alerts")
     |> assign(:rule_name_issue, nil)
     |> assign_rules(Domain.list_rules!())
+    |> assign(:modal_focus_return_id, nil)
     |> assign(:form, nil)
     |> assign(:schema_refs, [])
     |> assign(:selected_schema_id, nil)
@@ -1054,12 +1079,12 @@ defmodule NixstasisWeb.AlertLive.Index do
         )
 
         generation = socket.assigns.success_flash_generation + 1
-        Process.send_after(self(), {:clear_flash, :info, generation}, @success_flash_timeout_ms)
+        Process.send_after(self(), {:clear_rule_success, generation}, @success_flash_timeout_ms)
 
         {:noreply,
          socket
          |> assign(:success_flash_generation, generation)
-         |> put_flash(:info, success_message(socket.assigns.live_action))
+         |> assign(:rule_success_message, success_message(socket.assigns.live_action))
          |> push_patch(to: ~p"/alerts?tab=rules")}
 
       {:error, form} ->
