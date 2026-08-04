@@ -3,7 +3,7 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-inh`
-- Status: implemented and documentation reconciled; validation close-out pending
+- Status: implemented and reconciled; delivery action pending; measured success criteria deferred
 - Pull request: not created; no PR action selected
 - Merge commit: not merged; fast-forward delivery remains available
 - Design record: [design.md](design.md)
@@ -28,6 +28,10 @@ now globally unique without regard to case; evaluation and notification semantic
 - The rules table presents each condition as one readable `<field> <operator> <value>` expression between the Rule and Actions columns.
 - Rapid or duplicate save events are ignored while a save is in flight, so one valid submission produces one save and
   one success telemetry event.
+- Schema Field options show the active schema type beside each label, such as `Temp (number)` and `Status (string)`;
+  unknown types are explicit as `(unknown)`.
+- Changing the Schema Field replaces an incompatible stale operator with the first valid operator before validation and
+  save, while unchanged-field invalid input remains actionable.
 
 ## Design Integration
 
@@ -53,7 +57,10 @@ visible until correction or user action; success feedback continues to auto-dism
 
 ## Validation Evidence
 
-- `mise run check` passed with status 0; output: `/tmp/nixstasis-inh-alert-name-full-check-final.log`.
+- Final `mise run check` passed with status 0 after the operator/type follow-ups; output:
+  `/tmp/nixstasis-inh-18-19-full-check-final.log`.
+- Final `mise x -- mix precommit` passed with 617 tests and 0 failures; output:
+  `/tmp/nixstasis-inh-18-19-precommit-final.log`.
 - `mise x -- mix precommit` passed: 611 tests, 0 failures; output: `/tmp/nixstasis-inh-13-precommit.log`.
 - Focused `alerts_live_test.exs`, `core_components_test.exs`, and `reports_live_test.exs` passed: 77 tests, 0 failures.
 - Alert-rule uniqueness/domain and LiveView tests passed: 27 tests, 0 failures.
@@ -64,16 +71,18 @@ visible until correction or user action; success feedback continues to auto-dism
 - Follow-up focus and table checks passed: focused alerts/core tests passed with 31 tests and 0 failures; `mise x -- mix precommit` passed with 613 tests and 0 failures; `mise run check` passed with status 0. Outputs: `/tmp/nixstasis-inh-16-focused-all.log`, `/tmp/nixstasis-inh-16-precommit.log`, and `/tmp/nixstasis-inh-16-full-check.log`.
 - Follow-up Playwright checks confirmed repeated discard flows focus `Keep Editing`, cycle through the confirmation controls, close only the active layer on Escape, and render rules as `Rule`, `Condition`, `Actions` with combined condition expressions.
 - `uv run scripts/check-docs.py` and `mdbook build docs` passed.
+- `mise x -- mix ash.codegen --check` passed; output: `/tmp/nixstasis-inh-18-19-ash-codegen.log`.
 - SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
-  controlled observation window exists, so no metric pass/fail is claimed.
+  controlled observation window exists, so no metric pass/fail is claimed. The user accepted the delivered
+  feedback-driven improvements as complete without treating synthetic timings as human-usability evidence.
 
 ## Design Reconciliation
 
 ### Delivered as Designed
 
 Modal parity, validation recovery, keyboard behavior, dirty-close confirmation, accessible dialog/error associations,
-feedback persistence, global case-insensitive rule-name uniqueness, and one-save duplicate-submit protection were
-delivered without changing alert evaluation or notification semantics.
+feedback persistence, global case-insensitive rule-name uniqueness, one-save duplicate-submit protection, first-valid-
+operator recovery, and schema type labels were delivered without changing alert evaluation or notification semantics.
 
 ### Intentional Changes
 

@@ -70,8 +70,10 @@ Deliver report-modal parity, accessible keyboard behavior, validation recovery, 
 The modal provides one primary save action, inline persistent errors, a polite success status that auto-dismisses after
 the configured short lifetime, focus placement and containment, high-contrast focus-visible styling, opener-focus
 restoration when available, command-enter save, safe plain-enter behavior, dirty-close confirmation whose Escape handling
-is limited to the active layer, and case-insensitive duplicate-name feedback. The rules table presents each condition as a
-single `<field> <operator> <value>` expression between the Rule and Actions columns.
+is limited to the active layer, and case-insensitive duplicate-name feedback. Schema Field options show the active
+schema value type beside each label, and changing fields replaces an incompatible stale operator with the first valid
+operator before validation. The rules table presents each condition as a single `<field> <operator> <value>` expression
+between the Rule and Actions columns.
 
 ## Non-Goals
 
@@ -110,14 +112,15 @@ Update the exact reader-facing pages when externally visible behavior or keyboar
 ## Validation Strategy
 
 Run alert LiveView and domain tests for create, edit, validation, global case-insensitive name uniqueness, focus order,
-keyboard shortcuts, duplicate submits, dirty close, accessible dialog/error associations, and feedback persistence, then
-complete the outstanding measured success-criteria tasks.
+keyboard shortcuts, duplicate submits, dirty close, accessible dialog/error associations, feedback persistence, schema
+field type labels, and mixed-type operator recovery, then complete the outstanding measured success-criteria tasks.
 
 ## Implementation Decomposition
 
 Beads retains the remaining baseline and timed usability measurements. Implementation slices cover modal parity,
 validation recovery, keyboard behavior, dirty state, feedback lifecycle, accessible dialog/error associations,
-global case-insensitive name uniqueness, and single-save behavior under duplicate submissions.
+global case-insensitive name uniqueness, single-save behavior under duplicate submissions, schema type labels, and
+mixed-type operator recovery.
 
 ## Dependencies and Parallelism
 
