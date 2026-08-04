@@ -71,7 +71,9 @@ discard confirmation), returns focus to the opening control when one exists,
 and exposes a polite success status for the configured short lifetime. It also
 provides server-side protection against duplicate save events. Validation
 failures preserve the entered draft so the operator can
-correct and resubmit.
+correct and resubmit. Schema Field options include the active schema value type
+(for example, `Temp (number)` or `Status (string)`), and changing fields
+normalizes an incompatible stale operator to a valid operator before validation.
 
 Traceable references:
 

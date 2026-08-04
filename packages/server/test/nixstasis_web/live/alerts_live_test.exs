@@ -263,6 +263,50 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert updated_rule.name == "Existing rule"
   end
 
+  test "changing an edit field normalizes an operator from the previous field type", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        name: "Mixed type rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "80"
+      })
+
+    {:ok, view, _html} = live(conn, alert_edit_path(rule.id))
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => ">",
+        "threshold_value" => "ok"
+      }
+    })
+
+    refute render(view) =~ "Operator is not valid for the selected field type."
+    assert has_element?(view, "#alert-operator option[value='contains'][selected]")
+    refute has_element?(view, "#alert-rule-save[disabled]")
+
+    render_submit(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "contains",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert_patch(view, ~p"/alerts?tab=rules")
+
+    updated_rule = Domain.get_rule!(rule.id)
+    assert updated_rule.condition_field == "status"
+    assert to_string(updated_rule.operator) == "contains"
+    assert updated_rule.threshold_value == "ok"
+  end
+
   test "edit mode with unchanged numeric threshold does not show threshold type error", %{
     conn: conn
   } do
@@ -540,6 +584,63 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert has_element?(view, "#alert-schema-id option[value='alert-schema-product'][selected]")
     assert has_element?(view, "#alert-schema-version option[value='v1'][selected]")
     assert has_element?(view, "#alert-condition-field option[value='temp']")
+  end
+
+  test "schema field options show their value types", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "status",
+        "operator" => "is",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert has_element?(view, "#alert-condition-field option[value='temp']", "Temp (number)")
+    assert has_element?(view, "#alert-condition-field option[value='status']", "Status (string)")
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v2",
+      "alert_rule" => %{
+        "condition_field" => "pressure",
+        "operator" => ">",
+        "threshold_value" => "10"
+      }
+    })
+
+    assert has_element?(view, "#alert-condition-field option[value='pressure']", "Pressure (number)")
+    refute has_element?(view, "#alert-condition-field option[value='temp']")
+  end
+
+  test "schema field options label unknown value types", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:44",
+        "product_name" => "unknown-type-product",
+        "schema" => %{
+          "product" => "unknown-type-product",
+          "version" => "v1",
+          "properties" => %{"payload" => %{}}
+        }
+      })
+
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "unknown-type-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "condition_field" => "payload",
+        "operator" => "is",
+        "threshold_value" => "ok"
+      }
+    })
+
+    assert has_element?(view, "#alert-condition-field option[value='payload']", "Payload (unknown)")
   end
 
   test "explicit schema version selection drives alert schema options", %{conn: conn} do

@@ -63,6 +63,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   def handle_event("validate_rule", params, socket) do
+    previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
     {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
 
     {schema_options, schema_option_types} =
@@ -85,7 +86,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         rule_params
         |> Map.put("product_name", schema_id || "")
         |> maybe_clear_invalid_condition_field(condition_field, valid_field?)
-        |> normalize_operator_for_field(schema_option_types)
+        |> normalize_operator_for_field(schema_option_types, previous_condition_field)
       end
 
     form = AshPhoenix.Form.validate(socket.assigns.form, normalized_params)
@@ -144,7 +145,11 @@ defmodule NixstasisWeb.AlertLive.Index do
         {schema_options, schema_option_types} =
           fetch_schema_option_metadata(schema_id, schema_version)
 
-        rule_params = normalize_operator_for_field(rule_params, schema_option_types)
+        previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
+
+        rule_params =
+          normalize_operator_for_field(rule_params, schema_option_types, previous_condition_field)
+
         issues = AlertRule.validation_issues(schema_option_types, rule_params)
         no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
 
@@ -752,7 +757,8 @@ defmodule NixstasisWeb.AlertLive.Index do
         selected_schema_version
       )
 
-    schema_options = ensure_field_option(base_schema_options, rule.condition_field)
+    schema_options =
+      ensure_field_option(base_schema_options, rule.condition_field, schema_option_types)
 
     form =
       rule
@@ -906,13 +912,19 @@ defmodule NixstasisWeb.AlertLive.Index do
     Enum.any?(options, fn {_label, key} -> key == condition_field end)
   end
 
-  defp ensure_field_option(options, condition_field) do
+  defp ensure_field_option(options, condition_field, schema_option_types) do
     if present?(condition_field) and
          Enum.any?(options, fn {_label, key} -> key == condition_field end) do
       options
     else
       if present?(condition_field) do
-        options ++ [{humanize_field_name(condition_field), condition_field}]
+        label =
+          schema_field_option_label(
+            humanize_field_name(condition_field),
+            Map.get(schema_option_types, condition_field, "unknown")
+          )
+
+        options ++ [{label, condition_field}]
       else
         options
       end
@@ -925,7 +937,11 @@ defmodule NixstasisWeb.AlertLive.Index do
   defp fetch_schema_option_metadata(schema_id, schema_version) do
     case SchemaOptions.options_for(schema_id, schema_version, :alert) do
       {:ok, %{options: options}} ->
-        option_pairs = Enum.map(options, &{&1.label, &1.key})
+        option_pairs =
+          Enum.map(options, fn option ->
+            {schema_field_option_label(option.label, option.value_type), option.key}
+          end)
+
         option_types = Map.new(options, &{&1.key, &1.value_type})
         {option_pairs, option_types}
 
@@ -1115,20 +1131,44 @@ defmodule NixstasisWeb.AlertLive.Index do
     )
   end
 
-  defp normalize_operator_for_field(rule_params, schema_option_types) do
+  defp normalize_operator_for_field(rule_params, schema_option_types, previous_field \\ nil) do
     field = Map.get(rule_params, "condition_field", "")
     field_type = Map.get(schema_option_types, field, "unknown")
-    operator = normalize_string_operator(Map.get(rule_params, "operator", "="), field_type)
+    raw_operator = Map.get(rule_params, "operator", "=")
+    operator = normalize_string_operator(raw_operator, field_type)
 
-    if String.trim(operator) == "" do
-      Map.put(rule_params, "operator", default_operator_for_type(field_type))
-    else
-      Map.put(rule_params, "operator", operator)
-    end
+    operator =
+      cond do
+        String.trim(operator) == "" ->
+          default_operator_for_type(field_type)
+
+        field_changed?(field, previous_field) and
+            not AlertRule.valid_operator_for_type?(field_type, raw_operator) ->
+          first_operator_for_type(field_type)
+
+        true ->
+          operator
+      end
+
+    Map.put(rule_params, "operator", operator)
   end
+
+  defp field_changed?(field, previous_field) do
+    present?(field) and present?(previous_field) and
+      normalize_compare_value(field) != normalize_compare_value(previous_field)
+  end
+
+  defp form_field_value(nil, _field), do: nil
+  defp form_field_value(form, field), do: form[field].value
 
   defp default_operator_for_type("number"), do: ">"
   defp default_operator_for_type(_), do: "is"
+
+  defp first_operator_for_type(field_type) do
+    AlertRule.operator_options_for_type(field_type)
+    |> List.first()
+    |> then(&(&1 || default_operator_for_type(field_type)))
+  end
 
   defp operator_options(condition_field, schema_option_types) do
     field_type = Map.get(schema_option_types, condition_field || "", "unknown")
@@ -1289,6 +1329,11 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp humanize_field_name(_), do: "Schema Field"
+
+  defp schema_field_option_label(label, value_type) do
+    type = if present?(value_type), do: value_type, else: "unknown"
+    "#{label} (#{type})"
+  end
 
   defp invalid_rule_edit_reason(true, _schema_id, _schema_version), do: nil
 
