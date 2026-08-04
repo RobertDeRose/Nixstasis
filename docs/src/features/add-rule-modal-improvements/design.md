@@ -72,7 +72,8 @@ containment, command-enter save, safe plain-enter behavior, and dirty-close conf
 ## Non-Goals
 
 The feature does not change alert-rule semantics, evaluation, notification delivery, or the broader alert information
-architecture.
+architecture. The legacy `/alerts/rules` LiveView remains outside this focused modal work; route consolidation or
+retirement is deferred.
 
 ## Existing Context
 
@@ -82,7 +83,11 @@ foundation.
 ## Architecture Consistency
 
 LiveView owns modal state and validation recovery; shared components own dialog semantics and focus-visible styling; the
-existing monitoring context remains the rule authority.
+existing monitoring context remains the rule authority for alert evaluation and domain semantics.
+
+The Ash boundary established by `ash-api-contract-unification` applies to externally consumed HTTP contracts. This
+browser-only LiveView remains a LiveView interaction and may use `AshPhoenix.Form` and `Nixstasis.Domain` directly; it does
+not require conversion to an Ash JSON:API route, a Phoenix controller, or a refactor through monitoring-context wrappers.
 
 ## Operational Considerations
 
