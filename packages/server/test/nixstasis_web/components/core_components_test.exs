@@ -42,5 +42,6 @@ defmodule NixstasisWeb.CoreComponentsTest do
       """)
 
     assert html =~ ~s(data-focus-target="discard-keep")
+    assert html =~ "modal-dialog"
   end
 end

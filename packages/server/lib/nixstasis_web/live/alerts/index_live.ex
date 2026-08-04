@@ -173,7 +173,11 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   def handle_event("keydown", %{"key" => "Escape"}, socket) do
-    handle_event("request_close_rule_modal", %{}, socket)
+    if socket.assigns.show_discard_confirm do
+      handle_event("cancel_discard_rule_changes", %{}, socket)
+    else
+      handle_event("request_close_rule_modal", %{}, socket)
+    end
   end
 
   def handle_event("cancel_discard_rule_changes", _params, socket) do

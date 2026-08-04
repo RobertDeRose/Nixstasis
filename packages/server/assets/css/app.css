@@ -936,6 +936,11 @@
 
 
 @layer utilities {
+  .modal-dialog :is(button, input, select, textarea, a[href]):focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
   .table-zebra tbody tr:nth-child(even) :where(.table-zebra tbody tr:nth-child(even)) {
     background-color: color-mix(in oklab, var(--color-base-200), transparent 70%);
   }

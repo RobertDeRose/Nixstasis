@@ -20,7 +20,7 @@ now globally unique without regard to case; evaluation and notification semantic
 - Validation errors remain inline, are announced to assistive technology, and preserve entered values.
 - Alert rule names are enforced globally case-insensitively; duplicate names remain in the modal with actionable feedback.
 - The first actionable rule-builder control receives focus when the modal opens.
-- Focus stays within the active modal, including the nested discard confirmation; Escape closes the active layer.
+- Focus stays within the active modal, including the nested discard confirmation; the confirmation receives focus on Keep Editing, exposes a high-contrast focus-visible indicator, and one Escape closes only the active layer.
 - `Ctrl+Enter`/`Cmd+Enter` saves, while plain Enter in text fields does not submit the modal.
 - Unchanged modals close immediately; dirty modals ask whether to keep editing or discard changes.
 - Closing a modal returns focus to its opening control when the modal was opened from the rules table or Add Rule trigger.

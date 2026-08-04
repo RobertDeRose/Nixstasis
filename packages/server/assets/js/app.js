@@ -428,6 +428,7 @@ const AlertRuleBuilderKeyboard = {
 
       if (key === "Escape") {
         event.preventDefault()
+        event.stopImmediatePropagation()
         const closeButton = activeModal.querySelector("button[aria-label='close']")
         closeButton?.click()
         return
@@ -469,6 +470,7 @@ const AlertRuleBuilderKeyboard = {
       const activeIndex = focusables.indexOf(active)
 
       event.preventDefault()
+      event.stopImmediatePropagation()
 
       if (activeIndex === -1) {
         ;(event.shiftKey ? last : first).focus()

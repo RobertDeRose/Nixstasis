@@ -459,6 +459,40 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert has_element?(view, "#rule-modal")
   end
 
+  test "Escape closes only the active discard confirmation", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{"name" => "Dirty rule"}
+    })
+
+    render_keydown(view, "keydown", %{"key" => "Escape"})
+    assert has_element?(view, "#discard-rule-modal")
+
+    render_keydown(view, "keydown", %{"key" => "Escape"})
+
+    refute has_element?(view, "#discard-rule-modal")
+    assert has_element?(view, "#rule-modal")
+  end
+
+  test "discard confirmation has a visible focus styling hook", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{"name" => "Dirty rule"}
+    })
+
+    render_keydown(view, "keydown", %{"key" => "Escape"})
+
+    assert has_element?(view, "#discard-rule-modal [role='dialog'].modal-dialog")
+    assert has_element?(view, "#discard-rule-keep-editing")
+    assert has_element?(view, "#discard-rule-confirm")
+  end
+
   test "modal includes keyboard hook and focus starts on first control", %{conn: conn} do
     {:ok, view, html} = live(conn, alert_new_path())
 
