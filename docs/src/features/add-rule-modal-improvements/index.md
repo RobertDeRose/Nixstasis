@@ -49,8 +49,9 @@ Validation failures remain visible until correction or user action; success feed
 ## Validation Evidence
 
 - `mise run check` passed with status 0; output was captured in `/tmp/nixstasis-inh-full-check.log`.
-- Focused alert, core-component, and report LiveView tests passed: 49 tests, 0 failures.
+- Focused `alerts_live_test.exs`, `core_components_test.exs`, and `reports_live_test.exs` passed: 76 tests, 0 failures.
 - `node --check assets/js/app.js` passed.
+- Manual feature-branch browser checks confirmed `#alert-rule-name` initial focus, visible-only focus trapping, discard-dialog focus on `Keep Editing`, and focus restoration after `Keep Editing`.
 - `uv run scripts/check-docs.py` and `mdbook build docs` passed.
 - SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
   controlled observation window exists, so no metric pass/fail is claimed.
@@ -92,6 +93,7 @@ JSON:API or controller routes was rejected as outside the feature boundary.
 The reviewed design and lifecycle evidence were recorded in `1c09c4f` and `9d8cb49`. The LiveView boundary and
 reader-facing documentation were clarified in `84249de`; duplicate-save protection and its regression coverage were
 delivered in `d295dcf`; accessibility, nested-modal focus handling, and accessible feedback were delivered in
-`2a2c274`. Beads implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34`
-through `.7.37` are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; no
-pull request or merge has been created.
+`2a2c274`. The follow-up focus-management correction is pending delivery in the current feature worktree. Beads
+implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34` through `.7.37`
+are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; no pull request or
+merge has been created.

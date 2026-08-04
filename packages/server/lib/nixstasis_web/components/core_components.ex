@@ -590,6 +590,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:show, :boolean, default: false)
   attr(:on_cancel, :any, default: %JS{})
   attr(:close_on_cancel, :boolean, default: true)
+  attr(:focus_target, :string, default: nil)
   slot(:inner_block, required: true)
 
   def modal(assigns) do
@@ -599,6 +600,7 @@ defmodule NixstasisWeb.CoreComponents do
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={cancel_behavior(@on_cancel, @close_on_cancel)}
+      data-focus-target={@focus_target}
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="escape"
       class="relative z-[60] hidden"

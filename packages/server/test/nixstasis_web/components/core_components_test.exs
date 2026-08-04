@@ -30,4 +30,17 @@ defmodule NixstasisWeb.CoreComponentsTest do
     assert html =~ "alert-error"
     assert html =~ "Error message"
   end
+
+  test "modal exposes its initial focus target" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.modal id="discard-modal" show focus_target="discard-keep">
+        <button id="discard-keep">Keep editing</button>
+      </.modal>
+      """)
+
+    assert html =~ ~s(data-focus-target="discard-keep")
+  end
 end

@@ -39,7 +39,7 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:rule_to_delete, nil)
      |> assign(:show_discard_confirm, false)
      |> assign(:no_schema_fields_message, nil)
-     |> assign(:modal_focus_id, "alert-schema-id")
+     |> assign(:modal_focus_id, nil)
      |> assign(:success_flash_generation, 0)
      |> assign(:rule_save_in_flight?, false)}
   end
@@ -447,6 +447,7 @@ defmodule NixstasisWeb.AlertLive.Index do
           phx-change="validate_rule"
           phx-submit="save_rule"
           phx-hook="AlertRuleBuilderKeyboard"
+          data-initial-focus-id={@modal_focus_id}
         >
           <div class="grid grid-cols-1 gap-4 mb-6">
             <div class="ui-fieldset">
@@ -612,6 +613,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         :if={@show_discard_confirm}
         id="discard-rule-modal"
         show
+        focus_target="discard-rule-keep-editing"
         on_cancel={JS.push("cancel_discard_rule_changes")}
       >
         <.header id="discard-rule-modal">
@@ -619,8 +621,17 @@ defmodule NixstasisWeb.AlertLive.Index do
           <:subtitle>You have unsaved edits. Do you want to discard them?</:subtitle>
         </.header>
         <div class="flex items-center justify-end gap-3 pt-2">
-          <.button type="button" variant="outline" phx-click="cancel_discard_rule_changes">Keep Editing</.button>
-          <.button type="button" phx-click="confirm_discard_rule_changes">Discard</.button>
+          <.button
+            id="discard-rule-keep-editing"
+            type="button"
+            variant="outline"
+            phx-click="cancel_discard_rule_changes"
+          >Keep Editing</.button>
+          <.button
+            id="discard-rule-confirm"
+            type="button"
+            phx-click="confirm_discard_rule_changes"
+          >Discard</.button>
         </div>
       </.modal>
     </div>
@@ -654,6 +665,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     socket
     |> assign(:page_title, "Add Rule")
+    |> assign(:modal_focus_id, "alert-rule-name")
     |> assign(:form, form)
     |> assign(:schema_refs, schema_refs)
     |> assign(:selected_schema_id, selected_schema_id)
@@ -717,6 +729,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     socket
     |> assign(:page_title, "Edit Rule")
+    |> assign(:modal_focus_id, "alert-schema-id")
     |> assign(:form, form)
     |> assign(:schema_refs, schema_refs)
     |> assign(:selected_schema_id, selected_schema_id)

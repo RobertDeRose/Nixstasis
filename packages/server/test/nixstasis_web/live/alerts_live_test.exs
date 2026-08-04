@@ -202,6 +202,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     {:ok, view, html} = live(conn, alert_edit_path(rule.id))
     assert html =~ "Edit Rule"
     assert has_element?(view, "#alert-rule-save", "Save Changes")
+    assert has_element?(view, "#alert-rule-form[data-initial-focus-id='alert-schema-id']")
 
     render_submit(element(view, "#alert-rule-form"), %{
       "schema_id" => "alert-schema-product",
@@ -372,6 +373,20 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert html =~ "Please select a valid schema field before saving."
   end
 
+  test "name-only modal edits ask for discard confirmation on cancel", %{conn: conn} do
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{"name" => "Draft rule"}
+    })
+
+    render_keydown(view, "keydown", %{"key" => "Escape"})
+
+    assert has_element?(view, "#discard-rule-modal")
+  end
+
   test "dirty modal asks for discard confirmation on cancel", %{conn: conn} do
     {:ok, view, _html} = live(conn, alert_new_path())
 
@@ -387,8 +402,10 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     render_keydown(view, "keydown", %{"key" => "Escape"})
 
+    assert has_element?(view, "#discard-rule-modal[data-focus-target='discard-rule-keep-editing']")
     assert has_element?(view, "#discard-rule-modal")
     assert has_element?(view, "#rule-modal")
+    assert has_element?(view, "#discard-rule-keep-editing")
 
     assert has_element?(
              view,
@@ -407,6 +424,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     {:ok, view, html} = live(conn, alert_new_path())
 
     assert html =~ "phx-hook=\"AlertRuleBuilderKeyboard\""
+    assert has_element?(view, "#alert-rule-form[data-initial-focus-id='alert-rule-name']")
     assert has_element?(view, "#alert-schema-id")
     assert has_element?(view, "#alert-rule-save")
   end
