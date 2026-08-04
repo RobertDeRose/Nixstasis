@@ -78,6 +78,46 @@ defmodule NixstasisWeb.AlertsLiveTest do
            )
   end
 
+  test "duplicate modal submissions persist one rule and emit one success measurement", %{conn: conn} do
+    handler_id = "alert-rule-success-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:nixstasis, :builder, :first_attempt_success],
+        fn _event, measurements, metadata, test_pid ->
+          if metadata[:builder] == "alert" do
+            send(test_pid, {:alert_rule_success, measurements})
+          end
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    {:ok, view, _html} = live(conn, alert_new_path())
+    form = element(view, "#alert-rule-form")
+
+    params = %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Duplicate submission rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    }
+
+    render_submit(form, params)
+    render_submit(view, "save_rule", params)
+
+    assert [rule] = Enum.filter(Domain.list_rules!(), &(&1.name == "Duplicate submission rule"))
+    assert rule.threshold_value == "75"
+    assert_receive {:alert_rule_success, %{count: 1}}
+    refute_receive {:alert_rule_success, %{count: 1}}, 100
+  end
+
   test "rule success flash clears after the short timeout", %{conn: conn} do
     {:ok, view, _html} = live(conn, alert_new_path())
     pid = view.pid

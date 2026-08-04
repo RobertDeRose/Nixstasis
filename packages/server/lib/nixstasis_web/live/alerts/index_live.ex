@@ -40,7 +40,8 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:show_discard_confirm, false)
      |> assign(:no_schema_fields_message, nil)
      |> assign(:modal_focus_id, "alert-schema-id")
-     |> assign(:success_flash_generation, 0)}
+     |> assign(:success_flash_generation, 0)
+     |> assign(:rule_save_in_flight?, false)}
   end
 
   def handle_params(params, _url, socket) do
@@ -108,45 +109,49 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   def handle_event("save_rule", params, socket) do
-    {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
-    operator = Map.get(rule_params, "operator")
-    threshold_value = Map.get(rule_params, "threshold_value")
-
-    no_changes_to_save? =
-      socket.assigns.live_action == :edit and
-        not edit_rule_values_changed?(
-          socket.assigns.rule_editing,
-          rule_params["condition_field"],
-          operator,
-          threshold_value
-        )
-
-    if no_changes_to_save? do
-      {:noreply, socket |> assign(:schema_issue, nil)}
+    if socket.assigns.rule_save_in_flight? or socket.assigns.live_action not in [:new, :edit] do
+      {:noreply, socket}
     else
-      validation =
-        SchemaOptions.validate_selections(:alert, schema_id || "", schema_version || "", [
-          %{"slot_id" => "condition_field", "selected_key" => rule_params["condition_field"]}
-        ])
+      {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
+      operator = Map.get(rule_params, "operator")
+      threshold_value = Map.get(rule_params, "threshold_value")
 
-      {schema_options, schema_option_types} =
-        fetch_schema_option_metadata(schema_id, schema_version)
+      no_changes_to_save? =
+        socket.assigns.live_action == :edit and
+          not edit_rule_values_changed?(
+            socket.assigns.rule_editing,
+            rule_params["condition_field"],
+            operator,
+            threshold_value
+          )
 
-      rule_params = normalize_operator_for_field(rule_params, schema_option_types)
-      issues = AlertRule.validation_issues(schema_option_types, rule_params)
-      no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
+      if no_changes_to_save? do
+        {:noreply, socket |> assign(:schema_issue, nil)}
+      else
+        validation =
+          SchemaOptions.validate_selections(:alert, schema_id || "", schema_version || "", [
+            %{"slot_id" => "condition_field", "selected_key" => rule_params["condition_field"]}
+          ])
 
-      save_rule_result(socket, %{
-        schema_id: schema_id,
-        schema_version: schema_version,
-        schema_options: schema_options,
-        schema_option_types: schema_option_types,
-        no_schema_fields_message: no_schema_fields_message,
-        validation: validation,
-        issues: issues,
-        rule_params: rule_params,
-        rule_edit_blocked_reason: socket.assigns.rule_edit_blocked_reason
-      })
+        {schema_options, schema_option_types} =
+          fetch_schema_option_metadata(schema_id, schema_version)
+
+        rule_params = normalize_operator_for_field(rule_params, schema_option_types)
+        issues = AlertRule.validation_issues(schema_option_types, rule_params)
+        no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
+
+        save_rule_result(socket, %{
+          schema_id: schema_id,
+          schema_version: schema_version,
+          schema_options: schema_options,
+          schema_option_types: schema_option_types,
+          no_schema_fields_message: no_schema_fields_message,
+          validation: validation,
+          issues: issues,
+          rule_params: rule_params,
+          rule_edit_blocked_reason: socket.assigns.rule_edit_blocked_reason
+        })
+      end
     end
   end
 
@@ -573,7 +578,8 @@ defmodule NixstasisWeb.AlertLive.Index do
                   threshold_value: @form[:threshold_value].value,
                   live_action: @live_action,
                   rule_editing: @rule_editing,
-                  rule_edit_blocked_reason: @rule_edit_blocked_reason
+                  rule_edit_blocked_reason: @rule_edit_blocked_reason,
+                  rule_save_in_flight?: @rule_save_in_flight?
                 })
               }
               phx-disable-with="Saving..."
@@ -657,6 +663,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_edit_blocked_reason, nil)
     |> assign(:rule_to_delete, nil)
     |> assign(:show_discard_confirm, false)
+    |> assign(:rule_save_in_flight?, false)
     |> assign(
       :no_schema_fields_message,
       no_schema_fields_message(selected_schema_id, schema_options)
@@ -719,6 +726,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_edit_blocked_reason, rule_edit_blocked_reason)
     |> assign(:rule_to_delete, nil)
     |> assign(:show_discard_confirm, false)
+    |> assign(:rule_save_in_flight?, false)
     |> assign(
       :no_schema_fields_message,
       no_schema_fields_message(selected_schema_id, schema_options)
@@ -742,6 +750,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_edit_blocked_reason, nil)
     |> assign(:rule_to_delete, nil)
     |> assign(:show_discard_confirm, false)
+    |> assign(:rule_save_in_flight?, false)
     |> assign(:no_schema_fields_message, nil)
   end
 
@@ -938,7 +947,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
       true ->
         persist_rule_submit(
-          socket,
+          assign(socket, :rule_save_in_flight?, true),
           rule_params,
           context.schema_id,
           context.schema_version,
@@ -978,6 +987,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       {:error, form} ->
         {:noreply,
          socket
+         |> assign(:rule_save_in_flight?, false)
          |> assign(:form, form)
          |> assign(:selected_schema_id, schema_id)
          |> assign(:selected_schema_version, schema_version)
@@ -1216,7 +1226,8 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp base_rule_save_valid?(assigns) do
-    assigns.selected_schema_id not in [nil, ""] and
+    not assigns.rule_save_in_flight? and
+      assigns.selected_schema_id not in [nil, ""] and
       is_list(assigns.schema_options) and assigns.schema_options != [] and
       is_nil(assigns.schema_issue) and
       is_nil(assigns.rule_edit_blocked_reason) and
