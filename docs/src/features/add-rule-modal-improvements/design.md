@@ -91,18 +91,21 @@ diagnosis without logging sensitive operator data.
 
 ## Documentation Impact
 
-Update `docs/src/modules/server-monitoring.md` and server-web interaction guidance if externally visible behavior or
-keyboard contracts change.
+Update the exact reader-facing pages when externally visible behavior or keyboard contracts change:
+
+- `docs/src/modules/server-monitoring.md` — alert-rule validation, recovery, and modal behavior.
+- `docs/src/modules/server-web.md` — browser modal keyboard, focus, and accessibility interaction guidance.
 
 ## Validation Strategy
 
 Run alert LiveView tests for create, edit, validation, focus order, keyboard shortcuts, duplicate submits, dirty close,
-and feedback persistence, then complete the outstanding measured success-criteria tasks.
+accessible dialog/error associations, and feedback persistence, then complete the outstanding measured success-criteria tasks.
 
 ## Implementation Decomposition
 
 Beads retains the remaining baseline and timed usability measurements. Implementation slices cover modal parity,
-validation recovery, keyboard behavior, dirty state, and feedback lifecycle.
+validation recovery, keyboard behavior, dirty state, feedback lifecycle, accessible dialog/error associations, and
+single-save behavior under duplicate submissions.
 
 ## Dependencies and Parallelism
 
