@@ -7,6 +7,7 @@ historical decisions needed to audit each feature. Active and future work remain
 ## Feature Index
 
 <!-- BEGIN IMPLEMENTED FEATURES -->
+- [Add Rule Modal Improvements](add-rule-modal-improvements/index.md)
 - [Ash API Contract Unification](ash-api-contract-unification/index.md)
 - [AuthCrunch Role Contract](authcrunch-role-contract/index.md)
 - [Compose Dev Harness](compose-dev-harness/index.md)

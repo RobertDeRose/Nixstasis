@@ -66,6 +66,7 @@
   <!-- END FEATURE DESIGNS -->
 - [Implemented Features](features/index.md)
   <!-- BEGIN IMPLEMENTED FEATURES -->
+  - [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/index.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)
   - [Compose Dev Harness](features/compose-dev-harness/index.md)
