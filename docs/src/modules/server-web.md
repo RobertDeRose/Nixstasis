@@ -61,8 +61,9 @@ focus-visible state, returns focus to the opening control when available, and
 ensures Escape closes only the active modal layer. It ignores duplicate save
 events while a save is being processed.
 Successful saves expose a polite status message for the configured short
-lifetime before it is cleared. The legacy `/alerts/rules` route remains a separate UI
-surface.
+lifetime before it is cleared. The rules table renders each condition as one
+`<field> <operator> <value>` expression between Rule and Actions. The legacy
+`/alerts/rules` route remains a separate UI surface.
 
 ### JSON API Routes
 

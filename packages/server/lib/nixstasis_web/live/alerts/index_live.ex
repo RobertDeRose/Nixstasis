@@ -382,14 +382,9 @@ defmodule NixstasisWeb.AlertLive.Index do
                       Rule {sort_indicator(@rule_sort_by, @rule_sort_dir, "name")}
                     </button>
                   </th>
-                  <th class="w-[35%]">
+                  <th class="w-[45%]">
                     <button type="button" phx-click="set_rule_sort" phx-value-by="condition_field" class="link link-hover">
                       Condition {sort_indicator(@rule_sort_by, @rule_sort_dir, "condition_field")}
-                    </button>
-                  </th>
-                  <th class="w-[10%]">
-                    <button type="button" phx-click="set_rule_sort" phx-value-by="operator" class="link link-hover">
-                      Operator {sort_indicator(@rule_sort_by, @rule_sort_dir, "operator")}
                     </button>
                   </th>
                   <th class="w-[10%]">Actions</th>
@@ -415,11 +410,9 @@ defmodule NixstasisWeb.AlertLive.Index do
                       </span>
                     </div>
                   </td>
-                  <td class="w-[35%]">
-                    <span class="badge badge-ghost badge-sm">{rule.condition_field}</span>
-                    <span class="ml-2 text-base-content/80">{rule.threshold_value}</span>
+                  <td class="w-[45%]">
+                    <span class="truncate text-base-content/80">{condition_expression(rule)}</span>
                   </td>
-                  <td class="w-[10%] font-semibold">{rule.operator}</td>
                   <td class="w-[10%]">
                     <div class="grid grid-cols-[1.5rem_1.5rem] items-center gap-2">
                       <%= if is_nil(rule.edit_disabled_reason) do %>
@@ -1268,6 +1261,12 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   defp sort_direction("desc"), do: :desc
   defp sort_direction(_), do: :asc
+
+  defp condition_expression(rule) do
+    [rule.condition_field, rule.operator, rule.threshold_value]
+    |> Enum.map(&to_string/1)
+    |> Enum.join(" ")
+  end
 
   defp sort_indicator(current_by, current_dir, expected_by) do
     if current_by == expected_by do

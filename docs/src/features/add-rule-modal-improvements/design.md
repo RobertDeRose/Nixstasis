@@ -70,7 +70,8 @@ Deliver report-modal parity, accessible keyboard behavior, validation recovery, 
 The modal provides one primary save action, inline persistent errors, a polite success status that auto-dismisses after
 the configured short lifetime, focus placement and containment, high-contrast focus-visible styling, opener-focus
 restoration when available, command-enter save, safe plain-enter behavior, dirty-close confirmation whose Escape handling
-is limited to the active layer, and case-insensitive duplicate-name feedback.
+is limited to the active layer, and case-insensitive duplicate-name feedback. The rules table presents each condition as a
+single `<field> <operator> <value>` expression between the Rule and Actions columns.
 
 ## Non-Goals
 

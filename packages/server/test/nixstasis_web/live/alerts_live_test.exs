@@ -646,14 +646,26 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert has_element?(view, "#alert-rule-validation-error[role='alert']")
   end
 
-  test "rules table filtering and sorting controls are visible", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/alerts?tab=rules")
+  test "rules table presents one readable condition column", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        name: "Temperature rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    {:ok, view, html} = live(conn, ~p"/alerts?tab=rules")
 
     assert html =~ "Filter rules"
     assert html =~ "Clear"
-    assert html =~ "Rule"
-    assert html =~ "Condition"
-    assert html =~ "Operator"
+    assert has_element?(view, "thead th", "Rule")
+    assert has_element?(view, "thead th", "Condition")
+    assert has_element?(view, "thead th", "Actions")
+    refute has_element?(view, "thead th", "Operator")
+    assert has_element?(view, "tbody tr", "temp > 75")
+    assert has_element?(view, "button[phx-value-id='#{rule.id}'][aria-label^='Edit rule']")
   end
 
   test "deprecated rules hide edit action and show warning label with reason tooltip", %{

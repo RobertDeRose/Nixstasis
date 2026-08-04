@@ -25,6 +25,7 @@ now globally unique without regard to case; evaluation and notification semantic
 - Unchanged modals close immediately; dirty modals ask whether to keep editing or discard changes.
 - Closing a modal returns focus to its opening control when the modal was opened from the rules table or Add Rule trigger.
 - Successful saves expose an accessible status message before the short auto-dismiss timeout; errors remain visible until correction or action.
+- The rules table presents each condition as one readable `<field> <operator> <value>` expression between the Rule and Actions columns.
 - Rapid or duplicate save events are ignored while a save is in flight, so one valid submission produces one save and
   one success telemetry event.
 
@@ -102,9 +103,10 @@ JSON:API or controller routes, remains outside the feature boundary.
 The reviewed design and lifecycle evidence were recorded in `1c09c4f` and `9d8cb49`. The LiveView boundary and
 reader-facing documentation were clarified in `84249de`; duplicate-save protection and its regression coverage were
 delivered in `d295dcf`; accessibility, nested-modal focus handling, and accessible feedback were delivered in
-`2a2c274`; the first focus-management correction was delivered in `0657d3f`; and browser validation found and addressed
-success-status visibility and opener-focus restoration in the current follow-up task `nixstasis-inh.14`. Global
-case-insensitive rule-name uniqueness was added after validation review and is tracked by `nixstasis-inh.13`. Beads
+`2a2c274`; the first focus-management correction was delivered in `0657d3f`; browser validation found and addressed
+success-status visibility and opener-focus restoration in `58e7156`; and the repeated discard-confirmation keyboard
+correction was delivered in `72308b7`. The rules table condition presentation is tracked by `nixstasis-inh.16`.
+Global case-insensitive rule-name uniqueness was added after validation review and is tracked by `nixstasis-inh.13`. Beads
 implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34` through `.7.37`
 are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; no pull request or
 merge has been created.
