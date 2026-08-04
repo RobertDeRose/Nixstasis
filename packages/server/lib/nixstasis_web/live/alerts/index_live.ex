@@ -435,7 +435,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         on_cancel={JS.push("request_close_rule_modal")}
         close_on_cancel={false}
       >
-        <.header>
+        <.header id="rule-modal">
           {modal_title(@live_action)}
           <:subtitle>Configure schema-driven conditions for alert generation.</:subtitle>
         </.header>
@@ -556,10 +556,14 @@ defmodule NixstasisWeb.AlertLive.Index do
 
             <div>
               <%= if @rule_edit_blocked_reason do %>
-                <p class="text-sm text-error mt-8" role="alert">{@rule_edit_blocked_reason}</p>
+                <p id="alert-rule-edit-error" class="text-sm text-error mt-8" role="alert">
+                  {@rule_edit_blocked_reason}
+                </p>
               <% end %>
               <%= if @schema_issue do %>
-                <p class="text-sm text-error mt-8" role="alert">{@schema_issue}</p>
+                <p id="alert-rule-validation-error" class="text-sm text-error mt-8" role="alert">
+                  {@schema_issue}
+                </p>
               <% end %>
             </div>
           </div>
@@ -610,7 +614,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         show
         on_cancel={JS.push("cancel_discard_rule_changes")}
       >
-        <.header>
+        <.header id="discard-rule-modal">
           Discard Changes?
           <:subtitle>You have unsaved edits. Do you want to discard them?</:subtitle>
         </.header>

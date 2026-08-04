@@ -40,8 +40,15 @@ defmodule NixstasisWeb.AlertsLiveTest do
   end
 
   test "new rule modal renders schema-driven selectors and action controls", %{conn: conn} do
-    {:ok, _view, html} = live(conn, alert_new_path())
+    {:ok, view, html} = live(conn, alert_new_path())
 
+    assert has_element?(
+             view,
+             "#rule-modal [role='dialog'][aria-labelledby='rule-modal-title'][aria-describedby='rule-modal-description']"
+           )
+
+    assert has_element?(view, "#rule-modal-title", "Add Rule")
+    assert has_element?(view, "#rule-modal-description", "Configure schema-driven conditions")
     assert html =~ "Schema Field"
     assert html =~ "alert-schema-product"
     assert html =~ "Schema Version"
@@ -382,6 +389,14 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert has_element?(view, "#discard-rule-modal")
     assert has_element?(view, "#rule-modal")
+
+    assert has_element?(
+             view,
+             "#discard-rule-modal [role='dialog'][aria-labelledby='discard-rule-modal-title'][aria-describedby='discard-rule-modal-description']"
+           )
+
+    assert has_element?(view, "#discard-rule-modal-title", "Discard Changes?")
+    assert has_element?(view, "#discard-rule-modal-description", "unsaved edits")
     assert render(view) =~ "Discard Changes?"
 
     render_click(element(view, "#discard-rule-modal button", "Keep Editing"))
@@ -535,6 +550,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
     })
 
     assert has_element?(view, "#rule-modal [role='alert']")
+    assert has_element?(view, "#alert-rule-validation-error[role='alert']")
   end
 
   test "rules table filtering and sorting controls are visible", %{conn: conn} do

@@ -61,6 +61,15 @@
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and
   offline-check sequence.
 
+### Alert rule modal contract
+
+The `/alerts` Add/Edit Rule modal remains a browser-only LiveView interaction.
+It preserves alert-rule evaluation semantics while providing explicit dialog
+name/description associations, announced validation feedback, contained
+keyboard focus (including nested discard confirmation), and server-side
+protection against duplicate save events. Validation failures preserve the
+entered draft so the operator can correct and resubmit.
+
 Traceable references:
 
 - `packages/server/lib/nixstasis/monitoring.ex:15-148`

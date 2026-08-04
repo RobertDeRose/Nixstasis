@@ -325,8 +325,10 @@ defmodule NixstasisWeb.CoreComponents do
 
   # Helper used by inputs to generate form errors
   defp error(assigns) do
+    assigns = assign_new(assigns, :id, fn -> nil end)
+
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
+    <p id={@id} role="alert" class="mt-1.5 flex gap-2 items-center text-sm text-error">
       <.icon name="hero-exclamation-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>
@@ -336,6 +338,7 @@ defmodule NixstasisWeb.CoreComponents do
   @doc """
   Renders a header with title.
   """
+  attr(:id, :string, default: nil)
   slot(:inner_block, required: true)
   slot(:subtitle)
   slot(:actions)
@@ -344,10 +347,14 @@ defmodule NixstasisWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 id={if @id, do: "#{@id}-title"} class="text-lg font-semibold leading-8">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p
+          :if={@subtitle != []}
+          id={if @id, do: "#{@id}-description"}
+          class="text-sm text-base-content/70"
+        >
           {render_slot(@subtitle)}
         </p>
       </div>

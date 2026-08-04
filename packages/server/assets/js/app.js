@@ -318,8 +318,25 @@ const AlertRuleBuilderKeyboard = {
     requestAnimationFrame(focusFirstField)
     setTimeout(focusFirstField, 80)
 
-    this.getFocusableElements = () => {
-      if (!this.modalRoot) return []
+    this.getVisibleModalRoots = () => {
+      const dialogs = Array.from(document.querySelectorAll("[role='dialog'][aria-modal='true']"))
+
+      return dialogs
+        .map(dialog => dialog.closest("[id]"))
+        .filter(root => {
+          if (!root) return false
+          const style = window.getComputedStyle(root)
+          return style.display !== "none" && style.visibility !== "hidden"
+        })
+    }
+
+    this.getActiveModal = () => {
+      const visibleModals = this.getVisibleModalRoots()
+      return visibleModals[visibleModals.length - 1] || null
+    }
+
+    this.getFocusableElements = modalRoot => {
+      if (!modalRoot) return []
 
       const selector = [
         "button",
@@ -330,7 +347,7 @@ const AlertRuleBuilderKeyboard = {
         "[tabindex]:not([tabindex='-1'])",
       ].join(",")
 
-      return Array.from(this.modalRoot.querySelectorAll(selector)).filter(el => {
+      return Array.from(modalRoot.querySelectorAll(selector)).filter(el => {
         if (el.disabled) return false
         if (el.getAttribute("aria-hidden") === "true") return false
         const style = window.getComputedStyle(el)
@@ -343,17 +360,20 @@ const AlertRuleBuilderKeyboard = {
 
       if (!this.modalRoot || !document.body.contains(this.modalRoot)) return
 
+      const activeModal = this.getActiveModal()
+      if (!activeModal) return
+
       const key = event.key
       const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
       if (key === "Escape") {
         event.preventDefault()
-        const closeButton = document.querySelector("#rule-modal button[aria-label='close']")
+        const closeButton = activeModal.querySelector("button[aria-label='close']")
         closeButton?.click()
         return
       }
 
-      if (key === "Enter") {
+      if (key === "Enter" && activeModal === this.modalRoot) {
         const saveShortcutPressed = isMac ? event.metaKey : event.ctrlKey
 
         if (saveShortcutPressed) {
@@ -380,14 +400,14 @@ const AlertRuleBuilderKeyboard = {
 
       if (key !== "Tab") return
 
-      const focusables = this.getFocusableElements()
+      const focusables = this.getFocusableElements(activeModal)
       if (focusables.length === 0) return
 
       const first = focusables[0]
       const last = focusables[focusables.length - 1]
       const active = document.activeElement
 
-      if (!this.modalRoot.contains(active)) {
+      if (!activeModal.contains(active)) {
         event.preventDefault()
         ;(event.shiftKey ? last : first)?.focus()
         return
