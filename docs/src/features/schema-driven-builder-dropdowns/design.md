@@ -126,6 +126,16 @@ without claiming a usability pass/fail.
   evidence. A future observation must record participant/sample details, procedure, elapsed time, and limitations before
   claiming a usability result.
 
+### Alert task-flow measurement record — 2026-08-05
+
+- Scenario: open the alert rule builder, select a schema/version, choose a condition field, set an operator and
+  threshold, and save the rule.
+- Participant/sample: no valid operator observation window was available for this implementation run.
+- Elapsed time and pass/fail: not recorded; the 90-second target is deferred rather than evaluated.
+- Limitation: automated LiveView/browser checks and synthetic timings are implementation evidence, not human-usability
+  evidence. A future observation must record participant/sample details, procedure, elapsed time, and limitations before
+  claiming a usability result.
+
 ## Implementation Decomposition
 
 Beads retains performance and close-out evidence. The migrated implementation children `.7.1` through `.7.34` and
