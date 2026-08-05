@@ -119,9 +119,11 @@ without claiming a usability pass/fail.
 
 ## Implementation Decomposition
 
-Beads retains performance and close-out evidence. Bounded implementation slices are: canonical schema identity and
-conflict handling; option normalization and validation services; alert builder integration; report builder integration;
-compatibility/generated-contract coverage; and performance/observation evidence.
+Beads retains performance and close-out evidence. The migrated implementation children `.7.1` through `.7.34` and
+`.7.36` cover the already-delivered option, validation, alert/report integration, and contract slices. Remaining
+implementation work is the canonical schema identity/conflict boundary and its regression coverage; migrated `.7.35`,
+`.7.37`, `.7.38`, and `.7.39` own performance, verification, and operator-observation evidence. Do not duplicate those
+migrated task boundaries with parallel implementation beads.
 
 ## Dependencies and Parallelism
 
