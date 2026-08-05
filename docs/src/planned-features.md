@@ -1285,12 +1285,12 @@ from the current roadmap narrative.
 
 ### Add rule modal improvements (`add-rule-modal-improvements`)
 
-- Status: implemented; delivery action pending; measured success criteria deferred
+- Status: delivered; measured success criteria deferred
 - Overview: Improve Add Rule validation, keyboard and accessibility behavior, dirty-close recovery, first-attempt save usability, and globally case-insensitive rule-name uniqueness without changing alert evaluation semantics.
 - Beads root: `nixstasis-inh`
 - Design: [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
 - Delivered record: [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
-- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. Legacy `/alerts/rules` consolidation remains outside scope.
+- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. The feature was fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; no pull request was created. Legacy `/alerts/rules` consolidation remains outside scope.
 
 ### Dashboard home (`dashboard-home`)
 

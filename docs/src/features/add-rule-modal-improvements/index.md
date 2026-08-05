@@ -3,9 +3,10 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-inh`
-- Status: implemented and reconciled; delivery action pending; measured success criteria deferred
+- Status: delivered
+- Measurements: SC-001, SC-002, and SC-004 deferred; no metric pass/fail is claimed
 - Pull request: not created; no PR action selected
-- Merge commit: not merged; fast-forward delivery remains available
+- Merge commit: `3415861d1bc555a7714569732a372654bc75fc1e` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -72,6 +73,10 @@ visible until correction or user action; success feedback continues to auto-dism
 - Follow-up Playwright checks confirmed repeated discard flows focus `Keep Editing`, cycle through the confirmation controls, close only the active layer on Escape, and render rules as `Rule`, `Condition`, `Actions` with combined condition expressions.
 - `uv run scripts/check-docs.py` and `mdbook build docs` passed.
 - `mise x -- mix ash.codegen --check` passed; output: `/tmp/nixstasis-inh-18-19-ash-codegen.log`.
+- Post-merge delivery verification passed for `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; output:
+  `/tmp/nixstasis-inh-post-merge-delivery-verifier.json`.
+- Post-merge `mise run check` passed with status 0 after synchronizing ignored local Hex dependencies; output:
+  `/tmp/nixstasis-inh-post-merge-finalizer-check-2.log`.
 - SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
   controlled observation window exists, so no metric pass/fail is claimed. The user accepted the delivered
   feedback-driven improvements as complete without treating synthetic timings as human-usability evidence.
@@ -119,5 +124,5 @@ success-status visibility and opener-focus restoration in `58e7156`; the repeate
 correction was delivered in `72308b7`; and the rules table condition presentation was delivered in `3c2df6f`.
 Global case-insensitive rule-name uniqueness was added after validation review and is tracked by `nixstasis-inh.13`. Beads
 implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34` through `.7.37`
-are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; no pull request or
-merge has been created.
+are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; the feature was
+fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`, with no pull request created.
