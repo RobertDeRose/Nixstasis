@@ -44,6 +44,23 @@ defmodule NixstasisWeb.BuilderSchemaControllerTest do
     assert %{"error" => %{"code" => "schema_not_found"}} = json_response(conn, 404)
   end
 
+  test "GET options fails closed when matching schemas diverge", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:12",
+        "product_name" => "thermostat-v1",
+        "schema" => %{
+          "product" => "thermostat-v1",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    conn = get(conn, ~p"/api/v1/builder-schemas/thermostat-v1/versions/v1/options?builder=alert")
+
+    assert %{"error" => %{"code" => "schema_conflict"}} = json_response(conn, 409)
+  end
+
   test "legacy wrapper remains available outside JSON:API permission checks", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)

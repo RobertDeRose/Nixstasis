@@ -61,6 +61,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LegacyError"
+        "409":
+          description: Matching devices advertise conflicting schema definitions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyError"
         "422":
           description: Invalid schema options request
           content:
@@ -189,7 +195,7 @@ components:
       properties:
         issue_code:
           type: string
-          enum: [invalid_schema_field, schema_unavailable, schema_access_lost]
+          enum: [invalid_schema_field, schema_unavailable, schema_conflict, schema_access_lost]
         message:
           type: string
         slot_id:

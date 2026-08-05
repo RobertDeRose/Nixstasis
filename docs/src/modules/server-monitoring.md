@@ -74,6 +74,9 @@ failures preserve the entered draft so the operator can
 correct and resubmit. Schema Field options include the active schema value type
 (for example, `Temp (number)` or `Status (string)`), and changing fields
 normalizes an incompatible stale operator to a valid operator before validation.
+When devices share a product/version identity but advertise divergent schemas,
+the rule builder fails closed, explains that the definitions conflict, and blocks
+save until the device schemas are reconciled.
 
 Traceable references:
 

@@ -14,8 +14,7 @@ defmodule Nixstasis.SchemaOptions do
   def options_for(schema_id, schema_version, builder)
       when is_binary(schema_id) and is_binary(schema_version) and schema_id != "" do
     with {:ok, normalized_builder} <- normalize_builder(builder),
-         schema when is_map(schema) and map_size(schema) > 0 <-
-           Devices.get_schema_definition(schema_id, schema_version),
+         {:ok, schema} <- Devices.get_schema_definition(schema_id, schema_version),
          options <- Normalizer.normalize(schema) do
       {:ok,
        %{
@@ -27,8 +26,8 @@ defmodule Nixstasis.SchemaOptions do
        }}
     else
       {:error, :invalid} -> {:error, :invalid}
-      true -> {:error, :not_found}
-      _ -> {:error, :not_found}
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, :conflict} -> {:error, :conflict}
     end
   end
 
@@ -41,18 +40,13 @@ defmodule Nixstasis.SchemaOptions do
         Validator.validate(selections, options)
 
       {:error, :not_found} ->
-        %{
-          valid: false,
-          issues: [
-            %{
-              issue_code: "schema_unavailable",
-              message: "Schema options are unavailable",
-              slot_id: nil,
-              blocking: true
-            }
-          ],
-          cleared_slot_ids: []
-        }
+        schema_unavailable_result("schema_unavailable", "Schema options are unavailable")
+
+      {:error, :conflict} ->
+        schema_unavailable_result(
+          "schema_conflict",
+          "Schema definitions conflict for this product/version."
+        )
 
       _ ->
         %{
@@ -72,6 +66,25 @@ defmodule Nixstasis.SchemaOptions do
 
   def validate_selections(_builder, _schema_id, _schema_version, _selections) do
     %{valid: false, issues: [], cleared_slot_ids: []}
+  end
+
+  def schema_issue_message(:conflict), do: "Schema definitions conflict for this product/version."
+  def schema_issue_message(:not_found), do: "Schema options are unavailable."
+  def schema_issue_message(_), do: "Schema access is unavailable."
+
+  defp schema_unavailable_result(issue_code, message) do
+    %{
+      valid: false,
+      issues: [
+        %{
+          issue_code: issue_code,
+          message: message,
+          slot_id: nil,
+          blocking: true
+        }
+      ],
+      cleared_slot_ids: []
+    }
   end
 
   defp normalize_builder(builder) when builder in ["alert", :alert], do: {:ok, "alert"}

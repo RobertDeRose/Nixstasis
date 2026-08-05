@@ -143,7 +143,10 @@ The `/api/v1/builder-*` routes are compatibility wrappers around Ash-backed
 builder actions. The generated contracts for those actions are published under
 `/api/json/builder_contract/*`; GET wrappers keep their existing
 `application/json` `data` envelopes, while validation returns its raw JSON result
-and all wrappers preserve their legacy status/error behavior.
+and all wrappers preserve their legacy status/error behavior. Schema option
+lookup returns `409 schema_conflict` when devices sharing a canonical
+`(product_name, schema_version)` identity advertise divergent definitions; the
+wrapper never selects an arbitrary device schema.
 
 The device runtime retains controller-backed `/api/v1` compatibility wrappers,
 while all five additive generated Ash actions are available under

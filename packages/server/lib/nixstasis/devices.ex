@@ -680,20 +680,34 @@ defmodule Nixstasis.Devices do
     |> Repo.all()
   end
 
-  @doc "Returns one schema map for a product/version pair."
+  @doc "Returns the canonical schema for a product/version pair or a typed availability error."
   def get_schema_definition(schema_id, schema_version)
       when is_binary(schema_id) and is_binary(schema_version) do
-    from(d in "devices",
-      where: d.product_name == ^schema_id,
-      where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
-      where: fragment("? <> '{}'::jsonb", d.schema),
-      select: d.schema,
-      limit: 1
-    )
-    |> Repo.one()
+    schemas =
+      from(d in "devices",
+        where: d.product_name == ^schema_id,
+        where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
+        where: fragment("? <> '{}'::jsonb", d.schema),
+        order_by: [asc: d.id],
+        select: d.schema
+      )
+      |> Repo.all()
+
+    case schemas do
+      [] -> {:error, :not_found}
+      [schema | remaining] -> canonical_schema_result(schema, remaining)
+    end
   end
 
-  def get_schema_definition(_, _), do: nil
+  def get_schema_definition(_, _), do: {:error, :invalid}
+
+  defp canonical_schema_result(schema, remaining) do
+    if Enum.all?(remaining, &(&1 == schema)) do
+      {:ok, schema}
+    else
+      {:error, :conflict}
+    end
+  end
 
   @doc """
   Approves multiple devices by ID.

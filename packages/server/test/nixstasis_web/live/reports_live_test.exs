@@ -66,6 +66,33 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Using common script fields across all products."
   end
 
+  test "conflicting schema definitions show recovery guidance and block save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:44",
+        "product_name" => "report-schema-product",
+        "schema" => %{
+          "product" => "report-schema-product",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, _html} = live(conn, ~p"/reports/new")
+
+    html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    assert html =~ "Schema definitions conflict for this product/version."
+    assert has_element?(view, "#report-save-report[disabled]")
+  end
+
   test "schema field selection does not crash live component", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")

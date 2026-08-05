@@ -61,8 +61,9 @@
   delete confirmation, and saved view preferences, are captured in
   [Report View Improvements](../features/report-view-improvements/index.md).
 - Schema-aware alert/report builder option lookup and invalid-selection clearing
-  behavior is captured in
-  [Schema-Driven Builder Dropdowns](../features/schema-driven-builder-dropdowns/design.md).
+  uses `(product_name, schema_version)` as the canonical schema identity. If
+  matching devices advertise divergent definitions, the report builder exposes a
+  conflict message and blocks save rather than selecting one device arbitrarily.
 
 Traceable references:
 

@@ -57,6 +57,35 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert html =~ "Active Alerts"
   end
 
+  test "conflicting schema definitions show recovery guidance and block save", %{conn: conn} do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:35",
+        "product_name" => "alert-schema-product",
+        "schema" => %{
+          "product" => "alert-schema-product",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    {:ok, view, _html} = live(conn, alert_new_path())
+
+    render_change(element(view, "#alert-rule-form"), %{
+      "schema_id" => "alert-schema-product",
+      "schema_version" => "v1",
+      "alert_rule" => %{
+        "name" => "Conflicting schema rule",
+        "condition_field" => "temp",
+        "operator" => ">",
+        "threshold_value" => "75"
+      }
+    })
+
+    assert render(view) =~ "Schema definitions conflict for this product/version."
+    assert has_element?(view, "#alert-rule-save[disabled]")
+  end
+
   test "creates a rule successfully from modal", %{conn: conn} do
     {:ok, view, _html} = live(conn, alert_new_path())
 

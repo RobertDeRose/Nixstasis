@@ -533,7 +533,7 @@ contracts remain distinct.
 | Surface                        | Authorization                                                                    | Success                                             | Errors                                         |
 |--------------------------------|----------------------------------------------------------------------------------|-----------------------------------------------------|------------------------------------------------|
 | `/api/json/builder_contract/*` | Bearer/report-view through `JsonApiPermissions`                                  | Raw action payloads; validation returns `201`       | JSON:API `400`, `403`, and `404` as applicable |
-| `/api/v1/builder-*`            | Compatibility `:api` pipeline and rate limiter; deployment-edge auth is separate | Legacy `application/json`; validation returns `200` | Legacy `404`/`422` error envelopes             |
+| `/api/v1/builder-*`            | Compatibility `:api` pipeline and rate limiter; deployment-edge auth is separate | Legacy `application/json`; validation returns `200` | Legacy `404`/`409`/`422` error envelopes       |
 
 Use the generated routes for the canonical Ash/OpenAPI contract. Use the
 compatibility wrappers when an existing client requires the legacy envelope,
@@ -574,6 +574,23 @@ Missing schema response:
 }
 ```
 
+When devices sharing the same `(product_name, schema_version)` advertise
+non-identical definitions, the compatibility wrapper fails closed with HTTP
+`409` instead of selecting an arbitrary device definition:
+
+```json
+{
+  "error": {
+    "code": "schema_conflict",
+    "message": "Schema definitions conflict for this product/version"
+  }
+}
+```
+
+The generated JSON:API action reports the same unavailable/conflicting state
+through its JSON:API error envelope. Consumers must treat the conflict as
+blocking and wait for device schemas to be reconciled.
+
 ### Shared validation payload
 
 Validation request:
@@ -604,6 +621,24 @@ Validation response with stale selections cleared:
     }
   ],
   "cleared_slot_ids": ["b"]
+}
+```
+
+A conflicting schema validation response is blocking and does not clear an
+individual slot because no canonical option source is safe:
+
+```json
+{
+  "valid": false,
+  "issues": [
+    {
+      "issue_code": "schema_conflict",
+      "message": "Schema definitions conflict for this product/version.",
+      "slot_id": null,
+      "blocking": true
+    }
+  ],
+  "cleared_slot_ids": []
 }
 ```
 

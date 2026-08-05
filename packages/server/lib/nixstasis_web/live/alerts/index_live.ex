@@ -66,10 +66,10 @@ defmodule NixstasisWeb.AlertLive.Index do
     previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
     {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
 
-    {schema_options, schema_option_types} =
+    {schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(schema_id, schema_version)
 
-    no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
+    no_schema_fields_message = no_schema_fields_message(schema_id, schema_options, schema_error)
 
     edit_blocked? =
       socket.assigns.live_action == :edit and present?(socket.assigns.rule_edit_blocked_reason)
@@ -108,7 +108,10 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:schema_option_types, schema_option_types)
      |> assign(
        :schema_issue,
-       if(edit_blocked?, do: nil, else: schema_issue(condition_field, valid_field?, issues))
+       if(edit_blocked?,
+         do: nil,
+         else: schema_issue(condition_field, valid_field?, issues, schema_error)
+       )
      )
      |> assign(:no_schema_fields_message, no_schema_fields_message)
      |> assign(:rule_name_issue, rule_name_issue)
@@ -142,7 +145,7 @@ defmodule NixstasisWeb.AlertLive.Index do
             %{"slot_id" => "condition_field", "selected_key" => rule_params["condition_field"]}
           ])
 
-        {schema_options, schema_option_types} =
+        {schema_options, schema_option_types, schema_error} =
           fetch_schema_option_metadata(schema_id, schema_version)
 
         previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
@@ -151,7 +154,9 @@ defmodule NixstasisWeb.AlertLive.Index do
           normalize_operator_for_field(rule_params, schema_option_types, previous_condition_field)
 
         issues = AlertRule.validation_issues(schema_option_types, rule_params)
-        no_schema_fields_message = no_schema_fields_message(schema_id, schema_options)
+
+        no_schema_fields_message =
+          no_schema_fields_message(schema_id, schema_options, schema_error)
 
         save_rule_result(socket, %{
           schema_id: schema_id,
@@ -159,6 +164,7 @@ defmodule NixstasisWeb.AlertLive.Index do
           schema_options: schema_options,
           schema_option_types: schema_option_types,
           no_schema_fields_message: no_schema_fields_message,
+          schema_error: schema_error,
           validation: validation,
           issues: issues,
           rule_name_issue: rule_name_issue,
@@ -687,7 +693,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     selected_schema_id = schema_refs |> List.first() |> then(&if(&1, do: &1.schema_id, else: nil))
     selected_schema_version = first_schema_version(schema_refs, selected_schema_id)
 
-    {schema_options, schema_option_types} =
+    {schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
 
     form =
@@ -718,7 +724,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:selected_schema_version, selected_schema_version)
     |> assign(:schema_options, schema_options)
     |> assign(:schema_option_types, schema_option_types)
-    |> assign(:schema_issue, nil)
+    |> assign(:schema_issue, schema_issue_for_error(schema_error))
     |> assign(:rule_dirty?, false)
     |> assign(:rule_initial_draft, initial_draft)
     |> assign(:rule_editing, nil)
@@ -728,7 +734,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_save_in_flight?, false)
     |> assign(
       :no_schema_fields_message,
-      no_schema_fields_message(selected_schema_id, schema_options)
+      no_schema_fields_message(selected_schema_id, schema_options, schema_error)
     )
   end
 
@@ -744,7 +750,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     selected_schema_version =
       schema_version_for_existing_field(schema_refs, selected_schema_id, rule.condition_field)
 
-    {base_schema_options, schema_option_types} =
+    {base_schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
 
     field_valid_for_schema? =
@@ -754,7 +760,8 @@ defmodule NixstasisWeb.AlertLive.Index do
       invalid_rule_edit_reason(
         field_valid_for_schema?,
         selected_schema_id,
-        selected_schema_version
+        selected_schema_version,
+        schema_error
       )
 
     schema_options =
@@ -784,7 +791,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:selected_schema_version, selected_schema_version)
     |> assign(:schema_options, schema_options)
     |> assign(:schema_option_types, schema_option_types)
-    |> assign(:schema_issue, nil)
+    |> assign(:schema_issue, schema_issue_for_error(schema_error))
     |> assign(:rule_dirty?, false)
     |> assign(:rule_initial_draft, initial_draft)
     |> assign(:rule_editing, rule)
@@ -794,7 +801,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     |> assign(:rule_save_in_flight?, false)
     |> assign(
       :no_schema_fields_message,
-      no_schema_fields_message(selected_schema_id, schema_options)
+      no_schema_fields_message(selected_schema_id, schema_options, schema_error)
     )
   end
 
@@ -908,7 +915,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp schema_options_include_field?(schema_version, schema_id, condition_field) do
-    {options, _types} = fetch_schema_option_metadata(schema_id, schema_version)
+    {options, _types, _error} = fetch_schema_option_metadata(schema_id, schema_version)
     Enum.any?(options, fn {_label, key} -> key == condition_field end)
   end
 
@@ -931,8 +938,8 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp fetch_schema_option_metadata(nil, _), do: {[], %{}}
-  defp fetch_schema_option_metadata(_, nil), do: {[], %{}}
+  defp fetch_schema_option_metadata(nil, _), do: {[], %{}, nil}
+  defp fetch_schema_option_metadata(_, nil), do: {[], %{}, nil}
 
   defp fetch_schema_option_metadata(schema_id, schema_version) do
     case SchemaOptions.options_for(schema_id, schema_version, :alert) do
@@ -943,19 +950,23 @@ defmodule NixstasisWeb.AlertLive.Index do
           end)
 
         option_types = Map.new(options, &{&1.key, &1.value_type})
-        {option_pairs, option_types}
+        {option_pairs, option_types, nil}
 
-      _ ->
-        {[], %{}}
+      {:error, error} ->
+        {[], %{}, error}
     end
   end
 
-  defp no_schema_fields_message(nil, _), do: nil
+  defp schema_issue_for_error(:conflict), do: SchemaOptions.schema_issue_message(:conflict)
+  defp schema_issue_for_error(_), do: nil
 
-  defp no_schema_fields_message(_, options) when options == [],
+  defp no_schema_fields_message(nil, _options, _error), do: nil
+  defp no_schema_fields_message(_schema_id, _options, :conflict), do: nil
+
+  defp no_schema_fields_message(_, options, _error) when options == [],
     do: "No schema fields are available for this schema/version."
 
-  defp no_schema_fields_message(_, _), do: nil
+  defp no_schema_fields_message(_, _, _), do: nil
 
   defp maybe_clear_invalid_condition_field(params, condition_field, valid_field?) do
     if condition_field != "" and not valid_field? do
@@ -965,12 +976,15 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp schema_issue("", _, issues), do: first_issue_message(issues)
+  defp schema_issue(_condition_field, _valid_field?, _issues, :conflict),
+    do: SchemaOptions.schema_issue_message(:conflict)
 
-  defp schema_issue(_condition_field, false, _issues),
+  defp schema_issue("", _, issues, _schema_error), do: first_issue_message(issues)
+
+  defp schema_issue(_condition_field, false, _issues, _schema_error),
     do: "Selected field is no longer valid for the active schema."
 
-  defp schema_issue(_condition_field, true, issues), do: first_issue_message(issues)
+  defp schema_issue(_condition_field, true, issues, _schema_error), do: first_issue_message(issues)
 
   defp first_issue_message([%{message: message} | _]) when is_binary(message), do: message
   defp first_issue_message(_), do: nil
@@ -1010,6 +1024,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     schema_options = context.schema_options
     schema_option_types = context.schema_option_types
     no_schema_fields_message = context.no_schema_fields_message
+    schema_error = Map.get(context, :schema_error)
     validation = context.validation
     issues = context.issues
     rule_params = context.rule_params
@@ -1035,6 +1050,16 @@ defmodule NixstasisWeb.AlertLive.Index do
 
       schema_id in [nil, ""] ->
         {:noreply, put_flash(socket, :error, "Select a schema product before saving.")}
+
+      schema_error == :conflict ->
+        record_invalid_attempt()
+
+        message = SchemaOptions.schema_issue_message(:conflict)
+
+        {:noreply,
+         socket
+         |> assign(:schema_issue, message)
+         |> put_flash(:error, message)}
 
       schema_options == [] ->
         record_invalid_attempt()
@@ -1335,9 +1360,13 @@ defmodule NixstasisWeb.AlertLive.Index do
     "#{label} (#{type})"
   end
 
-  defp invalid_rule_edit_reason(true, _schema_id, _schema_version), do: nil
+  defp invalid_rule_edit_reason(true, _schema_id, _schema_version, _schema_error), do: nil
 
-  defp invalid_rule_edit_reason(false, schema_id, schema_version) do
+  defp invalid_rule_edit_reason(false, _schema_id, _schema_version, :conflict) do
+    SchemaOptions.schema_issue_message(:conflict) <> " Editing is disabled."
+  end
+
+  defp invalid_rule_edit_reason(false, schema_id, schema_version, _schema_error) do
     schema_label =
       [schema_id, schema_version]
       |> Enum.reject(&(&1 in [nil, ""]))
@@ -1356,13 +1385,18 @@ defmodule NixstasisWeb.AlertLive.Index do
     selected_schema_version =
       schema_version_for_existing_field(schema_refs, selected_schema_id, rule.condition_field)
 
-    {schema_options, _schema_option_types} =
+    {schema_options, _schema_option_types, schema_error} =
       fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
 
     field_valid_for_schema? =
       Enum.any?(schema_options, fn {_label, key} -> key == rule.condition_field end)
 
-    invalid_rule_edit_reason(field_valid_for_schema?, selected_schema_id, selected_schema_version)
+    invalid_rule_edit_reason(
+      field_valid_for_schema?,
+      selected_schema_id,
+      selected_schema_version,
+      schema_error
+    )
   end
 
   defp rule_save_enabled?(assigns) do

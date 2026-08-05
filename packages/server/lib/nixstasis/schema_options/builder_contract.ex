@@ -28,6 +28,16 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
     def message(error), do: "invalid schema options request for #{error.builder} builder"
   end
 
+  defmodule OptionsConflict do
+    @moduledoc false
+
+    use Splode.Error, class: :invalid, fields: [:schema_id, :schema_version]
+
+    def message(error) do
+      "schema definitions conflict for #{error.schema_id} #{error.schema_version}"
+    end
+  end
+
   @schema_reference_fields [
     schema_id: [type: :string, allow_nil?: false],
     schema_version: [type: :string, allow_nil?: false],
@@ -96,9 +106,21 @@ defmodule Nixstasis.SchemaOptions.BuilderContract do
                input.arguments.schema_version,
                to_string(input.arguments.builder)
              ) do
-          {:ok, payload} -> {:ok, payload}
-          {:error, :not_found} -> {:error, OptionsNotFound.exception(Map.to_list(input.arguments))}
-          {:error, :invalid} -> {:error, OptionsInvalid.exception(builder: to_string(input.arguments.builder))}
+          {:ok, payload} ->
+            {:ok, payload}
+
+          {:error, :not_found} ->
+            {:error, OptionsNotFound.exception(Map.to_list(input.arguments))}
+
+          {:error, :conflict} ->
+            {:error,
+             OptionsConflict.exception(
+               schema_id: input.arguments.schema_id,
+               schema_version: input.arguments.schema_version
+             )}
+
+          {:error, :invalid} ->
+            {:error, OptionsInvalid.exception(builder: to_string(input.arguments.builder))}
         end
       end
     end
