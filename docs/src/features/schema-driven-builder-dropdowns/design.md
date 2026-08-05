@@ -117,6 +117,15 @@ handling, and performance checks. Verify the two-second option-load target with 
 90-second task-flow evidence only in a valid operator observation window; otherwise record the measurement as deferred
 without claiming a usability pass/fail.
 
+### Report task-flow measurement record — 2026-08-05
+
+- Scenario: create a report, select a schema, choose a column, add a typed filter, and save it.
+- Participant/sample: no valid operator observation window was available for this implementation run.
+- Elapsed time and pass/fail: not recorded; the 90-second target is deferred rather than evaluated.
+- Limitation: automated LiveView/browser checks and synthetic timings are implementation evidence, not human-usability
+  evidence. A future observation must record participant/sample details, procedure, elapsed time, and limitations before
+  claiming a usability result.
+
 ## Implementation Decomposition
 
 Beads retains performance and close-out evidence. The migrated implementation children `.7.1` through `.7.34` and
