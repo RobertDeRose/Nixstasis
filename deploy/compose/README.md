@@ -41,7 +41,19 @@ mise run deploy:dev -- up --clients 2
 
 `up` is the dev-lab bootstrap command: it starts Postgres, runs migrations,
 starts the full stack, scales client containers, and pre-approves the running
-client simulators. Other commands pass through to Docker Compose, so use normal Compose commands such as
+client simulators. Seed deterministic schema-builder fixtures into the running
+Compose database with:
+
+```sh
+mise run deploy:dev:seed
+```
+
+The seed task is idempotent for its stable devices, alert, report, and telemetry
+batch. Add future fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable
+identifier or telemetry marker. It requires the dev lab to be running and uses
+Compose `exec`; it does not connect to a host PostgreSQL port.
+
+Other commands pass through to Docker Compose, so use normal Compose commands such as
 `mise run deploy:dev -- logs -f`, `mise run deploy:dev -- logs -f client`,
 `mise run deploy:dev -- logs -f client1`, `mise run deploy:dev -- ps`, and
 `mise run deploy:dev -- down`. The `client1`/`client2` log shorthand maps to

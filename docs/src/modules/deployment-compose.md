@@ -24,6 +24,7 @@
 - `deploy/compose/caddy/Caddyfile.dev`
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `.mise/tasks/deploy/dev.sh`
+- `.mise/tasks/deploy/dev/seed.sh`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
 - `prod.env`
@@ -186,6 +187,10 @@
   default secure cookie setting.
 - `mise run deploy:dev -- up` wraps `.mise/tasks/deploy/dev.sh up` to
   start the full stack, run migrations, and pre-approve running client simulators.
+- `mise run deploy:dev:seed` runs the tracked Compose RPC fixture task for
+  schema-builder devices, versions, telemetry, an alert, and a report. The task
+  is idempotent for its stable fixtures and is the supported place to extend
+  local builder test data; it requires a running dev lab.
 - `mise run deploy:dev -- down` removes dev-lab containers and named volumes,
   including local PostgreSQL data, so the next `up` starts from an empty database.
 - `deploy/compose/caddy/Caddyfile.dev` provides default loopback-only local HTTPS
