@@ -74,6 +74,91 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       assert Map.has_key?(first, "humidity")
     end
 
+    test "scopes telemetry to the selected schema and preserves all-schema mode" do
+      {:ok, version_two_device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:EE:02",
+          "product_name" => "sensor-v1",
+          "schema" => %{
+            "product" => "sensor-v1",
+            "version" => "v2",
+            "type" => "object",
+            "properties" => %{"temp" => %{"type" => "number"}}
+          }
+        })
+
+      {:ok, other_device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:EE:03",
+          "product_name" => "other-sensor",
+          "schema" => %{
+            "product" => "other-sensor",
+            "version" => "v1",
+            "type" => "object",
+            "properties" => %{"temp" => %{"type" => "number"}}
+          }
+        })
+
+      Repo.insert!(%Telemetry{
+        device_id: version_two_device.id,
+        payload: %{"temp" => 200},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      Repo.insert!(%Telemetry{
+        device_id: other_device.id,
+        payload: %{"temp" => 300},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      scoped_config = %{
+        source: "telemetry",
+        schema_id: "sensor-v1",
+        schema_version: "v1",
+        fields: [%{path: "temp", alias: "temperature"}],
+        filters: []
+      }
+
+      scoped_results = scoped_config |> QueryBuilder.build() |> Repo.all()
+      assert Enum.sort(Enum.map(scoped_results, & &1["temperature"])) == [25, 30]
+
+      all_schema_results =
+        %{source: "telemetry", fields: [%{path: "temp", alias: "temperature"}], filters: []}
+        |> QueryBuilder.build()
+        |> Repo.all()
+
+      assert Enum.sort(Enum.map(all_schema_results, & &1["temperature"])) == [25, 30, 200, 300]
+    end
+
+    test "excludes rows without any configured payload fields", %{device: device} do
+      Repo.insert!(%Telemetry{
+        device_id: device.id,
+        payload: %{"unrelated" => "value"},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      Repo.insert!(%Telemetry{
+        device_id: device.id,
+        payload: %{"temp" => 31},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      config = %{
+        source: "telemetry",
+        fields: [
+          %{path: "temp", alias: "temperature"},
+          %{path: "humidity", alias: "humidity"}
+        ],
+        filters: [%{field: "device_id", operator: "=", value: device.id}]
+      }
+
+      results = config |> QueryBuilder.build() |> Repo.all()
+
+      assert length(results) == 3
+      assert Enum.any?(results, &(&1["temperature"] in [31, "31"]))
+      refute Enum.any?(results, &(is_nil(&1["temperature"]) and is_nil(&1["humidity"])))
+    end
+
     test "filters based on jsonb values", %{device: device} do
       config = %{
         source: "telemetry",

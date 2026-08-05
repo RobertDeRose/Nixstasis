@@ -53,6 +53,10 @@
 ## Client-Server Interaction Details
 
 - Reporting is primarily used by browser LiveView routes under `/reports`.
+- Reports with a selected schema identity limit telemetry results to matching
+  product/version devices; all-schema reports retain cross-schema results.
+- Telemetry report results omit rows where every configured payload field is
+  missing or empty; rows with at least one configured value remain visible.
 - Custom reports are also exposed through Ash JSON:API under `/api/json/custom_reports`.
 - `GET /api/v1/reports/:id/results` remains a bespoke controller endpoint for
   now because it executes report query construction and returns shaped preview

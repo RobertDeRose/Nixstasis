@@ -36,8 +36,10 @@ defmodule Nixstasis.Reporting.QueryBuilder do
 
     source
     |> base_query()
+    |> apply_schema_scope(config, source)
     |> apply_filters(filters, source)
     |> apply_result_sort(sort_by, sort_dir, fields, source, numeric_sort?)
+    |> apply_non_empty_result_fields(fields, source)
     |> apply_result_pagination(opts)
     |> select_fields(fields, source)
   end
@@ -51,6 +53,33 @@ defmodule Nixstasis.Reporting.QueryBuilder do
       _ -> fields
     end
   end
+
+  defp apply_non_empty_result_fields(query, fields, "telemetry") do
+    paths =
+      fields
+      |> Enum.map(&(&1["path"] || &1[:path]))
+      |> Enum.filter(&(is_binary(&1) and &1 != ""))
+
+    case paths do
+      [] ->
+        query
+
+      paths ->
+        condition =
+          Enum.reduce(paths, dynamic(false), fn path, condition ->
+            segments = String.split(path, ".", trim: true)
+
+            dynamic(
+              [q],
+              ^condition or fragment("NULLIF(? #>> ?, '') IS NOT NULL", q.payload, ^segments)
+            )
+          end)
+
+        from(q in query, where: ^condition)
+    end
+  end
+
+  defp apply_non_empty_result_fields(query, _fields, _source), do: query
 
   def apply_result_view(rows, opts \\ %{}) when is_list(rows) do
     sort_by = opts[:sort_by] || opts["sort_by"]
@@ -79,6 +108,35 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp base_query("e2e"), do: from(r in Run)
 
   defp base_query(_unknown), do: from(r in Run, where: false)
+
+  defp apply_schema_scope(query, config, "telemetry") do
+    schema_id = config["schema_id"] || config[:schema_id]
+    schema_version = config["schema_version"] || config[:schema_version]
+
+    cond do
+      present_scope_value?(schema_id) and present_scope_value?(schema_version) ->
+        from(q in query,
+          join: d in "devices",
+          on: d.id == q.device_id,
+          where: d.product_name == ^schema_id,
+          where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version)
+        )
+
+      present_scope_value?(schema_id) ->
+        from(q in query,
+          join: d in "devices",
+          on: d.id == q.device_id,
+          where: d.product_name == ^schema_id
+        )
+
+      true ->
+        query
+    end
+  end
+
+  defp apply_schema_scope(query, _config, _source), do: query
+
+  defp present_scope_value?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp select_fields(query, fields, "telemetry") do
     select_map =
