@@ -814,6 +814,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     assert html =~ "Temp and Humidity Reset"
     assert html =~ "Temp Only Reset"
+    refute html =~ "Saved report view preferences were invalid and have been reset to safe defaults."
   end
 
   test "field dropdown selection adds chip immediately", %{conn: conn, permissions: permissions} do

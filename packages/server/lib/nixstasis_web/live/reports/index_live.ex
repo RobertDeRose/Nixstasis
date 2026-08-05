@@ -203,16 +203,22 @@ defmodule NixstasisWeb.ReportLive.Index do
     saved = Reporting.load_view_preferences(preference_scope, "reports:index")
     has_filters_param? = Map.has_key?(params, "filters")
 
+    filters =
+      if has_filters_param? do
+        params["filters"]
+      else
+        saved["filters"]
+      end
+
     %{
       "sort_by" => params["sort_by"] || saved["sort_by"],
       "sort_dir" => params["sort_dir"] || saved["sort_dir"],
-      "filters" =>
-        if(has_filters_param?,
-          do: params["filters"] || %{},
-          else: saved["filters"] || %{}
-        )
+      "filters" => merge_default_filters(filters)
     }
   end
+
+  defp merge_default_filters(filters) when is_map(filters), do: Map.merge(@default_filters, filters)
+  defp merge_default_filters(_), do: @default_filters
 
   defp normalize_sort_by(by) when by in ["name"], do: by
   defp normalize_sort_by(_), do: "name"
