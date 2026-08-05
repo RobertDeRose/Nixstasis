@@ -188,9 +188,11 @@
 - `mise run deploy:dev -- up` wraps `.mise/tasks/deploy/dev.sh up` to
   start the full stack, run migrations, and pre-approve running client simulators.
 - `mise run deploy:dev:seed` runs the tracked Compose RPC fixture task for
-  schema-builder devices, versions, telemetry, an alert, and a report. The task
-  is idempotent for its stable fixtures and is the supported place to extend
-  local builder test data; it requires a running dev lab.
+  schema-builder devices, versions, telemetry, an alert, and a report. The
+  database-only devices remain offline and do not provide remote terminal/FRP
+  routes; use a real Compose client device for SSH testing. The task is
+  idempotent for its stable fixtures and is the supported place to extend local
+  builder test data; it requires a running dev lab.
 - `mise run deploy:dev -- down` removes dev-lab containers and named volumes,
   including local PostgreSQL data, so the next `up` starts from an empty database.
 - `deploy/compose/caddy/Caddyfile.dev` provides default loopback-only local HTTPS

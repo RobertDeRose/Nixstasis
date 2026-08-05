@@ -48,10 +48,12 @@ Compose database with:
 mise run deploy:dev:seed
 ```
 
-The seed task is idempotent for its stable devices, alert, report, and telemetry
-batch. Add future fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable
-identifier or telemetry marker. It requires the dev lab to be running and uses
-Compose `exec`; it does not connect to a host PostgreSQL port.
+The seed task is idempotent for its stable offline devices, alert, report, and
+telemetry batch. The database-only devices intentionally do not provide remote
+terminal/FRP routes; use a real Compose client device for SSH testing. Add future
+fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable identifier or
+telemetry marker. It requires the dev lab to be running and uses Compose `exec`;
+it does not connect to a host PostgreSQL port.
 
 Other commands pass through to Docker Compose, so use normal Compose commands such as
 `mise run deploy:dev -- logs -f`, `mise run deploy:dev -- logs -f client`,

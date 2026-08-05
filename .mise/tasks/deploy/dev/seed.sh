@@ -9,6 +9,8 @@ rpc_code=$(cat <<'ELIXIR'
 now = DateTime.utc_now() |> DateTime.truncate(:second)
 product = "schema-builder-demo"
 
+# These are database-only fixtures: no client container owns their MAC
+# addresses, so they must remain offline and must never auto-open SSH.
 # Add future deterministic devices and schema versions to this list. Keep MAC
 # addresses and account numbers stable so rerunning the task remains idempotent.
 schemas = [
@@ -48,8 +50,8 @@ upserted_devices =
       mac_address: mac_address,
       account_number: account_number,
       product_name: product,
-      approval_status: :approved,
-      last_seen_at: now,
+      approval_status: :pending,
+      last_seen_at: nil,
       schema: schema,
       metadata: %{"deploy_dev_seed" => "schema-builder"}
     }
@@ -65,7 +67,13 @@ upserted_devices =
 
       device ->
         {:ok, device} =
-          Nixstasis.Devices.update_device(device, Map.delete(attrs, :mac_address))
+          Nixstasis.Devices.update_device(device, %{
+            account_number: account_number,
+            product_name: product,
+            last_seen_at: nil,
+            schema: schema,
+            metadata: Map.merge(device.metadata || %{}, attrs.metadata)
+          })
 
         device
     end
@@ -136,7 +144,7 @@ else
   IO.puts("#{seed_marker} telemetry already exists; no duplicate events inserted.")
 end
 
-IO.puts("Seeded #{product} schema versions v1 and v2.")
+IO.puts("Seeded #{product} schema versions v1 and v2 as offline fixtures.")
 IO.puts("Seeded alert: #{rule_name}")
 IO.puts("Seeded report: #{report_name}")
 ELIXIR
