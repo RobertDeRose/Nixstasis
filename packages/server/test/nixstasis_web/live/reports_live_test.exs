@@ -51,6 +51,31 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, permissions: %{"can_view" => true, "can_manage" => true}}
   end
 
+  test "schema option loading emits measured timing for the report builder", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    handler_id = "report-schema-options-timing-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:nixstasis, :builder, :schema_options, :load],
+        fn _event, measurements, metadata, test_pid ->
+          send(test_pid, {:schema_options_loaded, measurements, metadata})
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, _view, _html} = live(conn, ~p"/reports/new")
+
+    assert_receive {:schema_options_loaded, %{duration_ms: duration_ms}, %{builder: "report"}}, 1_000
+    assert duration_ms <= 2_000
+  end
+
   test "new report modal renders all-schema selectors and options", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports/new")

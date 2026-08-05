@@ -39,6 +39,27 @@ defmodule NixstasisWeb.AlertsLiveTest do
     :ok
   end
 
+  test "schema option loading emits measured timing for the alert builder", %{conn: conn} do
+    handler_id = "alert-schema-options-timing-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:nixstasis, :builder, :schema_options, :load],
+        fn _event, measurements, metadata, test_pid ->
+          send(test_pid, {:schema_options_loaded, measurements, metadata})
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    {:ok, _view, _html} = live(conn, alert_new_path())
+
+    assert_receive {:schema_options_loaded, %{duration_ms: duration_ms}, %{builder: "alert"}}, 1_000
+    assert duration_ms <= 2_000
+  end
+
   test "new rule modal renders schema-driven selectors and action controls", %{conn: conn} do
     {:ok, view, html} = live(conn, alert_new_path())
 

@@ -101,6 +101,10 @@ Option loading must remain bounded and authorization-aware. The service must ins
 request, and all-schema report mode must use a bounded/batched lookup rather than an unbounded request per reference.
 Missing, unreadable, or conflicting schema state fails visibly without retaining invalid saved configuration. The HTTP
 compatibility wrapper records measured lookup time; the shared domain payload does not claim a synthetic performance value.
+The shared option service also emits the measured
+`[:nixstasis, :builder, :schema_options, :load]` event with `duration_ms` and
+result metadata for bounded performance verification; it does not place that
+measurement in the shared payload.
 
 ## Documentation Impact
 
@@ -144,6 +148,12 @@ without claiming a usability pass/fail.
 - `uv run scripts/check-docs.py`: passed. `mise run check`: passed, including server compile/format, Go checks, docs build, and repository linters.
 - Covered behavior includes canonical option loading, divergent-schema conflict blocking, selection invalidation, degraded empty/unavailable states, compatibility errors, and existing authorization regression coverage.
 - Limitations: LiveView test output contains pre-existing missing-form-ID warnings, and mdBook lint reports pre-existing warnings; neither produced a failing check. No browser automation or human-usability claim was substituted for operator observation.
+
+### Performance verification record — 2026-08-05
+
+- Alert and report LiveView timing assertions emitted actual monotonic `duration_ms` telemetry and passed the 2,000 ms bound in 95 focused tests with 0 failures.
+- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit` passed after instrumentation with 629 tests and 0 failures.
+- The assertion measures option-service execution only; it is not a human task-completion measurement and does not alter the shared `load_time_ms` payload.
 
 ## Implementation Decomposition
 
