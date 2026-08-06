@@ -810,6 +810,109 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "disabled"
   end
 
+  test "save validates filter values against the submitted schema context", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:47",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    report =
+      report_fixture(%{
+        "name" => "Schema Context Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => [%{"field" => "temp", "operator" => "=", "value" => "20"}]
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+    [filter_id] = select_ids!(html, "field")
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product-3",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Temperature"}
+        },
+        "filters" => %{
+          filter_id => %{"field" => "temp", "operator" => "=", "value" => "abc"}
+        }
+      })
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["schema_id"] == "report-schema-product-3"
+    assert saved.config["schema_version"] == "v1"
+    assert saved.config["filters"] == [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+  end
+
+  test "save rejects filter values incompatible with the submitted schema", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:48",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    report =
+      report_fixture(%{
+        "name" => "Invalid Submitted Filter Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product-3",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+    [filter_id] = select_ids!(html, "field")
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Temperature"}
+        },
+        "filters" => %{
+          filter_id => %{"field" => "temp", "operator" => "=", "value" => "abc"}
+        }
+      })
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["schema_id"] == "report-schema-product-3"
+    assert saved.config["filters"] == [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+  end
+
   test "save enables immediately when filter value becomes valid", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")

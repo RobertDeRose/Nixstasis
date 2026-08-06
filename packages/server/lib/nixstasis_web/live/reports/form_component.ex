@@ -207,7 +207,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
       filters_have_invalid_value_types?(
         save_ctx.submitted_filters,
-        schema_option_types(socket.assigns.schema_options)
+        save_ctx.validation_option_types
       ) ->
         {:noreply,
          socket
@@ -278,7 +278,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     submitted_filters = submitted_filters_from_params(params, socket.assigns.filters)
 
-    {validation, schema_error} =
+    {validation, schema_error, validation_options} =
       validate_current_schema(
         submitted_schema_id,
         submitted_schema_version,
@@ -304,63 +304,25 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       submitted_fields: submitted_fields,
       submitted_filters: submitted_filters,
       validation: validation,
+      validation_option_types: schema_option_types(validation_options),
       schema_error: schema_error,
       report_params: report_params,
       name_taken?: name_taken_for_other_report?(socket.assigns.report, normalized_name)
     }
   end
 
-  defp validate_current_schema(@all_scope, schema_version, fields, filters) do
-    {schema_options, schema_error} =
-      SchemaOptions.list_schema_references()
-      |> fetch_schema_options(@all_scope, schema_version)
-
-    {validate_selected_keys(fields, filters, schema_options), schema_error}
-  end
-
-  defp validate_current_schema(schema_id, schema_version, fields, filters)
-       when is_binary(schema_id) and schema_id != "" and schema_version in [nil, ""] do
-    {schema_options, schema_error} =
-      SchemaOptions.list_schema_references()
-      |> fetch_schema_options(schema_id, nil)
-
-    {validate_selected_keys(fields, filters, schema_options), schema_error}
-  end
-
   defp validate_current_schema(schema_id, schema_version, fields, filters)
        when is_binary(schema_id) and schema_id != "" do
-    validation =
-      SchemaOptions.validate_selections(
-        :report,
-        schema_id,
-        schema_version,
-        schema_selections(fields, filters)
-      )
+    {schema_options, schema_error} =
+      SchemaOptions.list_schema_references()
+      |> fetch_schema_options(schema_id, schema_version)
 
-    {validation, schema_error_from_validation(validation)}
+    {validate_selected_keys(fields, filters, schema_options), schema_error, schema_options}
   end
 
   defp validate_current_schema(_schema_id, _schema_version, fields, filters) do
-    {validate_selected_keys(fields, filters, []), :invalid}
+    {validate_selected_keys(fields, filters, []), :invalid, []}
   end
-
-  defp schema_selections(fields, filters) do
-    Enum.map(fields, &%{"slot_id" => &1.id, "selected_key" => &1.path}) ++
-      Enum.map(filters, &%{"slot_id" => &1.id, "selected_key" => &1.field})
-  end
-
-  defp schema_error_from_validation(%{issues: issues}) do
-    cond do
-      Enum.any?(issues, &(schema_issue_code(&1) == "schema_conflict")) -> :conflict
-      Enum.any?(issues, &(schema_issue_code(&1) == "schema_unavailable")) -> :not_found
-      Enum.any?(issues, &(schema_issue_code(&1) == "schema_access_lost")) -> :invalid
-      true -> nil
-    end
-  end
-
-  defp schema_error_from_validation(_), do: :invalid
-
-  defp schema_issue_code(issue), do: Map.get(issue, :issue_code) || Map.get(issue, "issue_code")
 
   defp assign_save_state(socket, save_ctx) do
     socket
