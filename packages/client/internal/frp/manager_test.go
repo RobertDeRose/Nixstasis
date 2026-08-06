@@ -203,6 +203,23 @@ func TestManager_StartStop(t *testing.T) {
 	}
 }
 
+func TestManager_GetStatusReportsClientError(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
+	_ = cl
+
+	mgr := NewManager()
+	mgr.SetError("unknown route profile")
+
+	status := mgr.GetStatus()
+	if status.Active {
+		t.Fatal("expected inactive status")
+	}
+	if status.Error != "unknown route profile" {
+		t.Fatalf("status error = %q", status.Error)
+	}
+}
+
 func TestManager_GetStatus(t *testing.T) {
 	cl, cleanup := setupTest(t)
 	defer cleanup()
@@ -287,8 +304,9 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 			if run.args[i+2] != "frp-session" {
 				t.Errorf("expected frp-session subcommand, got %q", run.args[i+2])
 			}
-			if !argsContainSequence(run.args[i+3:], "--config", configPath) {
-				t.Errorf("expected frp-session --config %q in args: %v", configPath, run.args)
+			renderedConfigPath := filepath.Join(frpRuntimeDir, renderedFRPConfigName)
+			if !argsContainSequence(run.args[i+3:], "--config", renderedConfigPath) {
+				t.Errorf("expected frp-session --config %q in args: %v", renderedConfigPath, run.args)
 			}
 			if !argsContainSequence(run.args[i+3:], "--frpc", config.FRPCBinaryPath()) {
 				t.Errorf("expected frp-session --frpc %q in args: %v", config.FRPCBinaryPath(), run.args)

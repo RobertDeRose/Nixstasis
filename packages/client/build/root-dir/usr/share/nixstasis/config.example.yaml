@@ -16,6 +16,27 @@ frp:
   web_server_port: 7400
   http_local_addr: "127.0.0.1:443"
   ssh_local_port: 22
+  allowed_plugin_kinds:
+    - "http2https"
+  profiles:
+    default:
+      version: 1
+      routes:
+        - name: "web"
+          kind: "http2https"
+          local_addr: "127.0.0.1:443"
+        - name: "ssh"
+          kind: "tcpmux"
+          local_port: 22
+        - name: "pcp"
+          kind: "tcpmux"
+          local_port: 44321
+    atomixos-bootstrap:
+      version: 1
+      routes:
+        - name: "provisioning"
+          kind: "http"
+          local_addr: "127.0.0.1:8080"
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"

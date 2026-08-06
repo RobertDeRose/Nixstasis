@@ -312,6 +312,35 @@ defmodule Nixstasis.DevicesTest do
       assert updated.remote_access_requested == false
     end
 
+    test "set_remote_access/3 stores a validated route profile" do
+      device = device_fixture()
+
+      assert {:ok, updated} = Devices.set_remote_access(device, true, "bootstrap")
+      assert updated.remote_access_requested == true
+      assert updated.remote_access_profile == "bootstrap"
+
+      assert {:ok, updated} = Devices.set_remote_access(updated, false)
+      assert updated.remote_access_profile == "bootstrap"
+    end
+
+    test "set_remote_access/3 rejects unsafe route profile names" do
+      device = device_fixture()
+
+      assert {:error, :invalid_remote_access_profile} =
+               Devices.set_remote_access(device, true, "../frpc.toml")
+    end
+
+    test "device re-registration preserves the operator-selected route profile" do
+      device = device_fixture(%{mac_address: "02:00:00:00:00:11"})
+      assert {:ok, device} = Devices.set_remote_access_profile(device, "bootstrap")
+
+      assert {:ok, re_registered} =
+               Devices.register_device(%{mac_address: device.mac_address, product_name: "key-v2"})
+
+      assert re_registered.id == device.id
+      assert re_registered.remote_access_profile == "bootstrap"
+    end
+
     test "issue_device_token/1 stores only a non-plaintext token hash" do
       device = device_fixture(%{approval_status: :approved})
 

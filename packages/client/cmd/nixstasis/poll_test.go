@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -94,6 +95,7 @@ type fakeFRPController struct {
 	stopCalls      int
 	startedConfig  config.FRPConfig
 	startedCfgPath string
+	errors         []string
 }
 
 func (f *fakeCommandClient) SendCommandResults(_ context.Context, _ string, results []transport.CommandResult) error {
@@ -153,6 +155,10 @@ func (f *fakeFRPController) GetStatus() frp.ConnectionStatus {
 	return f.status
 }
 
+func (f *fakeFRPController) SetError(message string) {
+	f.errors = append(f.errors, message)
+}
+
 func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) {
 	handler := &fakeCommandHandler{
 		results: []transport.CommandResult{
@@ -210,6 +216,83 @@ func TestPollResponseTokenOverridesRuntimeFRPAuthToken(t *testing.T) {
 
 	if frpConfig.AuthToken != "heartbeat-token" {
 		t.Fatalf("expected heartbeat token to become FRP auth token, got %q", frpConfig.AuthToken)
+	}
+}
+
+func TestPollOnceStartsFRPWithSelectedRouteProfile(t *testing.T) {
+	client := &fakePollClient{response: &transport.PollResponse{
+		RemoteAccessToken:   "heartbeat-token",
+		RemoteAccessProfile: &config.RouteProfileSelection{Name: "bootstrap", Version: 1},
+	}}
+	frpManager := &fakeFRPController{}
+	cfg := &config.Config{
+		Scripts: config.ScriptsConfig{Dir: t.TempDir()},
+		FRP: config.FRPConfig{
+			ServerAddr: "frps.example",
+			Profiles: map[string]config.FRPRouteProfile{
+				"bootstrap": {
+					Version: 1,
+					Routes:  []config.FRPRoute{{Name: "api", Kind: config.RouteKindHTTP, LocalAddr: "127.0.0.1:8080"}},
+				},
+			},
+		},
+	}
+	state := &remoteAccessPollState{}
+
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("pollOnce() error = %v", err)
+	}
+	if frpManager.startCalls != 1 {
+		t.Fatalf("start calls = %d, want 1", frpManager.startCalls)
+	}
+	if frpManager.startedConfig.SelectedProfileName != "bootstrap" || frpManager.startedConfig.SelectedProfileVersion != 1 {
+		t.Fatalf("selected profile = %q/%d", frpManager.startedConfig.SelectedProfileName, frpManager.startedConfig.SelectedProfileVersion)
+	}
+	if state.profileKey != "bootstrap:1" {
+		t.Fatalf("profile key = %q", state.profileKey)
+	}
+}
+
+func TestPollOnceRestartsFRPWhenSelectedRouteProfileChanges(t *testing.T) {
+	client := &fakePollClient{response: &transport.PollResponse{
+		RemoteAccessToken:   "heartbeat-token",
+		RemoteAccessProfile: &config.RouteProfileSelection{Name: "default", Version: 1},
+	}}
+	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{ServerAddr: "frps.example"}}
+	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "bootstrap:1"}
+
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("pollOnce() error = %v", err)
+	}
+	if frpManager.stopCalls != 1 || frpManager.startCalls != 1 {
+		t.Fatalf("FRP calls = stop %d, start %d; want one each", frpManager.stopCalls, frpManager.startCalls)
+	}
+	if state.profileKey != "default:1" {
+		t.Fatalf("profile key = %q", state.profileKey)
+	}
+}
+
+func TestPollOnceFailsClosedForUnknownRouteProfile(t *testing.T) {
+	client := &fakePollClient{response: &transport.PollResponse{
+		RemoteAccessToken:   "heartbeat-token",
+		RemoteAccessProfile: &config.RouteProfileSelection{Name: "unknown", Version: 1},
+	}}
+	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{ServerAddr: "frps.example"}}
+	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "default:1"}
+
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("pollOnce() error = %v", err)
+	}
+	if frpManager.stopCalls != 1 || frpManager.startCalls != 0 {
+		t.Fatalf("FRP calls = stop %d, start %d; want stop only", frpManager.stopCalls, frpManager.startCalls)
+	}
+	if state.tokenHash != "" || state.profileKey != "" {
+		t.Fatalf("state after rejected profile = %+v", state)
+	}
+	if len(frpManager.errors) != 1 || !strings.Contains(frpManager.errors[0], "unknown route profile") {
+		t.Fatalf("reported profile errors = %v", frpManager.errors)
 	}
 }
 
@@ -281,7 +364,7 @@ func TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent(t *testing.T) {
 
 	runtimeCfg := script.RuntimeConfig{}
 
-	state := &remoteAccessPollState{tokenHash: tokenHash("previous-token")}
+	state := &remoteAccessPollState{tokenHash: tokenHash("previous-token"), profileKey: "default:1"}
 	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
@@ -292,8 +375,8 @@ func TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent(t *testing.T) {
 	if frpManager.startCalls != 0 {
 		t.Fatalf("expected no start calls, got %d", frpManager.startCalls)
 	}
-	if state.tokenHash != "" {
-		t.Fatalf("expected active token hash to be cleared")
+	if state.tokenHash != "" || state.profileKey != "" {
+		t.Fatalf("expected active remote access state to be cleared: %+v", state)
 	}
 }
 
@@ -324,7 +407,7 @@ func TestPollOnceKeepsActiveFRPWhenTokenPresent(t *testing.T) {
 
 	runtimeCfg := script.RuntimeConfig{}
 
-	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token")}
+	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "default:1"}
 	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}

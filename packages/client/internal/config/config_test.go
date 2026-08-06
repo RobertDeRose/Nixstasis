@@ -51,6 +51,55 @@ func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 	}
 }
 
+func TestGetDefaultConfigDeclaresBoundedFRPProfiles(t *testing.T) {
+	cfg, err := GetDefaultConfig()
+	if err != nil {
+		t.Fatalf("GetDefaultConfig() error = %v", err)
+	}
+
+	profile, ok := cfg.FRP.Profiles[DefaultFRPProfileName]
+	if !ok || profile.Version != DefaultFRPProfileVersion {
+		t.Fatalf("default FRP profile = %+v", profile)
+	}
+	if len(profile.Routes) != 3 {
+		t.Fatalf("default FRP routes = %d, want 3", len(profile.Routes))
+	}
+	bootstrap, ok := cfg.FRP.Profiles[AtomixOSBootstrapProfileName]
+	if !ok || len(bootstrap.Routes) != 1 || bootstrap.Routes[0].LocalAddr != "127.0.0.1:8080" {
+		t.Fatalf("bootstrap FRP profile = %+v", bootstrap)
+	}
+	if len(cfg.FRP.AllowedPluginKinds) != 1 || cfg.FRP.AllowedPluginKinds[0] != RouteKindHTTP2HTTPS {
+		t.Fatalf("allowed plugin kinds = %+v", cfg.FRP.AllowedPluginKinds)
+	}
+}
+
+func TestLoadReadsClientOwnedFRPProfiles(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	contents := `frp:
+  server_addr: "frps.example"
+  profiles:
+    atomixos-bootstrap:
+      version: 1
+      routes:
+        - name: "provisioning"
+          kind: "http"
+          local_addr: "127.0.0.1:8080"
+`
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	profile, ok := cfg.FRP.Profiles["atomixos-bootstrap"]
+	if !ok || len(profile.Routes) != 1 || profile.Routes[0].LocalAddr != "127.0.0.1:8080" {
+		t.Fatalf("loaded profiles = %+v", cfg.FRP.Profiles)
+	}
+}
+
 func TestLoadCanUseExplicitConfigFile(t *testing.T) {
 	configFile := filepath.Join(t.TempDir(), "client.yaml")
 	if err := os.WriteFile(configFile, []byte("api:\n  url: https://nixstasis.localhost\n"), 0o600); err != nil {

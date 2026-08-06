@@ -23,6 +23,9 @@ defmodule Nixstasis.Devices do
 
   @remote_access_leases_name __MODULE__.RemoteAccessLeases
   @remote_access_lease_ttl_ms 60 * 60 * 1000
+  @default_remote_access_profile "default"
+  @remote_access_profile_pattern ~r/^[a-z][a-z0-9._-]{0,63}$/
+  @remote_access_profile_version 1
 
   @impl true
   def init(:remote_access_leases) do
@@ -384,7 +387,8 @@ defmodule Nixstasis.Devices do
       last_seen_at: device.last_seen_at,
       schema: device.schema,
       metadata: device.metadata,
-      remote_access_requested: device.remote_access_requested
+      remote_access_requested: device.remote_access_requested,
+      remote_access_profile: device.remote_access_profile || @default_remote_access_profile
     }
 
     if is_binary(token), do: Map.put(data, :api_token, token), else: data
@@ -820,18 +824,56 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
-  Sets the remote_access_requested flag.
-  """
-  def set_remote_access(%Device{} = device, requested?) do
-    case Domain.update_device(device, %{remote_access_requested: requested?}) do
-      {:ok, device} = result ->
-        broadcast_device(:device_remote_access_changed, device)
-        result
+  Sets the remote_access_requested flag and optionally selects a named profile.
 
-      result ->
-        result
+  The profile is a reference only. Route definitions remain client-owned and
+  are never accepted from or returned by the server.
+  """
+  def set_remote_access(%Device{} = device, requested?, profile \\ nil) do
+    with {:ok, normalized_profile} <-
+           normalize_remote_access_profile(profile || device.remote_access_profile),
+         attrs <-
+           if(is_nil(profile),
+             do: %{remote_access_requested: requested?},
+             else: %{remote_access_requested: requested?, remote_access_profile: normalized_profile}
+           ),
+         {:ok, updated} <- Domain.update_device(device, attrs) do
+      broadcast_device(:device_remote_access_changed, updated)
+      {:ok, updated}
     end
   end
+
+  @doc "Sets the named client-owned remote-access profile without opening access."
+  def set_remote_access_profile(%Device{} = device, profile) do
+    with {:ok, normalized_profile} <- normalize_remote_access_profile(profile),
+         {:ok, updated} <- Domain.update_device(device, %{remote_access_profile: normalized_profile}) do
+      broadcast_device(:device_remote_access_changed, updated)
+      {:ok, updated}
+    end
+  end
+
+  @doc false
+  def remote_access_profile_data(%Device{} = device) do
+    %{
+      name: device.remote_access_profile || @default_remote_access_profile,
+      version: @remote_access_profile_version
+    }
+  end
+
+  @doc false
+  def normalize_remote_access_profile(nil), do: {:ok, @default_remote_access_profile}
+
+  def normalize_remote_access_profile(profile) when is_binary(profile) do
+    normalized = String.trim(profile)
+
+    if Regex.match?(@remote_access_profile_pattern, normalized) do
+      {:ok, normalized}
+    else
+      {:error, :invalid_remote_access_profile}
+    end
+  end
+
+  def normalize_remote_access_profile(_profile), do: {:error, :invalid_remote_access_profile}
 
   @doc """
   Opens a leased remote-access session and marks the device as requesting access.
@@ -840,9 +882,10 @@ defmodule Nixstasis.Devices do
     ensure_remote_access_leases_manager!()
     owner = Keyword.get(opts, :owner, self())
     ttl_ms = Keyword.get(opts, :ttl_ms, @remote_access_lease_ttl_ms)
+    profile = Keyword.get(opts, :profile)
     lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
 
-    case set_remote_access(device, true) do
+    case set_remote_access(device, true, profile) do
       {:ok, updated} ->
         {:ok, updated, lease_ref}
 
@@ -1680,6 +1723,7 @@ defmodule Nixstasis.Devices do
       |> maybe_add_update_event(attrs, :approval_status, :device_approval_status_changed)
       |> maybe_add_update_event(attrs, :last_seen_at, :device_last_seen_updated)
       |> maybe_add_update_event(attrs, :remote_access_requested, :device_remote_access_changed)
+      |> maybe_add_update_event(attrs, :remote_access_profile, :device_remote_access_changed)
 
     case events do
       [] -> broadcast_device(:device_updated, device)

@@ -34,6 +34,7 @@
   - `CommandPayload`
   - `CommandResult`
   - `PollResponse`
+  - `config.RouteProfileSelection`
   - `CommandResultsRequest`
 - Constants:
   - `CommandStatusOK`
@@ -74,7 +75,11 @@
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
   - Sends `telemetry`, `connection_status`, and optional top-level `command_inventory` evidence.
   - Requires the issued device token as `api_key` query parameter.
-  - Expects `200` or `202` and optional response `data.remote_access_token`, `data.commands`, and `data.command_inventory_probe`.
+  - Expects `200` or `202` and optional response `data.remote_access_token`,
+    `data.remote_access_profile`, `data.commands`, and
+    `data.command_inventory_probe`.
+  - `remote_access_profile` is only a named/versioned reference; the client
+    resolves it against local configuration and rejects unknown or unsafe routes.
   - HTTP `429` indicates the server rate limit rejected the heartbeat.
 - `PollWithInventory`:
   - Uses the same heartbeat endpoint as `Poll`.

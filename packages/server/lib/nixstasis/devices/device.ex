@@ -26,6 +26,7 @@ defmodule Nixstasis.Devices.Device do
     schema: [type: :map, allow_nil?: false],
     metadata: [type: :map, allow_nil?: false],
     remote_access_requested: [type: :boolean, allow_nil?: false],
+    remote_access_profile: [type: :string, allow_nil?: false],
     api_token: [type: :string]
   ]
 
@@ -78,6 +79,11 @@ defmodule Nixstasis.Devices.Device do
     ]
   ]
 
+  @heartbeat_profile_fields [
+    name: [type: :string, allow_nil?: false],
+    version: [type: :integer, allow_nil?: false]
+  ]
+
   @heartbeat_data_fields [
     commands: [
       type: {:array, :map},
@@ -85,6 +91,7 @@ defmodule Nixstasis.Devices.Device do
       constraints: [items: [fields: @heartbeat_command_fields]]
     ],
     remote_access_token: [type: :string],
+    remote_access_profile: [type: :map, constraints: [fields: @heartbeat_profile_fields]],
     command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
   ]
 
@@ -168,7 +175,7 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash]}
+      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash, :remote_access_profile]}
     end
 
     update :update do
@@ -183,7 +190,8 @@ defmodule Nixstasis.Devices.Device do
         :last_seen_at,
         :schema,
         :metadata,
-        :remote_access_requested
+        :remote_access_requested,
+        :remote_access_profile
       ]
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
@@ -358,6 +366,13 @@ defmodule Nixstasis.Devices.Device do
     attribute :remote_access_requested, :boolean do
       allow_nil? false
       default false
+      public? true
+    end
+
+    attribute :remote_access_profile, :string do
+      allow_nil? false
+      default "default"
+      constraints match: ~r/^[a-z][a-z0-9._-]{0,63}$/
       public? true
     end
 

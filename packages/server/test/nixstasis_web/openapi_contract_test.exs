@@ -68,6 +68,20 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert Map.has_key?(request_properties, "telemetry")
     assert Map.has_key?(request_properties, "connection_status")
     assert Map.has_key?(request_properties, "command_inventory")
+
+    response_properties =
+      get_in(heartbeat, [
+        "responses",
+        "200",
+        "content",
+        "application/vnd.api+json",
+        "schema",
+        "properties",
+        "data",
+        "properties"
+      ])
+
+    assert Map.has_key?(response_properties, "remote_access_profile")
   end
 
   test "generated OpenAPI includes command result and payload action contracts" do

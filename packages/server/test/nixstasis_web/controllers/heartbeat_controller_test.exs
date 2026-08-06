@@ -239,7 +239,40 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
       data = json_response(conn, 200)["data"]
 
       refute Map.has_key?(data, "remote_access_token")
+      refute Map.has_key?(data, "remote_access_profile")
       refute Map.has_key?(data, "remote_access_requested")
+    end)
+  end
+
+  test "heartbeat includes the default remote access profile with its token", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, device} = Devices.set_remote_access(device, true)
+
+    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
+      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+      assert %{
+               "remote_access_token" => "shared-secret",
+               "remote_access_profile" => %{"name" => "default", "version" => 1}
+             } = json_response(conn, 200)["data"]
+    end)
+  end
+
+  test "heartbeat includes an operator-selected remote access profile", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    {:ok, device} = Devices.set_remote_access(device, true, "bootstrap")
+
+    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
+      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+      assert %{"remote_access_profile" => %{"name" => "bootstrap", "version" => 1}} =
+               json_response(conn, 200)["data"]
     end)
   end
 

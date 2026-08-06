@@ -158,8 +158,9 @@ sequenceDiagram
     Browser->>LiveView: Open /devices/:id
     LiveView->>Phoenix: Mark remote_access_requested
     Client->>Phoenix: Heartbeat
-    Phoenix-->>Client: remote_access_token
-    Client->>FRPC: Start transient systemd unit
+    Phoenix-->>Client: remote_access_token + named route profile
+    Client->>Client: Validate profile against local capabilities
+    Client->>FRPC: Render typed routes and start transient systemd unit
     FRPC->>FRPS: Connect with token
     Browser->>Caddy: Request wildcard device host
     Caddy->>FRPS: Proxy HTTP vhost traffic
@@ -173,12 +174,17 @@ sequenceDiagram
 1. Browser opens `/devices/:id`.
 2. `DeviceLive.Show.handle_params/3` loads device.
 3. If device is online, `setup_device_view/3` sets `remote_access_requested` to true when not already requested.
-4. Next client heartbeat receives a non-empty `remote_access_token`.
-5. Client starts FRPC through the FRP manager when FRP is inactive.
-6. FRPC connects to FRPS with rendered configuration and the heartbeat-provided token.
-7. Caddy wildcard host routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
-8. When LiveView terminates, `DeviceLive.Show.terminate/2` sets `remote_access_requested` to false.
-9. Next client heartbeat omits `remote_access_token`, so the client can stop FRPC.
+4. Next client heartbeat receives a non-empty `remote_access_token` and an
+   optional named, versioned `remote_access_profile` reference.
+5. Client resolves the reference against its local typed profile definitions;
+   token-only legacy responses select `default`, while invalid references fail
+   closed and are reported in `connection_status.error`.
+6. Client starts FRPC through the FRP manager when FRP is inactive, rendering
+   only validated loopback routes and using the heartbeat-provided token.
+7. FRPC connects to FRPS with the rendered configuration and heartbeat token.
+8. Caddy wildcard host routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
+9. When LiveView terminates, `DeviceLive.Show.terminate/2` sets `remote_access_requested` to false.
+10. Next client heartbeat omits `remote_access_token`, so the client can stop FRPC.
 
 Traceable references:
 

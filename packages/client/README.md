@@ -217,12 +217,16 @@ The `.run` installer removes GoReleaser's makeself support files
 appear when inspecting with `--noexec` because makeself disables cleanup in that
 mode.
 
-The bundled FRP client template sets
+The bundled FRP client uses
 `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`; the packaged client injects that
 from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
-the `remote_access_token` returned by the server heartbeat response and passes
-it to the transient FRPC unit through a root-only systemd `EnvironmentFile`.
-`frp.auth_token` is not the normal remote-access token source. Device subdomains are requested under
+`remote_access_token` returned by the server heartbeat response and passes it to
+the transient FRPC unit through a root-only systemd `EnvironmentFile`.
+Named, versioned `remote_access_profile` references select typed profiles already
+owned by the client configuration; arbitrary FRPC TOML, plugin options, and
+non-loopback local targets are rejected. A token-only legacy response selects
+`default`, and `frp.auth_token` is not the normal remote-access token source.
+Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set
 as an override.
 

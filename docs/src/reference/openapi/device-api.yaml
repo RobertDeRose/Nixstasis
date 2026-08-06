@@ -185,6 +185,9 @@ paths:
                     start_time:
                       type: string
                       format: date-time
+                    error:
+                      type: string
+                      description: Client-side FRP profile or lifecycle error reported after a failed safe decision.
                 command_inventory:
                   type: object
                   additionalProperties: true
@@ -204,6 +207,15 @@ paths:
                         type: string
                         nullable: true
                         description: Shared FRPS token. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                      remote_access_profile:
+                        type: object
+                        nullable: true
+                        description: Versioned named reference to a client-owned route profile. The server never sends FRPC configuration or local targets.
+                        properties:
+                          name:
+                            type: string
+                          version:
+                            type: integer
                       commands:
                         type: array
                         items:

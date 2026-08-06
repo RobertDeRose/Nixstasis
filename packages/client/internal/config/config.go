@@ -49,14 +49,18 @@ type ScriptsConfig struct {
 
 // FRPConfig holds configuration for FRP tunnel connectivity.
 type FRPConfig struct {
-	AuthToken     string `mapstructure:"auth_token"`
-	Name          string `mapstructure:"name"`
-	ServerAddr    string `mapstructure:"server_addr"`
-	ServerPort    int    `mapstructure:"server_port"`
-	WebServerAddr string `mapstructure:"web_server_addr"`
-	WebServerPort int    `mapstructure:"web_server_port"`
-	HTTPLocalAddr string `mapstructure:"http_local_addr"`
-	SSHLocalPort  int    `mapstructure:"ssh_local_port"`
+	AuthToken              string                     `mapstructure:"auth_token"`
+	Name                   string                     `mapstructure:"name"`
+	ServerAddr             string                     `mapstructure:"server_addr"`
+	ServerPort             int                        `mapstructure:"server_port"`
+	WebServerAddr          string                     `mapstructure:"web_server_addr"`
+	WebServerPort          int                        `mapstructure:"web_server_port"`
+	HTTPLocalAddr          string                     `mapstructure:"http_local_addr"`
+	SSHLocalPort           int                        `mapstructure:"ssh_local_port"`
+	AllowedPluginKinds     []string                   `mapstructure:"allowed_plugin_kinds"`
+	Profiles               map[string]FRPRouteProfile `mapstructure:"profiles"`
+	SelectedProfileName    string                     `mapstructure:"-"`
+	SelectedProfileVersion int                        `mapstructure:"-"`
 }
 
 // RuntimeConfig holds opt-in script command capabilities.
@@ -108,6 +112,7 @@ func GetDefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
 
+	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
 }
 
@@ -143,6 +148,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
 }
 

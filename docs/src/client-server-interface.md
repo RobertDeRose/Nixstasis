@@ -127,9 +127,9 @@ canonical contract for new integrations is:
   action; it does not use a device API key.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated
   heartbeat action. It accepts `telemetry`, `connection_status`, and optional
-  `command_inventory`, returns `data.commands` plus optional remote-access and
-  probe directives with status `200`, and preserves the same orchestration as
-  the compatibility endpoint.
+  `command_inventory`, returns `data.commands` plus optional remote-access
+  token/profile and probe directives with status `200`, and preserves the same
+  orchestration as the compatibility endpoint.
 - `POST /api/json/device_runtime/devices/:device_id/command_results` accepts
   `results` and returns `data.acknowledged_count` with status `202`; duplicate
   results retain the observed replay/count behavior.
@@ -303,7 +303,9 @@ No-command response with an inventory probe:
 ```
 
 Clients cache the probe and send matching inventory on a later heartbeat. If the
-probe is absent, clients omit `command_inventory`.
+probe is absent, clients omit `command_inventory`. A non-empty
+`connection_status.error` reports a client-side FRP profile or lifecycle failure
+without granting any additional capability.
 
 Remote-access response:
 
@@ -311,10 +313,19 @@ Remote-access response:
 {
   "data": {
     "remote_access_token": "shared-frps-token",
+    "remote_access_profile": {
+      "name": "default",
+      "version": 1
+    },
     "commands": []
   }
 }
 ```
+
+`remote_access_profile` is an optional named, versioned reference resolved
+against the client configuration. It contains no FRPC TOML, plugin options, or
+local target. Older token-only responses remain valid and select the client's
+`default` profile.
 
 Command delivery response:
 

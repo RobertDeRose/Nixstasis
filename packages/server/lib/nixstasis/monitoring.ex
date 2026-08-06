@@ -42,19 +42,27 @@ defmodule Nixstasis.Monitoring do
   Builds the device-runtime heartbeat response shared by generated and legacy transports.
   """
   def heartbeat_response_data(%Device{} = device, commands) do
-    %{
+    data = %{
       commands:
         for(
           cmd <- commands,
           do: heartbeat_command_data(cmd)
         )
     }
-    |> maybe_put_remote_access_token(FrpsToken.for_heartbeat(device))
-    |> maybe_put_command_inventory_probe()
-  end
 
-  defp maybe_put_remote_access_token(data, nil), do: data
-  defp maybe_put_remote_access_token(data, token), do: Map.put(data, :remote_access_token, token)
+    data =
+      case FrpsToken.for_heartbeat(device) do
+        nil ->
+          data
+
+        token ->
+          data
+          |> Map.put(:remote_access_token, token)
+          |> Map.put(:remote_access_profile, Devices.remote_access_profile_data(device))
+      end
+
+    maybe_put_command_inventory_probe(data)
+  end
 
   defp maybe_put_command_inventory_probe(data) do
     case Domain.command_inventory_probe_manifest() do

@@ -424,6 +424,8 @@ components:
           $ref: '#/components/schemas/pending_command-filter'
         product_name:
           $ref: '#/components/schemas/device-filter-product_name'
+        remote_access_profile:
+          $ref: '#/components/schemas/device-filter-remote_access_profile'
         remote_access_requested:
           $ref: '#/components/schemas/device-filter-remote_access_requested'
         schema:
@@ -967,6 +969,11 @@ components:
                   x-validate:
                 - type: 'null'
               description: Field included by default.
+            remote_access_profile:
+              description: Field included by default.
+              type: string
+              x-struct:
+              x-validate:
             remote_access_requested:
               description: Field included by default.
               type: boolean
@@ -983,6 +990,7 @@ components:
             - schema
             - metadata
             - remote_access_requested
+            - remote_access_profile
           type: object
           x-struct:
           x-validate:
@@ -2967,6 +2975,76 @@ components:
           x-validate:
         not_eq:
           type: integer
+          x-struct:
+          x-validate:
+      type: object
+      x-struct:
+      x-validate:
+    device-filter-remote_access_profile:
+      additionalProperties: false
+      properties:
+        contains:
+          type: string
+          x-struct:
+          x-validate:
+        eq:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than:
+          type: string
+          x-struct:
+          x-validate:
+        greater_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        ilike:
+          type: string
+          x-struct:
+          x-validate:
+        in:
+          items:
+            type: string
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
+        is_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        is_nil:
+          type: boolean
+          x-struct:
+          x-validate:
+        is_not_distinct_from:
+          type: string
+          x-struct:
+          x-validate:
+        less_than:
+          type: string
+          x-struct:
+          x-validate:
+        less_than_or_equal:
+          type: string
+          x-struct:
+          x-validate:
+        like:
+          type: string
+          x-struct:
+          x-validate:
+        not_eq:
+          type: string
+          x-struct:
+          x-validate:
+        string_ends_with:
+          type: string
+          x-struct:
+          x-validate:
+        string_starts_with:
+          type: string
           x-struct:
           x-validate:
       type: object
@@ -7678,6 +7756,10 @@ paths:
                             x-struct:
                             x-validate:
                           - type: 'null'
+                      remote_access_profile:
+                        type: string
+                        x-struct:
+                        x-validate:
                       remote_access_requested:
                         type: boolean
                         x-struct:
@@ -7693,6 +7775,7 @@ paths:
                       - schema
                       - metadata
                       - remote_access_requested
+                      - remote_access_profile
                     type: object
                     x-struct:
                     x-validate:
@@ -8186,6 +8269,25 @@ paths:
                         type: array
                         x-struct:
                         x-validate:
+                      remote_access_profile:
+                        anyOf:
+                          - additionalProperties: false
+                            properties:
+                              name:
+                                type: string
+                                x-struct:
+                                x-validate:
+                              version:
+                                type: integer
+                                x-struct:
+                                x-validate:
+                            required:
+                              - name
+                              - version
+                            type: object
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_token:
                         anyOf:
                           - type: string
@@ -8291,7 +8393,7 @@ paths:
           name: sort
           required: false
           schema:
-            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested))*$
+            pattern: ^(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested|remote_access_profile|-remote_access_profile|\+\+remote_access_profile|--remote_access_profile)(,(id|-id|\+\+id|--id|mac_address|-mac_address|\+\+mac_address|--mac_address|product_name|-product_name|\+\+product_name|--product_name|account_number|-account_number|\+\+account_number|--account_number|ipv4_address|-ipv4_address|\+\+ipv4_address|--ipv4_address|approval_status|-approval_status|\+\+approval_status|--approval_status|last_seen_at|-last_seen_at|\+\+last_seen_at|--last_seen_at|schema|-schema|\+\+schema|--schema|metadata|-metadata|\+\+metadata|--metadata|remote_access_requested|-remote_access_requested|\+\+remote_access_requested|--remote_access_requested|remote_access_profile|-remote_access_profile|\+\+remote_access_profile|--remote_access_profile))*$
             type: string
             x-struct:
             x-validate:
@@ -8349,11 +8451,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
                 type: string
                 x-struct:
                 x-validate:
@@ -8421,11 +8523,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
                 type: string
                 x-struct:
                 x-validate:
@@ -8588,11 +8690,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
                 type: string
                 x-struct:
                 x-validate:
@@ -8638,11 +8740,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
                 type: string
                 x-struct:
                 x-validate:
@@ -8711,11 +8813,11 @@ paths:
           schema:
             additionalProperties: true
             example:
-              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+              device: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
             properties:
               device:
                 description: Comma separated field names for device
-                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested
+                example: id,mac_address,product_name,account_number,ipv4_address,approval_status,last_seen_at,schema,metadata,remote_access_requested,remote_access_profile
                 type: string
                 x-struct:
                 x-validate:
@@ -8775,6 +8877,12 @@ paths:
                               x-validate:
                             - type: 'null'
                         product_name:
+                          anyOf:
+                            - type: string
+                              x-struct:
+                              x-validate:
+                            - type: 'null'
+                        remote_access_profile:
                           anyOf:
                             - type: string
                               x-struct:

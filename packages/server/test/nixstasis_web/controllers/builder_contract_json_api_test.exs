@@ -276,7 +276,10 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       "data" => %{
         "type" => "device",
         "id" => blocked.id,
-        "attributes" => %{"product_name" => "blocked-update"}
+        "attributes" => %{
+          "product_name" => "blocked-update",
+          "remote_access_profile" => "bootstrap"
+        }
       }
     }
 
@@ -301,6 +304,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> patch("/api/json/devices/#{allowed.id}", params)
 
     assert %{"data" => %{"type" => "device"}} = json_response(conn, 200)
+    assert Devices.get_device!(allowed.id).remote_access_profile == "bootstrap"
   end
 
   test "JSON:API settings require admin role", %{conn: conn} do

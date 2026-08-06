@@ -61,6 +61,7 @@ type directProcess struct {
 type Manager struct {
 	mu            sync.Mutex
 	directProcess *directProcess
+	lastError     string
 }
 
 // NewManager creates a new Manager instance.
@@ -78,10 +79,13 @@ func NewManager() *Manager {
 // frpc.toml directly and expands {{ .Envs.* }} from its environment.
 func (m *Manager) Start(configPath string, frpConfig config.FRPConfig) error {
 	if err := validateFRPConfig(frpConfig); err != nil {
+		m.setError(err)
 		return err
 	}
 	if !systemdAvailable() {
-		return fmt.Errorf("systemd is required to start frpc transient service")
+		err := fmt.Errorf("systemd is required to start frpc transient service")
+		m.setError(err)
+		return err
 	}
 
 	// Check if already running — systemd is the source of truth.
@@ -90,14 +94,29 @@ func (m *Manager) Start(configPath string, frpConfig config.FRPConfig) error {
 		return nil
 	}
 
-	slog.Info("Starting FRP tunnel", "config", configPath, "name", frpConfig.Name)
-
-	environmentPath, err := writeEnvironmentFile(frpConfig.AuthToken)
+	selection := selectedRouteProfile(frpConfig)
+	profile, _, err := config.ResolveRouteProfile(frpConfig, selection)
 	if err != nil {
+		m.setError(err)
 		return err
 	}
 
-	args := systemdRunArgs(configPath, frpConfig, environmentPath)
+	slog.Info("Starting FRP tunnel", "config", configPath, "name", frpConfig.Name)
+
+	renderedConfigPath, err := writeRenderedConfig(frpConfig, profile)
+	if err != nil {
+		m.setError(err)
+		return err
+	}
+
+	environmentPath, err := writeEnvironmentFile(frpConfig.AuthToken)
+	if err != nil {
+		removeRenderedConfig()
+		m.setError(err)
+		return err
+	}
+
+	args := systemdRunArgs(renderedConfigPath, frpConfig, environmentPath)
 	cmd := execCommandContext(context.Background(), systemdRunPath, args...)
 	cmd.Env = systemdRunEnv()
 
@@ -107,13 +126,23 @@ func (m *Manager) Start(configPath string, frpConfig config.FRPConfig) error {
 
 		if directFallbackAllowed() && strings.Contains(string(output), "Access denied") {
 			slog.Warn("systemd denied transient FRP unit; using a poll-owned session", "unit", frpcTransientUnit)
-			return m.startDirect(configPath, frpConfig)
+			if err := m.startDirect(renderedConfigPath, frpConfig); err != nil {
+				removeRenderedConfig()
+				m.setError(err)
+				return err
+			}
+			m.clearError()
+			return nil
 		}
 
-		return fmt.Errorf("failed to start frpc transient service: %w: %s", err, strings.TrimSpace(string(output)))
+		removeRenderedConfig()
+		err := fmt.Errorf("failed to start frpc transient service: %w: %s", err, strings.TrimSpace(string(output)))
+		m.setError(err)
+		return err
 	}
 
 	slog.Info("FRP transient service started", "unit", frpcTransientUnit)
+	m.clearError()
 	return nil
 }
 
@@ -121,11 +150,15 @@ func (m *Manager) Start(configPath string, frpConfig config.FRPConfig) error {
 func (m *Manager) Stop() error {
 	if m.stopDirect() {
 		removeEnvironmentFile()
+		removeRenderedConfig()
+		m.clearError()
 		return nil
 	}
 
 	if !m.IsActive() {
 		removeEnvironmentFile()
+		removeRenderedConfig()
+		m.clearError()
 		return nil
 	}
 
@@ -133,11 +166,15 @@ func (m *Manager) Stop() error {
 	cmd := execCommandContext(context.Background(), systemctlPath, "stop", frpcTransientUnit+".service")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to stop frpc transient service: %w: %s", err, strings.TrimSpace(string(output)))
+		err := fmt.Errorf("failed to stop frpc transient service: %w: %s", err, strings.TrimSpace(string(output)))
+		m.setError(err)
+		return err
 	}
 
 	slog.Info("FRP transient service stopped")
 	removeEnvironmentFile()
+	removeRenderedConfig()
+	m.clearError()
 	return nil
 }
 
@@ -153,12 +190,47 @@ func (m *Manager) IsActive() bool {
 
 // GetStatus returns the current connection status by querying systemd.
 func (m *Manager) GetStatus() ConnectionStatus {
-	if !m.IsActive() {
-		return ConnectionStatus{}
+	active := m.IsActive()
+
+	m.mu.Lock()
+	lastError := m.lastError
+	m.mu.Unlock()
+
+	status := ConnectionStatus{Error: lastError}
+	if !active {
+		return status
 	}
-	return ConnectionStatus{
-		Active:           true,
-		ConnectionString: frpcTransientUnit,
+	status.Active = true
+	status.ConnectionString = frpcTransientUnit
+	return status
+}
+
+// SetError reports a client-side FRP decision failure in the next heartbeat.
+func (m *Manager) SetError(message string) {
+	m.mu.Lock()
+	m.lastError = message
+	m.mu.Unlock()
+}
+
+func (m *Manager) setError(err error) {
+	if err == nil {
+		m.clearError()
+		return
+	}
+	m.SetError(err.Error())
+}
+
+func (m *Manager) clearError() {
+	m.SetError("")
+}
+
+func selectedRouteProfile(frpConfig config.FRPConfig) *config.RouteProfileSelection {
+	if frpConfig.SelectedProfileName == "" && frpConfig.SelectedProfileVersion == 0 {
+		return nil
+	}
+	return &config.RouteProfileSelection{
+		Name:    frpConfig.SelectedProfileName,
+		Version: frpConfig.SelectedProfileVersion,
 	}
 }
 
@@ -202,8 +274,8 @@ func (m *Manager) startDirect(configPath string, frpConfig config.FRPConfig) err
 			m.directProcess = nil
 		}
 		m.mu.Unlock()
+		removeFRPFile(configPath, "rendered FRP config")
 		close(process.done)
-		removeEnvironmentFile()
 	}()
 
 	slog.Info("Poll-owned FRP session started", "unit", frpcTransientUnit)
@@ -400,13 +472,12 @@ func validateFRPConfig(frpConfig config.FRPConfig) error {
 	}{
 		{"server_port", frpConfig.ServerPort},
 		{"web_server_port", frpConfig.WebServerPort},
-		{"ssh_local_port", frpConfig.SSHLocalPort},
 	} {
 		if p.val <= 0 || p.val > 65535 {
 			return fmt.Errorf("frp %s must be between 1 and 65535, got %d", p.name, p.val)
 		}
 	}
-	if frpConfig.HTTPLocalAddr == "" || !strings.Contains(frpConfig.HTTPLocalAddr, ":") {
+	if frpConfig.HTTPLocalAddr != "" && !strings.Contains(frpConfig.HTTPLocalAddr, ":") {
 		return fmt.Errorf("frp http_local_addr must be in host:port format, got %q", frpConfig.HTTPLocalAddr)
 	}
 	return nil

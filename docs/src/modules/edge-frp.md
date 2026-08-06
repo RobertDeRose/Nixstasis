@@ -57,13 +57,19 @@
 
 ## Client-Server Interaction Details
 
-- The server stores remote-access intent on devices and exposes the active FRPS
-  token to clients only through heartbeat `remote_access_token` responses.
-- Client polling reads heartbeat `remote_access_token` values and starts/stops
-  FRPC through a transient systemd unit. A missing or empty token means FRPC
-  should stop or remain stopped.
-- FRPC reads `/usr/share/nixstasis/frpc.toml` directly; frpc expands runtime
-  `{{ .Envs.* }}` placeholders from the session environment.
+- The server stores remote-access intent and a named route-profile reference on
+  devices. Operators or authorized API clients select the profile through the
+  device update contract; the server stores only its bounded name.
+- It exposes the active FRPS token and versioned `remote_access_profile`
+  reference only through heartbeat responses.
+- Client polling validates the profile reference against client-owned route
+  definitions, then starts/stops FRPC through a transient systemd unit. A
+  missing or empty token means FRPC should stop or remain stopped.
+- The client renders a bounded `frpc.toml` from typed local routes. Supported
+  routes include HTTPS `http2https`, plain HTTP loopback targets, and the
+  existing SSH/PCP TCP mux routes; the built-in `atomixos-bootstrap` profile
+  exposes `127.0.0.1:8080` as plain HTTP. The server never sends FRPC TOML or
+  local targets.
 - The FRPS auth token from the heartbeat response is passed from the launcher to
   `frp-session` through a root-only systemd `EnvironmentFile` rather than as a
   `systemd-run --setenv` value.
@@ -84,4 +90,6 @@ Traceable references:
 - `deploy/compose/frps/frps.toml:1-15`
 - `deploy/compose/docker-compose.yml:33-66`
 - `packages/client/internal/frp/manager.go:47-137`
+- `packages/client/internal/config/route_profile.go`
+- `packages/client/internal/frp/render.go`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex:30-49`
