@@ -3,9 +3,9 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-yju`
-- Status: implemented and reconciled; delivery action pending
-- Pull request: not created; no PR action selected
-- Merge commit: not merged; fast-forward delivery remains available
+- Status: delivered
+- Pull request: not created; merge was explicitly selected
+- Merge commit: `24999c01f811ebaf7c3de3b3344bac2689012367` (fast-forward delivery)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -84,11 +84,11 @@ remain documented in the client-server interface and builder API reference.
 
 ## Validation Evidence
 
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/schema_options_test.exs test/nixstasis_web/live/reports_live_test.exs`: 64 tests, 0 failures.
+- Focused schema/builder/controller/alert/report tests: 108 tests, 0 failures.
 - `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/reporting/query_builder_test.exs`: 11 tests, 0 failures.
 - `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/monitoring test/nixstasis/monitoring/telemetry_seed_test.exs`: 28 tests, 0 failures.
-- Final feature worktree `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit`: 642 tests, 0 failures.
-- `mise run check`, documentation checks, `bash -n .mise/tasks/deploy/dev/seed.sh`, and `git diff --check` passed. Repository output retained 36 pre-existing mdBook lint warnings; they were non-failing.
+- Final feature commit `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit`: 642 tests, 0 failures.
+- `mise run check`, `uv run scripts/check-docs.py`, `mix ash.codegen --check`, `bash -n .mise/tasks/deploy/dev/seed.sh`, and `git diff --check` passed. Repository output retained 37 non-failing mdBook lint warnings.
 - The Compose server image rebuilt, `mise run deploy:dev -- up --clients 1` recreated the server, and the seed task passed first-run/repeat-run checks. After one legacy seeded event was removed through Compose RPC, the seed task reported one repaired event and the next run reported no duplicates.
 - Existing LiveView missing-form-ID warnings remain non-failing diagnostics.
 
@@ -161,6 +161,7 @@ option loading, empty projections, and bounded seed checks were delivered in
 `7f4dbee`, `5f5c5d1`, `a421cabc`, `39d40ab`, `b1ea569`, `259f2cf`, and `49b70e5`.
 
 Implementation and review findings are recorded in Beads. The implementation
-coordinator `nixstasis-yju.7` is closed; review findings `.17` through `.23` are
-closed with commit and validation evidence. Holistic close-out reviews and the
-explicit delivery action remain pending.
+coordinator `nixstasis-yju.7`, documentation `.8`, validation `.9`, and holistic
+reviews `.10` and `.11` are closed with commit and validation evidence. The
+feature was fast-forwarded into `dev` at
+`24999c01f811ebaf7c3de3b3344bac2689012367`; no pull request was created.
