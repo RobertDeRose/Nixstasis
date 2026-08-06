@@ -58,11 +58,11 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     paths =
       fields
       |> Enum.map(&(&1["path"] || &1[:path]))
-      |> Enum.filter(&(is_binary(&1) and &1 != ""))
+      |> Enum.filter(&valid_payload_path?/1)
 
     case paths do
       [] ->
-        query
+        from(q in query, where: false)
 
       paths ->
         condition =
@@ -80,6 +80,12 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp apply_non_empty_result_fields(query, _fields, _source), do: query
+
+  defp valid_payload_path?(path) when is_binary(path) do
+    String.trim(path) != "" and String.split(path, ".", trim: true) != []
+  end
+
+  defp valid_payload_path?(_), do: false
 
   def apply_result_view(rows, opts \\ %{}) when is_list(rows) do
     sort_by = opts[:sort_by] || opts["sort_by"]

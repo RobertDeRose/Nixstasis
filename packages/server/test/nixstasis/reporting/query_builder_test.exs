@@ -130,6 +130,32 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       assert Enum.sort(Enum.map(all_schema_results, & &1["temperature"])) == [25, 30, 200, 300]
     end
 
+    test "returns no rows when telemetry has no valid configured fields", %{device: device} do
+      empty_config = %{
+        source: "telemetry",
+        fields: [],
+        filters: [%{field: "device_id", operator: "=", value: device.id}]
+      }
+
+      assert Repo.all(QueryBuilder.build(empty_config)) == []
+
+      config = %{
+        source: "telemetry",
+        fields: [
+          %{path: "", alias: ""},
+          %{path: " ", alias: "whitespace"},
+          %{path: ".", alias: "root"},
+          %{path: nil, alias: nil},
+          %{}
+        ],
+        filters: [%{field: "device_id", operator: "=", value: device.id}]
+      }
+
+      results = config |> QueryBuilder.build() |> Repo.all()
+
+      assert results == []
+    end
+
     test "excludes rows without any configured payload fields", %{device: device} do
       Repo.insert!(%Telemetry{
         device_id: device.id,
