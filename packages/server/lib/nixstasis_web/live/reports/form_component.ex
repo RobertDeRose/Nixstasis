@@ -217,8 +217,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
          |> assign_save_state(save_ctx)
          |> put_flash(:error, "Please correct filter value types before saving.")}
 
-      save_ctx.schema_error == :conflict ->
-        message = SchemaOptions.schema_issue_message(:conflict)
+      not is_nil(save_ctx.schema_error) ->
+        message = SchemaOptions.schema_issue_message(save_ctx.schema_error)
 
         {:noreply,
          socket
@@ -262,8 +262,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     submitted_schema_version =
       normalize_scope_value(
-        Map.get(params, "schema_version"),
-        socket.assigns.selected_schema_version
+        Map.get(params, "schema_version", socket.assigns.selected_schema_version),
+        first_schema_version(socket.assigns.schema_refs, submitted_schema_id)
       )
 
     submitted_fields =
@@ -275,11 +275,12 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
     submitted_filters = submitted_filters_from_params(params, socket.assigns.filters)
 
-    validation =
-      validate_selected_keys(
+    {validation, schema_error} =
+      validate_current_schema(
+        submitted_schema_id,
+        submitted_schema_version,
         submitted_fields,
-        submitted_filters,
-        socket.assigns.schema_options
+        submitted_filters
       )
 
     report_params = %{
@@ -300,11 +301,54 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       submitted_fields: submitted_fields,
       submitted_filters: submitted_filters,
       validation: validation,
-      schema_error: socket.assigns.schema_error,
+      schema_error: schema_error,
       report_params: report_params,
       name_taken?: name_taken_for_other_report?(socket.assigns.report, normalized_name)
     }
   end
+
+  defp validate_current_schema(@all_scope, schema_version, fields, filters) do
+    {schema_options, schema_error} =
+      SchemaOptions.list_schema_references()
+      |> fetch_schema_options(@all_scope, schema_version)
+
+    {validate_selected_keys(fields, filters, schema_options), schema_error}
+  end
+
+  defp validate_current_schema(schema_id, schema_version, fields, filters)
+       when is_binary(schema_id) and schema_id != "" do
+    validation =
+      SchemaOptions.validate_selections(
+        :report,
+        schema_id,
+        if(is_binary(schema_version), do: schema_version, else: ""),
+        schema_selections(fields, filters)
+      )
+
+    {validation, schema_error_from_validation(validation)}
+  end
+
+  defp validate_current_schema(_schema_id, _schema_version, fields, filters) do
+    {validate_selected_keys(fields, filters, []), :invalid}
+  end
+
+  defp schema_selections(fields, filters) do
+    Enum.map(fields, &%{"slot_id" => &1.id, "selected_key" => &1.path}) ++
+      Enum.map(filters, &%{"slot_id" => &1.id, "selected_key" => &1.field})
+  end
+
+  defp schema_error_from_validation(%{issues: issues}) do
+    cond do
+      Enum.any?(issues, &(schema_issue_code(&1) == "schema_conflict")) -> :conflict
+      Enum.any?(issues, &(schema_issue_code(&1) == "schema_unavailable")) -> :not_found
+      Enum.any?(issues, &(schema_issue_code(&1) == "schema_access_lost")) -> :invalid
+      true -> nil
+    end
+  end
+
+  defp schema_error_from_validation(_), do: :invalid
+
+  defp schema_issue_code(issue), do: Map.get(issue, :issue_code) || Map.get(issue, "issue_code")
 
   defp assign_save_state(socket, save_ctx) do
     socket

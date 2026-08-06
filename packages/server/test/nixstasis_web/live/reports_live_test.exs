@@ -141,6 +141,56 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert has_element?(view, "#report-save-report[disabled]")
   end
 
+  test "schema conflicts introduced after load block report save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    report =
+      report_fixture(%{
+        "name" => "Revalidated Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Original Temperature"}],
+          "filters" => []
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:45",
+        "product_name" => "report-schema-product",
+        "schema" => %{
+          "product" => "report-schema-product",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Changed Temperature"}
+        },
+        "filters" => %{}
+      })
+
+    assert html =~ "Schema definitions conflict for this product/version."
+    assert has_element?(view, "#report-save-report[disabled]")
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["fields"] == [%{"path" => "temp", "alias" => "Original Temperature"}]
+  end
+
   test "schema field selection does not crash live component", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
