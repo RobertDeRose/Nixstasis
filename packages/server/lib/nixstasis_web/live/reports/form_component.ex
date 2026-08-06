@@ -870,10 +870,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp merge_normalized_schema_option(acc, normalized) do
     Map.update(acc, normalized.key, normalized, fn existing ->
-      if existing.value_type == "unknown" and normalized.value_type != "unknown" do
-        %{existing | value_type: normalized.value_type}
-      else
+      if existing.value_type == normalized.value_type do
         existing
+      else
+        %{existing | value_type: "unknown"}
       end
     end)
   end

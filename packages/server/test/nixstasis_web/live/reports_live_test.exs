@@ -118,6 +118,37 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert has_element?(view, "#report-save-report[disabled]")
   end
 
+  test "all-schema fields with conflicting types use a generic type", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:46",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    html =
+      view
+      |> element("select[id='report-field-path-#{field_id}']")
+      |> render_change(%{
+        "_target" => ["fields", field_id, "path"],
+        "fields" => %{field_id => %{"path" => "temp"}}
+      })
+
+    assert html =~ "Type: unknown"
+    refute html =~ "Type: number"
+  end
+
   test "missing schema definitions show recovery guidance and block save", %{
     conn: conn,
     permissions: permissions
