@@ -52,6 +52,34 @@ mise x -- mix test \
 
 These checks cover heartbeat inventory probes, bounded client evidence, server compatibility resolution, catalog-backed policy delivery, unchanged `exec_cmd` absolute-path enforcement, and deny-all revocation.
 
+## Feature validation: schema-driven builders
+
+Use these focused checks when changing schema-derived alert/report builders or
+report result construction:
+
+```bash
+cd packages/server
+NIXSTASIS_DB_AUTOSTART=false mise x -- mix test \
+  test/nixstasis/schema_options_test.exs \
+  test/nixstasis/schema_options/builder_contract_test.exs \
+  test/nixstasis_web/controllers/builder_schema_controller_test.exs \
+  test/nixstasis_web/live/alerts_live_test.exs \
+  test/nixstasis_web/live/reports_live_test.exs
+NIXSTASIS_DB_AUTOSTART=false mise x -- mix ash.codegen --check
+
+cd ../..
+uv run scripts/check-docs.py
+mise run check
+bash -n .mise/tasks/deploy/dev/seed.sh
+mise run deploy:dev:seed  # requires the Compose dev lab
+```
+
+The builder checks cover schema normalization, canonical identity and conflict
+handling, generated/compatibility contracts, LiveView invalidation and save
+behavior, report scoping and empty-result behavior, and authorization. The
+Compose seed command uses bounded per-sample existence checks and repairs partial
+fixture batches; it must not be run against a production database.
+
 ## GitHub validation
 
 `.github/workflows/validate.yml` runs on every push and pull request. It isolates user-global mise configuration,
