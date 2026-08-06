@@ -742,26 +742,30 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   end
 
   defp fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version) do
-    {options, errors} =
-      schema_refs
-      |> refs_for_scope(selected_schema_id, selected_schema_version)
-      |> Enum.reduce({[], []}, fn ref, {options, errors} ->
-        case fetch_ref_options(ref) do
-          {:ok, ref_options} -> {[ref_options | options], errors}
-          {:error, error} -> {options, [error | errors]}
-        end
-      end)
+    scoped_refs = refs_for_scope(schema_refs, selected_schema_id, selected_schema_version)
 
-    normalized_options =
-      options
-      |> List.flatten()
-      |> Enum.reduce(%{}, fn option, acc ->
-        merge_normalized_schema_option(acc, normalize_schema_option(option))
-      end)
-      |> Map.values()
-      |> Enum.sort_by(&String.downcase(&1.label))
+    if scoped_refs == [] do
+      {[], :not_found}
+    else
+      {options, errors} =
+        Enum.reduce(scoped_refs, {[], []}, fn ref, {options, errors} ->
+          case fetch_ref_options(ref) do
+            {:ok, ref_options} -> {[ref_options | options], errors}
+            {:error, error} -> {options, [error | errors]}
+          end
+        end)
 
-    {normalized_options, schema_error(errors)}
+      normalized_options =
+        options
+        |> List.flatten()
+        |> Enum.reduce(%{}, fn option, acc ->
+          merge_normalized_schema_option(acc, normalize_schema_option(option))
+        end)
+        |> Map.values()
+        |> Enum.sort_by(&String.downcase(&1.label))
+
+      {normalized_options, schema_error(errors)}
+    end
   end
 
   defp clear_invalid_field_selection(field, valid_keys, old_labels) do
@@ -835,8 +839,8 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     end
   end
 
-  defp schema_issue_for_error(:conflict), do: SchemaOptions.schema_issue_message(:conflict)
-  defp schema_issue_for_error(_), do: nil
+  defp schema_issue_for_error(nil), do: nil
+  defp schema_issue_for_error(error), do: SchemaOptions.schema_issue_message(error)
 
   defp schema_id_options(refs) do
     ids =

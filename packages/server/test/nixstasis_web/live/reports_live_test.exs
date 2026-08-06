@@ -118,6 +118,29 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert has_element?(view, "#report-save-report[disabled]")
   end
 
+  test "missing schema definitions show recovery guidance and block save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    report =
+      report_fixture(%{
+        "name" => "Missing Schema Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "missing-report-schema",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => []
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, _html} = live(conn, ~p"/reports/#{report.id}/edit")
+
+    assert has_element?(view, "p", "Schema options are unavailable.")
+    assert has_element?(view, "#report-save-report[disabled]")
+  end
+
   test "schema field selection does not crash live component", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")

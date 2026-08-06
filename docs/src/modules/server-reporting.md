@@ -68,6 +68,8 @@
   uses `(product_name, schema_version)` as the canonical schema identity. If
   matching devices advertise divergent definitions, the report builder exposes a
   conflict message and blocks save rather than selecting one device arbitrarily.
+  Missing, invalid, or otherwise unavailable schema definitions show a blocking
+  recovery message and keep Save disabled until a valid schema scope is available.
 
 Traceable references:
 
