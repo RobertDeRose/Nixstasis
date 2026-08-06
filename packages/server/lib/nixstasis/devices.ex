@@ -680,6 +680,51 @@ defmodule Nixstasis.Devices do
     |> Repo.all()
   end
 
+  @doc "Lists one canonical schema row per product/version for the requested products."
+  def list_canonical_schema_definitions(product_names) when is_list(product_names) do
+    %{rows: rows} =
+      Repo.query!(
+        """
+        WITH distinct_definitions AS (
+          SELECT DISTINCT
+            d.product_name AS schema_id,
+            COALESCE(NULLIF(d.schema->>'version', ''), 'v1') AS schema_version,
+            d.schema
+          FROM devices AS d
+          WHERE d.product_name IS NOT NULL
+            AND d.product_name <> ''
+            AND d.schema <> '{}'::jsonb
+            AND d.product_name = ANY($1::text[])
+        ), ranked_definitions AS (
+          SELECT
+            schema_id,
+            schema_version,
+            schema,
+            COUNT(*) OVER (PARTITION BY schema_id, schema_version) AS definition_count,
+            ROW_NUMBER() OVER (
+              PARTITION BY schema_id, schema_version
+              ORDER BY schema::text
+            ) AS definition_rank
+          FROM distinct_definitions
+        )
+        SELECT schema_id, schema_version, schema, definition_count > 1 AS conflict
+        FROM ranked_definitions
+        WHERE definition_rank = 1
+        ORDER BY schema_id, schema_version
+        """,
+        [product_names]
+      )
+
+    Enum.map(rows, fn [schema_id, schema_version, schema, conflict?] ->
+      %{
+        schema_id: schema_id,
+        schema_version: schema_version,
+        schema: schema,
+        conflict?: conflict?
+      }
+    end)
+  end
+
   @doc "Returns the canonical schema for a product/version pair or a typed availability error."
   def get_schema_definition(schema_id, schema_version)
       when is_binary(schema_id) and is_binary(schema_version) do
@@ -688,7 +733,8 @@ defmodule Nixstasis.Devices do
         where: d.product_name == ^schema_id,
         where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
         where: fragment("? <> '{}'::jsonb", d.schema),
-        order_by: [asc: d.id],
+        distinct: true,
+        limit: 2,
         select: d.schema
       )
       |> Repo.all()

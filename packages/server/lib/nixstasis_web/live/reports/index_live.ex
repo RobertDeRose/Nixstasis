@@ -302,13 +302,13 @@ defmodule NixstasisWeb.ReportLive.Index do
   defp normalize_field_queries(_), do: []
 
   defp schema_field_options do
-    SchemaOptions.list_schema_references()
-    |> Enum.flat_map(fn ref ->
-      case SchemaOptions.options_for(ref.schema_id, ref.schema_version, :report) do
+    options =
+      case SchemaOptions.options_for_many(SchemaOptions.list_schema_references(), :report) do
         {:ok, %{options: options}} -> options
         _ -> []
       end
-    end)
+
+    options
     |> Enum.reduce(%{}, fn option, acc ->
       key = option[:key]
       label = option[:label] || key

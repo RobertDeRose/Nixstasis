@@ -252,13 +252,25 @@ defmodule NixstasisWeb.ReportLive.Show do
       SchemaOptions.list_schema_references()
       |> maybe_scope_refs(schema_id, schema_version)
 
-    refs
-    |> Enum.flat_map(fn ref ->
-      case SchemaOptions.options_for(ref.schema_id, ref.schema_version, :report) do
-        {:ok, %{options: options}} -> options
-        _ -> []
+    options =
+      case refs do
+        [] ->
+          []
+
+        [ref] ->
+          case SchemaOptions.options_for(ref.schema_id, ref.schema_version, :report) do
+            {:ok, %{options: options}} -> options
+            _ -> []
+          end
+
+        _ ->
+          case SchemaOptions.options_for_many(refs, :report) do
+            {:ok, %{options: options, errors: []}} -> options
+            _ -> []
+          end
       end
-    end)
+
+    options
     |> Enum.reduce(%{}, fn option, acc ->
       key = option[:key]
       value_type = option[:value_type]

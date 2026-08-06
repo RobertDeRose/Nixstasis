@@ -72,7 +72,9 @@
   recovery message and keep Save disabled until a valid schema scope is available.
   All-schema and all-version reports use a field type only when contributing
   definitions agree; disagreements fall back to generic string operators rather
-  than selecting a version arbitrarily.
+  than selecting a version arbitrarily. Multi-schema option loading uses one
+  bounded database batch that returns one canonical definition per identity,
+  instead of issuing one full schema lookup per reference.
 
 Traceable references:
 

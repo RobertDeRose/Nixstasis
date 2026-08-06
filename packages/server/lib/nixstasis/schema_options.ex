@@ -35,6 +35,70 @@ defmodule Nixstasis.SchemaOptions do
 
   def options_for(_, _, _), do: {:error, :invalid}
 
+  @doc "Loads normalized options for multiple schema references in one bounded batch."
+  def options_for_many(schema_refs, builder) when is_list(schema_refs) do
+    started_at = System.monotonic_time(:microsecond)
+    result = options_for_many_result(schema_refs, builder)
+    duration_us = max(System.monotonic_time(:microsecond) - started_at, 0)
+
+    :telemetry.execute(
+      @schema_options_load_event,
+      %{duration_ms: div(duration_us, 1_000)},
+      %{
+        builder: builder_metadata(builder),
+        schema_id: nil,
+        schema_version: nil,
+        result: result_status(result)
+      }
+    )
+
+    result
+  end
+
+  def options_for_many(_, _), do: {:error, :invalid}
+
+  defp options_for_many_result(schema_refs, builder) do
+    with {:ok, normalized_builder} <- normalize_builder(builder) do
+      product_names =
+        schema_refs
+        |> Enum.map(&schema_ref_value(&1, :schema_id))
+        |> Enum.filter(&is_binary/1)
+        |> Enum.uniq()
+
+      definitions_by_identity =
+        product_names
+        |> Devices.list_canonical_schema_definitions()
+        |> Map.new(&{{&1.schema_id, &1.schema_version}, &1})
+
+      {options, errors} =
+        Enum.reduce(schema_refs, {[], []}, fn ref, {options, errors} ->
+          identity = {schema_ref_value(ref, :schema_id), schema_ref_value(ref, :schema_version)}
+
+          case Map.get(definitions_by_identity, identity) do
+            nil ->
+              {options, [:not_found | errors]}
+
+            %{conflict?: true} ->
+              {options, [:conflict | errors]}
+
+            %{schema: schema} ->
+              {[Normalizer.normalize(schema) | options], errors}
+          end
+        end)
+
+      {:ok,
+       %{
+         builder: normalized_builder,
+         options: List.flatten(options),
+         errors: Enum.uniq(errors)
+       }}
+    else
+      {:error, :invalid} -> {:error, :invalid}
+    end
+  end
+
+  defp schema_ref_value(ref, key), do: Map.get(ref, key) || Map.get(ref, Atom.to_string(key))
+
   defp options_for_result(schema_id, schema_version, builder) do
     with {:ok, normalized_builder} <- normalize_builder(builder),
          {:ok, schema} <- Devices.get_schema_definition(schema_id, schema_version),
@@ -97,6 +161,7 @@ defmodule Nixstasis.SchemaOptions do
   defp builder_metadata(builder) when builder in ["report", :report], do: "report"
   defp builder_metadata(_), do: "unknown"
 
+  defp result_status({:ok, %{errors: [error | _]}}), do: error
   defp result_status({:ok, _}), do: :ok
   defp result_status({:error, reason}), do: reason
 
