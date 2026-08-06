@@ -6,6 +6,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
   alias Nixstasis.Monitoring.Telemetry
   alias Nixstasis.Repo
   alias Nixstasis.Reporting
+  alias Nixstasis.SchemaOptions
 
   setup do
     {:ok, _device} =
@@ -74,6 +75,35 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     assert_receive {:schema_options_loaded, %{duration_ms: duration_ms}, %{builder: "report"}}, 1_000
     assert duration_ms <= 2_000
+  end
+
+  test "excessive schema catalogs fail closed before loading report options", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    limit = SchemaOptions.max_schema_references()
+
+    Enum.each(1..(limit + 1), fn index ->
+      product = "bounded-report-product-#{index}"
+      suffix = Integer.to_string(index, 16) |> String.pad_leading(2, "0")
+
+      {:ok, _device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:EF:#{suffix}",
+          "product_name" => product,
+          "schema" => %{
+            "product" => product,
+            "version" => "v1",
+            "properties" => %{"value" => %{"type" => "number"}}
+          }
+        })
+    end)
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+
+    assert html =~ "Too many schema versions are available"
+    assert has_element?(view, "#report-save-report[disabled]")
   end
 
   test "new report modal renders all-schema selectors and options", %{conn: conn, permissions: permissions} do

@@ -185,7 +185,9 @@ Request:
 The request may also carry `ipv4_address` directly; when it is absent, the
 server derives it from `metadata.ip_address`. Public registration accepts either
 `schema_definition` or the legacy `schema` alias, but the schema must include a
-`product` value.
+`product` value. Registration also limits schemas to 65,536 encoded bytes, eight
+nested levels, and 256 map fields; oversized definitions are rejected before
+persistence.
 
 Pending approval response:
 

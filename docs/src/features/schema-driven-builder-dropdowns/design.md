@@ -97,11 +97,14 @@ or chosen arbitrarily.
 
 ## Operational Considerations
 
-Option loading must remain bounded and authorization-aware. The service must inspect one canonical schema identity per
-explicit-scope request, and all-schema or all-version report mode must use one bounded/batched database lookup that returns
-one canonical definition per requested identity rather than an unbounded full-schema request per reference. LiveView assigns
-should retain the normalized option list and derive display maps/lists as needed instead of retaining duplicate collections.
-Missing, unreadable, or conflicting schema state fails visibly without retaining invalid saved configuration. The HTTP
+Option loading must remain bounded and authorization-aware. Builder LiveViews load at most 128 distinct schema
+references; exceeding that catalog limit fails closed with actionable guidance. Device schema registration limits
+schemas to 65,536 encoded bytes, eight nested levels, and 256 map fields. The service must inspect one canonical schema
+identity per explicit-scope request, and all-schema or all-version report mode must use one bounded/batched database
+lookup that returns one canonical definition per requested identity rather than an unbounded full-schema request per
+reference. LiveView assigns should retain the normalized option list and derive display maps/lists as needed instead of
+retaining duplicate collections.
+Missing, unreadable, conflicting, or oversized schema state fails visibly without retaining invalid saved configuration. The HTTP
 compatibility wrapper records measured lookup time; the shared domain payload does not claim a synthetic performance value.
 The shared option service also emits the measured
 `[:nixstasis, :builder, :schema_options, :load]` event with `duration_ms` and

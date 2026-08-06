@@ -69,6 +69,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     {schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(schema_id, schema_version)
 
+    schema_error = schema_error || schema_catalog_error()
     no_schema_fields_message = no_schema_fields_message(schema_id, schema_options, schema_error)
 
     edit_blocked? =
@@ -148,6 +149,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         {schema_options, schema_option_types, schema_error} =
           fetch_schema_option_metadata(schema_id, schema_version)
 
+        schema_error = schema_error || schema_catalog_error()
         previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
 
         rule_params =
@@ -687,14 +689,33 @@ defmodule NixstasisWeb.AlertLive.Index do
     """
   end
 
+  defp load_schema_references do
+    case SchemaOptions.list_bounded_schema_references() do
+      {:ok, schema_refs} -> {schema_refs, nil}
+      {:error, error} -> {[], error}
+    end
+  end
+
+  defp schema_references do
+    {schema_refs, _error} = load_schema_references()
+    schema_refs
+  end
+
+  defp schema_catalog_error do
+    {_schema_refs, error} = load_schema_references()
+    error
+  end
+
   defp apply_action(socket, :new, params) do
-    schema_refs = SchemaOptions.list_schema_references()
+    {schema_refs, schema_refs_error} = load_schema_references()
     modal_focus_return_id = if Map.get(params, "tab") == "rules", do: "alert-add-rule"
     selected_schema_id = schema_refs |> List.first() |> then(&if(&1, do: &1.schema_id, else: nil))
     selected_schema_version = first_schema_version(schema_refs, selected_schema_id)
 
     {schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
+
+    schema_error = schema_error || schema_refs_error
 
     form =
       AlertRule
@@ -744,7 +765,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       |> parse_id()
       |> Domain.get_rule!()
 
-    schema_refs = SchemaOptions.list_schema_references()
+    {schema_refs, schema_refs_error} = load_schema_references()
     selected_schema_id = rule.product_name
 
     selected_schema_version =
@@ -752,6 +773,8 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     {base_schema_options, schema_option_types, schema_error} =
       fetch_schema_option_metadata(selected_schema_id, selected_schema_version)
+
+    schema_error = schema_error || schema_refs_error
 
     field_valid_for_schema? =
       Enum.any?(base_schema_options, fn {_label, key} -> key == rule.condition_field end)
@@ -843,7 +866,7 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     schema_version =
       blank_to_nil(Map.get(params, "schema_version", socket.assigns.selected_schema_version)) ||
-        first_schema_version(SchemaOptions.list_schema_references(), schema_id)
+        first_schema_version(socket.assigns.schema_refs, schema_id)
 
     rule_params =
       rule_params
@@ -958,10 +981,11 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp schema_issue_for_error(:conflict), do: SchemaOptions.schema_issue_message(:conflict)
+  defp schema_issue_for_error(:too_many), do: SchemaOptions.schema_issue_message(:too_many)
   defp schema_issue_for_error(_), do: nil
 
   defp no_schema_fields_message(nil, _options, _error), do: nil
-  defp no_schema_fields_message(_schema_id, _options, :conflict), do: nil
+  defp no_schema_fields_message(_schema_id, _options, error) when error in [:conflict, :too_many], do: nil
 
   defp no_schema_fields_message(_, options, _error) when options == [],
     do: "No schema fields are available for this schema/version."
@@ -976,8 +1000,8 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp schema_issue(_condition_field, _valid_field?, _issues, :conflict),
-    do: SchemaOptions.schema_issue_message(:conflict)
+  defp schema_issue(_condition_field, _valid_field?, _issues, error) when error in [:conflict, :too_many],
+    do: SchemaOptions.schema_issue_message(error)
 
   defp schema_issue("", _, issues, _schema_error), do: first_issue_message(issues)
 
@@ -1051,10 +1075,10 @@ defmodule NixstasisWeb.AlertLive.Index do
       schema_id in [nil, ""] ->
         {:noreply, put_flash(socket, :error, "Select a schema product before saving.")}
 
-      schema_error == :conflict ->
+      schema_error in [:conflict, :too_many] ->
         record_invalid_attempt()
 
-        message = SchemaOptions.schema_issue_message(:conflict)
+        message = SchemaOptions.schema_issue_message(schema_error)
 
         {:noreply,
          socket
@@ -1257,7 +1281,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   end
 
   defp assign_rules(socket, rules) do
-    schema_refs = SchemaOptions.list_schema_references()
+    schema_refs = schema_references()
 
     decorated_rules =
       Enum.map(rules, fn rule ->

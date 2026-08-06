@@ -661,6 +661,18 @@ defmodule Nixstasis.Devices do
 
   @doc "Lists distinct schema references without materializing every device."
   def list_schema_references do
+    schema_reference_query()
+    |> Repo.all()
+  end
+
+  @doc "Lists at most `limit` distinct schema references."
+  def list_schema_references(limit) when is_integer(limit) and limit > 0 do
+    schema_reference_query()
+    |> Ecto.Query.limit(^limit)
+    |> Repo.all()
+  end
+
+  defp schema_reference_query do
     from(d in "devices",
       where:
         not is_nil(d.product_name) and d.product_name != "" and
@@ -677,7 +689,6 @@ defmodule Nixstasis.Devices do
         asc: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1')", d.schema)
       ]
     )
-    |> Repo.all()
   end
 
   @doc "Lists one canonical schema row per product/version for the requested products."

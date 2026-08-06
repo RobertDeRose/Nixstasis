@@ -249,8 +249,10 @@ defmodule NixstasisWeb.ReportLive.Show do
     schema_version = report.config["schema_version"] || report.config[:schema_version]
 
     refs =
-      SchemaOptions.list_schema_references()
-      |> maybe_scope_refs(schema_id, schema_version)
+      case SchemaOptions.list_bounded_schema_references() do
+        {:ok, schema_refs} -> maybe_scope_refs(schema_refs, schema_id, schema_version)
+        {:error, _} -> []
+      end
 
     options =
       case refs do

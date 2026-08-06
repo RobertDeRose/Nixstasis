@@ -43,7 +43,9 @@ return no rows for reports with no valid telemetry paths.
 loading. Single explicit schema scopes use bounded direct lookup; multi-reference
 report scopes use one database batch returning one canonical row per identity.
 Report LiveViews retain normalized options and derive display collections rather
-than storing duplicate option lists and maps in the socket.
+than storing duplicate option lists and maps in the socket. Builder LiveViews load
+at most 128 schema references; an oversized catalog fails closed with guidance
+instead of retaining an unbounded reference list.
 
 The existing generated Ash builder actions and `/api/v1` compatibility wrappers
 remain the external contract. Existing report-view authorization remains the
@@ -65,8 +67,10 @@ real Compose client for remote-access testing.
 
 The schema option service emits
 `[:nixstasis, :builder, :schema_options, :load]` telemetry with measured
-`duration_ms` and result metadata. Automated timing is implementation evidence,
-not human task-completion evidence.
+`duration_ms` and result metadata. Device schema registration rejects definitions
+larger than 65,536 encoded bytes, deeper than 8 nested levels, or containing more
+than 256 map fields. Automated timing is implementation evidence, not human
+task-completion evidence.
 
 ## Reference and Contracts
 

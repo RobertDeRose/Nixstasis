@@ -8,9 +8,24 @@ defmodule Nixstasis.SchemaOptions do
   alias Nixstasis.SchemaOptions.Validator
 
   @schema_options_load_event [:nixstasis, :builder, :schema_options, :load]
+  @max_schema_references 128
 
   def list_schema_references do
     Devices.list_schema_references()
+  end
+
+  @doc "Returns the maximum number of schema references loaded by builder LiveViews."
+  def max_schema_references, do: @max_schema_references
+
+  @doc "Loads a bounded schema-reference catalog for builder LiveViews."
+  def list_bounded_schema_references do
+    references = Devices.list_schema_references(@max_schema_references + 1)
+
+    if length(references) > @max_schema_references do
+      {:error, :too_many}
+    else
+      {:ok, references}
+    end
   end
 
   def options_for(schema_id, schema_version, builder)
@@ -58,6 +73,14 @@ defmodule Nixstasis.SchemaOptions do
   def options_for_many(_, _), do: {:error, :invalid}
 
   defp options_for_many_result(schema_refs, builder) do
+    if length(schema_refs) > @max_schema_references do
+      {:error, :too_many}
+    else
+      options_for_many_within_limit(schema_refs, builder)
+    end
+  end
+
+  defp options_for_many_within_limit(schema_refs, builder) do
     with {:ok, normalized_builder} <- normalize_builder(builder) do
       product_names =
         schema_refs
@@ -155,6 +178,10 @@ defmodule Nixstasis.SchemaOptions do
 
   def schema_issue_message(:conflict), do: "Schema definitions conflict for this product/version."
   def schema_issue_message(:not_found), do: "Schema options are unavailable."
+
+  def schema_issue_message(:too_many),
+    do: "Too many schema versions are available; narrow the schema catalog before continuing."
+
   def schema_issue_message(_), do: "Schema access is unavailable."
 
   defp builder_metadata(builder) when builder in ["alert", :alert], do: "alert"

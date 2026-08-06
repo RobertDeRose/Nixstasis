@@ -39,6 +39,29 @@ defmodule Nixstasis.SchemaOptionsTest do
     end
   end
 
+  describe "bounded schema references" do
+    test "returns references when the catalog is within the configured limit" do
+      register_schema_device(
+        "bounded-thermostat",
+        schema("bounded-thermostat", "v1", %{"temp" => %{"type" => "number"}})
+      )
+
+      assert {:ok, [%{schema_id: "bounded-thermostat", schema_version: "v1"}]} =
+               SchemaOptions.list_bounded_schema_references()
+    end
+
+    test "fails closed when the schema reference catalog exceeds the limit" do
+      limit = SchemaOptions.max_schema_references()
+
+      Enum.each(1..(limit + 1), fn index ->
+        product = "bounded-product-#{index}"
+        register_schema_device(product, schema(product, "v1", %{"value" => %{"type" => "number"}}))
+      end)
+
+      assert {:error, :too_many} = SchemaOptions.list_bounded_schema_references()
+    end
+  end
+
   describe "batched schema definitions" do
     test "returns one canonical row per identity and marks divergent definitions" do
       register_schema_device(

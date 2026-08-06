@@ -50,6 +50,54 @@ defmodule Nixstasis.Devices.SchemaValidatorTest do
     assert :ok == SchemaValidator.validate_registration(%{}, :internal)
   end
 
+  test "rejects registration schemas over the field-count limit" do
+    max_fields = SchemaValidator.limits().max_fields
+
+    assert {:error, message} =
+             SchemaValidator.validate_registration(%{
+               "product" => "thermostat",
+               "type" => "object",
+               "properties" =>
+                 Map.new(1..(max_fields + 1), fn index ->
+                   {"field_#{index}", %{"type" => "number"}}
+                 end)
+             })
+
+    assert message =~ "maximum field count"
+  end
+
+  test "rejects registration schemas over the nesting-depth limit" do
+    max_depth = SchemaValidator.limits().max_depth
+
+    nested_properties =
+      Enum.reduce(1..(max_depth + 1), %{"type" => "number"}, fn index, schema ->
+        %{"level_#{index}" => %{"type" => "object", "properties" => schema}}
+      end)
+
+    assert {:error, message} =
+             SchemaValidator.validate_registration(%{
+               "product" => "thermostat",
+               "type" => "object",
+               "properties" => nested_properties
+             })
+
+    assert message =~ "maximum nesting depth"
+  end
+
+  test "rejects registration schemas over the encoded-size limit" do
+    max_bytes = SchemaValidator.limits().max_bytes
+    oversized_value = String.duplicate("x", max_bytes)
+
+    assert {:error, message} =
+             SchemaValidator.validate_registration(%{
+               "product" => "thermostat",
+               "type" => "object",
+               "properties" => %{"description" => %{"type" => "string", "default" => oversized_value}}
+             })
+
+    assert message =~ "maximum size"
+  end
+
   test "register_device persists schema_definition as schema" do
     {:ok, device} =
       Devices.register_device(%{

@@ -303,8 +303,10 @@ defmodule NixstasisWeb.ReportLive.Index do
 
   defp schema_field_options do
     options =
-      case SchemaOptions.options_for_many(SchemaOptions.list_schema_references(), :report) do
-        {:ok, %{options: options}} -> options
+      with {:ok, schema_refs} <- SchemaOptions.list_bounded_schema_references(),
+           {:ok, %{options: options}} <- SchemaOptions.options_for_many(schema_refs, :report) do
+        options
+      else
         _ -> []
       end
 

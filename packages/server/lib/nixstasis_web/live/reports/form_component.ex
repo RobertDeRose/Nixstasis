@@ -8,7 +8,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   @impl true
   def update(%{report: report} = assigns, socket) do
-    schema_refs = SchemaOptions.list_schema_references()
+    {schema_refs, schema_refs_error} = load_schema_references()
 
     selected_schema_id =
       normalize_scope_value(config_value(report.config, "schema_id"), @all_scope)
@@ -17,7 +17,10 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       normalize_scope_value(config_value(report.config, "schema_version"), nil)
 
     {schema_options, schema_error} =
-      fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version)
+      case schema_refs_error do
+        nil -> fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version)
+        error -> {[], error}
+      end
 
     {fields, filters} = hydrate_builder_rows(report)
     report_name = normalize_report_name(report.name || "")
@@ -313,11 +316,14 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp validate_current_schema(schema_id, schema_version, fields, filters)
        when is_binary(schema_id) and schema_id != "" do
-    {schema_options, schema_error} =
-      SchemaOptions.list_schema_references()
-      |> fetch_schema_options(schema_id, schema_version)
+    case SchemaOptions.list_bounded_schema_references() do
+      {:ok, schema_refs} ->
+        {schema_options, schema_error} = fetch_schema_options(schema_refs, schema_id, schema_version)
+        {validate_selected_keys(fields, filters, schema_options), schema_error, schema_options}
 
-    {validate_selected_keys(fields, filters, schema_options), schema_error, schema_options}
+      {:error, error} ->
+        {validate_selected_keys(fields, filters, []), error, []}
+    end
   end
 
   defp validate_current_schema(_schema_id, _schema_version, fields, filters) do
@@ -756,6 +762,13 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
     |> assign(:fields, fields)
     |> assign(:filters, filters)
     |> assign(:schema_issue, schema_issue_for_error(schema_error))
+  end
+
+  defp load_schema_references do
+    case SchemaOptions.list_bounded_schema_references() do
+      {:ok, schema_refs} -> {schema_refs, nil}
+      {:error, error} -> {[], error}
+    end
   end
 
   defp fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version) do

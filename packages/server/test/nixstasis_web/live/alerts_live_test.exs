@@ -5,6 +5,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
   alias Nixstasis.Devices
   alias Nixstasis.Domain
+  alias Nixstasis.SchemaOptions
 
   @success_flash_timeout_ms 3_000
 
@@ -58,6 +59,31 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert_receive {:schema_options_loaded, %{duration_ms: duration_ms}, %{builder: "alert"}}, 1_000
     assert duration_ms <= 2_000
+  end
+
+  test "excessive schema catalogs fail closed before loading alert options", %{conn: conn} do
+    limit = SchemaOptions.max_schema_references()
+
+    Enum.each(1..(limit + 1), fn index ->
+      product = "bounded-alert-product-#{index}"
+      suffix = Integer.to_string(index, 16) |> String.pad_leading(2, "0")
+
+      {:ok, _device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:FE:#{suffix}",
+          "product_name" => product,
+          "schema" => %{
+            "product" => product,
+            "version" => "v1",
+            "properties" => %{"value" => %{"type" => "number"}}
+          }
+        })
+    end)
+
+    {:ok, view, html} = live(conn, alert_new_path())
+
+    assert html =~ "Too many schema versions are available"
+    assert has_element?(view, "#alert-rule-save[disabled]")
   end
 
   test "new rule modal renders schema-driven selectors and action controls", %{conn: conn} do
