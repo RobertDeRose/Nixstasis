@@ -253,6 +253,96 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Pressure"
   end
 
+  test "report builder preserves an explicit all-version scope when saving", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    _html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    _html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => "v2"})
+
+    html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => ""})
+
+    assert html =~ "Temp"
+    assert html =~ "Pressure"
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "name" => "All Version Scope Report",
+        "schema_id" => "report-schema-product",
+        "schema_version" => "",
+        "fields" => %{
+          field_id => %{"path" => "pressure", "alias" => "Pressure"}
+        },
+        "filters" => %{}
+      })
+
+    saved =
+      Reporting.list_custom_reports()
+      |> Enum.find(&(&1.name == "All Version Scope Report"))
+
+    assert saved
+    assert saved.config["schema_id"] == "report-schema-product"
+    assert is_nil(saved.config["schema_version"])
+  end
+
+  test "report builder persists a selected concrete schema version", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    _html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => "v2"})
+
+    assert html =~ "Pressure"
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "name" => "Concrete Version Scope Report",
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v2",
+        "fields" => %{
+          field_id => %{"path" => "pressure", "alias" => "Pressure"}
+        },
+        "filters" => %{}
+      })
+
+    saved =
+      Reporting.list_custom_reports()
+      |> Enum.find(&(&1.name == "Concrete Version Scope Report"))
+
+    assert saved
+    assert saved.config["schema_id"] == "report-schema-product"
+    assert saved.config["schema_version"] == "v2"
+  end
+
   test "changing schema product does not show cleared-selection warning", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")

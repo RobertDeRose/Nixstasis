@@ -14,10 +14,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       normalize_scope_value(config_value(report.config, "schema_id"), @all_scope)
 
     selected_schema_version =
-      normalize_scope_value(
-        config_value(report.config, "schema_version"),
-        first_schema_version(schema_refs, selected_schema_id)
-      )
+      normalize_scope_value(config_value(report.config, "schema_version"), nil)
 
     {schema_options, schema_error} =
       fetch_schema_options(schema_refs, selected_schema_id, selected_schema_version)
@@ -76,7 +73,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   def handle_event("set_schema_version", %{"schema_version" => schema_version}, socket) do
     selected_schema_version =
-      normalize_scope_value(
+      normalize_explicit_schema_version(
         schema_version,
         first_schema_version(socket.assigns.schema_refs, socket.assigns.selected_schema_id)
       )
@@ -261,10 +258,16 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
       normalize_scope_value(Map.get(params, "schema_id"), socket.assigns.selected_schema_id)
 
     submitted_schema_version =
-      normalize_scope_value(
-        Map.get(params, "schema_version", socket.assigns.selected_schema_version),
-        first_schema_version(socket.assigns.schema_refs, submitted_schema_id)
-      )
+      case Map.fetch(params, "schema_version") do
+        {:ok, value} ->
+          normalize_explicit_schema_version(value, nil)
+
+        :error ->
+          normalize_scope_value(
+            socket.assigns.selected_schema_version,
+            first_schema_version(socket.assigns.schema_refs, submitted_schema_id)
+          )
+      end
 
     submitted_fields =
       submitted_fields_from_params(
@@ -316,12 +319,21 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
   end
 
   defp validate_current_schema(schema_id, schema_version, fields, filters)
+       when is_binary(schema_id) and schema_id != "" and schema_version in [nil, ""] do
+    {schema_options, schema_error} =
+      SchemaOptions.list_schema_references()
+      |> fetch_schema_options(schema_id, nil)
+
+    {validate_selected_keys(fields, filters, schema_options), schema_error}
+  end
+
+  defp validate_current_schema(schema_id, schema_version, fields, filters)
        when is_binary(schema_id) and schema_id != "" do
     validation =
       SchemaOptions.validate_selections(
         :report,
         schema_id,
-        if(is_binary(schema_version), do: schema_version, else: ""),
+        schema_version,
         schema_selections(fields, filters)
       )
 
@@ -1016,6 +1028,11 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp persisted_schema_version(@all_scope, _schema_version), do: nil
   defp persisted_schema_version(_schema_id, schema_version), do: schema_version
+
+  defp normalize_explicit_schema_version(value, _default) when value in [nil, ""], do: nil
+
+  defp normalize_explicit_schema_version(value, default),
+    do: normalize_scope_value(value, default)
 
   defp normalize_scope_value(value, default) when value in [nil, ""], do: default
   defp normalize_scope_value(value, _default), do: value
