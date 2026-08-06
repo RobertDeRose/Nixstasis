@@ -50,7 +50,9 @@ mise run deploy:dev:seed
 
 The seed task is idempotent for its stable offline devices, alert, report, and
 telemetry samples. Each sample uses a bounded existence check, so reruns repair
-partial telemetry batches without loading the telemetry table. The database-only
+partial telemetry batches without loading the telemetry table. Telemetry fixture
+checks and inserts are serialized per seed marker, so concurrent seed invocations
+cannot duplicate samples. The database-only
 devices intentionally do not provide remote terminal/FRP routes; use a real
 Compose client device for SSH testing. Add future
 fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable identifier or

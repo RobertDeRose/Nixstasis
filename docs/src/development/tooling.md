@@ -77,8 +77,9 @@ mise run deploy:dev:seed  # requires the Compose dev lab
 The builder checks cover schema normalization, canonical identity and conflict
 handling, generated/compatibility contracts, LiveView invalidation and save
 behavior, report scoping and empty-result behavior, and authorization. The
-Compose seed command uses bounded per-sample existence checks and repairs partial
-fixture batches; it must not be run against a production database.
+Compose seed command uses bounded per-sample existence checks, serializes marked
+telemetry writes per seed marker, and repairs partial fixture batches; it must not
+be run against a production database.
 
 ## GitHub validation
 

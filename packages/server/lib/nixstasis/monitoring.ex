@@ -246,6 +246,15 @@ defmodule Nixstasis.Monitoring do
 
   def telemetry_seed_sample_exists?(_seed_marker, _device_id, _payload), do: false
 
+  @doc "Serializes development telemetry fixture writes for one stable seed marker."
+  def with_telemetry_seed_lock(seed_marker, fun)
+      when is_binary(seed_marker) and is_function(fun, 0) do
+    Repo.transaction(fn ->
+      Repo.query!("SELECT pg_advisory_xact_lock(hashtext($1::text))", [seed_marker])
+      fun.()
+    end)
+  end
+
   defp create_rule_alert(device, rule) do
     exists? =
       Alert

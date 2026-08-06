@@ -60,9 +60,10 @@ mise run deploy:dev:seed
 ```
 
 The task seeds stable offline schema-builder devices, telemetry, an alert, and a
-report through Compose. It performs bounded per-sample existence checks, repairs
-partial telemetry batches, and preserves idempotency without loading the full
-telemetry table. Database-only fixtures do not provide SSH or FRP routes; use a
+report through Compose. It performs bounded per-sample existence checks,
+serializes marked telemetry writes per seed marker, repairs partial telemetry
+batches, and preserves idempotency without loading the full telemetry table.
+Database-only fixtures do not provide SSH or FRP routes; use a
 real Compose client for remote-access testing.
 
 The schema option service emits
@@ -116,8 +117,9 @@ remain documented in the client-server interface and builder API reference.
   one canonical row per identity; divergent definitions remain unavailable.
 - Report detail type aggregation and telemetry empty-row handling were tightened
   to avoid arbitrary types and blank legacy rows.
-- The development seed task now checks individual stable samples and repairs
-  partial batches while retaining compatibility with the original batch marker.
+- The development seed task now checks individual stable samples, serializes
+  marked writes, and repairs partial batches while retaining compatibility with the
+  original batch marker.
 
 ### Deferred Work
 

@@ -44,6 +44,41 @@ defmodule Nixstasis.Monitoring.TelemetrySeedTest do
     refute_receive :telemetry_seed_query, 20
   end
 
+  test "serializes callbacks for the same telemetry seed marker" do
+    parent = self()
+
+    first =
+      Task.async(fn ->
+        Monitoring.with_telemetry_seed_lock("schema-builder-lock-test", fn ->
+          send(parent, :first_entered)
+
+          receive do
+            :release -> :first
+          end
+        end)
+      end)
+
+    assert_receive :first_entered, 1_000
+
+    second =
+      Task.async(fn ->
+        send(parent, :second_started)
+
+        Monitoring.with_telemetry_seed_lock("schema-builder-lock-test", fn ->
+          send(parent, :second_entered)
+          :second
+        end)
+      end)
+
+    assert_receive :second_started, 1_000
+    refute_receive :second_entered, 200
+
+    send(first.pid, :release)
+    assert {:ok, :first} = Task.await(first, 1_000)
+    assert_receive :second_entered, 1_000
+    assert {:ok, :second} = Task.await(second, 1_000)
+  end
+
   test "recognizes the legacy batch marker for partial-batch repair" do
     {:ok, device} =
       Devices.register_device(%{
