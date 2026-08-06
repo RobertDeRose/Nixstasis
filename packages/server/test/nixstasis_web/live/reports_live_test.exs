@@ -1273,6 +1273,69 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert length(Regex.scan(~r/<tr>/, html)) <= 251
   end
 
+  test "report detail field types follow schema version and avoid arbitrary all-version types", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _v1_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:94",
+        "product_name" => "report-schema-type-version",
+        "schema" => %{
+          "product" => "report-schema-type-version",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "number"}}
+        }
+      })
+
+    {:ok, _v2_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:95",
+        "product_name" => "report-schema-type-version",
+        "schema" => %{
+          "product" => "report-schema-type-version",
+          "version" => "v2",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    reports =
+      for {name, config} <- [
+            {"Version One Types", %{"schema_version" => "v1"}},
+            {"Version Two Types", %{"schema_version" => "v2"}},
+            {"All Version Types", %{}}
+          ] do
+        report_fixture(%{
+          "name" => name,
+          "config" =>
+            Map.merge(
+              %{
+                "source" => "telemetry",
+                "schema_id" => "report-schema-type-version",
+                "fields" => [%{"path" => "temp", "alias" => "temp"}],
+                "filters" => []
+              },
+              config
+            )
+        })
+      end
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    [v1_report, v2_report, all_report] = reports
+
+    {:ok, v1_view, _html} = live(conn, ~p"/reports/#{v1_report.id}")
+    assert has_element?(v1_view, "select[name='filter[operator]'] option[value='>']")
+    refute has_element?(v1_view, "select[name='filter[operator]'] option[value='contains']")
+
+    {:ok, v2_view, _html} = live(conn, ~p"/reports/#{v2_report.id}")
+    assert has_element?(v2_view, "select[name='filter[operator]'] option[value='contains']")
+    refute has_element?(v2_view, "select[name='filter[operator]'] option[value='>']")
+
+    {:ok, all_view, _html} = live(conn, ~p"/reports/#{all_report.id}")
+    assert has_element?(all_view, "select[name='filter[operator]'] option[value='contains']")
+    refute has_element?(all_view, "select[name='filter[operator]'] option[value='>']")
+  end
+
   test "report detail operator list changes by selected column type", %{conn: conn, permissions: permissions} do
     {:ok, _device} =
       Devices.register_device(%{

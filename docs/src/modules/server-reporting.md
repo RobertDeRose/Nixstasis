@@ -70,6 +70,9 @@
   conflict message and blocks save rather than selecting one device arbitrarily.
   Missing, invalid, or otherwise unavailable schema definitions show a blocking
   recovery message and keep Save disabled until a valid schema scope is available.
+  All-schema and all-version reports use a field type only when contributing
+  definitions agree; disagreements fall back to generic string operators rather
+  than selecting a version arbitrarily.
 
 Traceable references:
 

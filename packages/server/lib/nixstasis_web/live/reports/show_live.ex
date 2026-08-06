@@ -246,10 +246,11 @@ defmodule NixstasisWeb.ReportLive.Show do
 
   defp schema_type_map(report) do
     schema_id = report.config["schema_id"] || report.config[:schema_id]
+    schema_version = report.config["schema_version"] || report.config[:schema_version]
 
     refs =
       SchemaOptions.list_schema_references()
-      |> maybe_scope_refs(schema_id)
+      |> maybe_scope_refs(schema_id, schema_version)
 
     refs
     |> Enum.flat_map(fn ref ->
@@ -263,18 +264,24 @@ defmodule NixstasisWeb.ReportLive.Show do
       value_type = option[:value_type]
 
       if is_binary(key) and key != "" do
-        Map.put_new(acc, key, value_type)
+        Map.update(acc, key, value_type, &merge_schema_value_types(&1, value_type))
       else
         acc
       end
     end)
   end
 
-  defp maybe_scope_refs(refs, schema_id) when is_binary(schema_id) and schema_id != "" do
-    Enum.filter(refs, &(&1.schema_id == schema_id))
+  defp maybe_scope_refs(refs, schema_id, schema_version) do
+    Enum.filter(refs, fn ref ->
+      (not present_schema_value?(schema_id) or ref.schema_id == schema_id) and
+        (not present_schema_value?(schema_version) or ref.schema_version == schema_version)
+    end)
   end
 
-  defp maybe_scope_refs(refs, _schema_id), do: refs
+  defp present_schema_value?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp merge_schema_value_types(type, type), do: type
+  defp merge_schema_value_types(_left, _right), do: "unknown"
 
   defp normalize_column_type(type) when type in ["integer", "number", "float", "decimal"], do: :number
   defp normalize_column_type(_), do: :string
