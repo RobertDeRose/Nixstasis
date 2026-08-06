@@ -85,6 +85,7 @@
   - [Server-Client E2E Tests](features/server-client-e2e-tests/index.md)
   - [Server Command Allowlist Management](features/server-command-allowlist-management/index.md)
   - [Server Curated Command Package Catalog](features/server-curated-command-package-catalog/index.md)
+  - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/index.md)
   - [Server Stary Script Workbench](features/server-stary-script-workbench/index.md)
   - [Server-Provided FRPS Token](features/server-provided-frps-token/index.md)
   - [Starlark Script System](features/starlark-script-system/index.md)

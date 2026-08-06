@@ -22,6 +22,7 @@ historical decisions needed to audit each feature. Active and future work remain
 - [Production Operations Runbooks](production-operations-runbooks/index.md)
 - [Report View Improvements](report-view-improvements/index.md)
 - [Rich API Examples](rich-api-examples/index.md)
+- [Schema-Driven Builder Dropdowns](schema-driven-builder-dropdowns/index.md)
 - [Self-Extracting Installer](self-extracting-installer/index.md)
 - [Server-Client E2E Tests](server-client-e2e-tests/index.md)
 - [Server Command Allowlist Management](server-command-allowlist-management/index.md)

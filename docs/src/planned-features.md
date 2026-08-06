@@ -1329,8 +1329,8 @@ from the current roadmap narrative.
 
 ### Schema driven builder dropdowns (`schema-driven-builder-dropdowns`)
 
-- Status: in-progress
-- Overview: Deliver schema-backed builder options while retaining outstanding performance and close-out validation.
+- Status: completed
+- Overview: Deliver schema-backed alert/report builder options with canonical identity, fail-closed conflicts, and reconciled performance and validation guidance.
 
 ### Server client e2e tests (`server-client-e2e-tests`)
 
