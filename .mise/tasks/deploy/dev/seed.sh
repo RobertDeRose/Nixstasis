@@ -114,34 +114,49 @@ unless Enum.any?(Nixstasis.Reporting.list_custom_reports(), &(&1.name == report_
     })
 end
 
-# Add data once per seed version. Give each future fixture batch a new marker
-# rather than duplicating an existing batch on every task invocation.
+# Add data once per sample. Each sample has a stable marker so a partial
+# fixture batch is repaired on a later invocation instead of being skipped.
+# The second lookup preserves idempotency for events written by the original
+# batch-wide marker implementation.
 seed_marker = "schema-builder-v1"
-{:ok, existing_events} = Nixstasis.Domain.list_telemetry_events()
+v1 = Enum.find(upserted_devices, &(&1.schema["version"] == "v1"))
+v2 = Enum.find(upserted_devices, &(&1.schema["version"] == "v2"))
 
-unless Enum.any?(existing_events, &(&1.payload["deploy_dev_seed"] == seed_marker)) do
-  v1 = Enum.find(upserted_devices, &(&1.schema["version"] == "v1"))
-  v2 = Enum.find(upserted_devices, &(&1.schema["version"] == "v2"))
+samples = [
+  {v1, %{"temperature" => 19.5, "humidity" => 42.0, "status" => "ok"}},
+  {v1, %{"temperature" => 27.2, "humidity" => 58.0, "status" => "warm"}},
+  {v2, %{"temperature_c" => 21.0, "battery" => 91.0, "status" => "ok"}},
+  {v2, %{"temperature_c" => 24.5, "battery" => 76.0, "status" => "warn"}}
+]
 
-  samples = [
-    {v1, %{"temperature" => 19.5, "humidity" => 42.0, "status" => "ok"}},
-    {v1, %{"temperature" => 27.2, "humidity" => 58.0, "status" => "warm"}},
-    {v2, %{"temperature_c" => 21.0, "battery" => 91.0, "status" => "ok"}},
-    {v2, %{"temperature_c" => 24.5, "battery" => 76.0, "status" => "warn"}}
-  ]
+inserted_count =
+  Enum.reduce(Enum.with_index(samples, 1), 0, fn {{device, payload}, index}, count ->
+    sample_marker = "#{seed_marker}-#{index}"
 
-  Enum.each(Enum.with_index(samples), fn {{device, payload}, index} ->
-    {:ok, _event} =
-      Nixstasis.Domain.create_telemetry_event(%{
-        device_id: device.id,
-        timestamp: DateTime.add(now, -index * 60, :second),
-        payload: Map.put(payload, "deploy_dev_seed", seed_marker)
-      })
+    sample_payload = Map.put(payload, "deploy_dev_seed_sample", sample_marker)
+
+    exists? =
+      Nixstasis.Monitoring.telemetry_seed_sample_exists?(seed_marker, device.id, sample_payload) or
+        Nixstasis.Monitoring.telemetry_seed_sample_exists?(seed_marker, device.id, payload)
+
+    if exists? do
+      count
+    else
+      {:ok, _event} =
+        Nixstasis.Domain.create_telemetry_event(%{
+          device_id: device.id,
+          timestamp: DateTime.add(now, -(index - 1) * 60, :second),
+          payload: Map.put(sample_payload, "deploy_dev_seed", seed_marker)
+        })
+
+      count + 1
+    end
   end)
 
-  IO.puts("Inserted #{length(samples)} #{seed_marker} telemetry events.")
-else
+if inserted_count == 0 do
   IO.puts("#{seed_marker} telemetry already exists; no duplicate events inserted.")
+else
+  IO.puts("Inserted #{inserted_count} #{seed_marker} telemetry events.")
 end
 
 IO.puts("Seeded #{product} schema versions v1 and v2 as offline fixtures.")

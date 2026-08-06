@@ -49,8 +49,10 @@ mise run deploy:dev:seed
 ```
 
 The seed task is idempotent for its stable offline devices, alert, report, and
-telemetry batch. The database-only devices intentionally do not provide remote
-terminal/FRP routes; use a real Compose client device for SSH testing. Add future
+telemetry samples. Each sample uses a bounded existence check, so reruns repair
+partial telemetry batches without loading the telemetry table. The database-only
+devices intentionally do not provide remote terminal/FRP routes; use a real
+Compose client device for SSH testing. Add future
 fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable identifier or
 telemetry marker. It requires the dev lab to be running and uses Compose `exec`;
 it does not connect to a host PostgreSQL port.

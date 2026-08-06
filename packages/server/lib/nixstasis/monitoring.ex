@@ -224,6 +224,28 @@ defmodule Nixstasis.Monitoring do
     |> Ash.read!(domain: Domain)
   end
 
+  @doc "Checks for one deterministic telemetry seed sample without loading telemetry rows."
+  def telemetry_seed_sample_exists?(seed_marker, device_id, payload)
+      when is_binary(seed_marker) and is_binary(device_id) and is_map(payload) do
+    expected_payload = Map.put(payload, "deploy_dev_seed", seed_marker)
+
+    %{rows: rows} =
+      Repo.query!(
+        """
+        SELECT 1
+        FROM telemetry_events
+        WHERE device_id = $1::uuid
+          AND payload @> $2::jsonb
+        LIMIT 1
+        """,
+        [Ecto.UUID.dump!(device_id), expected_payload]
+      )
+
+    rows != []
+  end
+
+  def telemetry_seed_sample_exists?(_seed_marker, _device_id, _payload), do: false
+
   defp create_rule_alert(device, rule) do
     exists? =
       Alert
