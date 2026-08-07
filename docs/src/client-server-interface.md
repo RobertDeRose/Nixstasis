@@ -37,10 +37,14 @@ x-nixstasis-bootstrap-attempt-id: optional UUID
 
 The operator permission boundary is checked before the request body is read.
 The target must be approved and online. The server opens the named,
-client-owned `atomixos-bootstrap` route profile before posting the exact bytes
-to the device's `POST /api/config` endpoint. The route supplies the local
-`Host: localhost` rewrite; the server sends no browser `Origin` or `Referer`
-header and never writes the device filesystem.
+client-owned `atomixos-bootstrap` route profile and performs a bounded,
+read-only `HEAD /api/config` probe before posting the exact bytes to the
+device's `POST /api/config` endpoint. A 2xx response or the endpoint's
+expected 405 method-not-allowed response proves route reachability; other
+statuses and transport failures retry only until the readiness deadline. The
+route supplies the local `Host: localhost` rewrite; the server
+sends no browser `Origin` or `Referer` header and never writes the device
+filesystem.
 
 AtomixOS returns HTTP 202 with `job_id`, `state`, and a relative `job_url`.
 The server resolves that URL against the FRP API base and polls it until

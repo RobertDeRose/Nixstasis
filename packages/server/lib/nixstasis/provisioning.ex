@@ -24,13 +24,18 @@ defmodule Nixstasis.Provisioning do
   @name __MODULE__
   @route_profile "atomixos-bootstrap"
   @default_base_domain "example.com"
+  @default_readiness_timeout_ms 60_000
+  @default_readiness_interval_ms 500
+  @default_readiness_backoff_ms 250
+  @readiness_method_not_allowed_status 405
   @default_poll_timeout_ms 5 * 60 * 1_000
   @default_poll_interval_ms 500
   @default_retry_backoff_ms 250
   @default_request_timeout_ms 30_000
   @default_conflict_retries 2
   @max_job_payload_size 1 * 1024 * 1024
-  @server_call_timeout_ms @default_poll_timeout_ms + @default_request_timeout_ms + 10_000
+  @provisioning_timeout_ms @default_readiness_timeout_ms + @default_poll_timeout_ms
+  @server_call_timeout_ms @provisioning_timeout_ms + @default_request_timeout_ms + 10_000
   @active_states [:submitting, :submitted, :running]
   @job_states ~w(submitted running succeeded failed)
 
@@ -293,6 +298,20 @@ defmodule Nixstasis.Provisioning do
     submit_fun = Keyword.get(opts, :submit_fun, default_submit_fun(opts))
     get_job_fun = Keyword.get(opts, :get_job_fun, default_get_job_fun(opts))
 
+    case wait_for_route_readiness(base_url, opts) do
+      :ok ->
+        if lease_active?(state, delivery.id) do
+          submit_delivery(delivery, artifact, actor_id, post_url, base_url, submit_fun, get_job_fun, opts, state)
+        else
+          finish_failed(state, delivery, actor_id, "remote-access lease expired before upload")
+        end
+
+      {:error, reason} ->
+        finish_failed(state, delivery, actor_id, "bootstrap route readiness failed: #{inspect(reason)}")
+    end
+  end
+
+  defp submit_delivery(delivery, artifact, actor_id, post_url, base_url, submit_fun, get_job_fun, opts, state) do
     case submit_with_conflict_retries(submit_fun, post_url, artifact, opts) do
       {:ok, response} ->
         case normalize_submission(response, base_url) do
@@ -332,6 +351,44 @@ defmodule Nixstasis.Provisioning do
         finish_failed(state, delivery, actor_id, "submission failed: #{inspect(reason)}")
     end
   end
+
+  defp wait_for_route_readiness(base_url, opts) do
+    readiness_fun = Keyword.get(opts, :readiness_fun, default_readiness_fun())
+    readiness_url = join_url(base_url, "/api/config")
+    deadline = readiness_now(opts) + readiness_timeout(opts)
+
+    wait_for_route_readiness_until(readiness_fun, readiness_url, opts, deadline, 0, nil)
+  end
+
+  defp wait_for_route_readiness_until(readiness_fun, url, opts, deadline, attempt, last_reason) do
+    remaining = deadline - readiness_now(opts)
+
+    if remaining <= 0 do
+      {:error, {:timeout, last_reason || :not_ready}}
+    else
+      request_timeout_ms = min(request_timeout(opts), remaining)
+
+      case readiness_fun.(url, request_timeout_ms: request_timeout_ms) do
+        {:ok, @readiness_method_not_allowed_status} ->
+          :ok
+
+        {:ok, status} when is_integer(status) and status >= 200 and status < 300 ->
+          :ok
+
+        result ->
+          reason = readiness_failure_reason(result)
+          remaining_after_request = max(0, deadline - readiness_now(opts))
+          delay = min(readiness_delay(attempt, opts), remaining_after_request)
+          sleep_fun(opts).(delay)
+
+          wait_for_route_readiness_until(readiness_fun, url, opts, deadline, attempt + 1, reason)
+      end
+    end
+  end
+
+  defp readiness_failure_reason({:ok, status}), do: {:http, status}
+  defp readiness_failure_reason({:error, reason}), do: reason
+  defp readiness_failure_reason(other), do: {:invalid_response, inspect(other)}
 
   defp submit_with_conflict_retries(submit_fun, url, artifact, opts, attempt \\ 0) do
     case submit_fun.(url, artifact.bytes, artifact.filename) do
@@ -755,6 +812,12 @@ defmodule Nixstasis.Provisioning do
     end
   end
 
+  defp default_readiness_fun do
+    fn url, request_opts ->
+      HTTPClient.probe(url, request_opts)
+    end
+  end
+
   defp default_get_job_fun(opts) do
     fn url, request_opts ->
       HTTPClient.get_job(url, Keyword.put(request_opts, :request_timeout_ms, request_timeout(opts)))
@@ -768,6 +831,29 @@ defmodule Nixstasis.Provisioning do
     |> min(@default_request_timeout_ms)
   end
 
+  defp readiness_timeout(opts) do
+    opts
+    |> Keyword.get(:readiness_timeout_ms, @default_readiness_timeout_ms)
+    |> max(0)
+    |> min(@default_readiness_timeout_ms)
+  end
+
+  defp readiness_delay(attempt, opts) do
+    interval =
+      opts
+      |> Keyword.get(:readiness_interval_ms, @default_readiness_interval_ms)
+      |> max(0)
+      |> min(10_000)
+
+    backoff =
+      opts
+      |> Keyword.get(:readiness_backoff_ms, @default_readiness_backoff_ms)
+      |> max(0)
+      |> min(10_000)
+
+    min(interval + backoff * attempt, 10_000)
+  end
+
   defp poll_timeout(opts) do
     opts
     |> Keyword.get(:poll_timeout_ms, @default_poll_timeout_ms)
@@ -776,6 +862,13 @@ defmodule Nixstasis.Provisioning do
   end
 
   defp sleep_fun(opts), do: Keyword.get(opts, :sleep_fun, &Process.sleep/1)
+
+  defp readiness_now(opts) do
+    case Keyword.get(opts, :readiness_clock_fun) do
+      clock when is_function(clock, 0) -> clock.()
+      _ -> monotonic_ms()
+    end
+  end
 
   defp poll_delay(opts) do
     opts

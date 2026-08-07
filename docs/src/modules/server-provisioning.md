@@ -28,6 +28,14 @@ approved and online. The action then opens a lease using the named
 `127.0.0.1:8080` HTTP service with the fixed downstream `Host: localhost`
 rewrite. Route definitions and header values remain client-owned.
 
+Before sending the artifact, the server performs a read-only `HEAD /api/config`
+probe through the same route. An HTTP 2xx response or the endpoint's expected
+405 method-not-allowed response proves that the device route is reachable;
+other statuses and transport errors are retried with a bounded 60-second
+readiness deadline, 30-second request timeout, and backoff. This
+preflight gives the client time to receive the lease on its next heartbeat,
+whose default interval is 30 seconds.
+
 ## Artifact boundary
 
 The server accepts non-empty opaque artifacts no larger than 32 MiB. Accepted
@@ -80,6 +88,11 @@ identity. Re-entering an active attempt polls its known job. A terminal result
 is returned idempotently. An indeterminate or failed delivery requires
 reconciliation or an explicit new attempt UUID; the same artifact is never
 silently reposted.
+
+A readiness timeout fails the delivery before `POST /api/config`, withdraws
+the lease, and records a clear failure. Once the POST begins, the existing
+no-duplicate rules apply: ambiguous upload outcomes remain indeterminate and
+are never automatically reposted.
 
 The action records the terminal result before withdrawing the lease. Lease
 withdrawal is idempotent, audited, and does not alter the AtomixOS job.

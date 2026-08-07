@@ -39,6 +39,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert {:ok, delivery} =
              Provisioning.deliver(operator_session(device), device.id, "config = true\n",
                filename: "config.toml",
+               readiness_fun: readiness_success_fun(),
                submit_fun: submit_fun,
                get_job_fun: get_job_fun,
                sleep_fun: fn _milliseconds -> :ok end
@@ -57,6 +58,82 @@ defmodule Nixstasis.ProvisioningTest do
     refute refreshed_device.remote_access_requested
   end
 
+  test "waits for the route before posting the bootstrap artifact" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:30"})
+    parent = self()
+    attempts = start_supervised!({Agent, fn -> 0 end})
+
+    assert {:ok, %{state: :succeeded}} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               readiness_timeout_ms: 1_000,
+               readiness_interval_ms: 0,
+               readiness_backoff_ms: 0,
+               readiness_fun: fn url, request_opts ->
+                 send(parent, {:readiness_probe, url, request_opts})
+
+                 attempt = Agent.get_and_update(attempts, &{&1, &1 + 1})
+
+                 case attempt do
+                   0 -> {:ok, 404}
+                   1 -> {:error, :econnrefused}
+                   _ -> {:ok, 405}
+                 end
+               end,
+               submit_fun: fn _url, _body, _filename ->
+                 send(parent, :artifact_submitted)
+                 {:ok, %{job_id: "job-ready", job_url: "/api/jobs/job-ready", state: "submitted"}}
+               end,
+               get_job_fun: fn _url, _opts ->
+                 {:ok, %{"id" => "job-ready", "state" => "succeeded", "result" => %{}}}
+               end,
+               sleep_fun: fn _milliseconds -> :ok end
+             )
+
+    assert_receive {:readiness_probe, _url, _opts}
+    assert_receive {:readiness_probe, _url, _opts}
+    assert_receive {:readiness_probe, _url, _opts}
+    assert_received :artifact_submitted
+  end
+
+  test "fails and withdraws access when the route never becomes ready" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:31"})
+    readiness_state = start_supervised!({Agent, fn -> %{clock: 0, max_request_timeout: 0} end})
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               readiness_timeout_ms: 5,
+               readiness_interval_ms: 0,
+               readiness_backoff_ms: 0,
+               readiness_clock_fun: fn ->
+                 Agent.get_and_update(readiness_state, fn state ->
+                   {state.clock, %{state | clock: state.clock + 1}}
+                 end)
+               end,
+               readiness_fun: fn _url, request_opts ->
+                 request_timeout = Keyword.fetch!(request_opts, :request_timeout_ms)
+
+                 Agent.update(readiness_state, fn state ->
+                   %{state | max_request_timeout: max(state.max_request_timeout, request_timeout)}
+                 end)
+
+                 {:error, :econnrefused}
+               end,
+               submit_fun: fn _url, _body, _filename -> flunk("must not post before route readiness") end,
+               sleep_fun: fn _milliseconds -> :ok end
+             )
+
+    assert delivery.state == :failed
+    assert delivery.error =~ "route readiness"
+    assert delivery.error =~ "timeout"
+    assert delivery.lease_withdrawn_at
+    refute Devices.get_device!(device.id).remote_access_requested
+    readiness_state = Agent.get(readiness_state, & &1)
+    assert readiness_state.clock > 0
+    assert readiness_state.max_request_timeout <= 5
+  end
+
   test "keeps the lease when a success submission omits its job URL" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:08"})
     Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
@@ -64,6 +141,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert {:ok, delivery} =
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
                submit_fun: fn _url, _body, _filename ->
                  {:ok, %{job_id: "job-no-url", state: "succeeded"}}
                end,
@@ -86,6 +164,7 @@ defmodule Nixstasis.ProvisioningTest do
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
                poll_timeout_ms: 0,
+               readiness_fun: readiness_success_fun(),
                submit_fun: fn _url, _body, _filename ->
                  {:ok, %{job_id: "job-missing-id", job_url: "/api/jobs/job-missing-id", state: "submitted"}}
                end,
@@ -112,6 +191,7 @@ defmodule Nixstasis.ProvisioningTest do
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
                poll_timeout_ms: 0,
+               readiness_fun: readiness_success_fun(),
                submit_fun: fn _url, _body, _filename ->
                  {:ok, %{job_id: "job-expected", job_url: "/api/jobs/job-expected", state: "submitted"}}
                end,
@@ -149,6 +229,7 @@ defmodule Nixstasis.ProvisioningTest do
       assert {:ok, delivery} =
                Provisioning.deliver(operator_session(device), device.id, "bundle",
                  filename: "config-bundle.tar.gz",
+                 readiness_fun: readiness_success_fun(),
                  submit_fun: fn _url, _body, _filename ->
                    {:ok, %{job_id: job_id, job_url: "/api/jobs/#{job_id}", state: "submitted"}}
                  end,
@@ -186,6 +267,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert {:ok, %{state: :succeeded} = delivery} =
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
                submit_fun: submit_fun,
                get_job_fun: get_job_fun,
                sleep_fun: fn _milliseconds -> :ok end
@@ -223,6 +305,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert {:ok, %{state: :succeeded}} =
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
                submit_fun: submit_fun,
                get_job_fun: get_job_fun,
                sleep_fun: fn _milliseconds -> :ok end
@@ -237,6 +320,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert {:ok, %{state: :indeterminate} = delivery} =
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
                submit_fun: fn _url, _body, _filename -> {:error, {:transport, :timeout}} end,
                sleep_fun: fn _milliseconds -> :ok end
              )
@@ -263,6 +347,7 @@ defmodule Nixstasis.ProvisioningTest do
              Provisioning.deliver(operator_session(device), device.id, "bundle",
                filename: "config-bundle.tar.gz",
                lease_ttl_ms: 50,
+               readiness_fun: readiness_success_fun(),
                submit_fun: fn _url, _body, _filename ->
                  Process.sleep(100)
                  {:ok, %{job_id: "job-expiring", job_url: "/api/jobs/job-expiring", state: "running"}}
@@ -286,6 +371,10 @@ defmodule Nixstasis.ProvisioningTest do
 
     refute Devices.get_device!(pending.id).remote_access_requested
     refute Devices.get_device!(unauthorized.id).remote_access_requested
+  end
+
+  defp readiness_success_fun do
+    fn _url, _opts -> {:ok, 405} end
   end
 
   defp device_fixture(attrs) do

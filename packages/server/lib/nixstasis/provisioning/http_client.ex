@@ -23,6 +23,21 @@ defmodule Nixstasis.Provisioning.HTTPClient do
     end
   end
 
+  @doc "Checks route/device reachability without reading or mutating the response body."
+  def probe(url, opts \\ []) do
+    response =
+      Req.head(url,
+        receive_timeout: Keyword.get(opts, :request_timeout_ms, @default_timeout),
+        retry: false,
+        redirect: false
+      )
+
+    case response do
+      {:ok, %{status: status}} -> {:ok, status}
+      {:error, reason} -> {:error, {:transport, reason}}
+    end
+  end
+
   def get_job(url, opts \\ []) do
     response =
       Req.get(url,
