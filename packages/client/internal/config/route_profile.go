@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Built-in profile names and route kinds supported by the client renderer.
@@ -41,10 +42,11 @@ type FRPRouteProfile struct {
 
 // FRPRoute describes one client-owned local route.
 type FRPRoute struct {
-	Name      string `mapstructure:"name"`
-	Kind      string `mapstructure:"kind"`
-	LocalAddr string `mapstructure:"local_addr"`
-	LocalPort int    `mapstructure:"local_port"`
+	Name              string  `mapstructure:"name"`
+	Kind              string  `mapstructure:"kind"`
+	LocalAddr         string  `mapstructure:"local_addr"`
+	LocalPort         int     `mapstructure:"local_port"`
+	HostHeaderRewrite *string `mapstructure:"host_header_rewrite"`
 }
 
 // NormalizeFRPConfig adds the built-in compatibility profiles while preserving
@@ -109,12 +111,15 @@ func ResolveRouteProfile(cfg FRPConfig, selection *RouteProfileSelection) (FRPRo
 }
 
 func atomixOSBootstrapRouteProfile() FRPRouteProfile {
+	hostHeaderRewrite := "localhost"
+
 	return FRPRouteProfile{
 		Version: DefaultFRPProfileVersion,
 		Routes: []FRPRoute{{
-			Name:      "provisioning",
-			Kind:      RouteKindHTTP,
-			LocalAddr: "127.0.0.1:8080",
+			Name:              "provisioning",
+			Kind:              RouteKindHTTP,
+			LocalAddr:         "127.0.0.1:8080",
+			HostHeaderRewrite: &hostHeaderRewrite,
 		}},
 	}
 }
@@ -183,6 +188,10 @@ func validateRouteProfile(profile FRPRouteProfile, allowedPluginKinds []string) 
 }
 
 func validateRoute(route FRPRoute, allowedPluginKinds []string) error {
+	if route.HostHeaderRewrite != nil && route.Kind != RouteKindHTTP {
+		return fmt.Errorf("host header rewrite is only supported for plain HTTP routes")
+	}
+
 	switch route.Kind {
 	case RouteKindHTTP2HTTPS:
 		if !slices.Contains(allowedPluginKinds, RouteKindHTTP2HTTPS) {
@@ -190,7 +199,10 @@ func validateRoute(route FRPRoute, allowedPluginKinds []string) error {
 		}
 		return validateLoopbackAddr(route.LocalAddr)
 	case RouteKindHTTP:
-		return validateLoopbackAddr(route.LocalAddr)
+		if err := validateLoopbackAddr(route.LocalAddr); err != nil {
+			return err
+		}
+		return validateHostHeaderRewrite(route.HostHeaderRewrite)
 	case RouteKindTCPMux:
 		if err := validatePort(route.LocalPort); err != nil {
 			return fmt.Errorf("tcp mux route %q: %w", route.Name, err)
@@ -199,6 +211,34 @@ func validateRoute(route FRPRoute, allowedPluginKinds []string) error {
 	default:
 		return fmt.Errorf("route kind %q is not supported by this client", route.Kind)
 	}
+}
+
+func validateHostHeaderRewrite(value *string) error {
+	if value == nil {
+		return nil
+	}
+	if *value == "" {
+		return fmt.Errorf("host header rewrite must not be empty")
+	}
+	if strings.IndexFunc(*value, unicode.IsControl) >= 0 {
+		return fmt.Errorf("host header rewrite contains a control character")
+	}
+	if strings.TrimSpace(*value) != *value {
+		return fmt.Errorf("host header rewrite must not contain surrounding whitespace")
+	}
+
+	host := *value
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = host[1 : len(host)-1]
+	}
+	if strings.EqualFold(host, "localhost") {
+		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return nil
+	}
+
+	return fmt.Errorf("host header rewrite %q must be localhost or a loopback IP", *value)
 }
 
 func validateLoopbackAddr(value string) error {

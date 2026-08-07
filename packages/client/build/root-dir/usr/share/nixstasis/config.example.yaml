@@ -37,6 +37,7 @@ frp:
         - name: "provisioning"
           kind: "http"
           local_addr: "127.0.0.1:8080"
+          host_header_rewrite: "localhost"
 
 runtime:
   mqtt_broker: "tcp://localhost:1883"

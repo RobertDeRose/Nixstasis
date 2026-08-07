@@ -78,7 +78,9 @@
   client renders a temporary typed `frpc.toml` and frpc expands its server/auth
   placeholders from the session environment. Route identifiers and the derived
   proxy names must be DNS-safe because HTTP subdomains and TCP mux custom domains
-  are rendered from them.
+  are rendered from them. Plain HTTP routes may optionally set a Host-header
+  rewrite, but only to `localhost` or a loopback IP; the built-in
+  `atomixos-bootstrap` profile uses `localhost` for its `127.0.0.1:8080` route.
 - FRPS auth is passed to the transient unit through a root-only environment file
   and converted to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure
   in `systemd-run --setenv` metadata.

@@ -257,7 +257,9 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
       assert %{
                "remote_access_token" => "shared-secret",
                "remote_access_profile" => %{"name" => "default", "version" => 1}
-             } = json_response(conn, 200)["data"]
+             } = data = json_response(conn, 200)["data"]
+
+      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
     end)
   end
 
@@ -272,7 +274,9 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
       conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
 
       assert %{"remote_access_profile" => %{"name" => "bootstrap", "version" => 1}} =
-               json_response(conn, 200)["data"]
+               data = json_response(conn, 200)["data"]
+
+      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
     end)
   end
 

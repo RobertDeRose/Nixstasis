@@ -68,8 +68,10 @@
 - The client renders a bounded `frpc.toml` from typed local routes. Supported
   routes include HTTPS `http2https`, plain HTTP loopback targets, and the
   existing SSH/PCP TCP mux routes; the built-in `atomixos-bootstrap` profile
-  exposes `127.0.0.1:8080` as plain HTTP. The server never sends FRPC TOML or
-  local targets.
+  exposes `127.0.0.1:8080` as plain HTTP and rewrites the upstream `Host` header
+  to the fixed local value `localhost`. Host rewrites are optional, restricted
+  to plain HTTP routes, and validated as localhost or a loopback IP. The server
+  never sends FRPC TOML, local targets, or header values.
 - The FRPS auth token from the heartbeat response is passed from the launcher to
   `frp-session` through a root-only systemd `EnvironmentFile` rather than as a
   `systemd-run --setenv` value.

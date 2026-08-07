@@ -37,7 +37,7 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_profile":{"name":"default","version":1},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
+		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_profile":{"name":"default","version":1,"host_header_rewrite":"evil.example"},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
 	}))
 	defer server.Close()
 

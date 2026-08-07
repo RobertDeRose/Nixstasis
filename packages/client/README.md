@@ -224,7 +224,10 @@ from `frp.server_addr` in `/etc/nixstasis/config.yaml`. FRP authentication uses
 the transient FRPC unit through a root-only systemd `EnvironmentFile`.
 Named, versioned `remote_access_profile` references select typed profiles already
 owned by the client configuration; arbitrary FRPC TOML, plugin options, and
-non-loopback local targets are rejected. A token-only legacy response selects
+non-loopback local targets are rejected. Plain HTTP routes may use only a
+validated localhost or loopback-IP Host rewrite; the client-owned
+`atomixos-bootstrap` profile uses `localhost` for its loopback provisioning
+route. A token-only legacy response selects
 `default`, and `frp.auth_token` is not the normal remote-access token source.
 Device subdomains are requested under
 `atom-<normalized-device-id>.<base-domain>` unless `frp.name` is explicitly set

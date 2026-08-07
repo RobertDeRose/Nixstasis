@@ -56,6 +56,9 @@ func renderConfig(frpConfig config.FRPConfig, profile config.FRPRouteProfile) (s
 			writeLine("subdomain = %s", strconv.Quote(proxyName))
 			writeLine("localIP = %s", strconv.Quote(host))
 			writeLine("localPort = %s", port)
+			if route.HostHeaderRewrite != nil {
+				writeLine("hostHeaderRewrite = %s", strconv.Quote(*route.HostHeaderRewrite))
+			}
 		case config.RouteKindTCPMux:
 			writeLine("type = \"tcpmux\"")
 			writeLine("multiplexer = \"httpconnect\"")

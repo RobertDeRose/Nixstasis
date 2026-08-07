@@ -28,6 +28,27 @@ func TestResolveRouteProfileDefaultsWhenServerSendsOnlyAToken(t *testing.T) {
 	}
 }
 
+func TestResolveRouteProfileProvidesAtomixOSBootstrapHostRewrite(t *testing.T) {
+	cfg := FRPConfig{}
+
+	profile, selection, err := ResolveRouteProfile(cfg, &RouteProfileSelection{
+		Name:    AtomixOSBootstrapProfileName,
+		Version: DefaultFRPProfileVersion,
+	})
+	if err != nil {
+		t.Fatalf("ResolveRouteProfile() error = %v", err)
+	}
+	if selection.Name != AtomixOSBootstrapProfileName || selection.Version != DefaultFRPProfileVersion {
+		t.Fatalf("selection = %+v", selection)
+	}
+	if len(profile.Routes) != 1 {
+		t.Fatalf("bootstrap routes = %d, want 1", len(profile.Routes))
+	}
+	if profile.Routes[0].HostHeaderRewrite == nil || *profile.Routes[0].HostHeaderRewrite != "localhost" {
+		t.Fatalf("bootstrap host rewrite = %v, want localhost", profile.Routes[0].HostHeaderRewrite)
+	}
+}
+
 func TestResolveRouteProfileAcceptsNamedVersionedProfile(t *testing.T) {
 	cfg := FRPConfig{
 		AllowedPluginKinds: []string{"http2https"},
@@ -111,6 +132,16 @@ func TestResolveRouteProfileRejectsUnsafeTargetsAndPlugins(t *testing.T) {
 			profile: FRPRouteProfile{Version: 1, Routes: []FRPRoute{{Name: "web", Kind: "arbitrary", LocalAddr: "127.0.0.1:443"}}},
 			want:    "not supported",
 		},
+		{
+			name: "host rewrite on tcp mux",
+			profile: FRPRouteProfile{Version: 1, Routes: []FRPRoute{{
+				Name:              "ssh",
+				Kind:              RouteKindTCPMux,
+				LocalPort:         22,
+				HostHeaderRewrite: new("localhost"),
+			}}},
+			want: "only supported for plain HTTP",
+		},
 	}
 
 	for _, tt := range tests {
@@ -137,6 +168,52 @@ func TestResolveRouteProfileRejectsUnsafeRouteNames(t *testing.T) {
 			_, _, err := ResolveRouteProfile(cfg, &RouteProfileSelection{Name: "test", Version: 1})
 			if err == nil || !strings.Contains(err.Error(), "route name") {
 				t.Fatalf("error = %v, want unsafe route-name error", err)
+			}
+		})
+	}
+}
+
+func TestResolveRouteProfileRejectsUnsafeHostHeaderRewrites(t *testing.T) {
+	for _, value := range []string{"", "example.com", "192.168.1.2", "localhost\ninternal"} {
+		t.Run(value, func(t *testing.T) {
+			cfg := FRPConfig{Profiles: map[string]FRPRouteProfile{
+				"test": {
+					Version: 1,
+					Routes: []FRPRoute{{
+						Name:              "api",
+						Kind:              RouteKindHTTP,
+						LocalAddr:         "127.0.0.1:8080",
+						HostHeaderRewrite: new(value),
+					}},
+				},
+			}}
+
+			_, _, err := ResolveRouteProfile(cfg, &RouteProfileSelection{Name: "test", Version: 1})
+			if err == nil || !strings.Contains(err.Error(), "host header rewrite") {
+				t.Fatalf("error = %v, want host-header-rewrite validation", err)
+			}
+		})
+	}
+}
+
+func TestResolveRouteProfileAcceptsLoopbackHostHeaderRewrite(t *testing.T) {
+	for _, value := range []string{"127.0.0.1", "::1", "[::1]", "LOCALHOST"} {
+		t.Run(value, func(t *testing.T) {
+			hostHeaderRewrite := value
+			cfg := FRPConfig{Profiles: map[string]FRPRouteProfile{
+				"test": {
+					Version: 1,
+					Routes: []FRPRoute{{
+						Name:              "api",
+						Kind:              RouteKindHTTP,
+						LocalAddr:         "127.0.0.1:8080",
+						HostHeaderRewrite: &hostHeaderRewrite,
+					}},
+				},
+			}}
+
+			if _, _, err := ResolveRouteProfile(cfg, &RouteProfileSelection{Name: "test", Version: 1}); err != nil {
+				t.Fatalf("ResolveRouteProfile() error = %v", err)
 			}
 		})
 	}

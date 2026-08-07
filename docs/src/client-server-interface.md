@@ -332,7 +332,9 @@ controlled loopback targets. Future route kinds or target capabilities must be
 added to the client-declared typed contract and reviewed before use; changes to
 route semantics require a new profile version. The server may select only a
 name and version and must not send route definitions, plugin options, headers,
-or local targets.
+or local targets. The client-owned `atomixos-bootstrap` profile supplies the
+fixed `localhost` Host rewrite for its loopback provisioning route; that value
+is not part of the heartbeat response.
 
 Command delivery response:
 
