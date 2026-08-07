@@ -107,17 +107,18 @@ targeting the compose `postgres` host.
 
 ### Key env vars that differ between dev and prod
 
-| Variable                           | Dev                                  | Prod                        |
-|------------------------------------|--------------------------------------|-----------------------------|
-| `BIND_HOST`                        | `127.0.0.1`                          | `0.0.0.0`                   |
-| `PHOENIX_BIND_HOST`                | `127.0.0.1`                          | `127.0.0.1`                 |
-| `CADDY_CONFIG`                     | `./caddy/Caddyfile.dev`              | `./caddy/Caddyfile`         |
-| `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                     |
-| `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)   |
-| `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                      |
-| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                     |
-| `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host |
-| `*_IMAGE_REF`                      | Local tags (`*:dev`)                 | Digest-pinned GHCR refs     |
+| Variable                           | Dev                                  | Prod                           |
+|------------------------------------|--------------------------------------|--------------------------------|
+| `BIND_HOST`                        | `127.0.0.1`                          | `0.0.0.0`                      |
+| `PHOENIX_BIND_HOST`                | `127.0.0.1`                          | `127.0.0.1`                    |
+| `CADDY_CONFIG`                     | `./caddy/Caddyfile.dev`              | `./caddy/Caddyfile`            |
+| `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                        |
+| `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
+| `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
+| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
+| `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
+| `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
+| `*_IMAGE_REF`                      | Local tags (`*:dev`)                 | Digest-pinned GHCR refs        |
 
 ## Runtime Contract
 
@@ -136,6 +137,11 @@ targeting the compose `postgres` host.
 - `NIXSTASIS_SSH_FRP_HOST` is the hostname Phoenix uses for browser terminal SSH
   connections to FRPS TCP mux. In Compose it should stay `frps`; outside Compose
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
+- `ATOMIXOS_PROVISIONING_BASE_URL` optionally overrides the per-device public
+  FRP API base used by the server's initial AtomixOS bootstrap action. When it
+  is unset, the server derives `https://atom-<normalized-mac>.<BASE_DOMAIN>`.
+  The action still requires the authorized `atomixos-bootstrap` route and
+  resolves only the documented relative `/api/jobs/<job_id>` path.
 - The client poll service and root-owned SSH helper use the fixed local socket
   `/run/nixstasis/ssh-authority.sock`; custom socket paths are unsupported.
 - The tracked dev/test env uses `./caddy/Caddyfile.dev`, which keeps the stack

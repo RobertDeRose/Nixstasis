@@ -256,6 +256,13 @@ defmodule Nixstasis.Domain do
       define :destroy_script_client_action, action: :destroy
     end
 
+    resource Nixstasis.Provisioning.Delivery do
+      define :list_provisioning_deliveries, action: :read
+      define :get_provisioning_delivery, action: :read, get_by: [:id]
+      define :create_provisioning_delivery, action: :create
+      define :update_provisioning_delivery, action: :update
+    end
+
     resource Nixstasis.Monitoring.Alert do
       define :list_alerts, action: :read
       define :create_alert, action: :create

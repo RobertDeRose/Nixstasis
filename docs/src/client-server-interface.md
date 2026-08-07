@@ -19,6 +19,45 @@
   - HTTP JSON requests under `/e2e`.
 - Client FRPC to FRPS:
   - FRP tunnel protocol through configured FRPS ports.
+- Operator to Phoenix provisioning controller:
+  - Opaque `application/octet-stream` uploads under `/api/v1/provisioning`.
+  - The server sends the artifact onward through the authorized
+    `atomixos-bootstrap` FRP route and polls AtomixOS `/api/config` jobs.
+
+## AtomixOS Bootstrap Provisioning
+
+An authorized operator can submit one complete initial-boot artifact through:
+
+```text
+POST /api/v1/provisioning/devices/:device_id
+Content-Type: application/octet-stream
+x-config-filename: config.toml
+x-nixstasis-bootstrap-attempt-id: optional UUID
+```
+
+The operator permission boundary is checked before the request body is read.
+The target must be approved and online. The server opens the named,
+client-owned `atomixos-bootstrap` route profile before posting the exact bytes
+to the device's `POST /api/config` endpoint. The route supplies the local
+`Host: localhost` rewrite; the server sends no browser `Origin` or `Referer`
+header and never writes the device filesystem.
+
+AtomixOS returns HTTP 202 with `job_id`, `state`, and a relative `job_url`.
+The server resolves that URL against the FRP API base and polls it until
+`succeeded`, `failed`, or the bounded deadline. It records events, result,
+error, and rollback diagnostics. Only HTTP 409 queue conflicts may be retried
+(two attempts after the initial request); an accepted or ambiguous upload is
+never submitted again.
+
+Delivery state is durable and idempotent by device, artifact SHA-256, and
+bootstrap attempt UUID. Active attempts are polled, terminal results are
+returned without a new POST, and failed/indeterminate attempts require
+reconciliation or an explicit new attempt. Terminal results are recorded
+before the one-time route lease is withdrawn. Indeterminate outcomes retain
+the lease until explicit withdrawal or expiry.
+
+See [Server Provisioning](modules/server-provisioning.md) for the complete
+artifact, state, retry, authorization, audit, and recovery contract.
 
 ## Rate Limiting
 

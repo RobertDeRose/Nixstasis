@@ -80,6 +80,10 @@
   HTTP access externally.
 - Compose dev-lab clients can enable `nixstasis-simulator-http.service` to
   provide the local HTTPS target that FRPC proxies for HTTP-route smoke tests.
+- The server provisioning action uses the same wildcard HTTP vhost for
+  `POST /api/config` and `GET /api/jobs/<job_id>` through the authorized
+  `atomixos-bootstrap` profile. It resolves only the documented relative job
+  path and withdraws the lease after a terminal result.
 - Server SSH terminal uses FRP TCP mux through `ncat --proxy-type http` and
   resolves the TCP mux host from `NIXSTASIS_SSH_FRP_HOST` in Compose.
 - PCP diagnostic TCP mux routes are registered by the same on-demand FRPC

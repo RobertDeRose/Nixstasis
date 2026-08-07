@@ -42,8 +42,9 @@ uses the operator bearer boundary.
 ## Contracts
 
 - [Device API](device-api.yaml): registration, heartbeat, command results,
-  deferred command payloads, device list filtering, TLS domain approval, and
-  the `ssh_authorize`/`ssh_revoke` command payloads delivered by heartbeat.
+  deferred command payloads, device list filtering, TLS domain approval,
+  AtomixOS bootstrap provisioning, and the `ssh_authorize`/`ssh_revoke`
+  command payloads delivered by heartbeat.
 - [Builder API](builder-api.yaml): legacy `/api/v1` compatibility wrappers for
   schema option lookup and builder selection validation. Generated Ash action
   contracts for the same behavior are in `packages/server/priv/static/openapi.yaml`.

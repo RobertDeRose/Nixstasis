@@ -340,8 +340,114 @@ paths:
           description: Domain is permitted
         "401":
           description: Domain is not permitted
+  /api/v1/provisioning/devices/{device_id}:
+    post:
+      security:
+        - operatorBearer: []
+      summary: Submit one initial AtomixOS bootstrap artifact
+      description: >-
+        Uploads exactly one complete config.toml or approved config archive through
+        the authorized atomixos-bootstrap FRP route. The server opens the route
+        lease before sending the opaque bytes, polls the returned job, and never
+        retries an accepted POST. Production authorization is supplied by Caddy
+        forwarded operator claims; local development may use its explicit fallback.
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: content-type
+          required: true
+          schema:
+            type: string
+            enum: [application/octet-stream]
+        - in: header
+          name: x-config-filename
+          required: false
+          schema:
+            type: string
+            enum: [config.toml, config-bundle.tar.gz, config-bundle.tgz, config.tar.zst, config.tar.zstd, config.tzst]
+        - in: header
+          name: x-nixstasis-bootstrap-attempt-id
+          required: false
+          description: UUID used to make an explicit new attempt or re-enter an existing attempt.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 33554432
+      responses:
+        "200":
+          description: Previously completed successful delivery returned idempotently.
+        "202":
+          description: Delivery accepted or still being polled.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "409":
+          description: An indeterminate delivery requires reconciliation or an explicit new attempt.
+        "413":
+          description: Artifact exceeds 32 MiB.
+        "415":
+          description: Content-Type is not exactly application/octet-stream.
+        "422":
+          description: Device, filename, artifact, or provisioning validation failed.
+        "503":
+          description: The accepted job outcome is indeterminate after the bounded polling deadline.
+        "429":
+          description: Provisioning request rate limit exceeded.
+  /api/v1/provisioning/deliveries/{id}:
+    get:
+      security:
+        - operatorBearer: []
+      summary: Read an AtomixOS bootstrap delivery
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Delivery record without artifact bytes.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "404":
+          description: Delivery or device is not visible to the operator.
+  /api/v1/provisioning/deliveries/{id}/withdraw:
+    post:
+      security:
+        - operatorBearer: []
+      summary: Withdraw a retained indeterminate bootstrap route lease
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Route lease withdrawn.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "404":
+          description: Delivery or device is not visible to the operator.
 components:
   securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer
+      description: Trusted operator bearer claims admitted by the Caddy/AuthCrunch edge.
     deviceApiKey:
       type: apiKey
       in: query

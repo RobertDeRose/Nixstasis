@@ -19,6 +19,7 @@ defmodule Nixstasis.Application do
           # Start a worker by calling: Nixstasis.Worker.start_link(arg)
           # {Nixstasis.Worker, arg},
           {Nixstasis.Devices, :remote_access_leases},
+          Nixstasis.Provisioning,
           {Nixstasis.Devices.SshKeyManager, :terminal_sessions},
           NixstasisWeb.RateLimiterStore,
           Nixstasis.Monitoring.OfflineChecker,

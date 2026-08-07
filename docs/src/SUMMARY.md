@@ -15,6 +15,7 @@
   - [Server Domain](modules/server-domain.md)
   - [Server Web](modules/server-web.md)
   - [Server Devices](modules/server-devices.md)
+  - [Server Provisioning](modules/server-provisioning.md)
   - [Server Monitoring](modules/server-monitoring.md)
   - [Server Scripts](modules/server-scripts.md)
   - [Server Reporting](modules/server-reporting.md)
@@ -58,6 +59,7 @@
   <!-- BEGIN FEATURE DESIGNS -->
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/design.md)
+  - [AtomixOS Bootstrap Provisioning](features/atomixos-bootstrap-provisioning/design.md)
   - [Dashboard Device Groups](features/dashboard-device-groups/design.md)
   - [In-Memory SSH Authorized Keys](features/in-memory-ssh-authorized-keys/design.md)
   - [Schema-Driven Builder Dropdowns](features/schema-driven-builder-dropdowns/design.md)
@@ -68,6 +70,7 @@
   <!-- BEGIN IMPLEMENTED FEATURES -->
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/index.md)
+  - [AtomixOS Bootstrap Provisioning](features/atomixos-bootstrap-provisioning/index.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)
   - [Compose Dev Harness](features/compose-dev-harness/index.md)
   - [Dashboard Device Groups](features/dashboard-device-groups/index.md)

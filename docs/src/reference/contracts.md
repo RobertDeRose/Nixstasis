@@ -76,6 +76,9 @@ Only `command_path_resolved` is sufficient for catalog-backed assignment without
 
 - [Server Devices](../modules/server-devices.md): registration, approval,
   listing, remote access flags, pending commands, and terminal support.
+- [Server Provisioning](../modules/server-provisioning.md): bounded AtomixOS
+  bootstrap artifacts, job polling, idempotency, audit events, and lease
+  withdrawal.
 - [Server Monitoring](../modules/server-monitoring.md): heartbeat, telemetry,
   alerts, and offline checks.
 - [Server Reporting](../modules/server-reporting.md): custom report and query

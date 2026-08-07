@@ -24,6 +24,8 @@
 - `packages/server/lib/nixstasis/devices/schema_validator.ex`
 - `packages/server/lib/nixstasis/devices/ssh_key_manager.ex`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex`
+- `packages/server/lib/nixstasis/provisioning.ex`
+- `packages/server/lib/nixstasis_web/controllers/provisioning_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`
 - `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`
@@ -66,6 +68,7 @@
   - `Nixstasis.Devices.acknowledge_command_results/2`
   - `Nixstasis.Devices.get_command_payload/2`
   - `Nixstasis.Devices.online?/1`
+  - [AtomixOS bootstrap provisioning](server-provisioning.md)
 - GenServer/process interfaces:
   - `Nixstasis.Devices.SshClient.start_link/1`
   - `Nixstasis.Devices.SshClient.send_data/2`
