@@ -57,6 +57,121 @@ defmodule Nixstasis.ProvisioningTest do
     refute refreshed_device.remote_access_requested
   end
 
+  test "keeps the lease when a success submission omits its job URL" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:08"})
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               submit_fun: fn _url, _body, _filename ->
+                 {:ok, %{job_id: "job-no-url", state: "succeeded"}}
+               end,
+               get_job_fun: fn _url, _opts -> flunk("must not poll without a job URL") end
+             )
+
+    assert delivery.state == :indeterminate
+    assert delivery.error =~ "invalid accepted response"
+    assert is_nil(delivery.lease_withdrawn_at)
+    assert Devices.get_device!(device.id).remote_access_requested
+    assert_receive {:provisioning_audit, %{action: :bootstrap_indeterminate, delivery_id: delivery_id}}
+    assert delivery_id == delivery.id
+  end
+
+  test "keeps the lease when a job response omits its id" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:09"})
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               poll_timeout_ms: 0,
+               submit_fun: fn _url, _body, _filename ->
+                 {:ok, %{job_id: "job-missing-id", job_url: "/api/jobs/job-missing-id", state: "submitted"}}
+               end,
+               get_job_fun: fn _url, _opts ->
+                 {:ok, %{"state" => "succeeded", "result" => %{"reapply" => false}}}
+               end,
+               sleep_fun: fn _milliseconds -> :ok end
+             )
+
+    assert delivery.state == :indeterminate
+    assert delivery.error =~ "job polling outcome is unknown"
+    assert delivery.error =~ "invalid_job_payload"
+    assert is_nil(delivery.lease_withdrawn_at)
+    assert Devices.get_device!(device.id).remote_access_requested
+    assert_receive {:provisioning_audit, %{action: :bootstrap_indeterminate, delivery_id: delivery_id}}
+    assert delivery_id == delivery.id
+  end
+
+  test "keeps the lease when a job response id does not match the submitted job" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:10"})
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               poll_timeout_ms: 0,
+               submit_fun: fn _url, _body, _filename ->
+                 {:ok, %{job_id: "job-expected", job_url: "/api/jobs/job-expected", state: "submitted"}}
+               end,
+               get_job_fun: fn _url, _opts ->
+                 {:ok,
+                  %{
+                    "id" => "job-other",
+                    "state" => "succeeded",
+                    "result" => %{"reapply" => false}
+                  }}
+               end,
+               sleep_fun: fn _milliseconds -> :ok end
+             )
+
+    assert delivery.state == :indeterminate
+    assert delivery.error =~ "job polling outcome is unknown"
+    assert delivery.error =~ "invalid_job_payload"
+    assert is_nil(delivery.lease_withdrawn_at)
+    assert Devices.get_device!(device.id).remote_access_requested
+    assert_receive {:provisioning_audit, %{action: :bootstrap_indeterminate, delivery_id: delivery_id}}
+    assert delivery_id == delivery.id
+  end
+
+  test "keeps the lease for every invalid initial bootstrap reapply value" do
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
+
+    for {invalid_reapply, index} <- Enum.with_index([true, "false", nil, 1]) do
+      device =
+        device_fixture(%{
+          mac_address: "AA:BB:CC:DD:EE:" <> String.pad_leading(to_string(index + 11), 2, "0")
+        })
+
+      job_id = "job-reapply-#{index}"
+
+      assert {:ok, delivery} =
+               Provisioning.deliver(operator_session(device), device.id, "bundle",
+                 filename: "config-bundle.tar.gz",
+                 submit_fun: fn _url, _body, _filename ->
+                   {:ok, %{job_id: job_id, job_url: "/api/jobs/#{job_id}", state: "submitted"}}
+                 end,
+                 get_job_fun: fn _url, _opts ->
+                   {:ok,
+                    %{
+                      "id" => job_id,
+                      "state" => "succeeded",
+                      "result" => %{"reapply" => invalid_reapply}
+                    }}
+                 end,
+                 sleep_fun: fn _milliseconds -> :ok end
+               )
+
+      assert delivery.state == :indeterminate
+      assert delivery.error =~ "invalid result.reapply"
+      assert is_nil(delivery.lease_withdrawn_at)
+      assert Devices.get_device!(device.id).remote_access_requested
+      assert_receive {:provisioning_audit, %{action: :bootstrap_indeterminate, delivery_id: delivery_id}}
+      assert delivery_id == delivery.id
+    end
+  end
+
   test "returns a terminal success idempotently without reposting" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:07"})
 

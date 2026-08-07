@@ -310,7 +310,6 @@ defmodule Nixstasis.Provisioning do
               poll_delivery(delivery, actor_id, get_job_fun, opts, state)
             else
               case submission.state do
-                "succeeded" -> finish_succeeded(state, delivery, actor_id)
                 "failed" -> finish_failed(state, delivery, actor_id, submission_error(submission.payload))
                 _ -> finish_indeterminate(state, delivery, actor_id, "accepted response did not include job_url")
               end
@@ -373,7 +372,14 @@ defmodule Nixstasis.Provisioning do
       {:ok, payload} ->
         case normalize_job(payload, delivery.job_id) do
           {:ok, job} ->
-            delivery = update_delivery(delivery, job_attributes(job))
+            delivery_attrs =
+              if job.state == "succeeded" do
+                Map.put(job_attributes(job), :state, delivery.state)
+              else
+                job_attributes(job)
+              end
+
+            delivery = update_delivery(delivery, delivery_attrs)
 
             case job.state do
               "succeeded" ->
@@ -473,16 +479,28 @@ defmodule Nixstasis.Provisioning do
   end
 
   defp finish_succeeded(state, delivery, actor_id) do
-    result = Map.get(delivery.result, "reapply")
+    case initial_bootstrap_reapply(delivery.result) do
+      :missing ->
+        finish_succeeded_with_valid_result(state, delivery, actor_id)
 
-    if result == true do
-      finish_failed(state, delivery, actor_id, "AtomixOS reported reapply=true for an initial bootstrap")
-    else
-      updated = update_delivery(delivery, %{state: :succeeded, completed_at: DateTime.utc_now()})
-      {updated, state} = close_lease(state, updated)
-      Audit.emit(:bootstrap_succeeded, actor_id, delivery_attributes(updated))
-      {{:ok, updated}, state}
+      {:present, false} ->
+        finish_succeeded_with_valid_result(state, delivery, actor_id)
+
+      {:present, value} ->
+        finish_indeterminate(
+          state,
+          delivery,
+          actor_id,
+          "AtomixOS returned invalid result.reapply value: #{inspect(value)}"
+        )
     end
+  end
+
+  defp finish_succeeded_with_valid_result(state, delivery, actor_id) do
+    updated = update_delivery(delivery, %{state: :succeeded, completed_at: DateTime.utc_now()})
+    {updated, state} = close_lease(state, updated)
+    Audit.emit(:bootstrap_succeeded, actor_id, delivery_attributes(updated))
+    {{:ok, updated}, state}
   end
 
   defp finish_failed(state, delivery, actor_id, message) do
@@ -602,6 +620,9 @@ defmodule Nixstasis.Provisioning do
       state not in @job_states ->
         {:error, :invalid_job_state}
 
+      state == "succeeded" and is_nil(job_url) ->
+        {:error, :missing_job_url}
+
       is_nil(job_url) ->
         {:ok, %{job_id: job_id, job_url: nil, state: state, payload: payload}}
 
@@ -618,15 +639,14 @@ defmodule Nixstasis.Provisioning do
   defp normalize_job(payload, fallback_job_id) when is_map(payload) do
     state = normalize_job_state(value(payload, "state", :state))
     payload_job_id = value(payload, "id", :id)
-    job_id = payload_job_id || fallback_job_id
+    job_id = payload_job_id
     current_step = value(payload, "current_step", :current_step)
     result = value(payload, "result", :result)
     error = value(payload, "error", :error)
     rollback_status = value(payload, "rollback_status", :rollback_status)
     events = value(payload, "events", :events)
 
-    if bounded_payload?(payload) and valid_job_id?(job_id) and
-         (is_nil(payload_job_id) or payload_job_id == fallback_job_id) and state in @job_states and
+    if bounded_payload?(payload) and valid_job_id?(job_id) and job_id == fallback_job_id and state in @job_states and
          optional_string?(current_step) and optional_map?(result) and optional_string?(error) and
          optional_string?(rollback_status) and optional_list?(events) do
       {:ok,
@@ -693,6 +713,14 @@ defmodule Nixstasis.Provisioning do
 
   defp optional_string?(nil), do: true
   defp optional_string?(value), do: is_binary(value)
+
+  defp initial_bootstrap_reapply(result) do
+    cond do
+      Map.has_key?(result, "reapply") -> {:present, Map.get(result, "reapply")}
+      Map.has_key?(result, :reapply) -> {:present, Map.get(result, :reapply)}
+      true -> :missing
+    end
+  end
 
   defp normalize_optional_string(nil), do: nil
   defp normalize_optional_string(value), do: truncate(value)
