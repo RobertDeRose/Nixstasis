@@ -124,6 +124,38 @@ func TestResolveRouteProfileRejectsUnsafeTargetsAndPlugins(t *testing.T) {
 	}
 }
 
+func TestResolveRouteProfileRejectsUnsafeRouteNames(t *testing.T) {
+	for _, routeName := range []string{"api_gateway", "api-", "api."} {
+		t.Run(routeName, func(t *testing.T) {
+			cfg := FRPConfig{Profiles: map[string]FRPRouteProfile{
+				"test": {
+					Version: 1,
+					Routes:  []FRPRoute{{Name: routeName, Kind: RouteKindHTTP, LocalAddr: "127.0.0.1:8080"}},
+				},
+			}}
+
+			_, _, err := ResolveRouteProfile(cfg, &RouteProfileSelection{Name: "test", Version: 1})
+			if err == nil || !strings.Contains(err.Error(), "route name") {
+				t.Fatalf("error = %v, want unsafe route-name error", err)
+			}
+		})
+	}
+}
+
+func TestValidateProxyNameRejectsUnsafeHostComponents(t *testing.T) {
+	for _, name := range []string{"atom_device", "atom-device-", "atom.device", strings.Repeat("a", 64)} {
+		if err := ValidateProxyName(name); err == nil {
+			t.Fatalf("ValidateProxyName(%q) accepted unsafe name", name)
+		}
+	}
+
+	for _, name := range []string{"atom-device", "Atom-Device-1"} {
+		if err := ValidateProxyName(name); err != nil {
+			t.Fatalf("ValidateProxyName(%q) rejected safe name: %v", name, err)
+		}
+	}
+}
+
 func containsError(err error, fragment string) bool {
 	return err != nil && len(fragment) > 0 && strings.Contains(err.Error(), fragment)
 }

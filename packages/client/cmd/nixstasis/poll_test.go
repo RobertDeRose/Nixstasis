@@ -329,6 +329,31 @@ func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing
 	}
 }
 
+func TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal(t *testing.T) {
+	client := &fakePollClient{response: &transport.PollResponse{
+		RemoteAccessToken:   "heartbeat-token",
+		RemoteAccessProfile: &config.RouteProfileSelection{Name: "unknown", Version: 1},
+	}}
+	frpManager := &fakeFRPController{}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+	state := &remoteAccessPollState{}
+
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("pollOnce() rejected-profile error = %v", err)
+	}
+	if len(frpManager.errors) != 1 || !strings.Contains(frpManager.errors[0], "unknown route profile") {
+		t.Fatalf("reported profile errors = %v", frpManager.errors)
+	}
+
+	client.response = &transport.PollResponse{}
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		t.Fatalf("pollOnce() withdrawal error = %v", err)
+	}
+	if got := frpManager.errors[len(frpManager.errors)-1]; got != "" {
+		t.Fatalf("FRP error after withdrawal = %q, want empty", got)
+	}
+}
+
 func TestPollOnceStartsFRPWithRemoteAccessToken(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
 	frpManager := &fakeFRPController{}

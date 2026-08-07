@@ -357,9 +357,11 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 				slog.Error("Failed to stop FRP", "error", err)
 			} else {
 				clearRemoteAccessState(state)
+				clearFRPError(frpManager)
 			}
 		} else {
 			clearRemoteAccessState(state)
+			clearFRPError(frpManager)
 		}
 	}
 
@@ -403,6 +405,12 @@ func clearRemoteAccessState(state *remoteAccessPollState) {
 func reportFRPError(frpManager frpController, err error) {
 	if reporter, ok := frpManager.(interface{ SetError(string) }); ok {
 		reporter.SetError(err.Error())
+	}
+}
+
+func clearFRPError(frpManager frpController) {
+	if reporter, ok := frpManager.(interface{ SetError(string) }); ok {
+		reporter.SetError("")
 	}
 }
 

@@ -16,23 +16,8 @@ const renderedFRPConfigName = "frpc.toml"
 
 func renderConfig(frpConfig config.FRPConfig, profile config.FRPRouteProfile) (string, error) {
 	config.NormalizeFRPConfig(&frpConfig)
-	if err := config.ValidateRouteProfile(profile, frpConfig.AllowedPluginKinds); err != nil {
+	if err := validateRenderConfig(frpConfig, profile); err != nil {
 		return "", err
-	}
-	if frpConfig.Name == "" {
-		return "", fmt.Errorf("frpc config requires a non-empty name")
-	}
-	if frpConfig.ServerAddr == "" {
-		return "", fmt.Errorf("frpc config requires a non-empty server_addr")
-	}
-	if frpConfig.ServerPort < 1 || frpConfig.ServerPort > 65535 {
-		return "", fmt.Errorf("frpc server_port must be between 1 and 65535, got %d", frpConfig.ServerPort)
-	}
-	if frpConfig.WebServerAddr == "" || frpConfig.WebServerPort < 1 || frpConfig.WebServerPort > 65535 {
-		return "", fmt.Errorf("frpc web server address and port are invalid")
-	}
-	if !loopbackAddr(frpConfig.WebServerAddr) {
-		return "", fmt.Errorf("frp web_server_addr must be a loopback address")
 	}
 
 	var builder strings.Builder
@@ -81,6 +66,38 @@ func renderConfig(frpConfig config.FRPConfig, profile config.FRPRouteProfile) (s
 	}
 
 	return builder.String(), nil
+}
+
+func validateRenderConfig(frpConfig config.FRPConfig, profile config.FRPRouteProfile) error {
+	if err := config.ValidateRouteProfile(profile, frpConfig.AllowedPluginKinds); err != nil {
+		return err
+	}
+	if frpConfig.Name == "" {
+		return fmt.Errorf("frpc config requires a non-empty name")
+	}
+	if err := config.ValidateProxyName(frpConfig.Name); err != nil {
+		return fmt.Errorf("frpc proxy name: %w", err)
+	}
+	if frpConfig.ServerAddr == "" {
+		return fmt.Errorf("frpc config requires a non-empty server_addr")
+	}
+	if frpConfig.ServerPort < 1 || frpConfig.ServerPort > 65535 {
+		return fmt.Errorf("frpc server_port must be between 1 and 65535, got %d", frpConfig.ServerPort)
+	}
+	if frpConfig.WebServerAddr == "" || frpConfig.WebServerPort < 1 || frpConfig.WebServerPort > 65535 {
+		return fmt.Errorf("frpc web server address and port are invalid")
+	}
+	if !loopbackAddr(frpConfig.WebServerAddr) {
+		return fmt.Errorf("frp web_server_addr must be a loopback address")
+	}
+
+	for _, route := range profile.Routes {
+		if err := config.ValidateProxyName(routeProxyName(frpConfig.Name, route.Name)); err != nil {
+			return fmt.Errorf("route %q proxy name: %w", route.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func writeRenderedConfig(frpConfig config.FRPConfig, profile config.FRPRouteProfile) (string, error) {

@@ -327,6 +327,13 @@ against the client configuration. It contains no FRPC TOML, plugin options, or
 local target. Older token-only responses remain valid and select the client's
 `default` profile.
 
+Version 1 is the compatibility boundary for the current typed route kinds and
+controlled loopback targets. Future route kinds or target capabilities must be
+added to the client-declared typed contract and reviewed before use; changes to
+route semantics require a new profile version. The server may select only a
+name and version and must not send route definitions, plugin options, headers,
+or local targets.
+
 Command delivery response:
 
 ```json

@@ -68,11 +68,17 @@
   `pollOnce` performs one bounded stop/start restart with the current token.
 - Unknown profile names, unsupported versions, non-loopback targets, and
   unsupported route/plugin kinds fail closed; the error is included in the next
-  `connection_status.error` report.
+  `connection_status.error` report and is cleared when remote access is withdrawn.
+- Version 1 is the compatibility boundary for typed route kinds and controlled
+  loopback targets. Future capabilities require client-declared typed support,
+  security review, and a new profile version when route semantics change; the
+  server never supplies route definitions, headers, or plugin options.
 - FRP status is included in subsequent heartbeat requests as `connection_status`.
 - Route profiles remain client-owned in `/etc/nixstasis/config.yaml`; the
   client renders a temporary typed `frpc.toml` and frpc expands its server/auth
-  placeholders from the session environment.
+  placeholders from the session environment. Route identifiers and the derived
+  proxy names must be DNS-safe because HTTP subdomains and TCP mux custom domains
+  are rendered from them.
 - FRPS auth is passed to the transient unit through a root-only environment file
   and converted to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure
   in `systemd-run --setenv` metadata.

@@ -20,7 +20,11 @@ const (
 	RouteKindTCPMux     = "tcpmux"
 )
 
-var routeNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
+var (
+	profileNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
+	routeNamePattern   = regexp.MustCompile(`^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+	proxyLabelPattern  = regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+)
 
 // RouteProfileSelection is the bounded server-directed profile reference.
 // It intentionally contains no FRPC configuration or local target values.
@@ -78,7 +82,7 @@ func ResolveRouteProfile(cfg FRPConfig, selection *RouteProfileSelection) (FRPRo
 		resolvedSelection = *selection
 	}
 
-	if !validRouteName(resolvedSelection.Name) {
+	if !validProfileName(resolvedSelection.Name) {
 		return FRPRouteProfile{}, resolvedSelection, fmt.Errorf("invalid route profile name %q", resolvedSelection.Name)
 	}
 	if resolvedSelection.Version <= 0 {
@@ -235,6 +239,25 @@ func loopbackHost(value string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+func validProfileName(value string) bool {
+	return profileNamePattern.MatchString(value)
+}
+
 func validRouteName(value string) bool {
 	return routeNamePattern.MatchString(value)
+}
+
+// ValidateProxyName validates a name rendered as an FRP subdomain or custom domain.
+func ValidateProxyName(value string) error {
+	if value == "" {
+		return fmt.Errorf("proxy name must not be empty")
+	}
+	if len(value) > 63 {
+		return fmt.Errorf("proxy name %q exceeds the 63-byte hostname-label limit", value)
+	}
+	if !proxyLabelPattern.MatchString(value) {
+		return fmt.Errorf("proxy name %q contains unsafe hostname characters", value)
+	}
+
+	return nil
 }

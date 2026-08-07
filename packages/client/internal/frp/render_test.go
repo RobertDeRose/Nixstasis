@@ -52,6 +52,24 @@ func TestRenderConfigSupportsHTTPSAndPlainHTTPProfiles(t *testing.T) {
 	}
 }
 
+func TestRenderConfigRejectsUnsafeProxyName(t *testing.T) {
+	cfg := config.FRPConfig{
+		Name:          "atom_device",
+		ServerAddr:    "frps.internal",
+		ServerPort:    7000,
+		WebServerAddr: "127.0.0.1",
+		WebServerPort: 7400,
+	}
+	profile := config.FRPRouteProfile{
+		Version: 1,
+		Routes:  []config.FRPRoute{{Name: "api", Kind: config.RouteKindHTTP, LocalAddr: "127.0.0.1:8080"}},
+	}
+
+	if _, err := renderConfig(cfg, profile); err == nil || !strings.Contains(err.Error(), "proxy name") {
+		t.Fatalf("renderConfig() error = %v, want proxy-name validation", err)
+	}
+}
+
 func TestRenderConfigRejectsInvalidProfile(t *testing.T) {
 	cfg := config.FRPConfig{Name: "atom-device", ServerAddr: "frps.internal", ServerPort: 7000}
 	profile := config.FRPRouteProfile{
