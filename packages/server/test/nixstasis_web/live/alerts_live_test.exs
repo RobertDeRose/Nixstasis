@@ -40,6 +40,35 @@ defmodule NixstasisWeb.AlertsLiveTest do
     :ok
   end
 
+  test "active alerts are loaded with a bounded status query", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:35",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, _active} =
+      Domain.create_alert(%{
+        device_id: device.id,
+        type: :offline,
+        status: :active,
+        message: "active alert"
+      })
+
+    {:ok, _resolved} =
+      Domain.create_alert(%{
+        device_id: device.id,
+        type: :threshold,
+        status: :resolved,
+        message: "resolved alert"
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/alerts")
+
+    assert html =~ "active alert"
+    refute html =~ "resolved alert"
+  end
+
   test "schema option loading emits measured timing for the alert builder", %{conn: conn} do
     handler_id = "alert-schema-options-timing-#{System.unique_integer([:positive])}"
 

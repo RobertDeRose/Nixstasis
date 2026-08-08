@@ -11,17 +11,12 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   @success_flash_timeout_ms 3_000
   @duplicate_rule_name_message "Alert rule name is already used."
+  @alert_limit 250
 
   def mount(_params, _session, socket) do
-    alerts =
-      Alert
-      |> Ash.Query.sort(triggered_at: :desc)
-      |> Ash.Query.load(:device)
-      |> Ash.read!(domain: Domain)
-
     {:ok,
      socket
-     |> assign(:alerts, alerts)
+     |> assign(:alerts, [])
      |> assign(:rule_filters, %{"query" => ""})
      |> assign(:rule_sort_by, "product_name")
      |> assign(:rule_sort_dir, "asc")
@@ -59,6 +54,7 @@ defmodule NixstasisWeb.AlertLive.Index do
     {:noreply,
      socket
      |> assign(:alerts_tab, tab)
+     |> assign(:alerts, list_alerts(tab))
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -1363,6 +1359,18 @@ defmodule NixstasisWeb.AlertLive.Index do
     else
       ""
     end
+  end
+
+  defp list_alerts("rules"), do: []
+
+  defp list_alerts("active") do
+    Alert
+    |> Ash.Query.filter(status == :active)
+    |> Ash.Query.sort(triggered_at: :desc)
+    |> Ash.Query.limit(@alert_limit)
+    |> Ash.Query.select([:id, :type, :device_id, :message, :triggered_at, :status])
+    |> Ash.Query.load(device: [:mac_address])
+    |> Ash.read!(domain: Domain)
   end
 
   defp normalize_tab("rules"), do: "rules"

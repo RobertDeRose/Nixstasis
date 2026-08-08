@@ -326,6 +326,7 @@ defmodule Nixstasis.Devices do
     search = Keyword.get(opts, :search)
     authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
     load_device_groups? = Keyword.get(opts, :load_device_groups?, false)
+    limit = Keyword.get(opts, :limit)
 
     Device
     |> filter_by_authorized_device_ids(authorized_device_ids)
@@ -337,6 +338,7 @@ defmodule Nixstasis.Devices do
     |> filter_by_ipv4_address(filter_value(filter, :ipv4_address))
     |> search_devices(search)
     |> Ash.Query.sort([{sort_by, sort_order}])
+    |> maybe_limit(limit)
     |> maybe_load_device_groups(load_device_groups?)
     |> Ash.read!(domain: Domain)
   end
@@ -568,6 +570,10 @@ defmodule Nixstasis.Devices do
 
   defp normalize_runtime_atom(nil), do: nil
   defp normalize_runtime_atom(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit) when is_integer(limit) and limit > 0, do: Ash.Query.limit(query, limit)
+  defp maybe_limit(query, _limit), do: query
 
   defp maybe_load_device_groups(query, true), do: Ash.Query.load(query, :device_groups)
   defp maybe_load_device_groups(query, false), do: query

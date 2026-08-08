@@ -19,6 +19,7 @@ defmodule NixstasisWeb.DeviceLive.Index do
   }
 
   @sort_orders %{"asc" => :asc, "desc" => :desc}
+  @device_page_limit 50
 
   @impl true
   def mount(_params, session, socket) do
@@ -114,7 +115,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
       },
       search: search,
       authorized_device_ids: Permissions.authorized_device_ids(socket.assigns.device_permissions),
-      load_device_groups?: true
+      load_device_groups?: true,
+      limit: @device_page_limit
     ]
 
     devices = if group_filter_unavailable?, do: [], else: Devices.list_devices(opts)
@@ -1057,7 +1059,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
       },
       search: assigns.search,
       authorized_device_ids: Permissions.authorized_device_ids(assigns.device_permissions),
-      load_device_groups?: true
+      load_device_groups?: true,
+      limit: @device_page_limit
     )
   end
 
