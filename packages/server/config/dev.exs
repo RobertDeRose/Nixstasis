@@ -93,6 +93,12 @@ config :nixstasis, :e2e,
     check_interval_ms: 60_000
   ]
 
+# Telemetry retention prevents unbounded event growth.
+config :nixstasis, :telemetry_retention,
+  enabled: true,
+  retention_days: 30,
+  check_interval_ms: 86_400_000
+
 config :nixstasis, :base_domain, "devices.example.com"
 config :nixstasis, :local_browser_auth_fallback?, true
 

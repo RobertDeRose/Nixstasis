@@ -86,6 +86,11 @@ if config_env() == :prod do
       check_interval_ms: 60_000
     ]
 
+  config :nixstasis, :telemetry_retention,
+    enabled: Deployment.enabled?("NIXSTASIS_TELEMETRY_RETENTION_ENABLED", true),
+    retention_days: String.to_integer(System.get_env("NIXSTASIS_TELEMETRY_RETENTION_DAYS", "30")),
+    check_interval_ms: String.to_integer(System.get_env("NIXSTASIS_TELEMETRY_RETENTION_INTERVAL_MS", "86400000"))
+
   config :nixstasis, :e2e_journey_dir, Path.join(e2e_priv_dir, "e2e/journeys")
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain

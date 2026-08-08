@@ -10,6 +10,7 @@
 - `Phoenix.PubSub` is supervised as `Nixstasis.PubSub`.
 - `Nixstasis.Monitoring.OfflineChecker` is a named GenServer that schedules `:check` messages every 60 seconds.
 - `Nixstasis.E2E.RetentionWorker` is a named GenServer that schedules E2E retention pruning.
+- `Nixstasis.Monitoring.TelemetryRetentionWorker` is a named GenServer that schedules database telemetry pruning.
 - `Nixstasis.Devices.SshClient` is a GenServer per terminal session and wraps an OS `ssh` process through an Elixir Port.
 
 Traceable references:
@@ -17,6 +18,7 @@ Traceable references:
 - `packages/server/lib/nixstasis/application.ex:10-29`
 - `packages/server/lib/nixstasis/monitoring/offline_checker.ex:13-31`
 - `packages/server/lib/nixstasis/e2e/retention_worker.ex:14-50`
+- `packages/server/lib/nixstasis/monitoring/telemetry_retention_worker.ex:1-50`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex:9-94`
 
 ### Go Runtime

@@ -42,6 +42,7 @@
 - `NixstasisWeb.Telemetry`
 - `Nixstasis.Repo`
 - `Nixstasis.E2E.RetentionWorker`
+- `Nixstasis.Monitoring.TelemetryRetentionWorker`
 - `Nixstasis.Monitoring.OfflineChecker`
 - `NixstasisWeb.Endpoint`
 
@@ -58,6 +59,7 @@
 ## Runtime Notes
 
 - `Nixstasis.E2E.RetentionWorker` is included only when E2E retention is enabled in app config.
+- `Nixstasis.Monitoring.TelemetryRetentionWorker` prunes telemetry older than the configured window. Production enables it by default; `NIXSTASIS_TELEMETRY_RETENTION_ENABLED`, `NIXSTASIS_TELEMETRY_RETENTION_DAYS`, and `NIXSTASIS_TELEMETRY_RETENTION_INTERVAL_MS` configure it.
 - The supervision strategy is `:one_for_one` with supervisor name `Nixstasis.Supervisor`.
 
 Traceable references:

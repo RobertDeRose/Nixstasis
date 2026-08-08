@@ -185,6 +185,22 @@ defmodule Nixstasis.Monitoring do
     Domain.list_rules!()
   end
 
+  @doc "Deletes telemetry older than the configured retention window."
+  def prune_telemetry_events(opts \\ []) do
+    retention_days = Keyword.get(opts, :retention_days, telemetry_retention_days())
+
+    if is_integer(retention_days) and retention_days > 0 do
+      cutoff = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
+
+      {pruned_events, _} =
+        Repo.delete_all(from(event in "telemetry_events", where: event.timestamp < ^cutoff))
+
+      {:ok, %{pruned_events: pruned_events, cutoff: cutoff, retention_days: retention_days}}
+    else
+      {:error, :invalid_retention_days}
+    end
+  end
+
   def get_rule!(id), do: Domain.get_rule!(id)
 
   def create_rule(attrs \\ %{}) do
@@ -442,5 +458,10 @@ defmodule Nixstasis.Monitoring do
 
   defp broadcast_alert_created(%Alert{} = alert) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "alerts", {:alert_created, alert})
+  end
+
+  defp telemetry_retention_days do
+    Application.get_env(:nixstasis, :telemetry_retention, [])
+    |> Keyword.get(:retention_days, 30)
   end
 end
