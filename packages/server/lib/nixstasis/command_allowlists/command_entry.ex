@@ -79,6 +79,11 @@ defmodule Nixstasis.CommandAllowlists.CommandEntry do
   relationships do
     has_many :versions, Nixstasis.CommandAllowlists.CommandEntryVersion
     has_many :entry_categories, Nixstasis.CommandAllowlists.CommandEntryCategory
+
+    has_many :assignment_sources, Nixstasis.CommandAllowlists.DevicePolicyAssignmentSource do
+      destination_attribute :source_id
+      filter expr(source_kind == "command_entry")
+    end
   end
 
   identities do

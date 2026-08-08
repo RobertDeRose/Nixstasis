@@ -92,6 +92,10 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     assert html =~ "df · catalog"
     refute html =~ "uname · catalog"
+
+    {:ok, _view, category_html} = live(conn, ~p"/scripts/command-policies?search=diagnostics")
+    assert category_html =~ "df · catalog"
+    refute category_html =~ "uname · catalog"
   end
 
   test "catalog preview shows per-device compatibility blockers", %{conn: conn} do
