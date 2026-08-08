@@ -8,15 +8,145 @@ defmodule Nixstasis.Scripts do
   alias Nixstasis.Domain
   alias Nixstasis.Scripts.Audit
   alias Nixstasis.Scripts.Authorization
+  require Ash.Query
+
+  alias Nixstasis.Scripts.ScriptClientAction
   alias Nixstasis.Scripts.ScriptDeploymentRun
   alias Nixstasis.Scripts.ScriptDraft
   alias Nixstasis.Scripts.ScriptTestRun
+  alias Nixstasis.Scripts.ScriptValidationRun
   alias Nixstasis.Scripts.ScriptVersion
   alias Nixstasis.Scripts.Validator
 
   @inline_script_payload_limit 4_096
+  @script_history_limit 50
+  @script_client_action_limit 500
 
   def list_drafts, do: Domain.list_script_drafts()
+
+  @doc "Returns bounded, draft-scoped script history for the LiveView."
+  def list_script_history(draft_id) do
+    test_runs = list_script_test_runs_for_draft(draft_id)
+    deployment_runs = list_script_deployment_runs_for_draft(draft_id)
+
+    %{
+      versions: list_script_versions_for_draft(draft_id),
+      validation_runs: list_script_validation_runs_for_draft(draft_id),
+      test_runs: test_runs,
+      deployment_runs: deployment_runs,
+      client_actions:
+        list_script_client_actions_for_runs(
+          Enum.map(test_runs, & &1.id),
+          Enum.map(deployment_runs, & &1.id)
+        )
+    }
+  end
+
+  def list_script_versions_for_draft(draft_id) do
+    ScriptVersion
+    |> Ash.Query.filter(script_draft_id == ^draft_id)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.Query.limit(@script_history_limit)
+    |> Ash.Query.select([:id, :script_draft_id, :version, :status, :inserted_at])
+    |> Ash.read!(domain: Domain)
+  end
+
+  def list_script_validation_runs_for_draft(draft_id) do
+    ScriptValidationRun
+    |> Ash.Query.filter(script_draft_id == ^draft_id)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.Query.limit(@script_history_limit)
+    |> Ash.Query.select([
+      :id,
+      :script_draft_id,
+      :script_version_id,
+      :status,
+      :validated_at,
+      :inserted_at
+    ])
+    |> Ash.read!(domain: Domain)
+  end
+
+  def list_script_test_runs_for_draft(draft_id) do
+    ScriptTestRun
+    |> Ash.Query.filter(script_draft_id == ^draft_id)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.Query.limit(@script_history_limit)
+    |> Ash.Query.select([
+      :id,
+      :script_draft_id,
+      :script_version_id,
+      :status,
+      :started_at,
+      :completed_at,
+      :target_device_ids,
+      :inserted_at
+    ])
+    |> Ash.read!(domain: Domain)
+  end
+
+  def list_script_deployment_runs_for_draft(draft_id) do
+    ScriptDeploymentRun
+    |> Ash.Query.filter(script_draft_id == ^draft_id)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.Query.limit(@script_history_limit)
+    |> Ash.Query.select([
+      :id,
+      :script_draft_id,
+      :script_version_id,
+      :status,
+      :started_at,
+      :completed_at,
+      :target_device_ids,
+      :inserted_at
+    ])
+    |> Ash.read!(domain: Domain)
+  end
+
+  def list_script_client_actions_for_runs([], []), do: %{}
+
+  def list_script_client_actions_for_runs(test_run_ids, deployment_run_ids) do
+    ScriptClientAction
+    |> Ash.Query.filter(script_test_run_id in ^test_run_ids or script_deployment_run_id in ^deployment_run_ids)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.Query.limit(@script_client_action_limit)
+    |> Ash.Query.select([
+      :id,
+      :device_id,
+      :script_test_run_id,
+      :script_deployment_run_id,
+      :kind,
+      :status,
+      :command_ref,
+      :payload_ref,
+      :result_payload,
+      :inserted_at
+    ])
+    |> Ash.read!(domain: Domain)
+    |> Enum.map(&bound_client_action_payload/1)
+    |> Enum.group_by(fn action ->
+      {action.kind, action.script_test_run_id || action.script_deployment_run_id}
+    end)
+  end
+
+  defp bound_client_action_payload(action) do
+    %{action | result_payload: bound_result_payload(action.result_payload)}
+  end
+
+  defp bound_result_payload(payload) when is_map(payload) do
+    preview = inspect(payload, limit: 100, printable_limit: @inline_script_payload_limit)
+
+    if byte_size(preview) > @inline_script_payload_limit do
+      %{
+        "truncated" => true,
+        "preview" => binary_part(preview, 0, @inline_script_payload_limit)
+      }
+    else
+      payload
+    end
+  end
+
+  defp bound_result_payload(payload), do: payload
 
   def ingest_command_results(%Device{} = device, results) when is_list(results) do
     results

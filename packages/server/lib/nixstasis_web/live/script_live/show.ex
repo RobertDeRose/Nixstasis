@@ -30,8 +30,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
         test_runs: test_runs,
         deployment_runs: deployment_runs,
         client_actions: client_actions
-      } =
-        script_run_assigns(draft)
+      } = Scripts.list_script_history(draft.id)
 
       rendered = Scripts.render_draft(draft)
       schema = draft.front_matter["schema"] || %{}
@@ -120,8 +119,14 @@ defmodule NixstasisWeb.ScriptLive.Show do
       {:ok, run} ->
         {:noreply,
          socket
-         |> assign(:validation_runs, [run | socket.assigns.validation_runs])
-         |> assign(:versions, list_versions(socket.assigns.draft))
+         |> assign(
+           :validation_runs,
+           Scripts.list_script_validation_runs_for_draft(socket.assigns.draft.id)
+         )
+         |> assign(
+           :versions,
+           Scripts.list_script_versions_for_draft(socket.assigns.draft.id)
+         )
          |> assign(:validation_result, %{status: :passed, run: run})
          |> put_flash(:info, "Validation passed")}
 
@@ -442,7 +447,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
 
     case Scripts.queue_test_run(session(socket), draft, version, devices) do
       {:ok, _run} ->
-        test_runs = Domain.list_script_test_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
+        test_runs = Scripts.list_script_test_runs_for_draft(draft.id)
 
         {:noreply,
          socket
@@ -464,8 +469,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
 
     case Scripts.queue_deployment(session(socket), draft, version, devices) do
       {:ok, _run} ->
-        deployment_runs =
-          Domain.list_script_deployment_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
+        deployment_runs = Scripts.list_script_deployment_runs_for_draft(draft.id)
 
         {:noreply,
          socket
@@ -667,32 +671,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
     end
   end
 
-  defp script_run_assigns(draft) do
-    versions = list_versions(draft)
-
-    validation_runs =
-      Domain.list_script_validation_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
-
-    test_runs = Domain.list_script_test_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
-
-    deployment_runs =
-      Domain.list_script_deployment_runs() |> elem(1) |> Enum.filter(&(&1.script_draft_id == draft.id))
-
-    %{
-      versions: versions,
-      validation_runs: validation_runs,
-      test_runs: test_runs,
-      deployment_runs: deployment_runs,
-      client_actions: list_client_actions(test_runs, deployment_runs)
-    }
-  end
-
-  defp list_versions(draft) do
-    Domain.list_script_versions()
-    |> elem(1)
-    |> Enum.filter(&(&1.script_draft_id == draft.id))
-    |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
-  end
+  defp script_run_assigns(draft), do: Scripts.list_script_history(draft.id)
 
   defp latest_validated_version(versions), do: Enum.find(versions, &(&1.status == :validated))
 
@@ -739,13 +718,10 @@ defmodule NixstasisWeb.ScriptLive.Show do
   defp present?(_), do: false
 
   defp list_client_actions(test_runs, deployment_runs) do
-    test_ids = MapSet.new(Enum.map(test_runs, & &1.id))
-    deployment_ids = MapSet.new(Enum.map(deployment_runs, & &1.id))
-
-    Domain.list_script_client_actions()
-    |> elem(1)
-    |> Enum.filter(&(&1.script_test_run_id in test_ids or &1.script_deployment_run_id in deployment_ids))
-    |> Enum.group_by(fn action -> {action.kind, action.script_test_run_id || action.script_deployment_run_id} end)
+    Scripts.list_script_client_actions_for_runs(
+      Enum.map(test_runs, & &1.id),
+      Enum.map(deployment_runs, & &1.id)
+    )
   end
 
   defp client_actions(client_actions, kind, run_id), do: Map.get(client_actions, {kind, run_id}, [])
