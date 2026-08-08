@@ -35,7 +35,12 @@ function isDarkTheme() {
 
 const CodeMirrorHook = {
   async mounted() {
+    this._destroyed = false
     const CodeMirror = await ensureCodeMirror()
+
+    // The hook can be removed while CodeMirror is loading its vendor scripts.
+    if (this._destroyed || !this.el?.isConnected) return
+
     const mode = this.el.dataset.mode || "yaml"
     const readOnly = this.el.dataset.readonly === "true"
 
@@ -106,17 +111,28 @@ const CodeMirrorHook = {
     }
   },
 
-  destroy() {
+  destroyed() {
+    this._destroyed = true
+
     if (this._form) {
       this._form.removeEventListener("submit", this._syncValue)
+      this._form = null
     }
+    this._syncValue = null
 
     if (this._themeObserver) {
       this._themeObserver.disconnect()
+      this._themeObserver = null
     }
 
     if (this.editor) {
-      this.editor.toTextArea()
+      this.editor.getWrapperElement()?.remove()
+      this.editor = null
+    }
+
+    if (this.container) {
+      this.container.remove()
+      this.container = null
     }
 
     if (this.el) {
