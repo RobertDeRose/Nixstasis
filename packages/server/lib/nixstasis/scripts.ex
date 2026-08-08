@@ -159,12 +159,12 @@ defmodule Nixstasis.Scripts do
   defp bound_payload(value, budget, depth) when is_list(value) do
     {values, truncated, remaining, _count} =
       value
-      |> Enum.reduce_while({[], budget, false, 0}, fn item, {items, remaining, truncated, count} ->
+      |> Enum.reduce_while({[], false, budget, 0}, fn item, {items, truncated, remaining, count} ->
         if count >= 50 or remaining <= 0 do
-          {:halt, {items, remaining, true, count}}
+          {:halt, {items, true, remaining, count}}
         else
           {bounded, item_truncated, item_remaining} = bound_payload(item, remaining, depth + 1)
-          {:cont, {[bounded | items], item_remaining, truncated or item_truncated, count + 1}}
+          {:cont, {[bounded | items], truncated or item_truncated, item_remaining, count + 1}}
         end
       end)
 
@@ -174,7 +174,7 @@ defmodule Nixstasis.Scripts do
   defp bound_payload(value, budget, depth) when is_map(value) do
     {entries, truncated, remaining, _count} =
       value
-      |> Enum.reduce_while({%{}, budget, false, 0}, fn {key, item}, {map, remaining, truncated, count} ->
+      |> Enum.reduce_while({%{}, false, budget, 0}, fn {key, item}, {map, truncated, remaining, count} ->
         if count >= 50 or remaining <= 0 do
           {:halt, {map, true, remaining, count}}
         else
@@ -184,8 +184,8 @@ defmodule Nixstasis.Scripts do
           {:cont,
            {
              Map.put(map, bounded_key, bounded),
-             item_remaining,
              truncated or key_truncated or item_truncated,
+             item_remaining,
              count + 1
            }}
         end
@@ -407,6 +407,7 @@ defmodule Nixstasis.Scripts do
          {:ok, actor_id} <- Authorization.actor_id(session),
          device_ids <- Enum.map(devices, &device_id/1),
          true <- Authorization.can_target_devices?(session, device_ids),
+         {:ok, version} <- reload_script_version(version),
          :ok <- require_validated_version(version) do
       rendered = version.rendered_content
 
@@ -522,6 +523,7 @@ defmodule Nixstasis.Scripts do
          {:ok, actor_id} <- Authorization.actor_id(session),
          device_ids <- Enum.map(devices, &device_id/1),
          true <- Authorization.can_target_devices?(session, device_ids),
+         {:ok, version} <- reload_script_version(version),
          :ok <- require_validated_version(version) do
       rendered = version.rendered_content
 
@@ -703,6 +705,10 @@ defmodule Nixstasis.Scripts do
       _ ->
         {:error, "front matter version is required"}
     end
+  end
+
+  defp reload_script_version(%ScriptVersion{id: id}) do
+    {:ok, Domain.get_script_version!(id)}
   end
 
   defp require_validated_version(%ScriptVersion{status: :validated}), do: :ok
