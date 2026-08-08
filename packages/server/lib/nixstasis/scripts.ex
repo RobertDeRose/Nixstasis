@@ -133,20 +133,108 @@ defmodule Nixstasis.Scripts do
     %{action | result_payload: bound_result_payload(action.result_payload)}
   end
 
-  defp bound_result_payload(payload) when is_map(payload) do
-    preview = inspect(payload, limit: 100, printable_limit: @inline_script_payload_limit)
+  defp bound_result_payload(payload) do
+    {bounded, truncated, _remaining} = bound_payload(payload, @inline_script_payload_limit, 0)
 
-    if byte_size(preview) > @inline_script_payload_limit do
-      %{
-        "truncated" => true,
-        "preview" => binary_part(preview, 0, @inline_script_payload_limit)
-      }
+    if truncated and is_map(bounded) do
+      Map.put(bounded, "_truncated", true)
     else
-      payload
+      bounded
     end
   end
 
-  defp bound_result_payload(payload), do: payload
+  defp bound_payload(_value, budget, _depth) when budget <= 0, do: {"…", true, 0}
+
+  defp bound_payload(_value, _budget, depth) when depth >= 8, do: {"…", true, 0}
+
+  defp bound_payload(value, budget, _depth) when is_binary(value) do
+    if byte_size(value) <= budget do
+      {value, false, budget - byte_size(value)}
+    else
+      bounded = truncate_binary(value, budget)
+      {bounded, true, 0}
+    end
+  end
+
+  defp bound_payload(value, budget, depth) when is_list(value) do
+    {values, truncated, remaining, _count} =
+      value
+      |> Enum.reduce_while({[], budget, false, 0}, fn item, {items, remaining, truncated, count} ->
+        if count >= 50 or remaining <= 0 do
+          {:halt, {items, remaining, true, count}}
+        else
+          {bounded, item_truncated, item_remaining} = bound_payload(item, remaining, depth + 1)
+          {:cont, {[bounded | items], item_remaining, truncated or item_truncated, count + 1}}
+        end
+      end)
+
+    {Enum.reverse(values), truncated, remaining}
+  end
+
+  defp bound_payload(value, budget, depth) when is_map(value) do
+    {entries, truncated, remaining, _count} =
+      value
+      |> Enum.reduce_while({%{}, budget, false, 0}, fn {key, item}, {map, remaining, truncated, count} ->
+        if count >= 50 or remaining <= 0 do
+          {:halt, {map, true, remaining, count}}
+        else
+          {bounded_key, key_truncated, key_remaining} = bound_payload(key, remaining, depth + 1)
+          {bounded, item_truncated, item_remaining} = bound_payload(item, key_remaining, depth + 1)
+
+          {:cont,
+           {
+             Map.put(map, bounded_key, bounded),
+             item_remaining,
+             truncated or key_truncated or item_truncated,
+             count + 1
+           }}
+        end
+      end)
+
+    {entries, truncated or map_size(value) > map_size(entries), remaining}
+  end
+
+  defp bound_payload(value, budget, depth) when is_tuple(value) do
+    count = min(tuple_size(value), 50)
+
+    indices = if count == 0, do: [], else: 0..(count - 1)
+
+    {values, truncated, remaining} =
+      Enum.reduce(indices, {[], false, budget}, fn index, {items, truncated, remaining} ->
+        {bounded, item_truncated, item_remaining} = bound_payload(elem(value, index), remaining, depth + 1)
+        {[bounded | items], truncated or item_truncated, item_remaining}
+      end)
+
+    {List.to_tuple(Enum.reverse(values)), truncated or tuple_size(value) > count, remaining}
+  end
+
+  defp bound_payload(value, budget, _depth) do
+    size = :erlang.external_size(value)
+
+    if size <= budget do
+      {value, false, budget - size}
+    else
+      {"~", true, 0}
+    end
+  end
+
+  defp truncate_binary(_value, budget) when budget <= 0, do: ""
+
+  defp truncate_binary(value, budget) do
+    marker = "~"
+    prefix_budget = budget - byte_size(marker)
+    prefix = value |> String.slice(0, max(prefix_budget, 0)) |> trim_binary(prefix_budget)
+    prefix <> marker
+  end
+
+  defp trim_binary(_value, budget) when budget <= 0, do: ""
+  defp trim_binary(value, budget) when byte_size(value) <= budget, do: value
+
+  defp trim_binary(value, budget) do
+    value
+    |> String.slice(0, String.length(value) - 1)
+    |> trim_binary(budget)
+  end
 
   def ingest_command_results(%Device{} = device, results) when is_list(results) do
     results
