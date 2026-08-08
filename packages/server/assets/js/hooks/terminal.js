@@ -14,14 +14,16 @@ export default {
 
     const socketToken = this.el.dataset.socketToken || null
     if (window.connectTerminalSocket && socketToken && socketToken !== this.currentSocketToken && this.el.dataset.closed !== "true" && !this.channel && !this.hasConnected) {
+      this._terminalGeneration += 1
+      this.clearJoinTimeout()
       this.currentSocketToken = socketToken
       this.socket = window.connectTerminalSocket(socketToken)
-      this.fitBeforeJoin()
+      this.fitBeforeJoin(0, this._terminalGeneration)
       return
     }
 
     if (this.term && this.el.dataset.active === "true") {
-      requestAnimationFrame(() => this.fitAndReportSize())
+      this.scheduleFit()
     }
 
     if (this.el.dataset.closed === "true" && this.term && !this.closedMessageWritten) {
@@ -30,20 +32,12 @@ export default {
     }
   },
   destroyed() {
-    this.clearJoinTimeout()
-
-    if (this._resizeHandler) {
-      window.removeEventListener('resize', this._resizeHandler)
-    }
-    this.notifyClosed(true)
-    if (this.channel) {
-      this.channel.leave()
-    }
-    if (this.term) {
-      this.term.dispose()
-    }
+    this._destroyed = true
+    this.disposeTerminalResources(true)
   },
   initTerminal() {
+    this._destroyed = false
+    this._terminalGeneration = (this._terminalGeneration || 0) + 1
     this.currentToken = this.el.dataset.token || null
     this.currentSocketToken = this.el.dataset.socketToken || null
     this.terminalClosedNotified = false
@@ -92,26 +86,54 @@ export default {
   },
 
   resetTerminal() {
+    this.disposeTerminalResources(false)
+    this.closedMessageWritten = false
+  },
+
+  disposeTerminalResources(notify = false) {
+    this._terminalGeneration = (this._terminalGeneration || 0) + 1
     this.clearJoinTimeout()
+
+    if (this.fitFrame) {
+      cancelAnimationFrame(this.fitFrame)
+      this.fitFrame = null
+    }
+
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler)
+      this._resizeHandler = null
+    }
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = null
+    }
+
+    if (notify) this.notifyClosed(true)
 
     if (this.channel) {
       const channel = this.channel
       this.channel = null
-      this.hasConnected = false
-      this.terminalClosedNotified = true
       channel.leave()
     }
+
+    this.socket = null
+    this.hasConnected = false
 
     if (this.term) {
       this.term.dispose()
       this.term = null
     }
 
+    this.fitAddon = null
+    this.clearWarning()
     this.terminalClosedNotified = false
-    this.closedMessageWritten = false
   },
 
   joinChannel() {
+    const generation = this._terminalGeneration
+    if (!this.isGenerationActive(generation) || !this.socket || !this.term) return
+
     const deviceId = this.el.dataset.deviceId
     const token = this.el.dataset.token
     const commandId = this.el.dataset.commandId
@@ -143,6 +165,7 @@ export default {
     })
     this.channel.join()
       .receive("ok", resp => {
+        if (!this.isGenerationActive(generation)) return
         this.hasConnected = true
         this.clearJoinTimeout()
         this.scheduleFit()
@@ -151,6 +174,7 @@ export default {
         if (commandId) this.pushEvent("terminal_authorized", {command_id: commandId})
       })
       .receive("error", resp => {
+        if (!this.isGenerationActive(generation)) return
         this.clearJoinTimeout()
         console.error("Join error", resp)
         if (resp.code === "ssh_authorization_pending" || resp.code === "ssh_authorization_timeout") {
@@ -162,13 +186,17 @@ export default {
         this.notifyClosed(true)
       })
       .receive("timeout", () => {
+        if (!this.isGenerationActive(generation)) return
         this.clearJoinTimeout()
         this.term.write("Unable to join terminal session: SSH connection timed out. Start a new session to retry.\r\n")
         this.notifyClosed(true)
       })
 
+    const joinGeneration = generation
     this.joinTimeoutTimer = window.setTimeout(() => {
-      if (!this.hasConnected) {
+      this.joinTimeoutTimer = null
+
+      if (this.isGenerationActive(joinGeneration) && !this.hasConnected && this.term) {
         this.term.write("Still connecting to SSH tunnel...\r\n")
       }
     }, 8000)
@@ -176,18 +204,21 @@ export default {
     // Server -> Client
     this.channel.on("output", payload => {
         // payload should contain data (base64 or string)
-        this.term.write(payload.data)
+        if (this.isGenerationActive(generation) && this.term) this.term.write(payload.data)
     })
 
     // Server -> Client (Session Warning)
     this.channel.on("session_warning", payload => {
-        this.showWarning(payload.message)
+        if (this.isGenerationActive(generation)) this.showWarning(payload.message)
     })
 
-    this.channel.onClose(() => this.notifyClosed())
+    this.channel.onClose(() => {
+      if (this.isGenerationActive(generation)) this.notifyClosed()
+    })
 
     // Client -> Server
     this.term.onData(data => {
+        if (!this.isGenerationActive(generation) || !this.channel) return
         this.clearWarning()
         this.channel.push("input", {data: data})
     })
@@ -211,16 +242,19 @@ export default {
     return {columns: this.term.cols, rows: this.term.rows}
   },
 
-  fitBeforeJoin(attempt = 0) {
+  fitBeforeJoin(attempt = 0, generation = this._terminalGeneration) {
     requestAnimationFrame(() => {
-      const size = this.fitTerminal()
+      if (!this.isGenerationActive(generation)) return
+
+      this.fitTerminal()
 
       if ((this.el.offsetWidth <= 0 || this.el.offsetHeight <= 0) && attempt < 5) {
-        this.fitBeforeJoin(attempt + 1)
+        this.fitBeforeJoin(attempt + 1, generation)
         return
       }
 
       requestAnimationFrame(() => {
+        if (!this.isGenerationActive(generation)) return
         this.fitTerminal()
         this.joinChannel()
       })
@@ -242,10 +276,20 @@ export default {
   scheduleFit() {
     if (this.fitFrame) cancelAnimationFrame(this.fitFrame)
 
+    const generation = this._terminalGeneration
     this.fitFrame = requestAnimationFrame(() => {
+      this.fitFrame = null
+      if (!this.isGenerationActive(generation)) return
+
       this.fitAndReportSize()
-      requestAnimationFrame(() => this.fitAndReportSize())
+      requestAnimationFrame(() => {
+        if (this.isGenerationActive(generation)) this.fitAndReportSize()
+      })
     })
+  },
+
+  isGenerationActive(generation) {
+    return !this._destroyed && generation === this._terminalGeneration
   },
 
   clearJoinTimeout() {
