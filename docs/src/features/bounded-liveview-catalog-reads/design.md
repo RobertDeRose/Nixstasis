@@ -50,7 +50,7 @@ The user accepted these UX decisions:
 
 The test and deployment tabs show a search-first picker. A query returns at most 50 authorized devices, ordered deterministically by product name and MAC address. Search is normalized and applied in SQL across the existing device-identifying fields. Selection is represented by IDs plus separately loaded compact labels, so changing the query does not clear selected devices or require the full fleet in the socket.
 
-Selected devices remain visible as chips or a selected summary even when they are not in the current result page. The count is shown. A user may select at most 250 devices; selecting a 251st device is rejected with an actionable message and no partial state change. Queueing, deployment, and retry reload the selected or historical target IDs through bounded, authorization-scoped queries rather than assuming every target is present in the current search result.
+Selected devices remain visible as chips or a selected summary even when they are not in the current result page. The count is shown. A user may select at most 250 devices; selecting a 251st device is rejected with an actionable message and no partial state change. The same cap is enforced by `Nixstasis.Scripts.queue_test_run/4` and `queue_deployment/4`, so non-UI callers cannot bypass it. Queueing, deployment, and retry reload the selected or historical target IDs through bounded, authorization-scoped queries rather than assuming every target is present in the current search result. Historical runs over the new cap remain readable but retry fails all-or-none with an explicit narrowing message.
 
 ### Alert rules
 
@@ -58,11 +58,11 @@ Selected devices remain visible as chips or a selected summary even when they ar
 
 ### Reports
 
-The `/reports` index keeps its current name/field filters, sort controls, saved view preferences, edit/delete flow, and report summaries. It loads one 50-row page at a time from SQL. Filter changes reset to page one; invalid or out-of-range pages recover to a valid page. The UI reports the current range and provides accessible pagination without requiring every report definition/config in the LiveView.
+The `/reports` index keeps its current name/field filters, sort controls, saved view preferences, edit/delete flow, and compact report summaries. It loads one 50-row page at a time from SQL. Index rows contain only bounded summary data: identity/timestamps, field count, and at most 25 truncated field labels/paths. Full report config is loaded only on detail/edit. Filter changes reset to page one; invalid or out-of-range pages recover to a valid page. The UI reports the current range and provides accessible pagination without requiring every report definition/config in the LiveView.
 
 ### Command-policy resolution
 
-Preview and assignment paths resolve only requested command-entry and category IDs in SQL. The resolver selects only the name, command path, version, source kind, and source ID required for conflict/provenance output. Additive category semantics remain unchanged. Before materializing the result, the resolver detects requests over 2,500 resolved commands and returns an explicit over-limit error; no partial policy is previewed or queued. The LiveView explains that the operator must narrow the selected entries/categories.
+Preview and assignment paths resolve only requested command-entry and category IDs in SQL. Manual allowlist entries, category memberships, catalog commands, and catalog-category expansion all use requested-ID/category predicates and narrow selects; `Nixstasis.CommandCatalog.Resolver.preview/1` must scope selected devices and catalog commands rather than loading whole tables. The resolver selects only the name, command path, version, source kind, and source ID required for conflict/provenance output. Additive category semantics remain unchanged. SQL preflight rejects either more than 2,500 distinct resolved command names or more than 10,000 source rows before materialization. The resolver returns an explicit over-limit error; no partial policy is previewed or queued. The LiveView explains that the operator must narrow the selected entries/categories.
 
 ## Requirements
 
@@ -82,7 +82,7 @@ Preview and assignment paths resolve only requested command-entry and category I
 - Queries select only fields needed by the relevant UI or resolver.
 - Browser diffs remain bounded when filters, pages, PubSub updates, or validation events repeat.
 - Focused tests cover authorization, boundaries, empty states, stale pages, selection persistence, and over-limit errors.
-- Query-plan or load evidence demonstrates bounded row counts and materialized payload sizes.
+- Query-plan or load evidence demonstrates bounded row counts, source rows, report summaries, and materialized payload sizes.
 - UI states are keyboard accessible, announce errors, and work on narrow screens.
 
 ### Compatibility and Migration Requirements
@@ -101,6 +101,7 @@ The prior performance work fixed CodeMirror and terminal cleanup, bounded script
 - `packages/server/lib/nixstasis_web/live/alerts/index_live.ex` loads all rules and filters/sorts them in memory; `alerts/rules_live.ex` is a duplicate route implementation.
 - `packages/server/lib/nixstasis/reporting.ex` materializes every custom report/config for the report index.
 - `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex` loads all command entries and join rows before filtering selected IDs/categories.
+- `packages/server/lib/nixstasis/command_catalog/resolver.ex` and the command-policy LiveView expand selected catalog devices/categories from bounded or full in-memory collections.
 
 Established bounded patterns include `@collection_limit 250`, 50-row script histories, SQL-scoped Ash queries, narrow `Ash.Query.select/1`, authorized device ID filtering, and the existing URL-backed report preference state.
 
@@ -112,7 +113,7 @@ Established bounded patterns include `@collection_limit 250`, 50-row script hist
 - `ScriptLive.Show` owns search state, selected ID state, 250-selection UX, and target-picker rendering.
 - `AlertLive.Index` owns the canonical `/alerts/rules` table/editor and SQL-backed rule page state.
 - `Nixstasis.Reporting` and `ReportLive.Index` own bounded report index query/state behavior.
-- `Nixstasis.CommandAllowlists.PolicyResolver` owns SQL-scoped exact resolution and the 2,500-command guard; the command-policy LiveView renders its errors.
+- `Nixstasis.CommandAllowlists.PolicyResolver` and `Nixstasis.CommandCatalog.Resolver` own SQL-scoped exact resolution, source-row preflight, and the 2,500-command guard; the command-policy LiveView renders their errors and does not expand categories from truncated lists.
 - A named migration owns only indexes justified by final query predicates.
 
 ### Query and state contracts
@@ -121,7 +122,9 @@ Established bounded patterns include `@collection_limit 250`, 50-row script hist
 - Picker selection limit: 250 authorized device IDs.
 - Rule page size: 50 rows.
 - Report page size: 50 rows.
-- Command-policy resolution limit: 2,500 resolved commands.
+- Command-policy resolution limit: 2,500 distinct resolved command names.
+- Command-policy source-row preflight limit: 10,000 manual/catalog membership rows.
+- Report index summary limit: 25 field labels/paths per report, with bounded string lengths; full config is detail-only.
 - All IDs are normalized and authorization-checked at the side-effect boundary.
 - Empty searches return the first deterministic page, not the complete collection.
 - Query errors produce recoverable UI errors and do not mutate selection or queue state.
@@ -181,16 +184,18 @@ Operators will see bounded, searchable pages rather than an entire catalog. Larg
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                                  | Create or update        | Planned change                                                                        | Owning Beads task                             |
-|----------------------------|-------------------------------------------------------------|-------------------------|---------------------------------------------------------------------------------------|-----------------------------------------------|
-| Architecture               | `docs/src/modules/server-devices.md`                        | Update                  | Document compact authorized script-target reads and selected-target reload ownership. | `nixstasis-mol-594.1`                         |
-| Architecture               | `docs/src/modules/server-web.md`                            | Update                  | Document canonical `/alerts/rules` routes and bounded LiveView collection behavior.   | `nixstasis-mol-594.2` / `nixstasis-mol-594.4` |
-| Architecture               | `docs/src/modules/server-monitoring.md`                     | Update                  | Document the single rule-management surface and SQL-backed rule paging.               | `nixstasis-mol-594.2`                         |
-| Architecture               | `docs/src/modules/server-scripts.md`                        | Update                  | Document search-first target selection, selection cap, and bounded retry/queue reads. | `nixstasis-mol-594.1`                         |
-| Architecture               | `docs/src/modules/server-reporting.md`                      | Update                  | Document report-index pagination, URL state, and bounded config materialization.      | `nixstasis-mol-594.3`                         |
-| Usage / Operations         | `docs/src/operations/command-policies.md`                   | Update                  | Document over-limit policy previews and operator narrowing guidance.                  | `nixstasis-mol-594.4`                         |
-| Navigation                 | `docs/src/SUMMARY.md`                                       | No change               | Existing pages are reused; no new page is required.                                   | Not applicable                                |
-| Implemented Feature Record | `docs/src/features/bounded-liveview-catalog-reads/index.md` | Create during close-out | Preserve delivery and audit history.                                                  | `nixstasis-mol-8bs`                           |
+| Documentation concern      | Exact page                                                  | Create or update        | Planned change                                                                                           | Owning Beads task                             |
+|----------------------------|-------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| Architecture               | `docs/src/modules/server-devices.md`                        | Update                  | Document compact authorized script-target reads and selected-target reload ownership.                    | `nixstasis-mol-594.1`                         |
+| Architecture               | `docs/src/modules/server-web.md`                            | Update                  | Document canonical `/alerts/rules` routes and bounded LiveView collection behavior.                      | `nixstasis-mol-594.2` / `nixstasis-mol-594.4` |
+| Architecture               | `docs/src/README.md`                                        | Update                  | Update route/module inventory for canonical `/alerts/rules` and removed duplicate module.                | `nixstasis-mol-594.2`                         |
+| Architecture               | `docs/src/modules/server-monitoring.md`                     | Update                  | Document the single rule-management surface and SQL-backed rule paging.                                  | `nixstasis-mol-594.2`                         |
+| Architecture               | `docs/src/modules/server-scripts.md`                        | Update                  | Document search-first target selection, selection cap, and bounded retry/queue reads.                    | `nixstasis-mol-594.1`                         |
+| Usage / Operations         | `docs/src/operations/script-workbench.md`                   | Update                  | Document search-first target selection, selected-device persistence, 250-device cap, and retry behavior. | `nixstasis-mol-594.1`                         |
+| Architecture               | `docs/src/modules/server-reporting.md`                      | Update                  | Document report-index pagination, URL state, and bounded config materialization.                         | `nixstasis-mol-594.3`                         |
+| Usage / Operations         | `docs/src/operations/command-policies.md`                   | Update                  | Document over-limit policy previews and operator narrowing guidance.                                     | `nixstasis-mol-594.4`                         |
+| Navigation                 | `docs/src/SUMMARY.md`                                       | No change               | Existing pages are reused; no new page is required.                                                      | Not applicable                                |
+| Implemented Feature Record | `docs/src/features/bounded-liveview-catalog-reads/index.md` | Create during close-out | Preserve delivery and audit history.                                                                     | `nixstasis-mol-8bs`                           |
 
 ## Validation Strategy
 
@@ -212,10 +217,10 @@ The implementation coordinator `nixstasis-mol-594` owns five parallel-first boun
 1. `nixstasis-mol-594.1` — search-first script target picker and selected-target reloads.
 2. `nixstasis-mol-594.2` — canonical `/alerts/rules` consolidation and paged rules.
 3. `nixstasis-mol-594.3` — paged report index.
-4. `nixstasis-mol-594.4` — SQL-scoped command-policy resolution and over-limit guard.
+4. `nixstasis-mol-594.4` — SQL-scoped manual/catalog command-policy resolution, compatibility preview, category expansion, and over-limit guards.
 5. `nixstasis-mol-594.5` — final query indexes and measurement after query shapes stabilize.
 
-Tasks 1–4 can proceed independently after specification reconciliation. Task 5 depends on the final query shapes from tasks 1–4. All implementation work is gated by the lifecycle specification reconciliation through the implementation coordinator.
+Tasks 1–4 can proceed independently after specification reconciliation. Task 5 is blocked by tasks 1–4 and depends on their final query shapes. All implementation work is gated by the lifecycle specification reconciliation through the implementation coordinator.
 
 ## Dependencies and Parallelism
 
@@ -233,7 +238,7 @@ This is unreleased software. Replace duplicate alert routes/modules directly; no
 - Pagination adds a query and interaction step but prevents large LiveView diffs.
 - Search-first device selection is more scalable but requires clear selection persistence and selected-label handling.
 - A 250-device cap prevents accidental fleet-wide queue storms but makes future group targeting more valuable.
-- A 2,500-command guard may reject legitimate large categories; explicit failure is safer than silently issuing an incomplete policy.
+- A 2,500-command or 10,000-source-row guard may reject legitimate large categories; explicit failure is safer than silently issuing an incomplete policy.
 - Counts and JSONB field searches can remain expensive; query evidence must confirm plans rather than assuming an index helps.
 
 ## Rejected Alternatives
@@ -285,6 +290,7 @@ None blocking implementation. Query-plan details and exact index definitions are
 - `packages/server/lib/nixstasis_web/live/reports/index_live.ex`
 - `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex`
 - `packages/server/lib/nixstasis_web/live/command_policy_live/index.ex`
+- `packages/server/lib/nixstasis/command_catalog/resolver.ex`
 - `docs/src/modules/server-web.md`
 - `docs/src/modules/server-devices.md`
 - `docs/src/modules/server-scripts.md`
