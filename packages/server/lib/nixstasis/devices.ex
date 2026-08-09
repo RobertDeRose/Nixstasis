@@ -315,8 +315,10 @@ defmodule Nixstasis.Devices do
     * `:sort_by` - The field to sort by. Defaults to `:inserted_at`.
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
     * `:filter` - A map of filters (e.g., `%{approval_status: :pending}`).
-    * `:search` - A search string for mac_address or account_number.
+    * `:search` - A search string for product_name, mac_address, account_number, or ipv4_address.
     * `:authorized_device_ids` - An optional device-ID scope applied in the query.
+    * `:limit` - Optional SQL row limit.
+    * `:select` - Optional list of fields to select for narrow projections.
     * `:load_device_groups?` - Whether to preload group summaries. Defaults to `false`.
   """
   def list_devices(opts \\ []) do
@@ -327,6 +329,12 @@ defmodule Nixstasis.Devices do
     authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
     load_device_groups? = Keyword.get(opts, :load_device_groups?, false)
     limit = Keyword.get(opts, :limit)
+    select = Keyword.get(opts, :select)
+
+    sort_fields =
+      if sort_by == :product_name,
+        do: [{:product_name, sort_order}, {:mac_address, :asc}, {:id, :asc}],
+        else: [{sort_by, sort_order}]
 
     Device
     |> filter_by_authorized_device_ids(authorized_device_ids)
@@ -337,8 +345,9 @@ defmodule Nixstasis.Devices do
     |> filter_by_account_number(filter_value(filter, :account_number))
     |> filter_by_ipv4_address(filter_value(filter, :ipv4_address))
     |> search_devices(search)
-    |> Ash.Query.sort([{sort_by, sort_order}])
+    |> Ash.Query.sort(sort_fields)
     |> maybe_limit(limit)
+    |> maybe_select(select)
     |> maybe_load_device_groups(load_device_groups?)
     |> Ash.read!(domain: Domain)
   end
@@ -571,6 +580,10 @@ defmodule Nixstasis.Devices do
   defp normalize_runtime_atom(nil), do: nil
   defp normalize_runtime_atom(value) when is_atom(value), do: Atom.to_string(value)
 
+  defp maybe_select(query, nil), do: query
+  defp maybe_select(query, fields) when is_list(fields), do: Ash.Query.select(query, fields)
+  defp maybe_select(query, _fields), do: query
+
   defp maybe_limit(query, nil), do: query
   defp maybe_limit(query, limit) when is_integer(limit) and limit > 0, do: Ash.Query.limit(query, limit)
   defp maybe_limit(query, _limit), do: query
@@ -664,7 +677,7 @@ defmodule Nixstasis.Devices do
       Ash.Query.filter(
         query,
         contains(mac_address, ^term) or contains(account_number, ^term) or
-          contains(ipv4_address, ^term)
+          contains(ipv4_address, ^term) or contains(product_name, ^term)
       )
     end
   end

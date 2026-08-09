@@ -19,12 +19,32 @@ defmodule Nixstasis.Scripts.Authorization do
 
   @doc "Returns whether every non-empty target list is inside the trusted device scope."
   def can_target_devices?(session, target_device_ids) when is_map(session) and is_list(target_device_ids) do
-    target_device_ids != [] and Enum.all?(target_device_ids, &is_binary/1) and
+    target_device_ids != [] and Enum.all?(target_device_ids, &valid_device_id?/1) and
       case Permissions.authorized_device_ids(Permissions.device_permissions(session)) do
-        nil -> true
-        authorized_device_ids -> Enum.all?(target_device_ids, &MapSet.member?(authorized_device_ids, &1))
+        nil ->
+          true
+
+        authorized_device_ids ->
+          Enum.all?(target_device_ids, fn device_id ->
+            MapSet.member?(authorized_device_ids, device_id) or
+              MapSet.member?(authorized_device_ids, to_string(device_id)) or
+              uuid_string_member?(authorized_device_ids, device_id)
+          end)
       end
   end
 
   def can_target_devices?(_session, _target_device_ids), do: false
+
+  defp valid_device_id?(device_id) do
+    is_binary(device_id) and match?({:ok, _}, Ecto.UUID.cast(device_id))
+  end
+
+  defp uuid_string_member?(authorized_device_ids, device_id) when is_binary(device_id) do
+    case Ecto.UUID.cast(device_id) do
+      {:ok, cast_id} -> MapSet.member?(authorized_device_ids, cast_id)
+      :error -> false
+    end
+  end
+
+  defp uuid_string_member?(_authorized_device_ids, _device_id), do: false
 end

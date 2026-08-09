@@ -77,6 +77,88 @@ defmodule Nixstasis.ScriptsTest do
              )
   end
 
+  test "queue boundaries reject over-limit targets before creating runs", %{draft: draft, version: version} do
+    devices =
+      for _index <- 1..251 do
+        %Nixstasis.Devices.Device{id: Ecto.UUID.generate()}
+      end
+
+    assert {:error, :too_many_targets} =
+             Scripts.queue_test_run(
+               %{"script_permissions" => %{"can_manage" => true}},
+               draft,
+               version,
+               devices
+             )
+  end
+
+  test "deployment queue boundary rejects over-limit targets", %{draft: draft, version: version} do
+    devices =
+      for _index <- 1..251 do
+        %Nixstasis.Devices.Device{id: Ecto.UUID.generate()}
+      end
+
+    assert {:error, :too_many_targets} =
+             Scripts.queue_deployment(
+               %{"script_permissions" => %{"can_manage" => true}},
+               draft,
+               version,
+               devices
+             )
+  end
+
+  test "retry reloads in-bound authorized targets independently of the picker", %{
+    draft: draft,
+    version: version,
+    device: device
+  } do
+    {:ok, run} =
+      Domain.create_script_test_run(%{
+        script_draft_id: draft.id,
+        script_version_id: version.id,
+        status: :failed,
+        started_at: DateTime.utc_now(),
+        completed_at: DateTime.utc_now(),
+        target_device_ids: [device.id],
+        command_payload: %{},
+        notes: %{}
+      })
+
+    device_id = device.id
+
+    assert {:ok, [%{id: ^device_id}]} =
+             Scripts.retry_test_devices(
+               %{"script_permissions" => %{"can_manage" => true}},
+               run.id
+             )
+  end
+
+  test "historical retry preflights SQL target count before loading IDs", %{draft: draft, version: version} do
+    target_ids = for _index <- 1..251, do: Ecto.UUID.generate()
+
+    {:ok, run} =
+      Domain.create_script_test_run(%{
+        script_draft_id: draft.id,
+        script_version_id: version.id,
+        status: :failed,
+        started_at: DateTime.utc_now(),
+        completed_at: DateTime.utc_now(),
+        target_device_ids: target_ids,
+        command_payload: %{},
+        notes: %{}
+      })
+
+    history = Scripts.list_script_history(draft.id)
+    run_id = run.id
+    assert [%{id: ^run_id, target_device_count: 251}] = history.test_runs
+
+    assert {:error, :too_many_targets} =
+             Scripts.retry_test_devices(
+               %{"script_permissions" => %{"can_manage" => true}},
+               run.id
+             )
+  end
+
   test "queue_test_run creates queued client actions and command payloads", %{
     device: device,
     draft: draft,

@@ -97,4 +97,8 @@ defmodule Nixstasis.Scripts.ScriptDeploymentRun do
       destination_attribute :script_deployment_run_id
     end
   end
+
+  calculations do
+    calculate :target_device_count, :integer, expr(fragment("cardinality(?)", target_device_ids))
+  end
 end

@@ -238,6 +238,103 @@ defmodule NixstasisWeb.ScriptLiveTest do
       refute html =~ "scoped-hidden"
     end
 
+    test "rejects the 251st picker selection visibly", %{conn: conn, draft: draft} do
+      devices =
+        for index <- 1..251 do
+          group = div(index - 1, 50) + 1
+          suffix = Integer.to_string(index, 16) |> String.pad_leading(4, "0")
+
+          mac_suffix = suffix |> String.graphemes() |> Enum.chunk_every(2) |> Enum.map_join(":", &Enum.join/1)
+
+          {:ok, device} =
+            Devices.register_device(%{
+              mac_address: "AA:BB:CC:DD:#{mac_suffix}",
+              product_name: "cap-group-#{group}"
+            })
+
+          device
+        end
+
+      {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
+      render_click(element(view, "button[phx-value-tab='test']"))
+
+      for group <- 1..5 do
+        ids = devices |> Enum.drop((group - 1) * 50) |> Enum.take(50) |> Enum.map(& &1.id)
+        render_change(element(view, "#script-device-search"), %{"search" => "cap-group-#{group}"})
+
+        for id <- ids do
+          render_click(element(view, "input[phx-value-device_id='#{id}']"))
+        end
+      end
+
+      render_change(element(view, "#script-device-search"), %{"search" => "cap-group-6"})
+      html = render_click(element(view, "input[phx-value-device_id='#{Enum.at(devices, 250).id}']"))
+
+      assert html =~ "You can select at most 250 devices"
+      assert html =~ "Selected: 250 of 250"
+    end
+
+    test "rejects forged or malformed device selections", %{conn: conn, draft: draft} do
+      {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
+      render_click(element(view, "button[phx-value-tab='test']"))
+
+      assert render_click(view, "toggle_device", %{"device_id" => "not-a-uuid"}) =~
+               "Invalid device selection"
+
+      assert render_click(view, "toggle_device", %{"device_id" => Ecto.UUID.generate()}) =~
+               "Device is not in the current search results"
+    end
+
+    test "limits the picker to 50 SQL results", %{conn: conn, draft: draft} do
+      for index <- 1..51 do
+        suffix = Integer.to_string(index, 16) |> String.pad_leading(2, "0")
+
+        {:ok, device} =
+          Devices.register_device(%{
+            mac_address: "AA:BB:CC:DD:#{suffix}:#{suffix}",
+            product_name: "picker-bound-#{index}"
+          })
+
+        {:ok, _device} = Devices.approve_device(device)
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
+      html = render_click(element(view, "button[phx-value-tab='test']"))
+
+      assert length(Regex.scan(~r/phx-value-device_id=/, html)) == 50
+    end
+
+    test "searches devices in SQL and preserves selected labels across searches", %{conn: conn, draft: draft} do
+      {:ok, visible} =
+        Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FC", product_name: "picker-visible"})
+
+      {:ok, visible} = Devices.approve_device(visible)
+
+      {:ok, hidden} =
+        Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FD", product_name: "picker-hidden"})
+
+      {:ok, _hidden} = Devices.approve_device(hidden)
+
+      conn = put_session(conn, "device_permissions", %{"can_manage" => true, "device_ids" => [visible.id]})
+      {:ok, view, _html} = live(conn, ~p"/scripts/#{draft.id}")
+      render_click(element(view, "button[phx-value-tab='test']"))
+
+      assert has_element?(view, "#script-device-search-input[phx-debounce='300']")
+      assert has_element?(view, "input[phx-value-device_id='#{visible.id}']")
+      refute has_element?(view, "input[phx-value-device_id='#{hidden.id}']")
+
+      render_click(element(view, "input[phx-value-device_id='#{visible.id}']"))
+      html = render_change(element(view, "#script-device-search"), %{"search" => "picker"})
+
+      assert html =~ "picker-visible"
+      assert has_element?(view, "input[phx-value-device_id='#{visible.id}']")
+      assert html =~ "Selected: 1 of 250"
+
+      html = render_change(element(view, "#script-device-search"), %{"search" => "does-not-exist"})
+      assert html =~ "No matching devices found."
+      refute has_element?(view, "input[phx-value-device_id='#{visible.id}']")
+    end
+
     test "can validate then queue a test without reloading", %{conn: conn, draft: draft} do
       {:ok, device} = Devices.register_device(%{mac_address: "AA:BB:CC:DD:EE:FA", product_name: "live-target"})
       {:ok, device} = Devices.approve_device(device)

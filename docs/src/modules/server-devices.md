@@ -42,7 +42,7 @@
   - `Nixstasis.Devices.update_last_seen/1`
   - `Nixstasis.Devices.list_pending_devices/0`
   - `Nixstasis.Devices.approve_device/1`
-  - `Nixstasis.Devices.list_devices/1`
+  - `Nixstasis.Devices.list_devices/1` (supports SQL search, authorization scope, limits, and narrow selects)
   - `Nixstasis.Devices.list_device_groups/2`
   - `Nixstasis.Devices.list_group_memberships/2`
   - `Nixstasis.Devices.create_device_group/2`
@@ -73,6 +73,11 @@
   - `Nixstasis.Devices.SshClient.start_link/1`
   - `Nixstasis.Devices.SshClient.send_data/2`
   - `Nixstasis.Devices.SshClient.ssh_host/1`
+
+`Nixstasis.Devices.list_devices/1` applies `:search`, `:authorized_device_ids`, and `:limit`
+in SQL. Search covers product name, MAC address, account number, and IPv4 address. Callers
+that only need picker identity fields can pass `:select` to avoid materializing schema and
+metadata payloads.
 
 ## Dependencies
 

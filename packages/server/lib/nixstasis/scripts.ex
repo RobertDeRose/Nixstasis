@@ -21,6 +21,7 @@ defmodule Nixstasis.Scripts do
   @inline_script_payload_limit 4_096
   @script_history_limit 50
   @script_client_action_limit 500
+  @script_target_limit 250
 
   def list_drafts, do: Domain.list_script_drafts()
 
@@ -79,9 +80,9 @@ defmodule Nixstasis.Scripts do
       :status,
       :started_at,
       :completed_at,
-      :target_device_ids,
       :inserted_at
     ])
+    |> Ash.Query.load(:target_device_count)
     |> Ash.read!(domain: Domain)
   end
 
@@ -97,9 +98,9 @@ defmodule Nixstasis.Scripts do
       :status,
       :started_at,
       :completed_at,
-      :target_device_ids,
       :inserted_at
     ])
+    |> Ash.Query.load(:target_device_count)
     |> Ash.read!(domain: Domain)
   end
 
@@ -401,12 +402,96 @@ defmodule Nixstasis.Scripts do
   defp validation_error_message(reason) when is_binary(reason), do: reason
   defp validation_error_message(reason), do: inspect(reason)
 
+  @doc "Returns the maximum number of script target devices accepted by queueing and retry."
+  def script_target_limit, do: @script_target_limit
+
+  @doc "Loads authorized test retry targets only after checking the SQL-derived target count."
+  def retry_test_devices(session, run_id), do: retry_devices(session, ScriptTestRun, run_id, :test)
+
+  @doc "Loads authorized deployment retry targets only after checking the SQL-derived target count."
+  def retry_deployment_devices(session, run_id), do: retry_devices(session, ScriptDeploymentRun, run_id, :deploy)
+
+  defp retry_devices(session, resource, run_id, capability) do
+    with :ok <- retry_capability(session, capability),
+         {:ok, target_count} <- retry_target_count(resource, run_id),
+         :ok <- ensure_target_limit(target_count),
+         {:ok, target_ids} <- retry_target_ids(resource, run_id),
+         {:ok, devices} <- reload_authorized_target_devices(session, target_ids) do
+      {:ok, devices}
+    end
+  end
+
+  defp retry_capability(session, :test) do
+    if Authorization.can_test?(session), do: :ok, else: {:error, :unauthorized}
+  end
+
+  defp retry_capability(session, :deploy) do
+    if Authorization.can_deploy?(session), do: :ok, else: {:error, :unauthorized}
+  end
+
+  defp retry_target_count(resource, run_id) do
+    resource
+    |> Ash.Query.filter(id == ^run_id)
+    |> Ash.Query.select([:id])
+    |> Ash.Query.load(:target_device_count)
+    |> Ash.read(domain: Domain)
+    |> case do
+      {:ok, [%{target_device_count: count}]} when is_integer(count) -> {:ok, count}
+      {:ok, []} -> {:error, :not_found}
+      {:ok, _} -> {:error, :invalid_target_count}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp retry_target_ids(resource, run_id) do
+    resource
+    |> Ash.Query.filter(id == ^run_id)
+    |> Ash.Query.select([:target_device_ids])
+    |> Ash.read(domain: Domain)
+    |> case do
+      {:ok, [%{target_device_ids: target_ids}]} -> {:ok, target_ids}
+      {:ok, []} -> {:error, :not_found}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp valid_device_id?(device_id) do
+    match?({:ok, _}, Ecto.UUID.cast(device_id))
+  end
+
+  defp ensure_target_limit(count) when is_integer(count) and count <= @script_target_limit, do: :ok
+  defp ensure_target_limit(_count), do: {:error, :too_many_targets}
+
+  defp reload_authorized_target_devices(session, target_ids) do
+    with true <- Authorization.can_target_devices?(session, target_ids),
+         devices <-
+           Devices.list_devices(
+             authorized_device_ids: target_ids,
+             limit: @script_target_limit,
+             select: [:id]
+           ),
+         true <- length(devices) == length(Enum.uniq(target_ids)) do
+      {:ok, devices}
+    else
+      _ -> {:error, :unauthorized}
+    end
+  end
+
   def queue_test_run(session, %ScriptDraft{} = draft, %ScriptVersion{} = version, devices)
       when is_list(devices) do
     with true <- Authorization.can_test?(session),
          {:ok, actor_id} <- Authorization.actor_id(session),
-         device_ids <- Enum.map(devices, &device_id/1),
+         device_ids <- devices |> Enum.map(&device_id/1) |> Enum.map(&to_string/1) |> Enum.uniq(),
+         :ok <- ensure_target_limit(length(device_ids)),
+         true <- Enum.all?(device_ids, &valid_device_id?/1),
          true <- Authorization.can_target_devices?(session, device_ids),
+         devices <-
+           Devices.list_devices(
+             authorized_device_ids: device_ids,
+             limit: @script_target_limit,
+             select: [:id]
+           ),
+         true <- length(devices) == length(device_ids),
          {:ok, version} <- reload_script_version(version),
          :ok <- require_validated_version(version) do
       rendered = version.rendered_content
@@ -521,8 +606,17 @@ defmodule Nixstasis.Scripts do
       when is_list(devices) do
     with true <- Authorization.can_deploy?(session),
          {:ok, actor_id} <- Authorization.actor_id(session),
-         device_ids <- Enum.map(devices, &device_id/1),
+         device_ids <- devices |> Enum.map(&device_id/1) |> Enum.map(&to_string/1) |> Enum.uniq(),
+         :ok <- ensure_target_limit(length(device_ids)),
+         true <- Enum.all?(device_ids, &valid_device_id?/1),
          true <- Authorization.can_target_devices?(session, device_ids),
+         devices <-
+           Devices.list_devices(
+             authorized_device_ids: device_ids,
+             limit: @script_target_limit,
+             select: [:id]
+           ),
+         true <- length(devices) == length(device_ids),
          {:ok, version} <- reload_script_version(version),
          :ok <- require_validated_version(version) do
       rendered = version.rendered_content

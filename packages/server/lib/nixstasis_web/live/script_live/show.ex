@@ -6,6 +6,8 @@ defmodule NixstasisWeb.ScriptLive.Show do
   alias Nixstasis.Scripts
   alias NixstasisWeb.Permissions
 
+  @device_picker_limit 50
+
   @impl true
   def mount(%{"id" => id}, session, socket) do
     can_view = Permissions.can_view_scripts?(session)
@@ -20,9 +22,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
         Process.send_after(self(), :refresh_script_runs, 3_000)
       end
 
-      devices =
-        Devices.list_devices()
-        |> filter_visible_devices(device_permissions)
+      devices = list_picker_devices(device_permissions, "")
 
       %{
         versions: versions,
@@ -43,7 +43,10 @@ defmodule NixstasisWeb.ScriptLive.Show do
        |> assign(:body, draft.body)
        |> assign(:rendered, rendered)
        |> assign(:devices, devices)
+       |> assign(:device_search, "")
        |> assign(:selected_device_ids, [])
+       |> assign(:selected_device_labels, %{})
+       |> assign(:selected_device_limit, Scripts.script_target_limit())
        |> assign(:versions, versions)
        |> assign(:validation_runs, validation_runs)
        |> assign(:test_runs, test_runs)
@@ -138,20 +141,22 @@ defmodule NixstasisWeb.ScriptLive.Show do
     end
   end
 
+  def handle_event("search_devices", %{"search" => search}, socket) do
+    search = normalize_device_search(search)
+
+    {:noreply,
+     socket
+     |> assign(:device_search, search)
+     |> assign(:devices, list_picker_devices(socket.assigns.device_permissions, search))}
+  end
+
   def handle_event("toggle_device", %{"device_id" => device_id}, socket) do
-    if device_selected?(socket.assigns.device_permissions, device_id) do
-      selected = socket.assigns.selected_device_ids
+    device_id = to_string(device_id)
 
-      new_selected =
-        if device_id in selected do
-          List.delete(selected, device_id)
-        else
-          [device_id | selected]
-        end
-
-      {:noreply, assign(socket, :selected_device_ids, new_selected)}
+    if not valid_device_id?(device_id) do
+      {:noreply, put_flash(socket, :error, "Invalid device selection")}
     else
-      {:noreply, put_flash(socket, :error, "Not authorized for this device")}
+      toggle_device_selection(socket, device_id)
     end
   end
 
@@ -186,32 +191,46 @@ defmodule NixstasisWeb.ScriptLive.Show do
   def handle_event("retry_test", %{"id" => id}, socket) do
     with run when not is_nil(run) <- Enum.find(socket.assigns.test_runs, &(&1.id == id)),
          version when not is_nil(version) <- Enum.find(socket.assigns.versions, &(&1.id == run.script_version_id)),
-         devices <-
-           Enum.filter(socket.assigns.devices, fn device ->
-             device.id in run.target_device_ids and device_selected?(socket.assigns.device_permissions, device.id)
-           end),
-         false <- devices == [],
+         {:ok, devices} <- Scripts.retry_test_devices(session(socket), id),
          {:ok, _run} <- Scripts.queue_test_run(session(socket), socket.assigns.draft, version, devices) do
       {:noreply, refresh_script_runs(socket) |> put_flash(:info, "Test retry queued")}
     else
-      false -> {:noreply, put_flash(socket, :error, "Retry skipped: no authorized target devices")}
-      _ -> {:noreply, put_flash(socket, :error, "Failed to retry test")}
+      {:error, :too_many_targets} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Retry rejected: historical target count exceeds the #{Scripts.script_target_limit()}-device limit"
+         )}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "Retry skipped: no authorized target devices")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Failed to retry test")}
     end
   end
 
   def handle_event("retry_deployment", %{"id" => id}, socket) do
     with run when not is_nil(run) <- Enum.find(socket.assigns.deployment_runs, &(&1.id == id)),
          version when not is_nil(version) <- Enum.find(socket.assigns.versions, &(&1.id == run.script_version_id)),
-         devices <-
-           Enum.filter(socket.assigns.devices, fn device ->
-             device.id in run.target_device_ids and device_selected?(socket.assigns.device_permissions, device.id)
-           end),
-         false <- devices == [],
+         {:ok, devices} <- Scripts.retry_deployment_devices(session(socket), id),
          {:ok, _run} <- Scripts.queue_deployment(session(socket), socket.assigns.draft, version, devices) do
       {:noreply, refresh_script_runs(socket) |> put_flash(:info, "Deployment retry queued")}
     else
-      false -> {:noreply, put_flash(socket, :error, "Retry skipped: no authorized target devices")}
-      _ -> {:noreply, put_flash(socket, :error, "Failed to retry deployment")}
+      {:error, :too_many_targets} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Retry rejected: historical target count exceeds the #{Scripts.script_target_limit()}-device limit"
+         )}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "Retry skipped: no authorized target devices")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Failed to retry deployment")}
     end
   end
 
@@ -483,9 +502,12 @@ defmodule NixstasisWeb.ScriptLive.Show do
   end
 
   defp selected_devices(socket) do
-    Enum.filter(
-      socket.assigns.devices,
-      &(&1.id in socket.assigns.selected_device_ids and device_selected?(socket.assigns.device_permissions, &1.id))
+    Devices.list_devices(
+      authorized_device_ids: socket.assigns.selected_device_ids,
+      limit: Scripts.script_target_limit(),
+      select: [:id],
+      sort_by: :product_name,
+      sort_order: :asc
     )
   end
 
@@ -657,19 +679,68 @@ defmodule NixstasisWeb.ScriptLive.Show do
     assign(socket, script_run_assigns(socket.assigns.draft))
   end
 
-  defp filter_visible_devices(devices, permissions) do
-    case Permissions.authorized_device_ids(permissions) do
-      nil -> devices
-      ids -> Enum.filter(devices, &MapSet.member?(ids, &1.id))
+  defp toggle_device_selection(socket, device_id) do
+    cond do
+      not Enum.any?(socket.assigns.devices, &(to_string(&1.id) == device_id)) ->
+        {:noreply, put_flash(socket, :error, "Device is not in the current search results")}
+
+      not device_selected?(socket.assigns.device_permissions, device_id) ->
+        {:noreply, put_flash(socket, :error, "Not authorized for this device")}
+
+      device_id in socket.assigns.selected_device_ids ->
+        {:noreply, assign(socket, :selected_device_ids, List.delete(socket.assigns.selected_device_ids, device_id))}
+
+      length(socket.assigns.selected_device_ids) >= Scripts.script_target_limit() ->
+        {:noreply, put_flash(socket, :error, "You can select at most #{Scripts.script_target_limit()} devices")}
+
+      true ->
+        device = Enum.find(socket.assigns.devices, &(to_string(&1.id) == device_id))
+
+        labels =
+          if device,
+            do: Map.put(socket.assigns.selected_device_labels, device_id, device_label_value(device)),
+            else: socket.assigns.selected_device_labels
+
+        {:noreply,
+         socket
+         |> assign(:selected_device_ids, [device_id | socket.assigns.selected_device_ids])
+         |> assign(:selected_device_labels, labels)}
     end
   end
+
+  defp valid_device_id?(device_id) do
+    match?({:ok, _}, Ecto.UUID.cast(device_id))
+  end
+
+  defp list_picker_devices(permissions, search) do
+    Devices.list_devices(
+      search: search,
+      authorized_device_ids: Permissions.authorized_device_ids(permissions),
+      limit: @device_picker_limit,
+      select: [:id, :product_name, :mac_address],
+      sort_by: :product_name,
+      sort_order: :asc
+    )
+  end
+
+  defp normalize_device_search(search) when is_binary(search), do: String.trim(search)
+  defp normalize_device_search(_search), do: ""
 
   defp device_selected?(permissions, device_id) do
     case Permissions.authorized_device_ids(permissions) do
       nil -> true
-      ids -> MapSet.member?(ids, device_id)
+      ids -> MapSet.member?(ids, device_id) or MapSet.member?(ids, cast_device_id(device_id))
     end
   end
+
+  defp cast_device_id(device_id) do
+    case Ecto.UUID.cast(device_id) do
+      {:ok, id} -> id
+      :error -> device_id
+    end
+  end
+
+  defp device_label_value(device), do: device.product_name || device.mac_address
 
   defp script_run_assigns(draft), do: Scripts.list_script_history(draft.id)
 
@@ -727,7 +798,7 @@ defmodule NixstasisWeb.ScriptLive.Show do
   defp client_actions(client_actions, kind, run_id), do: Map.get(client_actions, {kind, run_id}, [])
 
   defp device_label(devices, id) do
-    case Enum.find(devices, &(&1.id == id)) do
+    case Enum.find(devices, &(to_string(&1.id) == to_string(id))) do
       nil -> id
       device -> device.product_name || device.mac_address || id
     end

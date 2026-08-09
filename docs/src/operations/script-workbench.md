@@ -20,7 +20,8 @@ from trusted `X-Token-*` claims into the Phoenix session.
 - An unscoped operator may target approved devices visible to the operator.
 - A scoped operator may target only the listed device IDs; empty or mixed selections fail
   without creating partial runs or commands.
-- LiveView device filtering improves presentation but is not the security control.
+- The picker searches and sorts in SQL within the trusted device scope, shows at most 50 results per query, and preserves selected labels across searches.
+- A maximum of 250 devices applies in the picker and again at the `Nixstasis.Scripts` queue boundary; LiveView filtering is not the security control.
 - Missing trusted actor context fails closed for operator mutations in production. Audit
   events use the trusted subject, falling back to the trusted email when needed.
 
@@ -32,7 +33,7 @@ the authenticated device, not to the browser operator who queued the run.
 1. Create a draft from the Scripts inventory.
 2. Edit structured front matter and the Starlark body.
 3. Validate the rendered `.stary` artifact.
-4. Select one or more authorized devices on the **Test** tab.
+4. Search and select one or more authorized devices on the **Test** tab.
 5. Queue a test and inspect per-client status and result payloads.
 6. Deploy only a validated version after the UI's test gate has passed.
 7. Use retry for failed or partial runs, or cancel active server-side runs when required.
@@ -86,8 +87,9 @@ deployment runs, and per-client actions. The important run states are:
 
 Commands are delivered during the device heartbeat. Offline devices remain pending until
 they poll. A server cancellation marks the run failed; a command already delivered to a
-client may still finish and report independently. Retry targets the original run's devices
-that remain authorized and visible to the operator.
+client may still finish and report independently. Historical runs expose bounded SQL-derived
+target counts. Retry checks that count before loading stored target IDs, then reloads only
+authorized devices; over-limit historical runs remain readable but retry fails all-or-none.
 
 ## Audit and retention
 

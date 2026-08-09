@@ -80,15 +80,23 @@ The context exposes domain-specific operations rather than generic resource muta
 - `archive_draft/2`
 
 `queue_test_run/4` sends `run_script`, which executes test content without installing it.
-`queue_deployment/4` sends `install_script` using the immutable version artifact.
+`queue_deployment/4` sends `install_script` using the immutable version artifact. Both queue
+boundaries reject more than 250 targets and reload the authorized target rows in SQL before
+creating a run or queueing commands.
+
+The workbench device picker performs authorization-scoped SQL search and ordering before
+materialization and returns at most 50 rows per query. Selected IDs and labels remain visible
+when the search changes; selecting a 251st device is rejected. Selected targets are reloaded
+from SQL at queue time rather than being limited to the current search page.
 
 ## Authorization boundary
 
 `Nixstasis.Scripts.Authorization` delegates browser capabilities to
 `NixstasisWeb.Permissions`. Before a test or deployment run is created, every target ID is
 checked against the trusted device scope in the operator session. Empty, unauthorized, or
-mixed target lists fail before database or command-queue side effects. Retry paths pass
-through the same context checks.
+mixed target lists fail before database or command-queue side effects. Retry paths pass through the same context checks. Historical rows expose a SQL-derived target
+count; retry checks that count before loading the stored target ID array. Over-limit historical
+runs remain readable but retry fails without creating side effects.
 
 Operator audit events require a nonblank trusted actor ID from the session's subject or
 email. Device result ingestion uses the device authenticated by `DeviceCommandController`
