@@ -65,6 +65,7 @@
 - Report list/detail interaction requirements, including filtering, sorting,
   delete confirmation, and saved view preferences, are captured in
   [Report View Improvements](../features/report-view-improvements/index.md).
+- The report index applies name and schema-field filters, deterministic sorting, and 50-row pagination in SQL. Index rows carry only identity/timestamps, a field count, and at most 25 truncated field labels/paths; full report configuration is loaded for detail and edit flows only.
 - Schema-aware alert/report builder option lookup and invalid-selection clearing
   uses `(product_name, schema_version)` as the canonical schema identity. If
   matching devices advertise divergent definitions, the report builder exposes a

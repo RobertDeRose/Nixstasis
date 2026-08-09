@@ -7,6 +7,7 @@ defmodule NixstasisWeb.ReportLive.Index do
   alias NixstasisWeb.Permissions
 
   @default_filters %{"name" => "", "field_query" => "", "field_queries" => []}
+  @report_page_size 50
 
   def mount(_params, session, socket) do
     preference_scope = Reporting.preference_scope(session)
@@ -24,6 +25,9 @@ defmodule NixstasisWeb.ReportLive.Index do
        |> assign(:sort_by, "name")
        |> assign(:sort_dir, "asc")
        |> assign(:filters, @default_filters)
+       |> assign(:page, 1)
+       |> assign(:total_count, 0)
+       |> assign(:total_pages, 1)
        |> assign(:reports, [])}
     else
       {:ok,
@@ -41,27 +45,49 @@ defmodule NixstasisWeb.ReportLive.Index do
          |> put_flash(:error, "You are not authorized to manage reports.")
          |> push_navigate(to: ~p"/reports")}
       else
+        raw_page = params["page"]
+
         merged_view_state =
           params
           |> merge_with_saved_index_preferences(socket.assigns.preference_scope)
 
         view_state = normalize_index_view_state(merged_view_state)
-        preferences_reset? = meaningful_index_view_state?(merged_view_state) and merged_view_state != view_state
 
+        preferences_reset? =
+          meaningful_index_view_state?(merged_view_state) and
+            view_preference_state(merged_view_state) != view_preference_state(view_state)
+
+        total_count = Reporting.count_custom_reports_with_view(report_query_opts(view_state))
+        total_pages = max(div(total_count + @report_page_size - 1, @report_page_size), 1)
+        requested_page = view_state["page"]
+        page = min(requested_page, total_pages)
+        page_reset? = not canonical_page_param?(raw_page, requested_page) or requested_page != page
+        view_state = Map.put(view_state, "page", page)
         reports = load_reports(view_state)
 
-        Reporting.save_view_preferences(socket.assigns.preference_scope, "reports:index", view_state)
+        Reporting.save_view_preferences(
+          socket.assigns.preference_scope,
+          "reports:index",
+          view_preference_state(view_state)
+        )
 
         socket =
           socket
           |> assign(:sort_by, view_state["sort_by"])
           |> assign(:sort_dir, view_state["sort_dir"])
           |> assign(:filters, view_state["filters"])
-          |> assign(:preferences_reset?, preferences_reset?)
+          |> assign(:page, page)
+          |> assign(:total_count, total_count)
+          |> assign(:total_pages, total_pages)
+          |> assign(:preferences_reset?, preferences_reset? or page_reset?)
           |> assign(:reports, reports)
           |> apply_action(socket.assigns.live_action, params)
 
-        {:noreply, socket}
+        if page_reset? do
+          {:noreply, push_patch(socket, to: reports_path(socket, %{"page" => page}))}
+        else
+          {:noreply, socket}
+        end
       end
     else
       {:noreply, socket}
@@ -72,12 +98,12 @@ defmodule NixstasisWeb.ReportLive.Index do
     next_dir =
       if socket.assigns.sort_by == by and socket.assigns.sort_dir == "asc", do: "desc", else: "asc"
 
-    {:noreply, push_patch(socket, to: reports_path(socket, %{"sort_by" => by, "sort_dir" => next_dir}))}
+    {:noreply, push_patch(socket, to: reports_path(socket, %{"sort_by" => by, "sort_dir" => next_dir, "page" => 1}))}
   end
 
   def handle_event("filter_reports", %{"filters" => filters}, socket) do
     normalized_filters = normalize_filters(filters)
-    {:noreply, push_patch(socket, to: reports_path(socket, %{"filters" => normalized_filters}))}
+    {:noreply, push_patch(socket, to: reports_path(socket, %{"filters" => normalized_filters, "page" => 1}))}
   end
 
   def handle_event("add_field_filter_select", %{"field" => selected_field}, socket) do
@@ -93,7 +119,8 @@ defmodule NixstasisWeb.ReportLive.Index do
       |> normalize_field_queries()
       |> Enum.reject(&(&1 == selected_field))
 
-    {:noreply, push_patch(socket, to: reports_path(socket, %{"filters" => %{"field_queries" => field_queries}}))}
+    {:noreply,
+     push_patch(socket, to: reports_path(socket, %{"filters" => %{"field_queries" => field_queries}, "page" => 1}))}
   end
 
   def handle_event("clear_filters", _params, socket) do
@@ -103,7 +130,8 @@ defmodule NixstasisWeb.ReportLive.Index do
          reports_path(socket, %{
            "filters" => @default_filters,
            "sort_by" => socket.assigns.sort_by,
-           "sort_dir" => socket.assigns.sort_dir
+           "sort_dir" => socket.assigns.sort_dir,
+           "page" => 1
          })
      )}
   end
@@ -189,6 +217,7 @@ defmodule NixstasisWeb.ReportLive.Index do
     %{
       "sort_by" => normalize_sort_by(params["sort_by"]),
       "sort_dir" => normalize_sort_dir(params["sort_dir"]),
+      "page" => normalize_page(params["page"]),
       "filters" => filters
     }
   end
@@ -213,6 +242,7 @@ defmodule NixstasisWeb.ReportLive.Index do
     %{
       "sort_by" => params["sort_by"] || saved["sort_by"],
       "sort_dir" => params["sort_dir"] || saved["sort_dir"],
+      "page" => params["page"] || 1,
       "filters" => merge_default_filters(filters)
     }
   end
@@ -226,25 +256,50 @@ defmodule NixstasisWeb.ReportLive.Index do
   defp normalize_sort_dir(dir) when dir in ["asc", "desc"], do: dir
   defp normalize_sort_dir(_), do: "asc"
 
-  defp load_reports(view_state) do
-    Reporting.list_custom_reports_with_view(%{
+  defp normalize_page(page) when is_integer(page) and page > 0, do: page
+
+  defp normalize_page(page) when is_binary(page) do
+    case Integer.parse(page) do
+      {page, ""} when page > 0 -> page
+      _ -> 1
+    end
+  end
+
+  defp normalize_page(_), do: 1
+
+  defp canonical_page_param?(nil, _page), do: true
+
+  defp canonical_page_param?(page, normalized_page) when is_binary(page),
+    do: page == Integer.to_string(normalized_page)
+
+  defp canonical_page_param?(page, normalized_page), do: page == normalized_page
+
+  defp report_query_opts(view_state) do
+    %{
       "sort_by" => view_state["sort_by"],
       "sort_dir" => view_state["sort_dir"],
-      "filters" => [],
       "name_query" => view_state["filters"]["name"],
       "field_query" => view_state["filters"]["field_query"],
       "field_queries" => view_state["filters"]["field_queries"]
-    })
+    }
   end
+
+  defp load_reports(view_state) do
+    Reporting.list_custom_reports_with_view(Map.put(report_query_opts(view_state), "page", view_state["page"]))
+  end
+
+  defp view_preference_state(view_state), do: Map.drop(view_state, ["page"])
 
   defp reports_path(socket, overrides \\ %{}) do
     filters = Map.merge(socket.assigns.filters, overrides["filters"] || %{})
     sort_by = overrides["sort_by"] || socket.assigns.sort_by
     sort_dir = overrides["sort_dir"] || socket.assigns.sort_dir
+    page = overrides["page"] || socket.assigns.page || 1
 
     params = %{
       "sort_by" => sort_by,
       "sort_dir" => sort_dir,
+      "page" => page,
       "filters" => filters
     }
 
@@ -355,7 +410,8 @@ defmodule NixstasisWeb.ReportLive.Index do
         if new_key in existing, do: existing, else: existing ++ [new_key]
       end)
 
-    {:noreply, push_patch(socket, to: reports_path(socket, %{"filters" => %{"field_queries" => field_queries}}))}
+    {:noreply,
+     push_patch(socket, to: reports_path(socket, %{"filters" => %{"field_queries" => field_queries}, "page" => 1}))}
   end
 
   defp field_label_for_key(key, field_options) do
@@ -372,13 +428,44 @@ defmodule NixstasisWeb.ReportLive.Index do
     end)
   end
 
+  defp report_range_label(_page, 0), do: "No reports found"
+
+  defp report_range_label(page, total_count) do
+    first = (page - 1) * @report_page_size + 1
+    last = min(page * @report_page_size, total_count)
+    "Showing #{first}–#{last} of #{total_count} reports"
+  end
+
+  defp report_index_path(sort_by, sort_dir, filters, page) do
+    ~p"/reports?#{report_state_params(sort_by, sort_dir, filters, page)}"
+  end
+
+  defp report_new_path(sort_by, sort_dir, filters, page) do
+    ~p"/reports/new?#{report_state_params(sort_by, sort_dir, filters, page)}"
+  end
+
+  defp report_edit_path(id, sort_by, sort_dir, filters, page) do
+    ~p"/reports/#{id}/edit?#{report_state_params(sort_by, sort_dir, filters, page)}"
+  end
+
+  defp report_state_params(sort_by, sort_dir, filters, page) do
+    %{"sort_by" => sort_by, "sort_dir" => sort_dir, "page" => page, "filters" => filters}
+  end
+
+  defp report_page_path(sort_by, sort_dir, filters, page) do
+    report_index_path(sort_by, sort_dir, filters, page)
+  end
+
   def render(assigns) do
     ~H"""
     <div class="ui-page-shell">
       <.header>
         Custom Reports
         <:actions>
-          <.link :if={@can_manage_reports} patch={~p"/reports/new"}>
+          <.link
+            :if={@can_manage_reports}
+            patch={report_new_path(@sort_by, @sort_dir, @filters, @page)}
+          >
             <.button>Create Report</.button>
           </.link>
         </:actions>
@@ -447,6 +534,33 @@ defmodule NixstasisWeb.ReportLive.Index do
         </button>
       </div>
 
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2" role="status">
+        <span class="text-sm text-base-content/70">
+          {report_range_label(@page, @total_count)}
+        </span>
+        <nav :if={@total_pages > 1} aria-label="Report pages" class="join">
+          <.link
+            :if={@page > 1}
+            patch={report_page_path(@sort_by, @sort_dir, @filters, @page - 1)}
+            class="btn btn-sm join-item"
+            aria-label="Previous report page"
+          >
+            Previous
+          </.link>
+          <span class="btn btn-sm join-item" aria-current="page">
+            Page {@page} of {@total_pages}
+          </span>
+          <.link
+            :if={@page < @total_pages}
+            patch={report_page_path(@sort_by, @sort_dir, @filters, @page + 1)}
+            class="btn btn-sm join-item"
+            aria-label="Next report page"
+          >
+            Next
+          </.link>
+        </nav>
+      </div>
+
       <div class="overflow-x-auto">
         <table class="table table-zebra table-fixed">
           <thead>
@@ -476,7 +590,7 @@ defmodule NixstasisWeb.ReportLive.Index do
                   </button>
                   <.link
                     :if={@can_manage_reports}
-                    patch={~p"/reports/#{row["id"]}/edit"}
+                    patch={report_edit_path(row["id"], @sort_by, @sort_dir, @filters, @page)}
                     class="btn btn-ghost btn-xs px-1 text-info hover:bg-info/10"
                     aria-label={"Edit report #{row["name"]}"}
                     title="Edit report"
@@ -506,14 +620,19 @@ defmodule NixstasisWeb.ReportLive.Index do
         </div>
       <% end %>
 
-      <.modal :if={@live_action in [:new, :edit]} id="report-modal" show on_cancel={JS.patch(~p"/reports")}>
+      <.modal
+        :if={@live_action in [:new, :edit]}
+        id="report-modal"
+        show
+        on_cancel={JS.patch(report_index_path(@sort_by, @sort_dir, @filters, @page))}
+      >
         <.live_component
           module={NixstasisWeb.ReportLive.FormComponent}
           id={@report.id || :new}
           title={@page_title}
           action={@live_action}
           report={@report}
-          patch={~p"/reports"}
+          patch={report_index_path(@sort_by, @sort_dir, @filters, @page)}
         />
       </.modal>
 

@@ -989,6 +989,50 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute has_element?(view, "#report-save-report[disabled]")
   end
 
+  test "reports index paginates rows and reports the current range", %{conn: conn, permissions: permissions} do
+    for index <- 1..51 do
+      report_fixture(%{
+        "name" => "Paged Live #{String.pad_leading(Integer.to_string(index), 2, "0")}",
+        "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
+      })
+    end
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports?page=2&filters[name]=Paged+Live")
+    paged_report = Reporting.list_custom_reports() |> Enum.find(&(&1.name == "Paged Live 51"))
+
+    assert html =~ "Showing 51–51 of 51 reports"
+    assert html =~ "Paged Live 51"
+    refute html =~ "Paged Live 01"
+    assert html =~ "Page 2 of 2"
+    assert html =~ "Previous report page"
+    refute html =~ "Next report page"
+
+    view
+    |> element("a[aria-label=\"Edit report Paged Live 51\"]")
+    |> render_click()
+
+    assert_patch(
+      view,
+      "/reports/#{paged_report.id}/edit?filters[field_query]=&filters[name]=Paged+Live&page=2&sort_by=name&sort_dir=asc"
+    )
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             live(conn, ~p"/reports?page=9&filters[name]=Paged+Live")
+
+    assert to == "/reports?filters[field_query]=&filters[name]=Paged+Live&page=2&sort_by=name&sort_dir=asc"
+  end
+
+  test "reports index canonicalizes malformed page parameters", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+
+    for page <- ["bogus", "0"] do
+      assert {:error, {:live_redirect, %{to: to}}} = live(conn, ~p"/reports?page=#{page}")
+      assert to =~ "/reports?"
+      assert to =~ "page=1"
+    end
+  end
+
   test "reports index uses report title as primary view link and icon-only secondary actions", %{
     conn: conn,
     permissions: permissions
