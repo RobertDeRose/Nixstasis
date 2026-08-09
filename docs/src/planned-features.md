@@ -22,6 +22,8 @@ Operators also need first-class device groups in the Dashboard Devices view so
 they can organize fleets by operational ownership, location, role, or rollout
 cohort instead of relying only on product, account, status, and search filters.
 
+The server UI also needs bounded catalog reads so large fleets, rule catalogs, report definitions, and command-policy categories do not materialize entire collections in LiveView state or browser diffs.
+
 ## Goals
 
 - Provide a repeatable Compose development harness for end-to-end remote-access
@@ -59,6 +61,8 @@ cohort instead of relying only on product, account, status, and search filters.
 - Allowing scripts to grant themselves additional command execution permissions.
 - Treating product name, account number, approval status, or ad hoc search
   filters as a complete replacement for durable operator-managed groups.
+- Keep large LiveView collections bounded in SQL and expose search or pagination instead of silently hiding records.
+- Treat `/alerts/rules` as the canonical rule-management surface; Nixstasis is unreleased and does not retain duplicate legacy UI implementations.
 
 ## Global Constraints
 
@@ -1278,6 +1282,21 @@ cohort instead of relying only on product, account, status, and search filters.
   present in the server catalog.
 - Suggested first workflow command: delivered; see the implemented-feature record for audit and validation evidence.
 
+### Bounded LiveView catalog reads (`bounded-liveview-catalog-reads`)
+
+- Status: planned
+- Beads root: `nixstasis-mol-iuv`
+- Design: [Bounded LiveView Catalog Reads](features/bounded-liveview-catalog-reads/design.md)
+- Sequencing: specification review precedes four parallel surface tasks; query-index work follows the final SQL shapes, then validation and close-out.
+- Overview:
+- Replace unbounded script device, alert-rule, report-index, and command-policy resolver reads with SQL-scoped search/pagination, narrow selects, explicit bounds, and query evidence. Make `/alerts/rules` the single modern rule-management route.
+- Success criteria:
+- Script target selection returns at most 50 authorized search results, preserves selection across searches, and rejects the 251st selected device explicitly.
+- `/alerts/rules` provides the schema-aware paginated rule table/editor while `/alerts` remains the active-alert surface and the duplicate implementation is removed.
+- Reports load 50 definitions per page with URL-preserved filters/sorting and bounded config materialization.
+- Command-policy resolution scopes selected entries/categories in SQL and rejects requests over 2,500 resolved commands without partial policies.
+- Query/load evidence and focused tests demonstrate bounded rows, payloads, authorization, empty states, and boundary behavior.
+
 ## Migrated Legacy Feature History
 
 These entries preserve completed and active feature identities that were present in legacy feature records but omitted
@@ -1290,7 +1309,7 @@ from the current roadmap narrative.
 - Beads root: `nixstasis-inh`
 - Design: [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
 - Delivered record: [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
-- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. The feature was fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; no pull request was created. Legacy `/alerts/rules` consolidation remains outside scope.
+- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. The feature was fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; no pull request was created. Canonical `/alerts/rules` consolidation is planned under `bounded-liveview-catalog-reads`.
 
 ### Dashboard home (`dashboard-home`)
 
