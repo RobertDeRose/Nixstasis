@@ -70,6 +70,8 @@
 - [Implemented Features](features/index.md)
   <!-- BEGIN IMPLEMENTED FEATURES -->
   - [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
+  - [Bounded LiveView Catalog Reads](features/bounded-liveview-catalog-reads/index.md)
+    - [Bounded Catalog Query Evidence](features/bounded-liveview-catalog-reads/query-evidence.md)
   - [Ash API Contract Unification](features/ash-api-contract-unification/index.md)
   - [AtomixOS Bootstrap Provisioning](features/atomixos-bootstrap-provisioning/index.md)
   - [AuthCrunch Role Contract](features/authcrunch-role-contract/index.md)

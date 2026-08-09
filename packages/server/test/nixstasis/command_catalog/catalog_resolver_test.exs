@@ -201,6 +201,30 @@ defmodule Nixstasis.CommandCatalog.CatalogResolverTest do
       assert String.length(snapshot.architecture) == 256
     end
 
+    test "rejects unknown or inactive catalog source IDs before materializing a preview" do
+      unknown_command_id = Ecto.UUID.generate()
+      unknown_category_id = Ecto.UUID.generate()
+
+      assert {:error,
+              {:invalid_catalog_source, %{command_ids: [^unknown_command_id], category_ids: [^unknown_category_id]}}} =
+               Domain.preview_catalog_command_compatibility(%{
+                 catalog_command_ids: [unknown_command_id],
+                 catalog_category_ids: [unknown_category_id]
+               })
+    end
+
+    test "rejects scalar malformed catalog source IDs" do
+      assert {:error, {:invalid_catalog_source, %{command_ids: [123], category_ids: []}}} =
+               Domain.preview_catalog_command_compatibility(%{catalog_command_ids: 123})
+    end
+
+    test "rejects oversized raw catalog source lists before creating blockers" do
+      ids = Enum.map(1..10_001, fn _index -> Ecto.UUID.generate() end)
+
+      assert {:error, {:command_policy_limit_exceeded, %{kind: :source_rows, limit: 10_000, actual: 10_001}}} =
+               Domain.preview_catalog_command_compatibility(%{catalog_command_ids: ids})
+    end
+
     test "rejects more than 2,500 selected catalog commands before loading rows" do
       ids = Enum.map(1..2_501, fn _index -> Ecto.UUID.generate() end)
       now = DateTime.utc_now() |> DateTime.truncate(:microsecond)

@@ -22,7 +22,7 @@ Operators also need first-class device groups in the Dashboard Devices view so
 they can organize fleets by operational ownership, location, role, or rollout
 cohort instead of relying only on product, account, status, and search filters.
 
-The server UI also needs bounded catalog reads so large fleets, rule catalogs, report definitions, and command-policy categories do not materialize entire collections in LiveView state or browser diffs.
+The server UI now has bounded catalog reads so large fleets, rule catalogs, report definitions, and command-policy categories do not materialize entire collections in LiveView state or browser diffs. Delivered behavior and evidence are recorded in [Bounded LiveView Catalog Reads](features/bounded-liveview-catalog-reads/index.md).
 
 ## Goals
 
@@ -1284,10 +1284,11 @@ The server UI also needs bounded catalog reads so large fleets, rule catalogs, r
 
 ### Bounded LiveView catalog reads (`bounded-liveview-catalog-reads`)
 
-- Status: planned
+- Status: delivered
+- Implemented record: [Bounded LiveView Catalog Reads](features/bounded-liveview-catalog-reads/index.md)
 - Beads root: `nixstasis-mol-iuv`
 - Design: [Bounded LiveView Catalog Reads](features/bounded-liveview-catalog-reads/design.md)
-- Sequencing: specification review precedes four parallel surface tasks; query-index work follows the final SQL shapes, then validation and close-out.
+- Delivery: implementation, query/index evidence, validation, and close-out are recorded in the implemented-feature record.
 - Overview:
 - Replace unbounded script device, alert-rule, report-index, and command-policy resolver reads with SQL-scoped search/pagination, narrow selects, explicit bounds, and query evidence. Make `/alerts/rules` the single modern rule-management route.
 - Success criteria:
@@ -1309,7 +1310,7 @@ from the current roadmap narrative.
 - Beads root: `nixstasis-inh`
 - Design: [Add Rule Modal Improvements](features/add-rule-modal-improvements/design.md)
 - Delivered record: [Add Rule Modal Improvements](features/add-rule-modal-improvements/index.md)
-- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. The feature was fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; no pull request was created. Canonical `/alerts/rules` consolidation is planned under `bounded-liveview-catalog-reads`.
+- Completion notes: The `/alerts` Add/Edit Rule modal now has accessible dialog/error associations, contained focus including nested discard confirmation, keyboard save behavior, preserved validation feedback, globally case-insensitive rule-name enforcement, per-LiveView duplicate-submit protection, first-valid-operator recovery after field changes, and schema field type labels such as `Temp (number)`. SC-001, SC-002, and SC-004 measurements remain deferred because no defensible baseline or controlled observation window exists; no metric pass/fail is claimed. The feature was fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; no pull request was created. Canonical `/alerts/rules` consolidation is delivered under `bounded-liveview-catalog-reads`; see the implemented record.
 
 ### Dashboard home (`dashboard-home`)
 

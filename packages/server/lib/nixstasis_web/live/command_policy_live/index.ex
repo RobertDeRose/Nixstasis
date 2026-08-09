@@ -443,17 +443,15 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     }
   end
 
-  defp list_param(values) when is_list(values), do: Enum.filter(values, &is_binary/1)
+  defp list_param(values) when is_list(values), do: values
   defp list_param(value) when is_binary(value) and value != "", do: [value]
-  defp list_param(_), do: []
+  defp list_param(nil), do: []
+  defp list_param(value), do: [value]
 
   defp scope_assignment_attrs(attrs, socket) do
     allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
-    catalog_category_ids = MapSet.new(Enum.map(socket.assigns.catalog_categories, & &1.id))
 
-    attrs
-    |> Map.update!("device_ids", &Enum.filter(&1, fn id -> MapSet.member?(allowed_device_ids, id) end))
-    |> Map.update!("catalog_category_ids", &Enum.filter(&1, fn id -> MapSet.member?(catalog_category_ids, id) end))
+    Map.update!(attrs, "device_ids", &Enum.filter(&1, fn id -> MapSet.member?(allowed_device_ids, id) end))
   end
 
   defp build_assignment_preview(socket, attrs) do
@@ -521,7 +519,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   end
 
   defp preview_error_message({:invalid_catalog_source, _details}) do
-    "One or more selected catalog categories are no longer available; refresh and choose valid sources"
+    "One or more selected catalog commands or categories are no longer available; refresh and choose valid sources"
   end
 
   defp preview_error_message(_reason), do: "Failed to preview assignment"

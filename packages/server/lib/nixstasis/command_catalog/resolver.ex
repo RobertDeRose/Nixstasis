@@ -53,16 +53,22 @@ defmodule Nixstasis.CommandCatalog.Resolver do
   end
 
   def preflight(attrs) when is_map(attrs) do
-    command_ids = normalize_ids(Map.get(attrs, :catalog_command_ids, Map.get(attrs, "catalog_command_ids", [])))
-    category_ids = normalize_ids(Map.get(attrs, :catalog_category_ids, Map.get(attrs, "catalog_category_ids", [])))
+    raw_command_ids = Map.get(attrs, :catalog_command_ids, Map.get(attrs, "catalog_command_ids", []))
+    raw_category_ids = Map.get(attrs, :catalog_category_ids, Map.get(attrs, "catalog_category_ids", []))
 
-    with {:ok, category_slugs, valid_category_ids} <- selected_category_slugs(category_ids),
+    with :ok <- enforce_raw_source_limit(raw_command_ids, raw_category_ids),
+         {command_ids, invalid_command_ids} <- normalize_ids_with_invalid(raw_command_ids),
+         {category_ids, invalid_category_ids} <- normalize_ids_with_invalid(raw_category_ids),
+         :ok <- validate_id_syntax(invalid_command_ids, invalid_category_ids),
+         {:ok, category_slugs, valid_category_ids} <- selected_category_slugs(category_ids),
+         {:ok, active_direct_command_ids} <-
+           validate_catalog_sources(command_ids, category_ids, valid_category_ids),
          {:ok, source_row_count, command_count} <- selected_catalog_counts(command_ids, category_slugs),
          :ok <- enforce_limits(source_row_count, command_count) do
       {:ok,
        %{
          command_ids: selected_catalog_command_ids(command_ids, category_slugs),
-         direct_command_ids: active_direct_catalog_command_ids(command_ids),
+         direct_command_ids: active_direct_command_ids,
          category_ids: category_ids,
          valid_category_ids: valid_category_ids,
          category_slugs: category_slugs,
@@ -125,6 +131,20 @@ defmodule Nixstasis.CommandCatalog.Resolver do
       active == true and
         (id in ^command_ids or intersects(category_slugs, ^category_slugs))
     )
+  end
+
+  defp validate_catalog_sources(command_ids, category_ids, valid_category_ids) do
+    active_command_ids = active_direct_catalog_command_ids(command_ids)
+    invalid_command_ids = MapSet.difference(MapSet.new(command_ids), MapSet.new(active_command_ids))
+    invalid_category_ids = MapSet.difference(MapSet.new(category_ids), MapSet.new(valid_category_ids))
+
+    if MapSet.size(invalid_command_ids) == 0 and MapSet.size(invalid_category_ids) == 0 do
+      {:ok, active_command_ids}
+    else
+      {:error,
+       {:invalid_catalog_source,
+        %{command_ids: MapSet.to_list(invalid_command_ids), category_ids: MapSet.to_list(invalid_category_ids)}}}
+    end
   end
 
   defp selected_catalog_counts(command_ids, category_slugs) do
@@ -341,16 +361,42 @@ defmodule Nixstasis.CommandCatalog.Resolver do
     end
   end
 
-  defp normalize_ids(ids) when is_list(ids) do
-    ids
-    |> Enum.flat_map(fn id ->
-      case Ecto.UUID.cast(id) do
-        {:ok, uuid} -> [uuid]
-        :error -> []
-      end
-    end)
-    |> Enum.uniq()
+  defp enforce_raw_source_limit(command_ids, category_ids) do
+    count = list_length(command_ids) + list_length(category_ids)
+
+    if count > @source_row_limit do
+      limit_error(:source_rows, @source_row_limit, count)
+    else
+      :ok
+    end
   end
 
-  defp normalize_ids(_), do: []
+  defp list_length(ids) when is_list(ids), do: length(ids)
+  defp list_length(_), do: 0
+
+  defp validate_id_syntax([], []), do: :ok
+
+  defp validate_id_syntax(invalid_command_ids, invalid_category_ids) do
+    {:error, {:invalid_catalog_source, %{command_ids: invalid_command_ids, category_ids: invalid_category_ids}}}
+  end
+
+  defp normalize_ids_with_invalid(ids) when is_list(ids) do
+    {valid, invalid} =
+      Enum.reduce(ids, {[], []}, fn id, {valid, invalid} ->
+        case Ecto.UUID.cast(id) do
+          {:ok, uuid} -> {[uuid | valid], invalid}
+          :error -> {valid, [id | invalid]}
+        end
+      end)
+
+    {Enum.uniq(valid), Enum.reverse(invalid)}
+  end
+
+  defp normalize_ids_with_invalid(nil), do: {[], []}
+  defp normalize_ids_with_invalid(value), do: {[], [value]}
+
+  defp normalize_ids(ids) do
+    {valid, _invalid} = normalize_ids_with_invalid(ids)
+    valid
+  end
 end

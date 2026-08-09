@@ -264,7 +264,9 @@ defmodule Nixstasis.BoundedCatalogQueryEvidenceTest do
       measure_call(fn -> Domain.preflight_command_policy(%{catalog_command_ids: catalog_ids}) end)
 
     assert {:error, {:command_policy_limit_exceeded, %{kind: :source_rows, actual: 10_001}}} = result
-    assert query_count >= 3
+    # Combined preflight still validates the empty manual source through SQL before
+    # the catalog resolver rejects the oversized raw list without catalog reads.
+    assert query_count == 3
     assert payload_bytes < 1_000
   end
 

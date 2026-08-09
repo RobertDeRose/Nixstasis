@@ -7,7 +7,7 @@
 - Design path: `docs/src/features/bounded-liveview-catalog-reads/design.md`
 - Implemented record: `docs/src/features/bounded-liveview-catalog-reads/index.md`
 - Base branch: `dev`
-- Status: draft
+- Status: delivered
 
 ## Feature Summary
 
@@ -196,7 +196,7 @@ Operators will see bounded, searchable pages rather than an entire catalog. Larg
 | Usage / Operations         | `docs/src/operations/script-workbench.md`                   | Update                  | Document search-first target selection, selected-device persistence, 250-device cap, and retry behavior. | `nixstasis-mol-594.1`                         |
 | Architecture               | `docs/src/modules/server-reporting.md`                      | Update                  | Document report-index pagination, URL state, and bounded config materialization.                         | `nixstasis-mol-594.3`                         |
 | Usage / Operations         | `docs/src/operations/command-policies.md`                   | Update                  | Document over-limit policy previews and operator narrowing guidance.                                     | `nixstasis-mol-594.4`                         |
-| Navigation                 | `docs/src/SUMMARY.md`                                       | No change               | Existing pages are reused; no new page is required.                                                      | Not applicable                                |
+| Navigation                 | `docs/src/SUMMARY.md`                                       | Update                  | Register the implemented feature record alongside the existing design record.                            | `nixstasis-mol-8bs`                           |
 | Implemented Feature Record | `docs/src/features/bounded-liveview-catalog-reads/index.md` | Create during close-out | Preserve delivery and audit history.                                                                     | `nixstasis-mol-8bs`                           |
 
 ## Validation Strategy

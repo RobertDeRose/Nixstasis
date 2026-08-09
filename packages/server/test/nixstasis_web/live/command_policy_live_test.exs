@@ -93,6 +93,62 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
   end
 
+  test "assignment preview rejects stale catalog source IDs without queueing", %{conn: conn} do
+    stale_command_id = Ecto.UUID.generate()
+    stale_category_id = Ecto.UUID.generate()
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => [stale_command_id],
+        "catalog_category_ids" => [stale_category_id]
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
+  test "assignment preview rejects mixed malformed catalog source IDs", %{conn: conn} do
+    %{command: command} = create_catalog_fixture()
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => [command.id, 123],
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
+  test "assignment preview rejects scalar malformed catalog source IDs", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => 123,
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
   test "catalog search filters catalog command options", %{conn: conn} do
     create_catalog_fixture()
 
@@ -179,7 +235,7 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     {:ok, _command} = Domain.update_command_catalog_command(command, %{active: false})
 
     assert render_click(element(view, "button", "Confirm and queue")) =~
-             "Preview must be conflict-free and catalog-compatible before assignment"
+             "catalog commands or categories are no longer available"
 
     assignments = Domain.list_command_policy_assignments() |> elem(1)
     refute Enum.any?(assignments, &(&1.device_id == device.id))
