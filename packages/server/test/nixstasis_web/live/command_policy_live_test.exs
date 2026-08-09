@@ -76,6 +76,23 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     refute Enum.any?(assignments, &(&1.device_id == other_device.id))
   end
 
+  test "assignment preview rejects invalid manual source IDs", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => ["not-a-uuid"],
+        "category_ids" => [],
+        "catalog_command_ids" => [],
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
   test "catalog search filters catalog command options", %{conn: conn} do
     create_catalog_fixture()
 
@@ -203,6 +220,7 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     sources = Domain.list_command_policy_assignment_sources() |> elem(1)
     catalog_source = Enum.find(sources, &(&1.assignment_id == assignment.id and &1.source_kind == "catalog_category"))
+    refute Enum.any?(sources, &(&1.assignment_id == assignment.id and &1.source_kind == "catalog_command"))
     assert catalog_source.source_snapshot["catalog_version"] == "catalog-v1"
     assert catalog_source.source_snapshot["catalog_category_id"] == category.id
     assert catalog_source.source_snapshot["resolved_commands"]["df"]["package_name"] == "coreutils"

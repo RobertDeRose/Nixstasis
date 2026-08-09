@@ -165,8 +165,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
       {:ok, scoped_attrs, preview} ->
         {:noreply, assign(socket, assignment_form: scoped_attrs, assignment_preview: preview)}
 
-      _ ->
-        {:noreply, put_flash(socket, :error, "Failed to preview assignment")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, preview_error_message(reason))}
     end
   end
 
@@ -198,8 +198,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
              |> assign(assignment_form: scoped_form, assignment_preview: current_preview)
              |> put_flash(:error, "Preview must be conflict-free and catalog-compatible before assignment")}
 
-          _ ->
-            {:noreply, put_flash(socket, :error, "Failed to refresh assignment preview")}
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, preview_error_message(reason))}
         end
     end
   end
@@ -449,12 +449,10 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
 
   defp scope_assignment_attrs(attrs, socket) do
     allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
-    active_catalog_command_ids = MapSet.new(Enum.map(all_active_catalog_commands(), & &1.id))
     catalog_category_ids = MapSet.new(Enum.map(socket.assigns.catalog_categories, & &1.id))
 
     attrs
     |> Map.update!("device_ids", &Enum.filter(&1, fn id -> MapSet.member?(allowed_device_ids, id) end))
-    |> Map.update!("catalog_command_ids", &Enum.filter(&1, fn id -> MapSet.member?(active_catalog_command_ids, id) end))
     |> Map.update!("catalog_category_ids", &Enum.filter(&1, fn id -> MapSet.member?(catalog_category_ids, id) end))
   end
 
@@ -462,33 +460,45 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     requested_attrs = attrs
     attrs = scope_assignment_attrs(attrs, socket)
 
-    with {:ok, manual_preview} <-
-           Domain.preview_command_policy(%{entry_ids: attrs["entry_ids"], category_ids: attrs["category_ids"]}),
+    with {:ok, bounds} <- Domain.preflight_command_policy(attrs),
+         scoped_attrs =
+           attrs
+           |> Map.put("entry_ids", bounds.manual.active_entry_ids)
+           |> Map.put("category_ids", bounds.manual.valid_category_ids)
+           |> Map.put("catalog_command_ids", bounds.catalog.direct_command_ids)
+           |> Map.put("catalog_category_ids", bounds.catalog.valid_category_ids),
+         {:ok, manual_preview} <-
+           Domain.preview_command_policy(%{
+             entry_ids: scoped_attrs["entry_ids"],
+             category_ids: scoped_attrs["category_ids"]
+           }),
          {:ok, catalog_preview} <-
            Domain.preview_catalog_command_compatibility(%{
-             device_ids: attrs["device_ids"],
-             catalog_command_ids: selected_catalog_command_ids(socket, attrs)
+             device_ids: scoped_attrs["device_ids"],
+             catalog_command_ids: scoped_attrs["catalog_command_ids"],
+             catalog_category_ids: scoped_attrs["catalog_category_ids"]
            }) do
       preview =
         manual_preview
-        |> Map.put(:device_ids, attrs["device_ids"])
+        |> Map.put(:device_ids, scoped_attrs["device_ids"])
         |> Map.put(:catalog, catalog_preview)
         |> Map.put(
           :catalog_blockers,
-          catalog_blockers(catalog_preview, manual_preview.commands) ++ dropped_catalog_blockers(requested_attrs, attrs)
+          catalog_blockers(catalog_preview, manual_preview.commands) ++
+            dropped_catalog_blockers(requested_attrs, catalog_preview)
         )
         |> Map.put(:catalog_commands, catalog_commands_for_devices(catalog_preview))
 
-      {:ok, attrs, preview}
+      {:ok, scoped_attrs, preview}
     end
   end
 
-  defp dropped_catalog_blockers(requested_attrs, scoped_attrs) do
+  defp dropped_catalog_blockers(requested_attrs, catalog_preview) do
     requested_command_ids = MapSet.new(requested_attrs["catalog_command_ids"])
-    scoped_command_ids = MapSet.new(scoped_attrs["catalog_command_ids"])
+    selected_command_ids = MapSet.new(catalog_preview.selected_catalog_command_ids)
 
     requested_command_ids
-    |> MapSet.difference(scoped_command_ids)
+    |> MapSet.difference(selected_command_ids)
     |> Enum.map(fn id ->
       %{
         status: :catalog_command_unavailable,
@@ -498,22 +508,23 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     end)
   end
 
-  defp selected_catalog_command_ids(socket, attrs) do
-    selected_category_ids = MapSet.new(attrs["catalog_category_ids"])
-
-    selected_category_slugs =
-      socket.assigns.catalog_categories
-      |> Enum.filter(&MapSet.member?(selected_category_ids, &1.id))
-      |> MapSet.new(& &1.slug)
-
-    from_categories =
-      all_active_catalog_commands()
-      |> Enum.filter(fn command -> Enum.any?(command.category_slugs, &MapSet.member?(selected_category_slugs, &1)) end)
-      |> Enum.map(& &1.id)
-
-    (attrs["catalog_command_ids"] ++ from_categories)
-    |> Enum.uniq()
+  defp preview_error_message({:command_policy_limit_exceeded, %{kind: :commands, limit: limit}}) do
+    "Selection resolves to more than #{limit} commands; narrow the selected entries, categories, or catalog commands"
   end
+
+  defp preview_error_message({:command_policy_limit_exceeded, %{kind: :source_rows, limit: limit}}) do
+    "Selection contains more than #{limit} policy source rows; narrow the selected entries or categories"
+  end
+
+  defp preview_error_message({:invalid_manual_source, _details}) do
+    "One or more selected manual entries or categories are no longer available; refresh and choose valid sources"
+  end
+
+  defp preview_error_message({:invalid_catalog_source, _details}) do
+    "One or more selected catalog categories are no longer available; refresh and choose valid sources"
+  end
+
+  defp preview_error_message(_reason), do: "Failed to preview assignment"
 
   defp catalog_blockers(catalog_preview, manual_commands) do
     catalog_preview.devices
@@ -711,10 +722,6 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     |> Ash.Query.select([:id, :slug, :display_name, :description])
     |> Ash.read!(domain: Domain)
     |> List.first()
-  end
-
-  defp all_active_catalog_commands do
-    list_catalog_commands(%{})
   end
 
   defp catalog_command_options(params), do: list_catalog_commands(params)

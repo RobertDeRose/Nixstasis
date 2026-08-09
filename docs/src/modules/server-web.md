@@ -126,6 +126,8 @@ test commands, and `install_script` deployment commands. Device results enter th
 authenticated device command controller and remain separate from operator audit identity.
 See [Server Scripts](server-scripts.md) and [Stary Script Workbench](../operations/script-workbench.md).
 
+Command-policy previews use SQL-scoped resolver reads for selected manual and catalog sources. The LiveView passes category selections to the resolver rather than expanding categories from a truncated in-memory catalog; previews fail explicitly above 2,500 resolved commands or 10,000 source rows.
+
 Legacy `/api/v1` compatibility routes and bespoke controller routes:
 
 - `GET /api/v1/builder-schemas`

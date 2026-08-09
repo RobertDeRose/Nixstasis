@@ -24,6 +24,8 @@ Use the **Device Assignments** section:
 
 The server queues an `apply_command_policy` command through the existing heartbeat command pipeline. Catalog-backed selections still deliver absolute command paths in that payload; package names and inventory evidence are used only to decide whether the server can safely resolve those paths. Large payloads use the existing command-payload reference endpoint.
 
+Previews are scoped to the selected entries, categories, catalog commands, and catalog categories in SQL. The server rejects a selection that resolves more than 2,500 distinct commands or 10,000 policy source rows; it never silently truncates a category. Narrow the selection and preview again when either limit is reached.
+
 ## Revoke and retry
 
 - **Retry/resend** requeues the same assignment payload.
