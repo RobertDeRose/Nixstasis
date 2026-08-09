@@ -50,7 +50,7 @@ The user accepted these UX decisions:
 
 The test and deployment tabs show a search-first picker. A query returns at most 50 authorized devices, ordered deterministically by product name and MAC address. Search is normalized and applied in SQL across the existing device-identifying fields. Selection is represented by IDs plus separately loaded compact labels, so changing the query does not clear selected devices or require the full fleet in the socket.
 
-Selected devices remain visible as chips or a selected summary even when they are not in the current result page. The count is shown. A user may select at most 250 devices; selecting a 251st device is rejected with an actionable message and no partial state change. The same cap is enforced by `Nixstasis.Scripts.queue_test_run/4` and `queue_deployment/4`, so non-UI callers cannot bypass it. Queueing, deployment, and retry reload the selected or historical target IDs through bounded, authorization-scoped queries rather than assuming every target is present in the current search result. Historical runs over the new cap remain readable but retry fails all-or-none with an explicit narrowing message.
+Selected devices remain visible as chips or a selected summary even when they are not in the current result page. The count is shown. A user may select at most 250 devices; selecting a 251st device is rejected with an actionable message and no partial state change. The same cap is enforced by `Nixstasis.Scripts.queue_test_run/4` and `queue_deployment/4`, so non-UI callers cannot bypass it. Queueing, deployment, and retry reload the selected or historical target IDs through bounded, authorization-scoped queries rather than assuming every target is present in the current search result. Script history rows expose a SQL-derived target count instead of materializing complete historical target ID arrays; retry checks that count before loading IDs. Historical runs over the new cap remain readable but retry fails all-or-none with an explicit narrowing message.
 
 ### Alert rules
 
@@ -70,7 +70,7 @@ Preview and assignment paths resolve only requested command-entry and category I
 
 1. Every target collection query has a SQL-level filter/scope, deterministic order, and finite limit before loading results.
 2. Authorization filters are applied in SQL wherever the resource/query boundary supports them; in-memory checks remain defense-in-depth.
-3. Selected script device IDs persist across search changes and are revalidated before queue/retry side effects.
+3. Selected script device IDs persist across search changes and are revalidated before queue/retry side effects. Script history target counts are computed in SQL, and historical IDs are loaded only after an in-bound retry preflight.
 4. `/alerts/rules` is the only rule-management UI; duplicate route/module behavior is removed rather than preserved as a compatibility surface.
 5. Rule and report pagination/filter state is URL-addressable and stable across LiveView patches.
 6. Command-policy resolution is exact within its explicit bound and fails closed above it.
@@ -110,6 +110,7 @@ Established bounded patterns include `@collection_limit 250`, 50-row script hist
 ### Ownership
 
 - `Nixstasis.Devices` owns compact, authorization-scoped script target search and selected-target reload helpers.
+- `Nixstasis.Scripts` owns bounded history target counts and retry preflight before loading historical IDs.
 - `ScriptLive.Show` owns search state, selected ID state, 250-selection UX, and target-picker rendering.
 - `AlertLive.Index` owns the canonical `/alerts/rules` table/editor and SQL-backed rule page state.
 - `Nixstasis.Reporting` and `ReportLive.Index` own bounded report index query/state behavior.
@@ -120,6 +121,7 @@ Established bounded patterns include `@collection_limit 250`, 50-row script hist
 
 - Picker result limit: 50 devices per query.
 - Picker selection limit: 250 authorized device IDs.
+- Script history target count is SQL-derived; full target ID arrays are not assigned to the LiveView before retry preflight.
 - Rule page size: 50 rows.
 - Report page size: 50 rows.
 - Command-policy resolution limit: 2,500 distinct resolved command names.
