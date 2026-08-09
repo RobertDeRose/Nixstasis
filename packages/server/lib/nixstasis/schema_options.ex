@@ -93,19 +93,25 @@ defmodule Nixstasis.SchemaOptions do
         |> Devices.list_canonical_schema_definitions()
         |> Map.new(&{{&1.schema_id, &1.schema_version}, &1})
 
-      {options, errors} =
-        Enum.reduce(schema_refs, {[], []}, fn ref, {options, errors} ->
+      {options, errors, options_by_identity} =
+        Enum.reduce(schema_refs, {[], [], %{}}, fn ref, {options, errors, by_identity} ->
           identity = {schema_ref_value(ref, :schema_id), schema_ref_value(ref, :schema_version)}
 
           case Map.get(definitions_by_identity, identity) do
             nil ->
-              {options, [:not_found | errors]}
+              {options, [:not_found | errors], Map.put_new(by_identity, identity, {:error, :not_found})}
 
             %{conflict?: true} ->
-              {options, [:conflict | errors]}
+              {options, [:conflict | errors], Map.put_new(by_identity, identity, {:error, :conflict})}
 
             %{schema: schema} ->
-              {[Normalizer.normalize(schema) | options], errors}
+              normalized_options = Normalizer.normalize(schema)
+
+              {
+                [normalized_options | options],
+                errors,
+                Map.put_new(by_identity, identity, {:ok, normalized_options})
+              }
           end
         end)
 
@@ -113,7 +119,8 @@ defmodule Nixstasis.SchemaOptions do
        %{
          builder: normalized_builder,
          options: List.flatten(options),
-         errors: Enum.uniq(errors)
+         errors: Enum.uniq(errors),
+         options_by_identity: options_by_identity
        }}
     else
       {:error, :invalid} -> {:error, :invalid}

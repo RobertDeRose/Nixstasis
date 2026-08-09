@@ -21,7 +21,6 @@
 - `packages/server/lib/nixstasis/monitoring/alert.ex`
 - `packages/server/lib/nixstasis/monitoring/alert_rule.ex`
 - `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
-- `packages/server/lib/nixstasis_web/live/alerts/rules_live.ex`
 
 ## Public Interfaces
 
@@ -63,7 +62,7 @@
 
 ### Alert rule modal contract
 
-The `/alerts` Add/Edit Rule modal remains a browser-only LiveView interaction.
+The `/alerts/rules` Add/Edit Rule modal remains a browser-only LiveView interaction. The rule index applies SQL-side search, deterministic sorting, and 50-row pagination before materialization; `/alerts` remains the active-alert surface.
 It preserves alert-rule evaluation semantics while providing globally
 case-insensitive rule names, explicit dialog name/description associations,
 announced validation feedback, contained keyboard focus (including nested

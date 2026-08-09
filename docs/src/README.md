@@ -44,9 +44,9 @@ Traceable references:
   - `/devices/new`
   - `/devices/:id`
   - `/alerts`
-  - `/alerts/new`
-  - `/alerts/:id/edit`
   - `/alerts/rules`
+  - `/alerts/rules/new`
+  - `/alerts/rules/:id/edit`
   - `/reports`
   - `/reports/new`
   - `/reports/:id/edit`
@@ -73,7 +73,6 @@ Traceable references:
 - `NixstasisWeb.DeviceLive.Index`
 - `NixstasisWeb.DeviceLive.Show`
 - `NixstasisWeb.AlertLive.Index`
-- `NixstasisWeb.AlertLive.Rules`
 - `NixstasisWeb.ReportLive.Index`
 - `NixstasisWeb.ReportLive.Show`
 - `NixstasisWeb.SettingsLive`

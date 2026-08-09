@@ -38,8 +38,9 @@ now globally unique without regard to case; evaluation and notification semantic
 
 The implementation refines the existing alert LiveView, `CoreComponents.modal`, `SchemaOptions`, `AlertRule`, and
 `Monitoring` name-lookup patterns. The browser-only interaction uses `AshPhoenix.Form` and `Nixstasis.Domain` directly;
-it does not add an Ash JSON:API route or Phoenix controller. The legacy `/alerts/rules` LiveView remains outside this
-focused modal work, with route consolidation deferred.
+it does not add an Ash JSON:API route or Phoenix controller. The modal work did not itself alter the route boundary;
+the later bounded LiveView catalog reads feature now owns the canonical `/alerts/rules` LiveView index and nested editor
+routes.
 
 ## Operational Impact
 
@@ -91,13 +92,15 @@ operator recovery, and schema type labels were delivered without changing alert 
 
 ### Intentional Changes
 
-The feature remains a browser-only LiveView refinement. It does not consolidate `/alerts` with the legacy
-`/alerts/rules` surface or introduce a new externally consumed API contract.
+The feature remains a browser-only LiveView refinement and did not itself consolidate `/alerts` with the rules surface.
+The later bounded LiveView catalog reads feature delivered the canonical `/alerts/rules` surface without introducing a
+new externally consumed API contract.
 
 ### Deferred Work
 
 - Capture the planned usability baselines and timed observations when a valid operator observation window exists.
-- Decide whether the legacy `/alerts/rules` route should be retired, redirected, or explicitly supported.
+- Route consolidation is delivered by the bounded LiveView catalog reads feature; this feature retains no route-decision
+follow-up.
 
 ### Rejected or Removed Scope
 

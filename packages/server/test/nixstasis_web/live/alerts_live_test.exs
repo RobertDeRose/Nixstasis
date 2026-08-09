@@ -178,7 +178,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     render_submit(element(view, "#alert-rule-form"), form_params)
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
     assert render(view) =~ "Rule created successfully"
     assert has_element?(view, "#alert-rule-success[role='status']", "Rule created successfully")
 
@@ -308,10 +308,10 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
 
     view
-    |> element("a[href='/alerts/new?tab=rules']", "Add Rule")
+    |> element("a#alert-add-rule", "Add Rule")
     |> render_click()
 
     render_submit(element(view, "#alert-rule-form"), %{
@@ -359,7 +359,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
     assert render(view) =~ "Rule updated successfully"
 
     updated_rule = Domain.get_rule!(rule.id)
@@ -404,7 +404,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
 
     updated_rule = Domain.get_rule!(rule.id)
     assert updated_rule.condition_field == "status"
@@ -487,7 +487,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
     refute render(view) =~ "Threshold value is invalid for the selected field type."
 
     updated_rule = Domain.get_rule!(rule.id)
@@ -535,7 +535,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
     updated_rule = Domain.get_rule!(rule.id)
     assert updated_rule.name == "Original immutable name"
     assert updated_rule.product_name == "weather-editable"
@@ -647,7 +647,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     assert html =~ "phx-hook=\"AlertRuleBuilderKeyboard\""
     assert has_element?(view, "#alert-rule-form[data-initial-focus-id='alert-rule-name']")
-    refute has_element?(view, "#rule-modal[data-focus-return-target]")
+    assert has_element?(view, "#rule-modal[data-focus-return-target='alert-add-rule']")
     assert has_element?(view, "#alert-add-rule")
     assert has_element?(view, "#alert-schema-id")
     assert has_element?(view, "#alert-rule-save")
@@ -662,7 +662,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         threshold_value: "ok"
       })
 
-    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
 
     render_click(element(view, "button[phx-click='confirm_delete_rule'][phx-value-id='#{rule.id}']"))
 
@@ -828,7 +828,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
     assert render(view) =~ "Rule created successfully"
   end
 
@@ -852,6 +852,104 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert has_element?(view, "#alert-rule-validation-error[role='alert']")
   end
 
+  test "tab query redirects to the canonical rules route", %{conn: conn} do
+    assert {:error, {:live_redirect, %{to: "/alerts/rules"}}} = live(conn, ~p"/alerts?tab=rules")
+  end
+
+  test "stale nested rule pages preserve the editor route", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        name: "Nested page rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    assert {:error, {:live_redirect, %{to: "/alerts/rules/new"}}} =
+             live(conn, ~p"/alerts/rules/new?page=99")
+
+    edit_path = ~p"/alerts/rules/#{rule.id}/edit"
+
+    assert {:error, {:live_redirect, %{to: ^edit_path}}} =
+             live(conn, ~p"/alerts/rules/#{rule.id}/edit?page=0")
+  end
+
+  test "rules index paginates and reports the current range", %{conn: conn} do
+    for index <- 1..51 do
+      {:ok, _rule} =
+        Domain.create_rule(%{
+          name: "Paged Rule #{String.pad_leading(Integer.to_string(index), 2, "0")}",
+          product_name: "alert-schema-product",
+          condition_field: "temp",
+          operator: ">",
+          threshold_value: Integer.to_string(index)
+        })
+    end
+
+    {:ok, view, html} = live(conn, ~p"/alerts/rules?page=2")
+
+    assert html =~ "Showing 51–51 of 51 alert rules"
+    assert html =~ "Paged Rule 51"
+    refute html =~ "Paged Rule 01"
+    assert html =~ "Page 2 of 2"
+    assert has_element?(view, "a[aria-label='Previous alert rule page']")
+    refute has_element?(view, "a[aria-label='Next alert rule page']")
+
+    assert {:error, {:live_redirect, %{to: to}}} = live(conn, ~p"/alerts/rules?page=99")
+    assert to =~ "page=2"
+  end
+
+  test "rules index filters in SQL and preserves an empty state", %{conn: conn} do
+    {:ok, _matching} =
+      Domain.create_rule(%{
+        name: "Needle Rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    {:ok, _other} =
+      Domain.create_rule(%{
+        name: "Other Rule",
+        product_name: "alert-schema-product",
+        condition_field: "status",
+        operator: "is",
+        threshold_value: "ok"
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/alerts/rules?filters[query]=Needle")
+    assert html =~ "Needle Rule"
+    refute html =~ "Other Rule"
+
+    {:ok, _view, empty_html} = live(conn, ~p"/alerts/rules?filters[query]=missing")
+    assert empty_html =~ "No rules defined yet."
+    assert empty_html =~ "Showing 0 alert rules"
+
+    {:ok, _literal} =
+      Domain.create_rule(%{
+        name: "Literal 100% Rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "100"
+      })
+
+    {:ok, _wildcard} =
+      Domain.create_rule(%{
+        name: "Literal 100x Rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "100"
+      })
+
+    {:ok, _view, literal_html} = live(conn, ~p"/alerts/rules?filters[query]=100%25")
+    assert literal_html =~ "Literal 100% Rule"
+    refute literal_html =~ "Literal 100x Rule"
+  end
+
   test "rules table presents one readable condition column", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{
@@ -862,7 +960,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         threshold_value: "75"
       })
 
-    {:ok, view, html} = live(conn, ~p"/alerts?tab=rules")
+    {:ok, view, html} = live(conn, ~p"/alerts/rules")
 
     assert html =~ "Filter rules"
     assert html =~ "Clear"
@@ -885,7 +983,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         threshold_value: "ok"
       })
 
-    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
 
     assert render(view) =~ "Deprecated"
 
@@ -902,11 +1000,11 @@ defmodule NixstasisWeb.AlertsLiveTest do
         threshold_value: "90"
       })
 
-    {:ok, view, _html} = live(conn, ~p"/alerts?tab=rules")
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
 
     render_click(element(view, "button[phx-click='edit_rule'][phx-value-id='#{rule.id}']"))
 
-    assert_patch(view, ~p"/alerts/#{rule.id}/edit?tab=rules")
+    assert_patch(view, ~p"/alerts/rules/#{rule.id}/edit")
     assert has_element?(view, "#rule-modal[data-focus-return-target='alert-edit-rule-#{rule.id}']")
     assert has_element?(view, "#rule-modal")
     assert render(view) =~ "Edit Rule"
@@ -944,7 +1042,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
       }
     })
 
-    assert_patch(view, ~p"/alerts?tab=rules")
+    assert_patch(view, ~p"/alerts/rules")
 
     assert Enum.any?(Domain.list_rules!(), fn rule ->
              rule.product_name == "alert-schema-product" and

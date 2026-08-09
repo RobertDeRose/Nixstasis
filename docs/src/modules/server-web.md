@@ -37,9 +37,9 @@
 - `/devices/new`
 - `/devices/:id`
 - `/alerts`
-- `/alerts/new`
-- `/alerts/:id/edit`
 - `/alerts/rules`
+- `/alerts/rules/new`
+- `/alerts/rules/:id/edit`
 - `/reports`
 - `/reports/new`
 - `/reports/:id/edit`
@@ -52,8 +52,8 @@
 - `/scripts/:id`
 - `POST /scripts/command-policies/preview`
 
-Alert rule creation and editing use the `/alerts/new` and `/alerts/:id/edit`
-LiveView modal flow. The modal exposes explicit accessible title and
+Alert rule creation and editing use the canonical `/alerts/rules/new` and
+`/alerts/rules/:id/edit` LiveView modal flow. The modal exposes explicit accessible title and
 description targets, announces validation errors, enforces globally
 case-insensitive rule names, keeps keyboard focus within the active modal
 (including discard confirmation), gives the confirmation a high-contrast
@@ -65,7 +65,7 @@ lifetime before it is cleared. Schema Field options show the active schema value
 type beside the field label, and changing fields replaces an incompatible stale
 operator with a valid operator before validation. The rules table renders each
 condition as one `<field> <operator> <value>` expression between Rule and
-Actions. The legacy `/alerts/rules` route remains a separate UI surface.
+Actions. `/alerts` remains the active-alert surface; `/alerts/rules` is the only rule-management UI. The rule table applies search, deterministic sort, and 50-row pagination in SQL before rendering.
 
 ### JSON API Routes
 

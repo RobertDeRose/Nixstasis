@@ -78,8 +78,8 @@ between the Rule and Actions columns.
 ## Non-Goals
 
 The feature does not change alert evaluation, notification delivery, rule schema/operator semantics, or the broader
-alert information architecture. It does add the accepted global case-insensitive rule-name invariant. The legacy
-`/alerts/rules` LiveView remains outside this focused modal work; route consolidation or retirement is deferred.
+alert information architecture. It does add the accepted global case-insensitive rule-name invariant. The modal work itself did not alter the route boundary. The later bounded LiveView catalog reads feature now owns the canonical
+`/alerts/rules` rule index and nested editor routes; this design remains scoped to modal behavior.
 
 ## Existing Context
 
