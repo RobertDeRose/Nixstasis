@@ -4,9 +4,9 @@
 
 - Beads feature root: `nixstasis-mol-iuv`
 - Implementation coordinator: `nixstasis-mol-594`
-- Status: delivered on `feat/bounded-liveview-catalog-reads`
+- Status: delivered
 - Pull request: not created
-- Merge commit: not created
+- Merge commit: `69e0e2c772c5f61a6afce8914adc6cb03e31b739` (fast-forward delivery)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
