@@ -56,7 +56,7 @@ state.
 - Beads feature root: `nixstasis-yju`
 - Feature slug: `schema-driven-builder-dropdowns`
 - Base branch: `dev`
-- Status: in progress
+- Status: delivered
 
 ## Feature Summary
 
@@ -163,10 +163,9 @@ without claiming a usability pass/fail.
 ## Implementation Decomposition
 
 Beads retains performance and close-out evidence. The migrated implementation children `.7.1` through `.7.34` and
-`.7.36` cover the already-delivered option, validation, alert/report integration, and contract slices. Remaining
-implementation work is the canonical schema identity/conflict boundary and its regression coverage; migrated `.7.35`,
-`.7.37`, `.7.38`, and `.7.39` own performance, verification, and operator-observation evidence. Do not duplicate those
-migrated task boundaries with parallel implementation beads.
+`.7.36` delivered the option, validation, alert/report integration, and contract slices. `.7.35`, `.7.37`, `.7.38`,
+and `.7.39` recorded performance, verification, and operator-observation evidence; all implementation and lifecycle
+children are closed. Do not duplicate those historical task boundaries with parallel implementation beads.
 
 ## Dependencies and Parallelism
 
@@ -185,7 +184,9 @@ first-device selection for a canonical schema identity, and union/intersection o
 
 ## Open Questions
 
-Performance and task-completion measurements remain open.
+No implementation question remains open. The 90-second human task-completion
+measurement remains explicitly deferred because no valid operator observation
+window, participant sample, elapsed time, or pass/fail result was available.
 
 ## Deferred Decisions
 

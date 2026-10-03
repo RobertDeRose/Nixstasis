@@ -3,8 +3,8 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-vpu`
-- Status: implemented and validated for fast-forward delivery
-- Pull request: not created; direct fast-forward delivery requested
+- Status: delivered
+- Pull request: not created; direct fast-forward delivery is present on `dev`
 - Merge commit: not applicable to fast-forward delivery; the target is recorded in Beads delivery evidence
 - Design record: [design.md](design.md)
 

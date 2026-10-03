@@ -319,7 +319,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 - Beads feature root: `nixstasis-zf5`
 - Feature slug: `ash-api-contract-unification`
 - Base branch: `dev`
-- Status: implemented; delivery action pending
+- Status: delivered
 
 ## Feature Summary
 
@@ -428,13 +428,12 @@ rejected.
 
 ## Open Questions
 
-No device-runtime boundary question remains open: action names, orchestration
-ownership, generated route family, API-key security scheme, route-specific
-authentication, compatibility wrapper, and error-precedence rules are defined in
-`docs/src/features/ash-api-contract-unification/contract-design.md`. The remaining
-work is implementation and evidence, not another boundary decision. Report export,
-E2E generated-contract treatment, and development diagnostics remain deferred or
-retained as listed below.
+No device-runtime boundary or implementation question remains open: action names,
+orchestration ownership, generated route family, API-key security scheme,
+route-specific authentication, compatibility wrapper, and error-precedence rules
+are defined in `docs/src/features/ash-api-contract-unification/contract-design.md`
+and are delivered on `dev`. Report export, E2E generated-contract treatment, and
+development diagnostics remain deferred or retained as listed below.
 
 ## Deferred Decisions
 

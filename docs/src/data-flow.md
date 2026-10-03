@@ -217,8 +217,8 @@ sequenceDiagram
     LiveView-->>Browser: Keep terminal socket token withheld
     Client->>Devices: Heartbeat claims command
     Client->>Client: Validate payload, store key in memory
-    Client->>IPC: ssh-authority.sock (key stored)
-    Device-->>Devices: OK command result
+    Client->>IPC: ssh-authority.sock (in-memory key query)
+    Client-->>Devices: OK command result
     LiveView->>Devices: Verify command type and session binding
     LiveView->>Browser: Activate terminal socket token
     Browser->>Socket: Join terminal:<device_id>

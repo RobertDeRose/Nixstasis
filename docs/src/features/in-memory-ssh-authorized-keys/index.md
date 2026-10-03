@@ -107,9 +107,9 @@ Additional implementation evidence:
 Known validation limitation:
 
 - Repository-wide `mise run check` remains non-clean from pre-existing Markdown,
-  typo, and cold-dependency debt outside this feature. The exact output is
-  retained at `/tmp/nixstasis-bdv-close-mise-check-final.log`; scoped feature
-  checks and the Compose/browser smoke passed.
+  typo, and cold-dependency debt outside this feature. The transient check output
+  was captured during close-out and is no longer retained; scoped feature checks
+  and the Compose/browser smoke passed.
 
 ## Design Reconciliation
 

@@ -95,13 +95,12 @@ Preview and assignment paths resolve only requested command-entry and category I
 
 ## Existing Context
 
-The prior performance work fixed CodeMirror and terminal cleanup, bounded script history and payload reads, scoped/limited command-policy LiveView collections, bounded active alerts/devices, added query indexes, and added configurable telemetry retention. The remaining static findings are:
+The prior performance work fixed CodeMirror and terminal cleanup, bounded script history and payload reads, scoped/limited command-policy LiveView collections, bounded active alerts/devices, added query indexes, and added configurable telemetry retention. This feature resolved the remaining catalog-read findings:
 
-- `packages/server/lib/nixstasis_web/live/script_live/show.ex` loads `Devices.list_devices/0` and renders the collection in both target tabs.
-- `packages/server/lib/nixstasis_web/live/alerts/index_live.ex` loads all rules and filters/sorts them in memory; `alerts/rules_live.ex` is a duplicate route implementation.
-- `packages/server/lib/nixstasis/reporting.ex` materializes every custom report/config for the report index.
-- `packages/server/lib/nixstasis/command_allowlists/policy_resolver.ex` loads all command entries and join rows before filtering selected IDs/categories.
-- `packages/server/lib/nixstasis/command_catalog/resolver.ex` and the command-policy LiveView expand selected catalog devices/categories from bounded or full in-memory collections.
+- `ScriptLive.Show` uses authorization-scoped search and selected-target reloads instead of loading every device.
+- `/alerts/rules` is the canonical SQL-filtered and paginated rules surface; the duplicate route implementation was removed.
+- `Nixstasis.Reporting` pages report index rows and loads full configuration only for detail/edit flows.
+- Command-policy and catalog resolvers scope selected entries, categories, devices, and joins in SQL before materialization and reject over-limit resolutions.
 
 Established bounded patterns include `@collection_limit 250`, 50-row script histories, SQL-scoped Ash queries, narrow `Ash.Query.select/1`, authorized device ID filtering, and the existing URL-backed report preference state.
 
@@ -214,7 +213,7 @@ Operators will see bounded, searchable pages rather than an entire catalog. Larg
 
 ## Implementation Decomposition
 
-The implementation coordinator `nixstasis-mol-594` owns five parallel-first bounded tasks:
+The implementation coordinator `nixstasis-mol-594` owned five parallel-first bounded tasks:
 
 1. `nixstasis-mol-594.1` — search-first script target picker and selected-target reloads.
 2. `nixstasis-mol-594.2` — canonical `/alerts/rules` consolidation and paged rules.
@@ -222,13 +221,15 @@ The implementation coordinator `nixstasis-mol-594` owns five parallel-first boun
 4. `nixstasis-mol-594.4` — SQL-scoped manual/catalog command-policy resolution, compatibility preview, category expansion, and over-limit guards.
 5. `nixstasis-mol-594.5` — final query indexes and measurement after query shapes stabilize.
 
-Tasks 1–4 can proceed independently after specification reconciliation. Task 5 is blocked by tasks 1–4 and depends on their final query shapes. All implementation work is gated by the lifecycle specification reconciliation through the implementation coordinator.
+Tasks 1–4 proceeded independently after specification reconciliation. Task 5
+followed tasks 1–4 and their final query shapes. All implementation work passed
+through the lifecycle specification reconciliation and is closed.
 
 ## Dependencies and Parallelism
 
 - The four surface tasks are independent and can be reviewed separately.
 - Query-index work follows the surface query shapes and should not introduce speculative indexes.
-- Close-out documentation and validation wait for all implementation tasks.
+- Close-out documentation and validation followed all implementation tasks and are complete.
 - No external service or schema migration is required unless justified by final query plans.
 
 ## Rollout and Migration
@@ -253,7 +254,8 @@ This is unreleased software. Replace duplicate alert routes/modules directly; no
 
 ## Open Questions
 
-None blocking implementation. Query-plan details and exact index definitions are implementation evidence, not product-policy decisions.
+No implementation or product-policy question remains open. Query-plan details
+and exact index definitions are recorded as delivered implementation evidence.
 
 ## Deferred Decisions
 

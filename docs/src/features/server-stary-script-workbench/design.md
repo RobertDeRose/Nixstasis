@@ -13,8 +13,8 @@
 - Implemented record: `docs/src/features/server-stary-script-workbench/index.md`
 - Base branch: `dev`
 - Implementation repository: `nixstasis`
-- Implementation path: `/Users/DeRoseR/workspace/personal/nixstasis`
-- Status: in progress
+- Implementation path: repository root (`packages/server` and `packages/client`)
+- Status: delivered
 
 ## Specification Reconciliation
 
@@ -26,14 +26,15 @@
 - Audit events carry trusted actor identity for operator actions; device result
   ingestion remains device-authenticated and separately attributable.
 - Inline `run_script` payloads remain the compatibility baseline. Deferred
-  `run_script` hydration is a required implementation child and is not silently
-  treated as already supported by the client.
+  `run_script` hydration was completed in the Go poll loop and is covered by
+  the delivered compatibility tests.
 - `ScriptVersion.rendered_content` is the immutable artifact boundary; validation
   runs must reference the version that produced the artifact and duplicate or
   failed validation paths must be deterministic.
 - The imported T001-T026 implementation records remain historical provenance;
-  current gaps are represented by bounded children `nixstasis-kb6.7.41` through
-  `nixstasis-kb6.7.44`, each blocked by `nixstasis-kb6.6`.
+  corrective children `nixstasis-kb6.7.41` through `nixstasis-kb6.7.44` completed
+  the later authorization, audit, payload, and artifact-alignment work after
+  `nixstasis-kb6.6`.
 
 ## Goal
 
@@ -153,9 +154,8 @@ separate testing API:
 - `run_script` carries immutable rendered `.stary` content as a `command_payload`.
 - The current inline path is the compatibility baseline for small payloads.
 - Large payloads use `payload_ref` and fetch through
-  `GET /api/v1/devices/:device_id/command_payloads/:ref`; completing that
-  `run_script` hydration path is an explicit implementation child before this
-  boundary is considered complete.
+  `GET /api/v1/devices/:device_id/command_payloads/:ref`; the Go poll loop
+  hydrates those payloads before dispatching the command.
 - The payload `content_type` identifies Stary script text so the client can
   distinguish it from install/remove payloads.
 - The client responds through the existing
@@ -438,23 +438,25 @@ and runtime tests; finish with a Compose browser smoke test and documentation va
 
 ## Implementation Decomposition
 
-The imported T001-T026 records remain closed historical provenance. The remaining
-bounded implementation children are:
+The imported T001-T026 records remain closed historical provenance. The later
+bounded implementation children were also completed:
 
-- `nixstasis-kb6.7.41`: enforce device-scoped authorization at the script context boundary.
-- `nixstasis-kb6.7.42`: preserve trusted actor identity and document the audit sink/retention boundary.
-- `nixstasis-kb6.7.43`: complete deferred `run_script` payload delivery and compatibility tests.
-- `nixstasis-kb6.7.44`: align immutable artifact rendering, validation-run/version relationships, duplicate-version behavior, and failed-validation records.
+- `nixstasis-kb6.7.41`: enforced device-scoped authorization at the script context boundary.
+- `nixstasis-kb6.7.42`: preserved trusted actor identity and documented the audit sink/retention boundary.
+- `nixstasis-kb6.7.43`: completed deferred `run_script` payload delivery and compatibility tests.
+- `nixstasis-kb6.7.44`: aligned immutable artifact rendering, validation-run/version relationships, duplicate-version behavior, and failed-validation records.
 
-Each remaining child depends on `nixstasis-kb6.6` and is independently testable. Delivered slices include persistence, editor UI, baseline validation, immutable versions, inline test/deployment dispatch, result display, retry, cancellation, and live refresh.
+Each child depended on `nixstasis-kb6.6` and was independently testable. Delivered slices include persistence, editor UI,
+baseline validation, immutable versions, inline test/deployment dispatch, result display, retry, cancellation, and live
+refresh.
 
 ## Dependencies and Parallelism
 
-All remaining implementation children depend on specification reconciliation. Target
-authorization and audit identity are server-context work; deferred payloads span
-server transport and the Go command handler; artifact/validation alignment is
-server-domain work. They can proceed in parallel after `.6`, with final
-compatibility and browser validation in `.9`.
+All implementation children depended on specification reconciliation. Target
+authorization and audit identity were server-context work; deferred payloads
+spanned server transport and the Go command handler; artifact/validation
+alignment was server-domain work. They proceeded in parallel after `.6`, with
+compatibility and browser validation recorded through `.9` and close-out.
 
 ## Risks and Tradeoffs
 
@@ -468,9 +470,9 @@ remain rejected.
 
 ## Open Questions
 
-The remaining open evidence is final browser smoke coverage against a live Compose-managed
-client. Documentation reconciliation is complete; no unresolved design decision blocks the
-current delivery choice.
+No unresolved design decision blocks the delivered feature. Browser smoke against
+a live Compose-managed client remains a validation limitation only when that lab
+is unavailable; it is not unfinished implementation work.
 
 ## Deferred Decisions
 

@@ -3,9 +3,9 @@
 ## Delivery Summary
 
 - Beads feature root: `nixstasis-zf5`
-- Status: implemented and reconciled; delivery action pending
-- Pull request: not created; no PR action selected
-- Merge commit: not merged; fast-forward delivery remains available
+- Status: delivered
+- Pull request: not created; the completed implementation is present on `dev`
+- Delivery commit: `6efc2bf24272366e512c2f7fb2927765fd97ff8a` (recorded on `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability

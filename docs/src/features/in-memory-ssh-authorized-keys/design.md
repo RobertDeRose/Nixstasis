@@ -453,7 +453,7 @@ socket permissions, account rules, or fail-closed behavior.
 - Beads feature root: `nixstasis-bdv`
 - Feature slug: `in-memory-ssh-authorized-keys`
 - Base branch: `dev`
-- Status: in progress
+- Status: delivered
 
 ## Feature Summary
 
@@ -473,13 +473,13 @@ closed. Client restart clears all ephemeral authorizations.
 ## Requirements
 
 The detailed runtime, helper, server, client, packaging, security, and compatibility requirements above remain
-authoritative. Remaining work includes corrective hardening, contract/documentation reconciliation, focused validation,
-and close-out tasks represented in Beads.
+authoritative. Corrective hardening, contract/documentation reconciliation, focused validation, and close-out evidence
+are complete and recorded in the implemented feature record.
 
 ## Proposed Design
 
-Use the helper, Unix socket, in-memory store, dynamic server payload, OpenSSH account configuration, and packaging design
-documented above; finish the remaining validation without reintroducing file-based fallback.
+The delivered implementation uses the helper, Unix socket, in-memory store, dynamic server payload, OpenSSH account
+configuration, and packaging design documented above without reintroducing file-based fallback.
 
 ## Existing Context
 
@@ -530,7 +530,7 @@ listed in the validation plan above.
 ## Implementation Decomposition
 
 The imported implementation history remains beneath `nixstasis-bdv.7` as
-provenance. Current corrective work is bounded as follows:
+provenance. The corrective work was completed in the following bounded slices:
 
 - `.7.74`: terminal acknowledgement gate and command/session binding.
 - `.7.75`: exception-safe terminal key cleanup and revoke lifecycle.
@@ -542,18 +542,19 @@ provenance. Current corrective work is bounded as follows:
 - `.7.65-.7.67` and `.7.70-.7.71`: focused validation and stale-reference
   checks, gated on the relevant corrective children.
 
-Each corrective child has a dependency on `.6` and owns its implementation,
-tests, and bounded commit. Historical closed tasks are not reopened merely to
-rewrite provenance; a current corrective child carries each actionable finding.
+Each corrective child depended on `.6` and owned its implementation, tests, and
+bounded commit. The corrective children, focused validation children, and
+Compose/browser smoke evidence are closed; historical tasks were not reopened
+merely to rewrite provenance.
 
 ## Dependencies and Parallelism
 
-`.7.74`, `.7.75`, `.7.76`, `.7.77`, and `.7.78` can proceed independently after
+`.7.74`, `.7.75`, `.7.76`, `.7.77`, and `.7.78` proceeded independently after
 spec-reconcile, with server, client, and packaging ownership kept separate.
-`.7.79` follows the stale-reference search `.7.71`; documentation validation
-`.7.70` follows `.7.79`. Focused client tests `.7.65` follow `.7.77-.78`,
-server tests `.7.66` follow `.7.74-.75-.77`, package verification `.7.67`
-follows `.7.76`, and Compose/browser smoke `.7.80` follows the terminal,
+`.7.79` followed the stale-reference search `.7.71`; documentation validation
+`.7.70` followed `.7.79`. Focused client tests `.7.65` followed `.7.77-.78`,
+server tests `.7.66` followed `.7.74-.75-.77`, package verification `.7.67`
+followed `.7.76`, and Compose/browser smoke `.7.80` followed the terminal,
 packaging, client-contract, and socket corrections.
 
 ## Risks and Tradeoffs
@@ -568,7 +569,8 @@ rejected.
 
 ## Open Questions
 
-No product decision is open; remaining questions are validation outcomes recorded by the active Beads tasks.
+No product or validation question remains open. The implemented feature record
+contains the completed focused, packaging, real-sshd, and Compose/browser evidence.
 
 ## Deferred Decisions
 

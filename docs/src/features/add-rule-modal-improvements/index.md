@@ -59,25 +59,26 @@ visible until correction or user action; success feedback continues to auto-dism
 
 ## Validation Evidence
 
-- Final `mise run check` passed with status 0 after the operator/type follow-ups; output:
-  `/tmp/nixstasis-inh-18-19-full-check-final.log`.
-- Final `mise x -- mix precommit` passed with 617 tests and 0 failures; output:
-  `/tmp/nixstasis-inh-18-19-precommit-final.log`.
-- `mise x -- mix precommit` passed: 611 tests, 0 failures; output: `/tmp/nixstasis-inh-13-precommit.log`.
+- Final `mise run check` passed with status 0 after the operator/type follow-ups; transient output was captured during
+  close-out and is no longer retained in the workspace.
+- Final `mise x -- mix precommit` passed with 617 tests and 0 failures; transient output was captured during close-out
+  and is no longer retained in the workspace.
+- `mise x -- mix precommit` passed: 611 tests, 0 failures; transient output was captured during close-out and is no
+  longer retained in the workspace.
 - Focused `alerts_live_test.exs`, `core_components_test.exs`, and `reports_live_test.exs` passed: 77 tests, 0 failures.
 - Alert-rule uniqueness/domain and LiveView tests passed: 27 tests, 0 failures.
 - `mix ash.codegen --check` passed; named migration and alert-rule resource snapshot are aligned.
 - `node --check assets/js/app.js` passed.
 - Manual feature-branch browser checks confirmed `#alert-rule-name` initial focus, visible-only focus trapping, discard-dialog focus on `Keep Editing`, focus restoration after `Keep Editing`, opener-focus restoration after new/edit close, and visible success status auto-dismissal.
 - Manual concurrent-tab browser checks confirmed a case-insensitive duplicate save remains in the modal with preserved values and actionable error feedback.
-- Follow-up focus and table checks passed: focused alerts/core tests passed with 31 tests and 0 failures; `mise x -- mix precommit` passed with 613 tests and 0 failures; `mise run check` passed with status 0. Outputs: `/tmp/nixstasis-inh-16-focused-all.log`, `/tmp/nixstasis-inh-16-precommit.log`, and `/tmp/nixstasis-inh-16-full-check.log`.
+- Follow-up focus and table checks passed: focused alerts/core tests passed with 31 tests and 0 failures; `mise x -- mix precommit` passed with 613 tests and 0 failures; `mise run check` passed with status 0. Transient command output was captured during close-out and is no longer retained.
 - Follow-up Playwright checks confirmed repeated discard flows focus `Keep Editing`, cycle through the confirmation controls, close only the active layer on Escape, and render rules as `Rule`, `Condition`, `Actions` with combined condition expressions.
 - `uv run scripts/check-docs.py` and `mdbook build docs` passed.
-- `mise x -- mix ash.codegen --check` passed; output: `/tmp/nixstasis-inh-18-19-ash-codegen.log`.
-- Post-merge delivery verification passed for `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; output:
-  `/tmp/nixstasis-inh-post-merge-delivery-verifier.json`.
-- Post-merge `mise run check` passed with status 0 after synchronizing ignored local Hex dependencies; output:
-  `/tmp/nixstasis-inh-post-merge-finalizer-check-2.log`.
+- `mise x -- mix ash.codegen --check` passed; transient command output was captured during close-out and is no longer retained.
+- Post-merge delivery verification passed for `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; transient
+  verification output was captured during close-out and is no longer retained.
+- Post-merge `mise run check` passed with status 0 after synchronizing ignored local Hex dependencies; transient output
+  was captured during close-out and is no longer retained.
 - SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
   controlled observation window exists, so no metric pass/fail is claimed. The user accepted the delivered
   feedback-driven improvements as complete without treating synthetic timings as human-usability evidence.

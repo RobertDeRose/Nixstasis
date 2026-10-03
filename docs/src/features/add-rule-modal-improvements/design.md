@@ -49,7 +49,7 @@ alert-rule-name uniqueness invariant without changing evaluation or notification
 - Beads feature root: `nixstasis-inh`
 - Feature slug: `add-rule-modal-improvements`
 - Base branch: `dev`
-- Status: in progress
+- Status: delivered
 
 ## Feature Summary
 
@@ -113,11 +113,12 @@ Update the exact reader-facing pages when externally visible behavior or keyboar
 
 Run alert LiveView and domain tests for create, edit, validation, global case-insensitive name uniqueness, focus order,
 keyboard shortcuts, duplicate submits, dirty close, accessible dialog/error associations, feedback persistence, schema
-field type labels, and mixed-type operator recovery, then complete the outstanding measured success-criteria tasks.
+field type labels, and mixed-type operator recovery. Those implementation checks passed; the human usability measurements
+remain explicitly deferred because no defensible baseline or controlled observation window is available.
 
 ## Implementation Decomposition
 
-Beads retains the remaining baseline and timed usability measurements. Implementation slices cover modal parity,
+Beads retains the deferred baseline and timed usability measurements. Implementation slices cover modal parity,
 validation recovery, keyboard behavior, dirty state, feedback lifecycle, accessible dialog/error associations,
 global case-insensitive name uniqueness, single-save behavior under duplicate submissions, schema type labels, and
 mixed-type operator recovery.
@@ -139,7 +140,8 @@ rejected.
 
 ## Open Questions
 
-Only the outstanding measured success criteria remain open; no unresolved product policy is recorded.
+No implementation or product-policy question remains open. SC-001, SC-002, and SC-004 are deferred human-usability
+measurements, with no metric pass/fail claimed.
 
 ## Deferred Decisions
 

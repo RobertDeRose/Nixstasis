@@ -7,7 +7,7 @@
 - Design path: `docs/src/features/dashboard-device-groups/design.md`
 - Implemented record: `docs/src/features/dashboard-device-groups/index.md`
 - Base branch: `dev`
-- Status: reviewed — implementation ready
+- Status: delivered
 
 ## Feature Summary
 
@@ -260,23 +260,23 @@ structured audit logs and existing application observability.
 
 ## Implementation Decomposition
 
-- `nixstasis-vpu.7.1` (DGD-001) owns resource/database lifecycle actions, invariants, relationships, named migration,
+- `nixstasis-vpu.7.1` (DGD-001) owned resource/database lifecycle actions, invariants, relationships, named migration,
   and focused resource tests. Validation: focused tests, codegen check, formatter, and Credo. Commit: persistence only.
-- `nixstasis-vpu.7.2` (DGD-002) owns scoped query/filter APIs, trusted authorization construction, and authorized
+- `nixstasis-vpu.7.2` (DGD-002) owned scoped query/filter APIs, trusted authorization construction, and authorized
   `Nixstasis.Devices` orchestration for metadata create, update, archive, restore, and permanent delete. Validation:
   focused group, Devices, and Permissions tests, formatter, and Credo. Commit: reads, authorization, and metadata context
   orchestration only.
-- `nixstasis-vpu.7.3` (DGD-003) owns transactional, idempotent membership mutation orchestration and failure semantics.
+- `nixstasis-vpu.7.3` (DGD-003) owned transactional, idempotent membership mutation orchestration and failure semantics.
   Validation: focused group and Devices tests, formatter, and Credo. Commit: membership mutations only.
-- `nixstasis-vpu.7.4` (DGD-004) owns post-transaction audit emission and payload-free UI invalidation. Validation:
+- `nixstasis-vpu.7.4` (DGD-004) owned post-transaction audit emission and payload-free UI invalidation. Validation:
   focused audit, context, and refresh tests, formatter, and Credo. Commit: audit and refresh integration only.
-- `nixstasis-vpu.7.5` (DGD-005) owns behavior-first LiveView tests and group metadata lifecycle UI states. Validation:
+- `nixstasis-vpu.7.5` (DGD-005) owned behavior-first LiveView tests and group metadata lifecycle UI states. Validation:
   focused DeviceLive tests, formatter, Credo, and keyboard checks. Commit: metadata management UI only.
-- `nixstasis-vpu.7.6` (DGD-006) owns behavior-first LiveView tests and selected-device membership workflows. Validation:
+- `nixstasis-vpu.7.6` (DGD-006) owned behavior-first LiveView tests and selected-device membership workflows. Validation:
   focused DeviceLive tests, formatter, Credo, and permission-state checks. Commit: membership UI only.
-- `nixstasis-vpu.7.7` (DGD-007) owns behavior-first route/filter tests and responsive membership summaries. Validation:
+- `nixstasis-vpu.7.7` (DGD-007) owned behavior-first route/filter tests and responsive membership summaries. Validation:
   focused DeviceLive and Devices tests, formatter, Credo, and browser checks. Commit: route and presentation only.
-- `nixstasis-vpu.7.8` (DGD-008) owns `docs/src/README.md`, `docs/src/architecture.md`, the new
+- `nixstasis-vpu.7.8` (DGD-008) owned `docs/src/README.md`, `docs/src/architecture.md`, the new
   `docs/src/operations/device-groups.md`, `docs/src/modules/server-devices.md`, and operations navigation. Validation:
   strict docs checks, mdBook build, and changed-file Markdown checks. Commit: reader-facing documentation only.
 
