@@ -16,6 +16,11 @@ defmodule NixstasisWeb.Router do
     plug(NixstasisWeb.Plugs.RateLimiter)
   end
 
+  pipeline :operator_api do
+    plug(:accepts, ["json", "octet-stream"])
+    plug(NixstasisWeb.Plugs.RateLimiter)
+  end
+
   pipeline :json_api do
     plug(:api)
     plug(NixstasisWeb.Plugs.JsonApiPermissions)
@@ -45,9 +50,9 @@ defmodule NixstasisWeb.Router do
     live("/devices/new", DeviceLive.Index, :new)
     live("/devices/:id", DeviceLive.Show, :show)
     live("/alerts", AlertLive.Index, :index)
-    live("/alerts/new", AlertLive.Index, :new)
-    live("/alerts/:id/edit", AlertLive.Index, :edit)
-    live("/alerts/rules", AlertLive.Rules, :index)
+    live("/alerts/rules", AlertLive.Index, :rules)
+    live("/alerts/rules/new", AlertLive.Index, :new)
+    live("/alerts/rules/:id/edit", AlertLive.Index, :edit)
     live("/reports", ReportLive.Index, :index)
     live("/reports/new", ReportLive.Index, :new)
     live("/reports/:id/edit", ReportLive.Index, :edit)
@@ -86,6 +91,14 @@ defmodule NixstasisWeb.Router do
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
     get("/reports/:id/results", ReportResultController, :show)
     get("/check_domain", TLSController, :check_domain)
+  end
+
+  scope "/api/v1/provisioning", NixstasisWeb do
+    pipe_through(:operator_api)
+
+    post("/devices/:device_id", ProvisioningController, :create)
+    get("/deliveries/:id", ProvisioningController, :show)
+    post("/deliveries/:id/withdraw", ProvisioningController, :withdraw)
   end
 
   scope "/_nixstasis/laptop", NixstasisWeb do

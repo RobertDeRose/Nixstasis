@@ -182,18 +182,27 @@ func (h *Handler) sshAuthorize(ctx context.Context, commandID, publicKey string,
 	if payload == nil {
 		return failureResult(commandID, "missing ssh_authorize payload")
 	}
+	if payload.ContentType != sshauth.PayloadContentType {
+		return failureResult(commandID, "unsupported ssh_authorize content type")
+	}
 	var data dynamicSSHAuthorizePayload
 	if err := json.Unmarshal([]byte(payload.Data), &data); err != nil {
 		return failureResult(commandID, "invalid ssh_authorize payload: "+err.Error())
 	}
-	if data.TargetUser != "nixstasis-support" {
+	if data.TargetUser != sshauth.TargetUser {
 		return failureResult(commandID, "unsupported target_user")
 	}
 	if data.SessionRef == "" {
 		return failureResult(commandID, "session_ref is required")
 	}
+	if payload.Name == "" || payload.Name != data.SessionRef {
+		return failureResult(commandID, "payload name does not match session_ref")
+	}
 	if data.TTLSeconds <= 0 {
 		return failureResult(commandID, "ttl_seconds must be positive")
+	}
+	if data.TTLSeconds > int(sshauth.MaxAuthorizationTTL/time.Second) {
+		return failureResult(commandID, "ttl_seconds exceeds maximum")
 	}
 	if ctx.Err() != nil {
 		return failureResult(commandID, "timeout")
@@ -233,20 +242,24 @@ func (h *Handler) sshRevoke(ctx context.Context, commandID string, payload *tran
 	if payload == nil {
 		return failureResult(commandID, "missing ssh_revoke payload")
 	}
+	if payload.ContentType != sshauth.RevokePayloadContentType {
+		return failureResult(commandID, "unsupported ssh_revoke content type")
+	}
 	if ctx.Err() != nil {
 		return failureResult(commandID, "timeout")
 	}
-
-	sessionRef := strings.TrimSpace(payload.Name)
-	if sessionRef == "" {
-		var data sshRevokePayload
-		if err := json.Unmarshal([]byte(payload.Data), &data); err == nil {
-			sessionRef = strings.TrimSpace(data.SessionRef)
-		}
-	}
-	if sessionRef == "" {
+	if payload.Name == "" {
 		return failureResult(commandID, "session_ref is required")
 	}
+
+	var data sshRevokePayload
+	if err := json.Unmarshal([]byte(payload.Data), &data); err != nil {
+		return failureResult(commandID, "invalid ssh_revoke payload: "+err.Error())
+	}
+	if data.SessionRef == "" || data.SessionRef != payload.Name {
+		return failureResult(commandID, "payload name does not match session_ref")
+	}
+	sessionRef := payload.Name
 
 	revoked := h.sshAuthStore.RevokeSession(sessionRef)
 	afterCommandCommitHook()

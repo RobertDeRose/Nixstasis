@@ -18,6 +18,7 @@ type commandLog struct {
 	calls    []capturedCommand
 	isActive bool // controls what systemctl is-active returns
 	failRun  bool
+	denyRun  bool
 }
 
 type capturedCommand struct {
@@ -52,11 +53,19 @@ func (cl *commandLog) fakeExec() func(ctx context.Context, command string, args 
 
 		// For systemd-run, succeed and mark as active.
 		if command == systemdRunPath {
+			if cl.denyRun {
+				return exec.CommandContext(ctx, "sh", "-c", "echo Access denied >&2; exit 1")
+			}
 			if cl.failRun {
 				return exec.CommandContext(ctx, "false")
 			}
 			cl.isActive = true
 			return exec.CommandContext(ctx, "true")
+		}
+
+		// Direct FRP fallback: keep a long-running process for lifecycle assertions.
+		if command != systemctlPath {
+			return exec.CommandContext(ctx, "sleep", "60")
 		}
 
 		// Fallback: succeed.
@@ -80,13 +89,16 @@ func setupTest(t *testing.T) (*commandLog, func()) {
 	cl := &commandLog{}
 	origExec := execCommandContext
 	origSys := systemdAvailable
+	origDirectFallback := directFallbackAllowed
 	origRuntimeDir := frpRuntimeDir
 	execCommandContext = cl.fakeExec()
 	systemdAvailable = func() bool { return true }
+	directFallbackAllowed = func() bool { return true }
 	frpRuntimeDir = t.TempDir()
 	return cl, func() {
 		execCommandContext = origExec
 		systemdAvailable = origSys
+		directFallbackAllowed = origDirectFallback
 		frpRuntimeDir = origRuntimeDir
 	}
 }
@@ -105,6 +117,37 @@ func validFRPConfig() config.FRPConfig {
 }
 
 // --- Start / Stop / IsActive ---
+
+func TestManager_DirectFallbackWhenSystemdDeniesAccess(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
+	cl.denyRun = true
+
+	mgr := NewManager()
+	configPath := writeFRPConfig(t, `serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`)
+
+	if err := mgr.Start(configPath, validFRPConfig()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if !mgr.IsActive() {
+		t.Fatal("expected direct fallback process to be active")
+	}
+
+	if err := mgr.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if mgr.IsActive() {
+		t.Fatal("expected direct fallback process to be inactive")
+	}
+
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	for _, call := range cl.calls {
+		if call.command == systemctlPath && len(call.args) > 0 && call.args[0] == "stop" {
+			t.Fatalf("direct fallback should not use systemctl stop after systemd-run denial: %v", cl.calls)
+		}
+	}
+}
 
 func TestManager_StartStop(t *testing.T) {
 	cl, cleanup := setupTest(t)
@@ -157,6 +200,23 @@ func TestManager_StartStop(t *testing.T) {
 	// Idempotent stop should succeed.
 	if err := mgr.Stop(); err != nil {
 		t.Fatalf("idempotent Stop() error = %v", err)
+	}
+}
+
+func TestManager_GetStatusReportsClientError(t *testing.T) {
+	cl, cleanup := setupTest(t)
+	defer cleanup()
+	_ = cl
+
+	mgr := NewManager()
+	mgr.SetError("unknown route profile")
+
+	status := mgr.GetStatus()
+	if status.Active {
+		t.Fatal("expected inactive status")
+	}
+	if status.Error != "unknown route profile" {
+		t.Fatalf("status error = %q", status.Error)
 	}
 }
 
@@ -244,8 +304,9 @@ func TestStart_SystemdRunArgs(t *testing.T) {
 			if run.args[i+2] != "frp-session" {
 				t.Errorf("expected frp-session subcommand, got %q", run.args[i+2])
 			}
-			if !argsContainSequence(run.args[i+3:], "--config", configPath) {
-				t.Errorf("expected frp-session --config %q in args: %v", configPath, run.args)
+			renderedConfigPath := filepath.Join(frpRuntimeDir, renderedFRPConfigName)
+			if !argsContainSequence(run.args[i+3:], "--config", renderedConfigPath) {
+				t.Errorf("expected frp-session --config %q in args: %v", renderedConfigPath, run.args)
 			}
 			if !argsContainSequence(run.args[i+3:], "--frpc", config.FRPCBinaryPath()) {
 				t.Errorf("expected frp-session --frpc %q in args: %v", config.FRPCBinaryPath(), run.args)

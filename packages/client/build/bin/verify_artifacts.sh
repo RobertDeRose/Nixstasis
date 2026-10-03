@@ -2,6 +2,8 @@
 
 set -eu
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+CLIENT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 DIST_DIR="${DIST_DIR:-dist}"
 VERIFY_INSTALLERS="${VERIFY_INSTALLERS:-false}"
 
@@ -89,6 +91,8 @@ verify_installer_members() {
   require_file "$extract_dir/usr/libexec/nixstasis/frpc"
   require_file "$extract_dir/usr/libexec/nixstasis/postinstall.sh"
   require_file "$extract_dir/usr/libexec/nixstasis/cleanup.sh"
+  require_file "$extract_dir/usr/libexec/nixstasis/ssh-authorized-keys"
+  require_file "$extract_dir/etc/ssh/sshd_config.d/nixstasis-support.conf"
   require_file "$extract_dir/usr/share/nixstasis/frpc.toml"
   require_file "$extract_dir/usr/share/nixstasis/config.example.yaml"
   require_file "$extract_dir/lib/systemd/system/nixstasis-poll.service"
@@ -106,8 +110,13 @@ verify_common_members() {
   require_member "$members" "usr/share/nixstasis/frpc.toml"
   require_member "$members" "usr/share/nixstasis/config.example.yaml"
   require_member "$members" "usr/libexec/nixstasis/frpc"
+  require_member "$members" "usr/libexec/nixstasis/ssh-authorized-keys"
+  require_member "$members" "etc/ssh/sshd_config.d/nixstasis-support.conf"
+  require_member "$members" "lib/systemd/system/nixstasis-poll.service"
+  require_member "$members" "lib/systemd/system/nixstasis-registration.service"
 }
 
+"$CLIENT_DIR/build/tests/native_packaging_test.sh"
 require_dir "$DIST_DIR"
 
 ARCHIVE_COUNT=0

@@ -13,12 +13,14 @@ defmodule Nixstasis.Application do
         Nixstasis.Repo
       ] ++
         retention_children() ++
+        telemetry_retention_children() ++
         [
           {DNSCluster, query: Application.get_env(:nixstasis, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: Nixstasis.PubSub},
           # Start a worker by calling: Nixstasis.Worker.start_link(arg)
           # {Nixstasis.Worker, arg},
           {Nixstasis.Devices, :remote_access_leases},
+          Nixstasis.Provisioning,
           {Nixstasis.Devices.SshKeyManager, :terminal_sessions},
           NixstasisWeb.RateLimiterStore,
           Nixstasis.Monitoring.OfflineChecker,
@@ -49,6 +51,18 @@ defmodule Nixstasis.Application do
 
     if retention_enabled? do
       [Nixstasis.E2E.RetentionWorker]
+    else
+      []
+    end
+  end
+
+  defp telemetry_retention_children do
+    retention_enabled? =
+      Application.get_env(:nixstasis, :telemetry_retention, [])
+      |> Keyword.get(:enabled, true)
+
+    if retention_enabled? do
+      [Nixstasis.Monitoring.TelemetryRetentionWorker]
     else
       []
     end

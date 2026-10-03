@@ -46,6 +46,10 @@ defmodule Nixstasis.DataCase do
       Sandbox.allow(Repo, pid, manager)
     end
 
+    if provisioning = Process.whereis(Nixstasis.Provisioning) do
+      Sandbox.allow(Repo, pid, provisioning)
+    end
+
     on_exit(fn ->
       if Process.whereis(Devices.RemoteAccessLeases) do
         Devices.sync_remote_access_leases()

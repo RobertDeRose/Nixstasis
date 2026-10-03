@@ -37,11 +37,27 @@ func init() {
 // authorized offers, exit 0 with empty stdout for denies, and exit non-zero
 // only on hard errors that the operator should see.
 func runSSHAuthorizedKeys(ctx context.Context, username, keyType, keyBlob string) error {
-	if username == "" {
-		return fmt.Errorf("missing username argument")
+	line, err := authorizedKeyLine(ctx, username, keyType, keyBlob)
+	if err != nil {
+		return err
 	}
-	if keyType == "" || keyBlob == "" {
-		return fmt.Errorf("missing key type or key blob argument")
+	if line == "" {
+		return nil
+	}
+
+	if _, err := fmt.Printf("%s\n", line); err != nil {
+		return fmt.Errorf("write authorized key to stdout: %w", err)
+	}
+	return nil
+}
+
+func authorizedKeyLine(ctx context.Context, username, keyType, keyBlob string) (string, error) {
+	if username == "" {
+		return "", fmt.Errorf("missing username argument")
+	}
+	offeredKey, err := sshauth.ParseOfferedKey(keyType, keyBlob)
+	if err != nil {
+		return "", err
 	}
 
 	socketPath := strings.TrimSpace(os.Getenv(envSSHAuthoritySocket))
@@ -62,14 +78,18 @@ func runSSHAuthorizedKeys(ctx context.Context, username, keyType, keyBlob string
 		// Treat lookup errors as "not authorized" for sshd: exit 0 with
 		// empty stdout. Operators see the failure via the journal entry
 		// above and via sshd's own AuthorizedKeysCommand logging.
-		return nil
+		return "", nil
 	}
 	if !resp.Authorized {
-		return nil
+		return "", nil
 	}
 
-	if _, err := fmt.Printf("%s %s\n", resp.KeyType, resp.KeyBlob); err != nil {
-		return fmt.Errorf("write authorized key to stdout: %w", err)
+	authorizedKey, err := sshauth.ParseOfferedKey(resp.KeyType, resp.KeyBlob)
+	if err != nil {
+		return "", fmt.Errorf("invalid authorized key response: %w", err)
 	}
-	return nil
+	if authorizedKey.Type != offeredKey.Type || authorizedKey.Blob != offeredKey.Blob {
+		return "", fmt.Errorf("authorized key response does not match offered key")
+	}
+	return offeredKey.Line, nil
 }

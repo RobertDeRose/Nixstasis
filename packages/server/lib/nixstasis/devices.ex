@@ -23,6 +23,9 @@ defmodule Nixstasis.Devices do
 
   @remote_access_leases_name __MODULE__.RemoteAccessLeases
   @remote_access_lease_ttl_ms 60 * 60 * 1000
+  @default_remote_access_profile "default"
+  @remote_access_profile_pattern ~r/^[a-z][a-z0-9._-]{0,63}$/
+  @remote_access_profile_version 1
 
   @impl true
   def init(:remote_access_leases) do
@@ -312,8 +315,10 @@ defmodule Nixstasis.Devices do
     * `:sort_by` - The field to sort by. Defaults to `:inserted_at`.
     * `:sort_order` - The sort order, `:asc` or `:desc`. Defaults to `:desc`.
     * `:filter` - A map of filters (e.g., `%{approval_status: :pending}`).
-    * `:search` - A search string for mac_address or account_number.
+    * `:search` - A search string for product_name, mac_address, account_number, or ipv4_address.
     * `:authorized_device_ids` - An optional device-ID scope applied in the query.
+    * `:limit` - Optional SQL row limit.
+    * `:select` - Optional list of fields to select for narrow projections.
     * `:load_device_groups?` - Whether to preload group summaries. Defaults to `false`.
   """
   def list_devices(opts \\ []) do
@@ -323,6 +328,13 @@ defmodule Nixstasis.Devices do
     search = Keyword.get(opts, :search)
     authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
     load_device_groups? = Keyword.get(opts, :load_device_groups?, false)
+    limit = Keyword.get(opts, :limit)
+    select = Keyword.get(opts, :select)
+
+    sort_fields =
+      if sort_by == :product_name,
+        do: [{:product_name, sort_order}, {:mac_address, :asc}, {:id, :asc}],
+        else: [{sort_by, sort_order}]
 
     Device
     |> filter_by_authorized_device_ids(authorized_device_ids)
@@ -333,9 +345,70 @@ defmodule Nixstasis.Devices do
     |> filter_by_account_number(filter_value(filter, :account_number))
     |> filter_by_ipv4_address(filter_value(filter, :ipv4_address))
     |> search_devices(search)
-    |> Ash.Query.sort([{sort_by, sort_order}])
+    |> Ash.Query.sort(sort_fields)
+    |> maybe_limit(limit)
+    |> maybe_select(select)
     |> maybe_load_device_groups(load_device_groups?)
     |> Ash.read!(domain: Domain)
+  end
+
+  @doc """
+  Returns the generated device-runtime list contract.
+
+  The action keeps filter normalization and the compatibility response fields in
+  the Devices context so generated and `/api/v1` transports use the same boundary.
+  """
+  def runtime_list(params \\ %{}) when is_map(params) do
+    filter = %{
+      approval_status: runtime_param(params, :approval_status),
+      connectivity_status: runtime_param(params, :connectivity_status),
+      product: runtime_param(params, :product),
+      account_number: runtime_param(params, :account_number),
+      ipv4_address: runtime_param(params, :ipv4_address)
+    }
+
+    %{
+      data:
+        list_devices(filter: filter)
+        |> Enum.map(&runtime_list_device_data/1),
+      meta: %{active_filters: runtime_active_filters(params)}
+    }
+  end
+
+  @doc """
+  Runs public registration for the generated device-runtime action.
+
+  Approved re-registration rotates the returned token just as the compatibility
+  controller does; pending devices receive no token.
+  """
+  def register_runtime_device(attrs) when is_map(attrs) do
+    with {:ok, device} <- register_public_device(attrs) do
+      {device, token} = runtime_registration_credentials(device)
+      {:ok, %{data: runtime_device_data(device, token)}}
+    end
+  end
+
+  def runtime_device_data(%Device{} = device, token \\ nil) do
+    data = %{
+      id: device.id,
+      mac_address: device.mac_address,
+      product_name: device.product_name,
+      account_number: device.account_number,
+      approval_status: device.approval_status,
+      last_seen_at: device.last_seen_at,
+      schema: device.schema,
+      metadata: device.metadata,
+      remote_access_requested: device.remote_access_requested,
+      remote_access_profile: device.remote_access_profile || @default_remote_access_profile
+    }
+
+    if is_binary(token), do: Map.put(data, :api_token, token), else: data
+  end
+
+  defp runtime_list_device_data(%Device{} = device) do
+    device
+    |> runtime_device_data()
+    |> Map.delete(:remote_access_requested)
   end
 
   @doc "Returns active groups visible within the trusted device scope."
@@ -471,6 +544,50 @@ defmodule Nixstasis.Devices do
 
   def normalize_connectivity_status_filter(_), do: nil
 
+  defp runtime_registration_credentials(%Device{approval_status: :approved} = device) do
+    case issue_device_token(device) do
+      {:ok, updated_device, token} -> {updated_device, token}
+      {:error, _reason} -> {device, nil}
+    end
+  end
+
+  defp runtime_registration_credentials(%Device{} = device), do: {device, nil}
+
+  defp runtime_active_filters(params) do
+    %{
+      "approval_status" =>
+        params
+        |> runtime_param(:approval_status)
+        |> normalize_approval_status_filter()
+        |> normalize_runtime_atom(),
+      "connectivity_status" =>
+        params
+        |> runtime_param(:connectivity_status)
+        |> normalize_connectivity_status_filter()
+        |> normalize_runtime_atom(),
+      "product" => runtime_param(params, :product) |> Device.normalize_filter_value(),
+      "account_number" => runtime_param(params, :account_number) |> Device.normalize_filter_value(),
+      "ipv4_address" => runtime_param(params, :ipv4_address) |> Device.normalize_filter_value()
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp runtime_param(params, key) do
+    Map.get(params, Atom.to_string(key)) || Map.get(params, key)
+  end
+
+  defp normalize_runtime_atom(nil), do: nil
+  defp normalize_runtime_atom(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp maybe_select(query, nil), do: query
+  defp maybe_select(query, fields) when is_list(fields), do: Ash.Query.select(query, fields)
+  defp maybe_select(query, _fields), do: query
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit) when is_integer(limit) and limit > 0, do: Ash.Query.limit(query, limit)
+  defp maybe_limit(query, _limit), do: query
+
   defp maybe_load_device_groups(query, true), do: Ash.Query.load(query, :device_groups)
   defp maybe_load_device_groups(query, false), do: query
 
@@ -560,13 +677,25 @@ defmodule Nixstasis.Devices do
       Ash.Query.filter(
         query,
         contains(mac_address, ^term) or contains(account_number, ^term) or
-          contains(ipv4_address, ^term)
+          contains(ipv4_address, ^term) or contains(product_name, ^term)
       )
     end
   end
 
   @doc "Lists distinct schema references without materializing every device."
   def list_schema_references do
+    schema_reference_query()
+    |> Repo.all()
+  end
+
+  @doc "Lists at most `limit` distinct schema references."
+  def list_schema_references(limit) when is_integer(limit) and limit > 0 do
+    schema_reference_query()
+    |> Ecto.Query.limit(^limit)
+    |> Repo.all()
+  end
+
+  defp schema_reference_query do
     from(d in "devices",
       where:
         not is_nil(d.product_name) and d.product_name != "" and
@@ -583,23 +712,82 @@ defmodule Nixstasis.Devices do
         asc: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1')", d.schema)
       ]
     )
-    |> Repo.all()
   end
 
-  @doc "Returns one schema map for a product/version pair."
+  @doc "Lists one canonical schema row per product/version for the requested products."
+  def list_canonical_schema_definitions(product_names) when is_list(product_names) do
+    %{rows: rows} =
+      Repo.query!(
+        """
+        WITH distinct_definitions AS (
+          SELECT DISTINCT
+            d.product_name AS schema_id,
+            COALESCE(NULLIF(d.schema->>'version', ''), 'v1') AS schema_version,
+            d.schema
+          FROM devices AS d
+          WHERE d.product_name IS NOT NULL
+            AND d.product_name <> ''
+            AND d.schema <> '{}'::jsonb
+            AND d.product_name = ANY($1::text[])
+        ), ranked_definitions AS (
+          SELECT
+            schema_id,
+            schema_version,
+            schema,
+            COUNT(*) OVER (PARTITION BY schema_id, schema_version) AS definition_count,
+            ROW_NUMBER() OVER (
+              PARTITION BY schema_id, schema_version
+              ORDER BY schema::text
+            ) AS definition_rank
+          FROM distinct_definitions
+        )
+        SELECT schema_id, schema_version, schema, definition_count > 1 AS conflict
+        FROM ranked_definitions
+        WHERE definition_rank = 1
+        ORDER BY schema_id, schema_version
+        """,
+        [product_names]
+      )
+
+    Enum.map(rows, fn [schema_id, schema_version, schema, conflict?] ->
+      %{
+        schema_id: schema_id,
+        schema_version: schema_version,
+        schema: schema,
+        conflict?: conflict?
+      }
+    end)
+  end
+
+  @doc "Returns the canonical schema for a product/version pair or a typed availability error."
   def get_schema_definition(schema_id, schema_version)
       when is_binary(schema_id) and is_binary(schema_version) do
-    from(d in "devices",
-      where: d.product_name == ^schema_id,
-      where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
-      where: fragment("? <> '{}'::jsonb", d.schema),
-      select: d.schema,
-      limit: 1
-    )
-    |> Repo.one()
+    schemas =
+      from(d in "devices",
+        where: d.product_name == ^schema_id,
+        where: fragment("COALESCE(NULLIF(?->>'version', ''), 'v1') = ?", d.schema, ^schema_version),
+        where: fragment("? <> '{}'::jsonb", d.schema),
+        distinct: true,
+        limit: 2,
+        select: d.schema
+      )
+      |> Repo.all()
+
+    case schemas do
+      [] -> {:error, :not_found}
+      [schema | remaining] -> canonical_schema_result(schema, remaining)
+    end
   end
 
-  def get_schema_definition(_, _), do: nil
+  def get_schema_definition(_, _), do: {:error, :invalid}
+
+  defp canonical_schema_result(schema, remaining) do
+    if Enum.all?(remaining, &(&1 == schema)) do
+      {:ok, schema}
+    else
+      {:error, :conflict}
+    end
+  end
 
   @doc """
   Approves multiple devices by ID.
@@ -655,18 +843,56 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
-  Sets the remote_access_requested flag.
-  """
-  def set_remote_access(%Device{} = device, requested?) do
-    case Domain.update_device(device, %{remote_access_requested: requested?}) do
-      {:ok, device} = result ->
-        broadcast_device(:device_remote_access_changed, device)
-        result
+  Sets the remote_access_requested flag and optionally selects a named profile.
 
-      result ->
-        result
+  The profile is a reference only. Route definitions remain client-owned and
+  are never accepted from or returned by the server.
+  """
+  def set_remote_access(%Device{} = device, requested?, profile \\ nil) do
+    with {:ok, normalized_profile} <-
+           normalize_remote_access_profile(profile || device.remote_access_profile),
+         attrs <-
+           if(is_nil(profile),
+             do: %{remote_access_requested: requested?},
+             else: %{remote_access_requested: requested?, remote_access_profile: normalized_profile}
+           ),
+         {:ok, updated} <- Domain.update_device(device, attrs) do
+      broadcast_device(:device_remote_access_changed, updated)
+      {:ok, updated}
     end
   end
+
+  @doc "Sets the named client-owned remote-access profile without opening access."
+  def set_remote_access_profile(%Device{} = device, profile) do
+    with {:ok, normalized_profile} <- normalize_remote_access_profile(profile),
+         {:ok, updated} <- Domain.update_device(device, %{remote_access_profile: normalized_profile}) do
+      broadcast_device(:device_remote_access_changed, updated)
+      {:ok, updated}
+    end
+  end
+
+  @doc false
+  def remote_access_profile_data(%Device{} = device) do
+    %{
+      name: device.remote_access_profile || @default_remote_access_profile,
+      version: @remote_access_profile_version
+    }
+  end
+
+  @doc false
+  def normalize_remote_access_profile(nil), do: {:ok, @default_remote_access_profile}
+
+  def normalize_remote_access_profile(profile) when is_binary(profile) do
+    normalized = String.trim(profile)
+
+    if Regex.match?(@remote_access_profile_pattern, normalized) do
+      {:ok, normalized}
+    else
+      {:error, :invalid_remote_access_profile}
+    end
+  end
+
+  def normalize_remote_access_profile(_profile), do: {:error, :invalid_remote_access_profile}
 
   @doc """
   Opens a leased remote-access session and marks the device as requesting access.
@@ -675,9 +901,10 @@ defmodule Nixstasis.Devices do
     ensure_remote_access_leases_manager!()
     owner = Keyword.get(opts, :owner, self())
     ttl_ms = Keyword.get(opts, :ttl_ms, @remote_access_lease_ttl_ms)
+    profile = Keyword.get(opts, :profile)
     lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
 
-    case set_remote_access(device, true) do
+    case set_remote_access(device, true, profile) do
       {:ok, updated} ->
         {:ok, updated, lease_ref}
 
@@ -885,6 +1112,39 @@ defmodule Nixstasis.Devices do
 
   def command_succeeded?(_device_id, _command_id), do: false
 
+  @doc """
+  Returns the acknowledgement state for a terminal `ssh_authorize` command.
+
+  The command must belong to the device, use the dynamic SSH authorization type,
+  and bind both payload names to the supplied terminal session ref.
+  """
+  def terminal_authorization_status(device_id, command_id, session_ref)
+      when is_binary(device_id) and is_binary(command_id) and command_id != "" and is_binary(session_ref) do
+    with {:ok, command_id} <- Ecto.UUID.cast(command_id),
+         %PendingCommand{} = command <- read_pending_command(device_id, command_id),
+         :ok <- validate_terminal_authorize_payload(command.command_payload, session_ref) do
+      case command.status do
+        :acked ->
+          if command.command_payload["result_status"] == "ok", do: {:ok, :ok}, else: {:ok, :failed}
+
+        _ ->
+          {:ok, :pending}
+      end
+    else
+      :error -> {:error, :invalid_command_id}
+      nil -> {:error, :command_not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def terminal_authorization_status(_device_id, command_id, _session_ref)
+      when is_nil(command_id) or command_id == "" do
+    {:error, :missing_command_id}
+  end
+
+  def terminal_authorization_status(_device_id, _command_id, _session_ref),
+    do: {:error, :invalid_command_id}
+
   def command_payload_for_result(%Device{} = device, result) when is_map(result) do
     command_id = Map.get(result, "command_id") || Map.get(result, :command_id)
 
@@ -904,27 +1164,60 @@ defmodule Nixstasis.Devices do
   """
   def queue_terminal_revoke(%Device{} = device, session_ref)
       when is_binary(session_ref) and session_ref != "" do
-    payload_data =
-      Jason.encode!(%{session_ref: session_ref})
+    if terminal_revoke_queued?(device.id, session_ref) do
+      :ok
+    else
+      payload_data =
+        Jason.encode!(%{session_ref: session_ref})
 
-    case queue_command(device, %{
-           "type" => "ssh_revoke",
-           "payload" => %{
-             "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
-             "name" => session_ref,
-             "data" => payload_data
-           }
-         }) do
-      {:ok, _command} ->
-        :ok
+      case queue_command(device, %{
+             "type" => "ssh_revoke",
+             "payload" => %{
+               "content_type" => "application/vnd.nixstasis.ssh-revoke+json;version=1",
+               "name" => session_ref,
+               "data" => payload_data
+             }
+           }) do
+        {:ok, _command} ->
+          :ok
 
-      {:error, reason} ->
-        Logger.warning("failed to queue terminal revoke for device #{device.id}: #{inspect(reason)}")
-        :ok
+        {:error, reason} ->
+          log_terminal_revoke_failure(device, reason)
+      end
     end
+  rescue
+    exception ->
+      log_terminal_revoke_failure(device, exception)
+  catch
+    kind, reason ->
+      log_terminal_revoke_failure(device, {kind, reason})
   end
 
   def queue_terminal_revoke(_device, _session_ref), do: :ok
+
+  defp terminal_revoke_queued?(device_id, session_ref) do
+    case Repo.query(
+           """
+           SELECT 1
+           FROM pending_commands
+           WHERE device_id = $1
+             AND command_payload->>'type' = 'ssh_revoke'
+             AND command_payload->'payload'->>'name' = $2
+           LIMIT 1
+           """,
+           [device_id, session_ref]
+         ) do
+      {:ok, %{rows: [_row | _rest]}} -> true
+      _ -> false
+    end
+  rescue
+    _ -> false
+  end
+
+  defp log_terminal_revoke_failure(device, reason) do
+    Logger.warning("failed to queue terminal revoke for device #{device.id}: #{inspect(reason)}")
+    :ok
+  end
 
   def pop_pending_commands(%Device{} = device) do
     Repo.transaction(fn ->
@@ -1449,6 +1742,7 @@ defmodule Nixstasis.Devices do
       |> maybe_add_update_event(attrs, :approval_status, :device_approval_status_changed)
       |> maybe_add_update_event(attrs, :last_seen_at, :device_last_seen_updated)
       |> maybe_add_update_event(attrs, :remote_access_requested, :device_remote_access_changed)
+      |> maybe_add_update_event(attrs, :remote_access_profile, :device_remote_access_changed)
 
     case events do
       [] -> broadcast_device(:device_updated, device)
@@ -1501,6 +1795,39 @@ defmodule Nixstasis.Devices do
 
       nil
   end
+
+  defp validate_terminal_authorize_payload(payload, session_ref) when is_map(payload) do
+    nested_payload = Map.get(payload, "payload", %{})
+
+    cond do
+      payload["type"] != "ssh_authorize" ->
+        {:error, :invalid_command_type}
+
+      not is_map(nested_payload) ->
+        {:error, :invalid_command_payload}
+
+      nested_payload["content_type"] != "application/vnd.nixstasis.ssh-authorize+json;version=1" ->
+        {:error, :invalid_command_payload}
+
+      nested_payload["name"] != session_ref ->
+        {:error, :session_mismatch}
+
+      true ->
+        validate_terminal_authorize_data(nested_payload["data"], session_ref)
+    end
+  end
+
+  defp validate_terminal_authorize_payload(_payload, _session_ref), do: {:error, :invalid_command_payload}
+
+  defp validate_terminal_authorize_data(data, session_ref) when is_binary(data) do
+    case Jason.decode(data) do
+      {:ok, %{"session_ref" => ^session_ref}} -> :ok
+      {:ok, _payload} -> {:error, :session_mismatch}
+      {:error, _reason} -> {:error, :invalid_command_payload}
+    end
+  end
+
+  defp validate_terminal_authorize_data(_data, _session_ref), do: {:error, :invalid_command_payload}
 
   defp pending_command_result_status(device_id, command_id) do
     case read_pending_command(device_id, command_id) do

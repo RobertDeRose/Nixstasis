@@ -11,6 +11,115 @@ defmodule Nixstasis.Devices.Device do
     domain: Nixstasis.Domain,
     extensions: [AshJsonApi.Resource]
 
+  alias Nixstasis.CommandAllowlists
+  alias Nixstasis.Devices
+  alias Nixstasis.Monitoring
+  alias Nixstasis.Scripts
+
+  @runtime_device_fields [
+    id: [type: :uuid, allow_nil?: false],
+    mac_address: [type: :string, allow_nil?: false],
+    product_name: [type: :string],
+    account_number: [type: :string],
+    approval_status: [type: Nixstasis.Types.ApprovalStatus, allow_nil?: false],
+    last_seen_at: [type: :utc_datetime],
+    schema: [type: :map, allow_nil?: false],
+    metadata: [type: :map, allow_nil?: false],
+    remote_access_requested: [type: :boolean, allow_nil?: false],
+    remote_access_profile: [type: :string, allow_nil?: false],
+    api_token: [type: :string]
+  ]
+
+  @runtime_list_device_fields [
+    id: [type: :uuid, allow_nil?: false],
+    mac_address: [type: :string, allow_nil?: false],
+    product_name: [type: :string],
+    account_number: [type: :string],
+    approval_status: [type: Nixstasis.Types.ApprovalStatus, allow_nil?: false],
+    last_seen_at: [type: :utc_datetime],
+    schema: [type: :map, allow_nil?: false],
+    metadata: [type: :map, allow_nil?: false]
+  ]
+
+  @runtime_response_fields [
+    data: [type: :map, allow_nil?: false, constraints: [fields: @runtime_device_fields]]
+  ]
+
+  @runtime_list_response_fields [
+    data: [type: {:array, :map}, allow_nil?: false, constraints: [items: [fields: @runtime_list_device_fields]]],
+    meta: [type: :map, allow_nil?: false]
+  ]
+
+  @heartbeat_command_fields [
+    command_id: [type: :string, allow_nil?: false],
+    type: [type: :string, allow_nil?: false],
+    args: [type: {:array, :string}, allow_nil?: false],
+    payload: [type: :map],
+    public_key: [type: :string],
+    payload_ref: [type: :string],
+    queued_at: [type: :utc_datetime, allow_nil?: false]
+  ]
+
+  @heartbeat_probe_fields [
+    catalog_version: [type: :string, allow_nil?: false],
+    package_names: [type: {:array, :string}, allow_nil?: false],
+    command_probes: [
+      type: {:array, :map},
+      allow_nil?: false,
+      constraints: [
+        items: [
+          fields: [
+            name: [type: :string, allow_nil?: false],
+            os_family: [type: :string],
+            package_name: [type: :string],
+            command_path: [type: :string, allow_nil?: false]
+          ]
+        ]
+      ]
+    ]
+  ]
+
+  @heartbeat_profile_fields [
+    name: [type: :string, allow_nil?: false],
+    version: [type: :integer, allow_nil?: false]
+  ]
+
+  @heartbeat_data_fields [
+    commands: [
+      type: {:array, :map},
+      allow_nil?: false,
+      constraints: [items: [fields: @heartbeat_command_fields]]
+    ],
+    remote_access_token: [type: :string],
+    remote_access_profile: [type: :map, constraints: [fields: @heartbeat_profile_fields]],
+    command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
+  ]
+
+  @heartbeat_response_fields [
+    data: [type: :map, allow_nil?: false, constraints: [fields: @heartbeat_data_fields]]
+  ]
+
+  @command_result_fields [
+    command_id: [type: :string, allow_nil?: false],
+    status: [type: :string, allow_nil?: false],
+    output: [type: :map],
+    error: [type: :string]
+  ]
+
+  @acknowledge_response_fields [
+    data: [
+      type: :map,
+      allow_nil?: false,
+      constraints: [fields: [acknowledged_count: [type: :integer, allow_nil?: false]]]
+    ]
+  ]
+
+  @command_payload_fields [
+    content_type: [type: :string],
+    name: [type: :string],
+    data: [type: :string]
+  ]
+
   postgres do
     table "devices"
     repo Nixstasis.Repo
@@ -66,7 +175,7 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash]}
+      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash, :remote_access_profile]}
     end
 
     update :update do
@@ -81,13 +190,130 @@ defmodule Nixstasis.Devices.Device do
         :last_seen_at,
         :schema,
         :metadata,
-        :remote_access_requested
+        :remote_access_requested,
+        :remote_access_profile
       ]
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
       validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
     end
+
+    action :list_runtime_devices, :map do
+      constraints fields: @runtime_list_response_fields
+
+      argument :product, :string
+      argument :account_number, :string
+      argument :approval_status, :string
+      argument :connectivity_status, :string
+      argument :ipv4_address, :string
+
+      run fn input, _context ->
+        {:ok, Devices.runtime_list(input.arguments)}
+      end
+    end
+
+    action :register_runtime_device, :map do
+      constraints fields: @runtime_response_fields
+
+      argument :mac_address, :string, allow_nil?: false
+      argument :product_name, :string
+      argument :account_number, :string
+      argument :ipv4_address, :string
+      argument :schema_definition, :map
+      argument :schema, :map
+      argument :metadata, :map
+      argument :remote_access_requested, :boolean
+
+      run fn input, _context ->
+        Devices.register_runtime_device(input.arguments)
+      end
+    end
+
+    action :heartbeat, :map do
+      constraints fields: @heartbeat_response_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+      argument :telemetry, :map, default: %{}
+      argument :connection_status, :map, default: %{}
+      argument :command_inventory, :map
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            case Monitoring.heartbeat(device, heartbeat_payload(input.arguments)) do
+              {:ok, updated_device, commands} ->
+                {:ok, %{data: Monitoring.heartbeat_response_data(updated_device, commands)}}
+
+              {:error, _reason} ->
+                {:error, "heartbeat processing failed"}
+            end
+
+          {:ok, nil} ->
+            {:error, "device not found"}
+
+          {:error, _reason} ->
+            {:error, "device not found"}
+        end
+      end
+    end
+
+    action :acknowledge_command_results, :map do
+      constraints fields: @acknowledge_response_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+
+      argument :results, {:array, :map},
+        allow_nil?: false,
+        constraints: [items: [fields: @command_result_fields]]
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            results = input.arguments.results
+            Scripts.ingest_command_results(device, results)
+            CommandAllowlists.ingest_command_results(device, results)
+
+            case Devices.acknowledge_command_results(device, results) do
+              {:ok, count} -> {:ok, %{data: %{acknowledged_count: count}}}
+              {:error, reason} -> {:error, reason}
+            end
+
+          {:ok, nil} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+
+          {:error, _reason} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+        end
+      end
+    end
+
+    action :fetch_command_payload, :map do
+      constraints fields: @command_payload_fields
+
+      argument :device_id, :uuid, allow_nil?: false
+      argument :ref, :string, allow_nil?: false
+
+      run fn input, _context ->
+        case Devices.get_device(input.arguments.device_id) do
+          {:ok, device} when is_map(device) ->
+            case Devices.get_command_payload(device, input.arguments.ref) do
+              {:ok, payload} -> {:ok, payload}
+              {:error, :not_found} -> {:error, Ash.Error.Query.NotFound.exception()}
+            end
+
+          {:ok, nil} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+
+          {:error, _reason} ->
+            {:error, Ash.Error.Query.NotFound.exception()}
+        end
+      end
+    end
+  end
+
+  defp heartbeat_payload(arguments) do
+    Map.take(arguments, [:telemetry, :connection_status, :command_inventory])
   end
 
   attributes do
@@ -140,6 +366,13 @@ defmodule Nixstasis.Devices.Device do
     attribute :remote_access_requested, :boolean do
       allow_nil? false
       default false
+      public? true
+    end
+
+    attribute :remote_access_profile, :string do
+      allow_nil? false
+      default "default"
+      constraints match: ~r/^[a-z][a-z0-9._-]{0,63}$/
       public? true
     end
 

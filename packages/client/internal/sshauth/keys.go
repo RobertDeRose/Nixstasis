@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 const (
@@ -20,6 +21,13 @@ const (
 	// RevokePayloadContentType identifies ssh_revoke command payloads sent on
 	// terminal close to drop the in-memory authorization early.
 	RevokePayloadContentType = "application/vnd.nixstasis.ssh-revoke+json;version=1"
+
+	// TargetUser is the only Unix account allowed for browser terminal keys.
+	TargetUser = "nixstasis-support"
+
+	// MaxAuthorizationTTL bounds device-side authorization independently of
+	// server configuration so a malformed command cannot outlive a terminal key.
+	MaxAuthorizationTTL = time.Hour
 )
 
 const maxAuthorizedKeyLine = 16 * 1024
@@ -55,6 +63,9 @@ func ParseOfferedKey(keyType, keyBlob string) (AuthorizedKey, error) {
 	if keyType == "" || keyBlob == "" {
 		return AuthorizedKey{}, errors.New("missing public key")
 	}
+	if !supportedKeyType(keyType) {
+		return AuthorizedKey{}, errors.New("unsupported public key type")
+	}
 	if len(keyType)+len(keyBlob) > maxAuthorizedKeyLine {
 		return AuthorizedKey{}, errors.New("public key is too large")
 	}
@@ -62,12 +73,15 @@ func ParseOfferedKey(keyType, keyBlob string) (AuthorizedKey, error) {
 	if err != nil {
 		return AuthorizedKey{}, fmt.Errorf("malformed public key: %w", err)
 	}
-	embeddedType, err := readSSHString(blob)
+	embeddedType, remainder, err := readSSHField(blob)
 	if err != nil {
 		return AuthorizedKey{}, fmt.Errorf("malformed public key: %w", err)
 	}
-	if embeddedType != keyType {
+	if string(embeddedType) != keyType {
 		return AuthorizedKey{}, errors.New("public key type does not match blob")
+	}
+	if err := validateKeyBody(keyType, remainder); err != nil {
+		return AuthorizedKey{}, fmt.Errorf("malformed public key: %w", err)
 	}
 	canonicalBlob := base64.RawStdEncoding.EncodeToString(blob)
 	sum := sha256.Sum256(blob)
@@ -86,13 +100,50 @@ func decodeKeyBlob(keyBlob string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(keyBlob)
 }
 
-func readSSHString(blob []byte) (string, error) {
+func supportedKeyType(keyType string) bool {
+	switch keyType {
+	case "ssh-ed25519", "ssh-rsa":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateKeyBody(keyType string, blob []byte) error {
+	switch keyType {
+	case "ssh-ed25519":
+		key, remainder, err := readSSHField(blob)
+		if err != nil {
+			return err
+		}
+		if len(key) != 32 || len(remainder) != 0 {
+			return errors.New("invalid ed25519 key body")
+		}
+	case "ssh-rsa":
+		exponent, remainder, err := readSSHField(blob)
+		if err != nil {
+			return err
+		}
+		modulus, remainder, err := readSSHField(remainder)
+		if err != nil {
+			return err
+		}
+		if len(exponent) == 0 || len(modulus) == 0 || len(remainder) != 0 {
+			return errors.New("invalid rsa key body")
+		}
+	default:
+		return errors.New("unsupported public key type")
+	}
+	return nil
+}
+
+func readSSHField(blob []byte) (field, remainder []byte, err error) {
 	if len(blob) < 4 {
-		return "", errors.New("short key blob")
+		return nil, nil, errors.New("short key field")
 	}
 	length := binary.BigEndian.Uint32(blob[:4])
-	if length == 0 || int(length) > len(blob)-4 {
-		return "", errors.New("invalid key type length")
+	if int(length) > len(blob)-4 {
+		return nil, nil, errors.New("invalid key field length")
 	}
-	return string(blob[4 : 4+length]), nil
+	return blob[4 : 4+length], blob[4+length:], nil
 }

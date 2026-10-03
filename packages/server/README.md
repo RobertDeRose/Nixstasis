@@ -61,11 +61,13 @@ and uses Caddy internal certificates instead of public ACME issuance.
 
 ### LiveDebugger (optional)
 
-LiveDebugger is disabled by default to keep dev startup fast.
+LiveDebugger is disabled by default to keep dev startup fast and is excluded from
+warning-as-error server compilation unless explicitly enabled.
 
 Enable it only when needed:
 
 ```bash
+LIVE_DEBUGGER=true mix deps.get
 LIVE_DEBUGGER=true mix phx.server
 ```
 

@@ -1,6 +1,7 @@
 package sshauth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,9 +16,8 @@ import (
 )
 
 const (
-	maxIPCRequestBytes  = 4096
-	maxIPCResponseBytes = 4096
-	defaultDialTimeout  = 750 * time.Millisecond
+	maxIPCMessageBytes = 4096
+	defaultDialTimeout = 750 * time.Millisecond
 )
 
 // QueryRequest is the helper-to-client SSH authorization lookup request.
@@ -103,7 +103,7 @@ func (s *Server) handle(conn net.Conn) {
 	defer func() { ignoreError(conn.Close()) }()
 	ignoreError(conn.SetDeadline(time.Now().Add(defaultDialTimeout)))
 	var req QueryRequest
-	if err := json.NewDecoder(io.LimitReader(conn, maxIPCRequestBytes)).Decode(&req); err != nil {
+	if err := decodeJSONMessage(conn, &req); err != nil {
 		ignoreError(json.NewEncoder(conn).Encode(QueryResponse{Authorized: false}))
 		return
 	}
@@ -134,11 +134,31 @@ func Query(ctx context.Context, path string, req QueryRequest) (QueryResponse, e
 	if err := json.NewEncoder(conn).Encode(req); err != nil {
 		return QueryResponse{}, err
 	}
+	if unixConn, ok := conn.(*net.UnixConn); ok {
+		if err := unixConn.CloseWrite(); err != nil {
+			return QueryResponse{}, err
+		}
+	}
 	var resp QueryResponse
-	if err := json.NewDecoder(io.LimitReader(conn, maxIPCResponseBytes)).Decode(&resp); err != nil {
+	if err := decodeJSONMessage(conn, &resp); err != nil {
 		return QueryResponse{}, err
 	}
 	return resp, nil
+}
+
+func decodeJSONMessage(reader io.Reader, target any) error {
+	data, err := io.ReadAll(io.LimitReader(reader, maxIPCMessageBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(data) > maxIPCMessageBytes {
+		return errors.New("IPC message is too large")
+	}
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 {
+		return errors.New("empty IPC message")
+	}
+	return json.Unmarshal(data, target)
 }
 
 func prepareSocketPath(path string) error {

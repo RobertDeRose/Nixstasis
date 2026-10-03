@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptClientAction do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_client_actions"
@@ -25,10 +24,6 @@ defmodule Nixstasis.Scripts.ScriptClientAction do
       index [:status]
       index [:kind]
     end
-  end
-
-  json_api do
-    type "script_client_action"
   end
 
   actions do

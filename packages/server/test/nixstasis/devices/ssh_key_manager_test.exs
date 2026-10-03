@@ -2,6 +2,10 @@ defmodule Nixstasis.Devices.SshKeyManagerTest do
   use ExUnit.Case, async: true
   alias Nixstasis.Devices.SshKeyManager
 
+  test "uses a one-hour terminal session lifetime contract" do
+    assert SshKeyManager.terminal_session_ttl_seconds() == 3_600
+  end
+
   test "generates ed25519 key pair" do
     assert {:ok, %{private_key: priv, public_key: pub}} =
              SshKeyManager.generate_key_pair(type: :ed25519)
@@ -28,7 +32,8 @@ defmodule Nixstasis.Devices.SshKeyManagerTest do
     assert {:ok, %{private_key: ^private_key}} =
              SshKeyManager.fetch_terminal_session(session_ref, "device-1")
 
-    SshKeyManager.clear_terminal_session(session_ref)
+    assert :ok = SshKeyManager.clear_terminal_session(session_ref)
+    assert :ok = SshKeyManager.clear_terminal_session(session_ref)
     assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, "device-1")
   end
 

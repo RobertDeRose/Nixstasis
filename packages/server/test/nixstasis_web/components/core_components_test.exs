@@ -30,4 +30,29 @@ defmodule NixstasisWeb.CoreComponentsTest do
     assert html =~ "alert-error"
     assert html =~ "Error message"
   end
+
+  test "button preserves its native type attribute" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.button type="submit">Save</.button>
+      """)
+
+    assert html =~ ~s(type="submit")
+  end
+
+  test "modal exposes its initial focus target" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.modal id="discard-modal" show focus_target="discard-keep">
+        <button id="discard-keep">Keep editing</button>
+      </.modal>
+      """)
+
+    assert html =~ ~s(data-focus-target="discard-keep")
+    assert html =~ "modal-dialog"
+  end
 end

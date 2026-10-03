@@ -8,6 +8,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Nixstasis.Devices
   alias Nixstasis.Devices.RemoteAccessLeases
+  alias Nixstasis.Devices.SshKeyManager
+  alias Nixstasis.Domain
   alias Nixstasis.Repo
   alias NixstasisWeb.DeviceLive.FormComponent
 
@@ -70,7 +72,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
     test "manual device creation schedules a scoped success flash timeout", %{conn: conn} do
       previous_timeout = Application.get_env(:nixstasis, :device_success_flash_timeout_ms)
       assert FormComponent.success_flash_timeout_ms() == 30_000
-      Application.put_env(:nixstasis, :device_success_flash_timeout_ms, 60)
+      Application.put_env(:nixstasis, :device_success_flash_timeout_ms, 300)
 
       on_exit(fn ->
         if is_nil(previous_timeout) do
@@ -97,7 +99,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       Process.sleep(25)
       assert render(view) =~ "Device created successfully"
-      assert eventually_cleared?(view)
+      assert eventually_cleared?(view, 80)
       refute render(view) =~ "Device created successfully"
     end
 
@@ -1031,10 +1033,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
       device = create_device!(%{mac_address: "E2:E2:E2:E2:E2:E2"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
-      %{remote_access_lease_ref: lease_ref} = :sys.get_state(view.pid).socket.assigns
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{remote_access_lease_ref: lease_ref, ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
       send(view.pid, {:remote_access_lease_expired, lease_ref})
 
       assert render(view) =~ "Remote access session expired"
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
       assert Devices.get_device!(device.id).remote_access_requested == false
     end
 
@@ -1069,13 +1076,19 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       assert html =~ ~s(id="terminal-container")
       assert html =~ ~s(data-token=)
-      assert html =~ ~s(data-socket-token=)
       assert html =~ ~s(data-command-id=)
 
       %{ssh_authorize_command_id: command_id, terminal_socket_token: socket_token} =
         :sys.get_state(view.pid).socket.assigns
 
       assert is_binary(command_id)
+      assert socket_token == nil
+
+      acknowledge_ssh_authorize_command!(device.id, view)
+      assert eventually_socket_token?(view)
+
+      %{terminal_socket_token: socket_token} = :sys.get_state(view.pid).socket.assigns
+      assert is_binary(socket_token)
 
       [command] = Nixstasis.Domain.list_pending_commands!()
       assert command.id == command_id
@@ -1097,6 +1110,156 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert device_id == device.id
     end
 
+    test "terminal authorized event cannot bypass device acknowledgement", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:EC"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{ssh_authorize_command_id: command_id, ssh_token: session_ref} =
+        :sys.get_state(view.pid).socket.assigns
+
+      render_hook(view, "terminal_authorized", %{"command_id" => command_id})
+
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.ssh_authorize_command_id == command_id
+      assert assigns.terminal_socket_token == nil
+      assert SshKeyManager.terminal_session_active?(session_ref)
+    end
+
+    test "failed device authorization never activates the terminal socket", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:EA"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{ssh_authorize_command_id: command_id, ssh_token: session_ref, terminal_socket_token: socket_token} =
+        :sys.get_state(view.pid).socket.assigns
+
+      assert is_binary(command_id)
+      assert is_binary(session_ref)
+      assert socket_token == nil
+
+      loaded_device = Devices.get_device!(device.id)
+      _ = Devices.pop_pending_commands(loaded_device)
+
+      assert {:ok, 1} =
+               Devices.acknowledge_command_results(loaded_device, [
+                 %{"command_id" => command_id, "status" => "FAILED", "error" => "denied"}
+               ])
+
+      send(view.pid, {:terminal_authorization_check, command_id})
+      assert eventually_terminal_authorization_failed?(view)
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+    end
+
+    test "authorization polling timeout clears the pending terminal session", %{conn: conn} do
+      previous_timeout = Application.get_env(:nixstasis, :terminal_authorization_timeout_ms)
+      previous_interval = Application.get_env(:nixstasis, :terminal_authorization_poll_interval_ms)
+      Application.put_env(:nixstasis, :terminal_authorization_timeout_ms, 0)
+      Application.put_env(:nixstasis, :terminal_authorization_poll_interval_ms, 0)
+
+      on_exit(fn ->
+        if is_nil(previous_timeout) do
+          Application.delete_env(:nixstasis, :terminal_authorization_timeout_ms)
+        else
+          Application.put_env(:nixstasis, :terminal_authorization_timeout_ms, previous_timeout)
+        end
+
+        if is_nil(previous_interval) do
+          Application.delete_env(:nixstasis, :terminal_authorization_poll_interval_ms)
+        else
+          Application.put_env(:nixstasis, :terminal_authorization_poll_interval_ms, previous_interval)
+        end
+      end)
+
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:EB"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
+      assert eventually_terminal_authorization_failed?(view)
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
+    end
+
+    test "caps configured SSH authorization TTL at the terminal session lifetime", %{conn: conn} do
+      previous_ttl = Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds)
+
+      on_exit(fn ->
+        if is_nil(previous_ttl) do
+          Application.delete_env(:nixstasis, :ssh_authorization_ttl_seconds)
+        else
+          Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, previous_ttl)
+        end
+      end)
+
+      Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, 2 * 60 * 60)
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E7"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      _html =
+        view
+        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> render_click()
+
+      [command] = Nixstasis.Domain.list_pending_commands!()
+      payload_data = Jason.decode!(command.command_payload["payload"]["data"])
+      assert payload_data["ttl_seconds"] == 60 * 60
+    end
+
+    test "rejects non-positive configured SSH authorization TTL", %{conn: conn} do
+      previous_ttl = Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds)
+
+      on_exit(fn ->
+        if is_nil(previous_ttl) do
+          Application.delete_env(:nixstasis, :ssh_authorization_ttl_seconds)
+        else
+          Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, previous_ttl)
+        end
+      end)
+
+      Application.put_env(:nixstasis, :ssh_authorization_ttl_seconds, 0)
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E8"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      html =
+        view
+        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> render_click()
+
+      assert html =~ "Invalid SSH authorization TTL configuration"
+      assert Nixstasis.Domain.list_pending_commands!() == []
+    end
+
+    test "queue failure clears a newly created terminal session", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E9"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+      before = :sys.get_state(SshKeyManager.TerminalSessions).sessions
+
+      assert :ok = Devices.delete_device(device)
+
+      view
+      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> render_click()
+
+      assert :sys.get_state(SshKeyManager.TerminalSessions).sessions == before
+    end
+
     test "terminal close clears consumed session assigns", %{conn: conn} do
       device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:E6"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
@@ -1112,6 +1275,13 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assigns = :sys.get_state(view.pid).socket.assigns
       assert assigns.ssh_session_started
       assert assigns.terminal_closed?
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(token, device.id)
+
+      revoke_count =
+        Domain.list_pending_commands!()
+        |> Enum.count(&(&1.command_payload["type"] == "ssh_revoke"))
+
+      assert revoke_count == 1
       assert assigns.ssh_authorize_command_id == nil
       assert assigns.terminal_socket_token == nil
 
@@ -1254,6 +1424,21 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       assert eventually_rendered?(view, "Device Offline")
       assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "offline transition clears the active terminal session", %{conn: conn} do
+      device = create_device!(%{mac_address: "E7:E7:E7:E7:E7:E8"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+      _ = view |> element("a[phx-value-tab='terminal']", "Terminal") |> render_click()
+
+      %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
+      {:ok, loaded_device} = Devices.get_device(device.id)
+
+      {:ok, _updated} =
+        Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
+
+      assert eventually_rendered?(view, "Device Offline")
+      assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
     end
 
     test "redirects with flash for missing device", %{conn: conn} do
@@ -1422,11 +1607,15 @@ defmodule NixstasisWeb.DeviceLiveTest do
     %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
 
     acknowledge_ssh_authorize_command!(device_id, view)
+    %{ssh_authorize_command_id: command_id} = :sys.get_state(view.pid).socket.assigns
 
     assert {:ok, _, socket} =
              NixstasisWeb.UserSocket
              |> socket("user_id", %{terminal_device_id: device_id})
-             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device_id}", %{"token" => session_ref})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device_id}", %{
+               "token" => session_ref,
+               "command_id" => command_id
+             })
 
     socket
   end
@@ -1445,5 +1634,36 @@ defmodule NixstasisWeb.DeviceLiveTest do
              Devices.acknowledge_command_results(device, [
                %{"command_id" => command_id, "status" => "OK", "output" => %{}}
              ])
+
+    send(view.pid, {:terminal_authorization_check, command_id})
+    assert eventually_socket_token?(view)
   end
+
+  defp eventually_socket_token?(view, attempts \\ 20)
+
+  defp eventually_socket_token?(view, attempts) when attempts > 0 do
+    if is_binary(:sys.get_state(view.pid).socket.assigns[:terminal_socket_token]) do
+      true
+    else
+      Process.sleep(5)
+      eventually_socket_token?(view, attempts - 1)
+    end
+  end
+
+  defp eventually_socket_token?(_view, 0), do: false
+
+  defp eventually_terminal_authorization_failed?(view, attempts \\ 20)
+
+  defp eventually_terminal_authorization_failed?(view, attempts) when attempts > 0 do
+    assigns = :sys.get_state(view.pid).socket.assigns
+
+    if assigns.ssh_session_started == false and assigns.terminal_socket_token == nil and assigns.terminal_closed? do
+      true
+    else
+      Process.sleep(5)
+      eventually_terminal_authorization_failed?(view, attempts - 1)
+    end
+  end
+
+  defp eventually_terminal_authorization_failed?(_view, 0), do: false
 end

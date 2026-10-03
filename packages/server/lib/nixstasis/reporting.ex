@@ -4,6 +4,7 @@ defmodule Nixstasis.Reporting do
   """
 
   import Ecto.Query, only: [from: 2]
+  require Ecto.Query
 
   alias Nixstasis.Domain
   alias Nixstasis.Repo
@@ -11,29 +12,43 @@ defmodule Nixstasis.Reporting do
   alias Nixstasis.Reporting.QueryBuilder
 
   @preference_scope_keys ["kind", "owner", "operator_id", "report_preference_scope"]
+  @report_index_page_size 50
+  @report_field_summary_limit 25
+  @report_field_text_limit 128
 
   def list_custom_reports do
     Domain.list_custom_reports!()
   end
 
   def list_custom_reports_with_view(opts \\ %{}) do
-    %{
-      name_query: name_query,
-      field_query: field_query,
-      field_queries: field_queries,
-      sort_by: sort_by,
-      sort_dir: sort_dir
-    } = list_view_opts(opts)
+    view_opts = list_view_opts(opts)
 
+    page_offset = (view_opts.page - 1) * @report_index_page_size
+    page_size = @report_index_page_size
+
+    view_opts
+    |> report_index_query()
+    |> Ecto.Query.offset(^page_offset)
+    |> Ecto.Query.limit(^page_size)
+    |> Repo.all()
+    |> Enum.map(&with_report_view_data/1)
+  end
+
+  def count_custom_reports_with_view(opts \\ %{}) do
+    opts
+    |> list_view_opts()
+    |> report_index_query()
+    |> Repo.aggregate(:count, :id)
+  end
+
+  defp report_index_query(view_opts) do
     "custom_reports"
     |> base_report_index_query()
     |> reject_e2e_reports()
-    |> filter_report_names(name_query)
-    |> filter_report_field_query(field_query)
-    |> filter_report_field_queries(field_queries)
-    |> sort_report_index(sort_by, sort_dir)
-    |> Repo.all()
-    |> Enum.map(&with_report_view_data/1)
+    |> filter_report_names(view_opts.name_query)
+    |> filter_report_field_query(view_opts.field_query)
+    |> filter_report_field_queries(view_opts.field_queries)
+    |> sort_report_index(view_opts.sort_by, view_opts.sort_dir)
   end
 
   defp list_view_opts(opts) do
@@ -44,9 +59,21 @@ defmodule Nixstasis.Reporting do
       field_query: Map.get(normalized_opts, "field_query", ""),
       field_queries: Map.get(normalized_opts, "field_queries", []),
       sort_by: Map.get(normalized_opts, "sort_by"),
-      sort_dir: Map.get(normalized_opts, "sort_dir", "asc")
+      sort_dir: Map.get(normalized_opts, "sort_dir", "asc"),
+      page: normalize_page(Map.get(normalized_opts, "page", 1))
     }
   end
+
+  defp normalize_page(page) when is_integer(page) and page > 0, do: page
+
+  defp normalize_page(page) when is_binary(page) do
+    case Integer.parse(page) do
+      {page, ""} when page > 0 -> page
+      _ -> 1
+    end
+  end
+
+  defp normalize_page(_), do: 1
 
   defp normalize_option_keys(opts) when is_map(opts) do
     Enum.reduce(opts, %{}, fn {key, value}, acc ->
@@ -187,11 +214,82 @@ defmodule Nixstasis.Reporting do
       select: %{
         id: r.id,
         name: r.name,
-        config: r.config,
+        field_summaries:
+          fragment(
+            """
+            (
+              select coalesce(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'path', left(coalesce(field->>'path', ''), ?),
+                    'alias', left(coalesce(field->>'alias', field->>'path', ''), ?)
+                  )
+                ),
+                '[]'::jsonb
+              )
+              from (
+                select field
+                from jsonb_array_elements(
+                  case
+                    when jsonb_typeof(?->'fields') = 'array' then ?->'fields'
+                    else '[]'::jsonb
+                  end
+                ) as field
+                where jsonb_typeof(field) = 'object'
+                limit ?
+              ) as bounded_fields
+            )
+            """,
+            ^@report_field_text_limit,
+            ^@report_field_text_limit,
+            r.config,
+            r.config,
+            ^@report_field_summary_limit
+          ),
+        column_count:
+          fragment(
+            "case when jsonb_typeof(?->'fields') = 'array' then jsonb_array_length(?->'fields') else 0 end",
+            r.config,
+            r.config
+          ),
         inserted_at: r.inserted_at,
         updated_at: r.updated_at
       }
     )
+  end
+
+  defp report_index_summary_fields(report) do
+    case report.field_summaries do
+      summaries when is_list(summaries) ->
+        summaries
+        |> Enum.filter(&is_map/1)
+        |> Enum.map(fn field ->
+          %{
+            "path" => field["path"] || "",
+            "alias" => field["alias"] || field["path"] || ""
+          }
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  defp with_report_view_data(report) do
+    fields = report_index_summary_fields(report)
+    field_tokens = fields |> Enum.flat_map(&[&1["path"], &1["alias"]]) |> Enum.join(" ") |> String.downcase()
+    field_labels = Enum.map(fields, & &1["alias"])
+    field_paths = fields |> Enum.map(& &1["path"]) |> Enum.reject(&(&1 == "")) |> Enum.map(&String.downcase/1)
+
+    %{
+      "id" => report.id,
+      "name" => report.name,
+      "field_tokens" => field_tokens,
+      "field_labels" => field_labels,
+      "field_paths" => field_paths,
+      "column_count" => report.column_count,
+      "updated_at" => report.updated_at
+    }
   end
 
   defp reject_e2e_reports(query) do
@@ -216,10 +314,16 @@ defmodule Nixstasis.Reporting do
           """
           exists (
             select 1
-            from jsonb_array_elements(coalesce(?->'fields', '[]'::jsonb)) as field
+            from jsonb_array_elements(
+              case
+                when jsonb_typeof(?->'fields') = 'array' then ?->'fields'
+                else '[]'::jsonb
+              end
+            ) as field
             where lower(coalesce(field->>'path', '') || ' ' || coalesce(field->>'alias', '')) like ?
           )
           """,
+          r.config,
           r.config,
           ^pattern
         )
@@ -238,10 +342,16 @@ defmodule Nixstasis.Reporting do
             """
             exists (
               select 1
-              from jsonb_array_elements(coalesce(?->'fields', '[]'::jsonb)) as field
+              from jsonb_array_elements(
+                case
+                  when jsonb_typeof(?->'fields') = 'array' then ?->'fields'
+                  else '[]'::jsonb
+                end
+              ) as field
               where lower(coalesce(field->>'path', '')) = ?
             )
             """,
+            r.config,
             r.config,
             ^field_path
           )
@@ -249,41 +359,13 @@ defmodule Nixstasis.Reporting do
     end)
   end
 
-  defp sort_report_index(query, "name", "desc"), do: from(r in query, order_by: [desc: fragment("lower(?)", r.name)])
-  defp sort_report_index(query, "name", _), do: from(r in query, order_by: [asc: fragment("lower(?)", r.name)])
+  defp sort_report_index(query, "name", "desc"),
+    do: from(r in query, order_by: [desc: fragment("lower(?)", r.name), asc: r.id])
+
+  defp sort_report_index(query, "name", _),
+    do: from(r in query, order_by: [asc: fragment("lower(?)", r.name), asc: r.id])
+
   defp sort_report_index(query, _, _), do: sort_report_index(query, "name", "asc")
-
-  defp with_report_view_data(report) do
-    fields = (report.config["fields"] || report.config[:fields] || []) |> Enum.filter(&is_map/1)
-
-    field_tokens =
-      fields
-      |> Enum.flat_map(fn field ->
-        [field["path"] || field[:path], field["alias"] || field[:alias]]
-      end)
-      |> Enum.filter(&is_binary/1)
-      |> Enum.map_join(" ", &String.downcase/1)
-
-    field_labels =
-      fields
-      |> Enum.map(fn field -> field["alias"] || field[:alias] || field["path"] || field[:path] end)
-      |> Enum.filter(&is_binary/1)
-
-    %{
-      "id" => report.id,
-      "name" => report.name,
-      "field_tokens" => field_tokens,
-      "field_labels" => field_labels,
-      "field_paths" =>
-        fields
-        |> Enum.map(fn field -> field["path"] || field[:path] end)
-        |> Enum.filter(&is_binary/1)
-        |> Enum.map(&String.downcase/1),
-      "column_count" => length(fields),
-      "updated_at" => report.updated_at,
-      "report" => struct(CustomReport, report)
-    }
-  end
 
   defp normalize_field_queries(queries) do
     queries

@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptDraft do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_drafts"
@@ -16,10 +15,6 @@ defmodule Nixstasis.Scripts.ScriptDraft do
       index [:status]
       index [:name]
     end
-  end
-
-  json_api do
-    type "script_draft"
   end
 
   actions do

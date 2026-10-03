@@ -101,7 +101,7 @@ defmodule NixstasisWeb.CoreComponents do
       <.button phx-click="go" variant="primary">Send!</.button>
       <.button navigate={~p"/"}>Home</.button>
   """
-  attr(:rest, :global, include: ~w(href navigate patch method download name value disabled))
+  attr(:rest, :global, include: ~w(href navigate patch method download name value disabled type))
   attr(:class, :string)
   attr(:variant, :string, values: ~w(primary outline ghost))
   slot(:inner_block, required: true)
@@ -192,7 +192,7 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:rest, :global,
     include:
       ~w(accept autocomplete autocapitalize autocorrect capture cols disabled form inputmode list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size spellcheck step)
+                multiple pattern placeholder readonly required rows size spellcheck step aria-describedby aria-invalid)
   )
 
   def input(%{field: %FormField{} = field} = assigns) do
@@ -325,8 +325,10 @@ defmodule NixstasisWeb.CoreComponents do
 
   # Helper used by inputs to generate form errors
   defp error(assigns) do
+    assigns = assign_new(assigns, :id, fn -> nil end)
+
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
+    <p id={@id} role="alert" class="mt-1.5 flex gap-2 items-center text-sm text-error">
       <.icon name="hero-exclamation-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>
@@ -336,6 +338,7 @@ defmodule NixstasisWeb.CoreComponents do
   @doc """
   Renders a header with title.
   """
+  attr(:id, :string, default: nil)
   slot(:inner_block, required: true)
   slot(:subtitle)
   slot(:actions)
@@ -344,10 +347,14 @@ defmodule NixstasisWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 id={if @id, do: "#{@id}-title"} class="text-lg font-semibold leading-8">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p
+          :if={@subtitle != []}
+          id={if @id, do: "#{@id}-description"}
+          class="text-sm text-base-content/70"
+        >
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -583,6 +590,8 @@ defmodule NixstasisWeb.CoreComponents do
   attr(:show, :boolean, default: false)
   attr(:on_cancel, :any, default: %JS{})
   attr(:close_on_cancel, :boolean, default: true)
+  attr(:focus_target, :string, default: nil)
+  attr(:focus_return_target, :string, default: nil)
   slot(:inner_block, required: true)
 
   def modal(assigns) do
@@ -592,6 +601,8 @@ defmodule NixstasisWeb.CoreComponents do
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={cancel_behavior(@on_cancel, @close_on_cancel)}
+      data-focus-target={@focus_target}
+      data-focus-return-target={@focus_return_target}
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="escape"
       class="relative z-[60] hidden"
@@ -602,7 +613,7 @@ defmodule NixstasisWeb.CoreComponents do
         aria-hidden="true"
       />
       <div
-        class="fixed inset-0 overflow-y-auto"
+        class="fixed inset-0 overflow-y-auto modal-dialog"
         aria-labelledby={"#{@id}-title"}
         aria-describedby={"#{@id}-description"}
         role="dialog"

@@ -8,4 +8,5 @@ type ConnectionStatus struct {
 	ConnectionString string    `json:"connection_string"`
 	PID              int       `json:"pid"`
 	StartTime        time.Time `json:"start_time"`
+	Error            string    `json:"error,omitempty"`
 }

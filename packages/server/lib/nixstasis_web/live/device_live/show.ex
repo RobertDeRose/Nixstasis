@@ -12,6 +12,9 @@ defmodule NixstasisWeb.DeviceLive.Show do
   alias Nixstasis.Repo
   alias NixstasisWeb.Permissions
 
+  @terminal_authorization_poll_interval_ms 100
+  @terminal_authorization_timeout_ms 15_000
+
   @impl true
   def mount(_params, session, socket) do
     permissions = Permissions.device_permissions(session)
@@ -122,7 +125,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   @impl true
   def handle_event("terminal_authorized", %{"command_id" => command_id}, socket) do
-    if command_id == socket.assigns[:ssh_authorize_command_id] do
+    if command_id == socket.assigns[:ssh_authorize_command_id] and
+         is_binary(socket.assigns[:terminal_socket_token]) do
       {:noreply, assign(socket, :ssh_authorize_command_id, nil)}
     else
       {:noreply, socket}
@@ -132,7 +136,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
   @impl true
   def handle_event("terminal_closed", %{"token" => token}, socket) do
     if token == socket.assigns[:ssh_token] do
-      clear_ssh_session(socket)
+      socket = clear_ssh_session(socket)
 
       {:noreply,
        socket
@@ -170,32 +174,30 @@ defmodule NixstasisWeb.DeviceLive.Show do
         {:error, "Device is offline; unable to start remote access"}
 
       true ->
-        clear_ssh_session(socket)
+        socket = clear_ssh_session(socket)
 
-        with {:ok, %{private_key: private_key, public_key: public_key}} <-
+        with :ok <- validate_ssh_authorization_ttl(),
+             {:ok, %{private_key: private_key, public_key: public_key}} <-
                SshKeyManager.generate_key_pair(),
-             {:ok, session_ref} <- SshKeyManager.create_terminal_session(device.id, private_key),
-             {:ok, command} <-
-               Devices.queue_command(
-                 device,
-                 build_ssh_authorize_command(device, session_ref, public_key)
-               ) do
-          socket_token =
-            Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{"device_id" => device.id})
+             {:ok, session_ref} <- SshKeyManager.create_terminal_session(device.id, private_key) do
+          case queue_ssh_authorize_command(device, session_ref, public_key) do
+            {:ok, command} ->
+              {:ok,
+               socket
+               |> assign(:ssh_session_started, true)
+               |> assign(:ssh_authorize_command_id, command.id)
+               |> assign(:ssh_token, session_ref)
+               |> assign(:terminal_socket_token, nil)
+               |> assign(:terminal_closed?, false)
+               |> schedule_terminal_authorization_check(command.id)}
 
-          {:ok,
-           socket
-           |> assign(:ssh_session_started, true)
-           |> assign(:ssh_authorize_command_id, command.id)
-           |> assign(:ssh_token, session_ref)
-           |> assign(:terminal_socket_token, socket_token)
-           |> assign(:terminal_closed?, false)}
+            {:error, reason} ->
+              cleanup_created_ssh_session(device, session_ref)
+              {:error, format_ssh_session_error(reason)}
+          end
         else
-          {:error, reason} when is_binary(reason) ->
-            {:error, "Failed to start SSH session: #{reason}"}
-
           {:error, reason} ->
-            {:error, "Failed to start SSH session: #{inspect(reason)}"}
+            {:error, format_ssh_session_error(reason)}
         end
     end
   end
@@ -221,17 +223,136 @@ defmodule NixstasisWeb.DeviceLive.Show do
     }
   end
 
+  defp queue_ssh_authorize_command(device, session_ref, public_key) do
+    Devices.queue_command(device, build_ssh_authorize_command(device, session_ref, public_key))
+  rescue
+    exception -> {:error, exception}
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp cleanup_created_ssh_session(device, session_ref) do
+    safe_clear_ssh_key(session_ref)
+    _ = Devices.queue_terminal_revoke(device, session_ref)
+    :ok
+  end
+
+  defp format_ssh_session_error(reason) when is_binary(reason), do: "Failed to start SSH session: #{reason}"
+  defp format_ssh_session_error(reason), do: "Failed to start SSH session: #{inspect(reason)}"
+
+  defp validate_ssh_authorization_ttl do
+    case Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds) do
+      nil -> :ok
+      seconds when is_integer(seconds) and seconds > 0 -> :ok
+      _ -> {:error, "Invalid SSH authorization TTL configuration"}
+    end
+  end
+
   defp ssh_authorization_ttl_seconds do
     case Application.get_env(:nixstasis, :ssh_authorization_ttl_seconds) do
-      seconds when is_integer(seconds) and seconds > 0 -> seconds
-      _ -> 300
+      seconds when is_integer(seconds) and seconds > 0 ->
+        min(seconds, SshKeyManager.terminal_session_ttl_seconds())
+
+      _ ->
+        300
+    end
+  end
+
+  defp schedule_terminal_authorization_check(socket, command_id) do
+    timer =
+      Process.send_after(
+        self(),
+        {:terminal_authorization_check, command_id},
+        terminal_authorization_poll_interval_ms()
+      )
+
+    deadline =
+      socket.assigns[:terminal_authorization_deadline] ||
+        System.monotonic_time(:millisecond) + terminal_authorization_timeout_ms()
+
+    socket
+    |> assign(:terminal_authorization_timer, timer)
+    |> assign(:terminal_authorization_deadline, deadline)
+  end
+
+  defp terminal_authorization_expired?(socket) do
+    System.monotonic_time(:millisecond) >= socket.assigns[:terminal_authorization_deadline]
+  end
+
+  defp activate_terminal_socket(socket) do
+    socket
+    |> cancel_terminal_authorization_check()
+    |> assign(
+      :terminal_socket_token,
+      Phoenix.Token.sign(NixstasisWeb.Endpoint, "terminal_socket", %{
+        "device_id" => socket.assigns.device.id
+      })
+    )
+    |> assign(:terminal_authorization_timer, nil)
+    |> assign(:terminal_authorization_deadline, nil)
+  end
+
+  defp fail_terminal_authorization(socket, reason) do
+    socket
+    |> clear_ssh_session()
+    |> assign(:ssh_session_started, false)
+    |> assign(:terminal_closed?, true)
+    |> put_flash(:error, terminal_authorization_error(reason))
+  end
+
+  defp terminal_authorization_error(:ssh_authorization_timeout),
+    do: "Device authorization timed out; start a new terminal session to retry."
+
+  defp terminal_authorization_error(:ssh_authorization_failed),
+    do: "Device authorization failed; start a new terminal session to retry."
+
+  defp terminal_authorization_error(_reason),
+    do: "Device authorization was invalid; start a new terminal session to retry."
+
+  defp terminal_authorization_poll_interval_ms do
+    Application.get_env(
+      :nixstasis,
+      :terminal_authorization_poll_interval_ms,
+      @terminal_authorization_poll_interval_ms
+    )
+  end
+
+  defp terminal_authorization_timeout_ms do
+    Application.get_env(:nixstasis, :terminal_authorization_timeout_ms, @terminal_authorization_timeout_ms)
+  end
+
+  @impl true
+  def handle_info({:terminal_authorization_check, command_id}, socket) do
+    if socket.assigns[:ssh_authorize_command_id] != command_id do
+      {:noreply, socket}
+    else
+      device = socket.assigns.device
+      session_ref = socket.assigns[:ssh_token]
+
+      case Devices.terminal_authorization_status(device.id, command_id, session_ref) do
+        {:ok, :ok} ->
+          {:noreply, activate_terminal_socket(socket)}
+
+        {:ok, :pending} ->
+          if terminal_authorization_expired?(socket) do
+            {:noreply, fail_terminal_authorization(socket, :ssh_authorization_timeout)}
+          else
+            {:noreply, schedule_terminal_authorization_check(socket, command_id)}
+          end
+
+        {:ok, :failed} ->
+          {:noreply, fail_terminal_authorization(socket, :ssh_authorization_failed)}
+
+        {:error, reason} ->
+          {:noreply, fail_terminal_authorization(socket, reason)}
+      end
     end
   end
 
   @impl true
   def handle_info({:remote_access_lease_expired, lease_ref}, socket) do
     if socket.assigns[:remote_access_lease_ref] == lease_ref do
-      clear_ssh_session(socket)
+      socket = clear_ssh_session(socket)
       Devices.expire_remote_access_lease(lease_ref)
 
       {:noreply,
@@ -340,6 +461,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:ssh_authorize_command_id, nil)
     |> assign(:ssh_token, nil)
     |> assign(:terminal_socket_token, nil)
+    |> assign(:terminal_authorization_timer, nil)
+    |> assign(:terminal_authorization_deadline, nil)
     |> assign(:terminal_closed?, false)
     |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["var(--color-primary)"]))
     |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["var(--color-success)"]))
@@ -387,6 +510,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
       socket
     else
       socket
+      |> clear_ssh_session()
       |> assign(:ssh_session_started, false)
       |> assign(:ssh_authorize_command_id, nil)
       |> assign(:ssh_token, nil)
@@ -423,6 +547,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
       |> assign_new(:ssh_authorize_command_id, fn -> nil end)
       |> assign_new(:ssh_token, fn -> nil end)
       |> assign_new(:terminal_socket_token, fn -> nil end)
+      |> assign_new(:terminal_authorization_timer, fn -> nil end)
+      |> assign_new(:terminal_authorization_deadline, fn -> nil end)
       |> assign_new(:terminal_closed?, fn -> false end)
     else
       socket
@@ -464,25 +590,52 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   defp close_session(socket) do
-    clear_ssh_session(socket)
+    socket = clear_ssh_session(socket)
     close_remote_access(socket)
   end
 
-  defp clear_ssh_session(socket) do
-    case Map.get(socket.assigns, :ssh_token) do
-      nil ->
-        :ok
-
-      session_ref ->
-        _ = Devices.queue_terminal_revoke(socket.assigns.device, session_ref)
-        SshKeyManager.clear_terminal_session(session_ref)
+  defp cancel_terminal_authorization_check(socket) do
+    case Map.get(socket.assigns, :terminal_authorization_timer) do
+      timer when is_reference(timer) -> Process.cancel_timer(timer)
+      _ -> :ok
     end
+
+    socket
+  end
+
+  defp clear_ssh_session(socket) do
+    socket = cancel_terminal_authorization_check(socket)
+    session_ref = Map.get(socket.assigns, :ssh_token)
+
+    if is_binary(session_ref) and session_ref != "" do
+      safe_clear_ssh_key(session_ref)
+
+      case Map.get(socket.assigns, :device) do
+        %Device{} = device -> _ = Devices.queue_terminal_revoke(device, session_ref)
+        _ -> :ok
+      end
+    end
+
+    socket
+    |> assign(:ssh_authorize_command_id, nil)
+    |> assign(:ssh_token, nil)
+    |> assign(:terminal_socket_token, nil)
+    |> assign(:terminal_authorization_timer, nil)
+    |> assign(:terminal_authorization_deadline, nil)
+  end
+
+  defp safe_clear_ssh_key(session_ref) do
+    SshKeyManager.clear_terminal_session(session_ref)
+  catch
+    _, _ -> :ok
   end
 
   defp close_remote_access(socket) do
     socket.assigns
     |> Map.get(:remote_access_lease_ref)
     |> Devices.close_remote_access_lease()
+
+    socket
   end
 
   defp pcp_chart_config(device) do

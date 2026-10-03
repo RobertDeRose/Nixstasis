@@ -13,7 +13,6 @@ defmodule Nixstasis.Monitoring.AlertRule do
     repo Nixstasis.Repo
 
     custom_indexes do
-      index [:name]
       index [:product_name]
     end
   end
@@ -65,6 +64,10 @@ defmodule Nixstasis.Monitoring.AlertRule do
     end
 
     timestamps()
+  end
+
+  identities do
+    identity :unique_name, [:name]
   end
 
   @number_operators [">", ">=", "=", "<=", "<", "!="]

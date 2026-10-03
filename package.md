@@ -269,7 +269,6 @@ Expected code changes:
 - define one canonical default path for packaged installs:
   - `/usr/libexec/nixstasis/frpc`
 - allow override only if there is a clear config requirement
-
 - update default config paths and any service/runtime path assumptions from `nixstasis` to `nixstasis`
 
 Related areas likely to change:

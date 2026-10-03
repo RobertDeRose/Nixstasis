@@ -309,17 +309,32 @@ const ReportBuilderKeyboard = {
 const AlertRuleBuilderKeyboard = {
   mounted() {
     this.modalRoot = document.getElementById("rule-modal")
+    this.lastActiveModalId = null
+    this.previousActiveElement = null
+    this.lastFocusedElement = null
 
-    const focusFirstField = () => {
-      const first = document.getElementById("alert-schema-id")
-      if (first && !first.disabled) first.focus()
+    this.isVisible = element => {
+      if (!element || !document.body.contains(element)) return false
+
+      const style = window.getComputedStyle(element)
+      return style.display !== "none" && style.visibility !== "hidden"
     }
 
-    requestAnimationFrame(focusFirstField)
-    setTimeout(focusFirstField, 80)
+    this.getVisibleModalRoots = () => {
+      const roots = Array.from(document.querySelectorAll("[role='dialog'][aria-modal='true']"))
+        .map(dialog => dialog.closest("[id]"))
+        .filter(root => root && this.isVisible(root))
 
-    this.getFocusableElements = () => {
-      if (!this.modalRoot) return []
+      return roots.filter((root, index) => roots.indexOf(root) === index)
+    }
+
+    this.getActiveModal = () => {
+      const visibleModals = this.getVisibleModalRoots()
+      return visibleModals[visibleModals.length - 1] || null
+    }
+
+    this.getFocusableElements = modalRoot => {
+      if (!modalRoot) return []
 
       const selector = [
         "button",
@@ -330,11 +345,73 @@ const AlertRuleBuilderKeyboard = {
         "[tabindex]:not([tabindex='-1'])",
       ].join(",")
 
-      return Array.from(this.modalRoot.querySelectorAll(selector)).filter(el => {
-        if (el.disabled) return false
-        if (el.getAttribute("aria-hidden") === "true") return false
-        const style = window.getComputedStyle(el)
-        return style.display !== "none" && style.visibility !== "hidden"
+      return Array.from(modalRoot.querySelectorAll(selector)).filter(el => {
+        if (el.matches("[role='dialog'], input[type='hidden']")) return false
+        if (el.disabled || el.getAttribute("aria-hidden") === "true") return false
+        return this.isVisible(el)
+      })
+    }
+
+    this.focusActiveModal = modalRoot => {
+      const targetId =
+        modalRoot.dataset.focusTarget ||
+        modalRoot.querySelector("[data-initial-focus-id]")?.dataset.initialFocusId
+      const focusables = this.getFocusableElements(modalRoot)
+      const target = targetId ? document.getElementById(targetId) : null
+      const focusTarget = target && focusables.includes(target) ? target : focusables[0]
+
+      focusTarget?.focus()
+    }
+
+    this.onFocusIn = event => {
+      const target = event.target
+      if (!this.modalRoot?.contains(target) || target.closest?.("button[aria-label='close']")) return
+
+      if (this.getFocusableElements(this.modalRoot).includes(target)) {
+        this.lastFocusedElement = target
+      }
+    }
+
+    this.scheduleActiveModalFocus = () => {
+      const activeModal = this.getActiveModal()
+
+      if (!activeModal) {
+        this.lastActiveModalId = null
+        return
+      }
+
+      if (activeModal.id === this.lastActiveModalId) return
+
+      if (activeModal.id !== this.modalRoot?.id) {
+        const lastFocusedElement = this.lastFocusedElement
+        this.previousActiveElement =
+          lastFocusedElement &&
+          lastFocusedElement.isConnected &&
+          this.modalRoot?.contains(lastFocusedElement)
+            ? lastFocusedElement
+            : document.activeElement
+      }
+
+      const activeModalId = activeModal.id
+      const elementToRestore =
+        activeModal.id === this.modalRoot?.id ? this.previousActiveElement : null
+
+      this.lastActiveModalId = activeModalId
+
+      requestAnimationFrame(() => {
+        const currentModal = this.getActiveModal()
+        if (!currentModal || currentModal.id !== activeModalId) return
+
+        if (
+          elementToRestore &&
+          elementToRestore.isConnected &&
+          this.getFocusableElements(currentModal).includes(elementToRestore)
+        ) {
+          elementToRestore.focus()
+          this.previousActiveElement = null
+        } else {
+          this.focusActiveModal(currentModal)
+        }
       })
     }
 
@@ -343,17 +420,21 @@ const AlertRuleBuilderKeyboard = {
 
       if (!this.modalRoot || !document.body.contains(this.modalRoot)) return
 
+      const activeModal = this.getActiveModal()
+      if (!activeModal) return
+
       const key = event.key
       const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
       if (key === "Escape") {
         event.preventDefault()
-        const closeButton = document.querySelector("#rule-modal button[aria-label='close']")
+        event.stopImmediatePropagation()
+        const closeButton = activeModal.querySelector("button[aria-label='close']")
         closeButton?.click()
         return
       }
 
-      if (key === "Enter") {
+      if (key === "Enter" && activeModal === this.modalRoot) {
         const saveShortcutPressed = isMac ? event.metaKey : event.ctrlKey
 
         if (saveShortcutPressed) {
@@ -380,38 +461,69 @@ const AlertRuleBuilderKeyboard = {
 
       if (key !== "Tab") return
 
-      const focusables = this.getFocusableElements()
+      const focusables = this.getFocusableElements(activeModal)
       if (focusables.length === 0) return
 
       const first = focusables[0]
       const last = focusables[focusables.length - 1]
       const active = document.activeElement
+      const activeIndex = focusables.indexOf(active)
 
-      if (!this.modalRoot.contains(active)) {
-        event.preventDefault()
-        ;(event.shiftKey ? last : first)?.focus()
+      event.preventDefault()
+      event.stopImmediatePropagation()
+
+      if (activeIndex === -1) {
+        ;(event.shiftKey ? last : first).focus()
         return
       }
 
-      if (!event.shiftKey && active === last) {
-        event.preventDefault()
-        first.focus()
-        return
-      }
+      const nextIndex = event.shiftKey
+        ? (activeIndex - 1 + focusables.length) % focusables.length
+        : (activeIndex + 1) % focusables.length
 
-      if (event.shiftKey && active === first) {
-        event.preventDefault()
-        last.focus()
-      }
+      focusables[nextIndex].focus()
     }
 
+    this.modalObserver = new MutationObserver(this.scheduleActiveModalFocus)
+    this.modalObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["aria-hidden", "class", "data-focus-target", "style"],
+      childList: true,
+      subtree: true,
+    })
+
     window.addEventListener("keydown", this.onKeydown, true)
+    window.addEventListener("focusin", this.onFocusIn, true)
+    this.scheduleActiveModalFocus()
+    requestAnimationFrame(this.scheduleActiveModalFocus)
+    this.focusTimer = setTimeout(this.scheduleActiveModalFocus, 80)
+  },
+
+  updated() {
+    this.scheduleActiveModalFocus()
   },
 
   destroyed() {
     if (this.onKeydown) {
       window.removeEventListener("keydown", this.onKeydown, true)
     }
+    if (this.onFocusIn) {
+      window.removeEventListener("focusin", this.onFocusIn, true)
+    }
+
+    this.modalObserver?.disconnect()
+    if (this.focusTimer) clearTimeout(this.focusTimer)
+
+    const focusReturnId = this.modalRoot?.dataset.focusReturnTarget
+    if (!focusReturnId) return
+
+    const restoreFocus = () => {
+      const target = document.getElementById(focusReturnId)
+      if (target && this.isVisible(target)) target.focus()
+    }
+
+    requestAnimationFrame(restoreFocus)
+    setTimeout(restoreFocus, 80)
   },
 }
 

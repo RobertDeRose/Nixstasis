@@ -7,7 +7,7 @@ This repo house the original Prototype of the project. The projects is made up o
 2. **server**: Written in Python 3.13 using Reflex 0.80+
 3. **caddy**: For on demand TLS certificates using Let's Encrypt, Reverse proxying, and static asset hosting
 4. **frp**: For NAT-busting reverse proxying of the clients to the server, allowing remote access without the need
-            for open inbound ports exposed on the internet or the need of a VPN client/server.
+   for open inbound ports exposed on the internet or the need of a VPN client/server.
 
 The new effort is to migrate the server web application to Elixir to use the Phoenix Framework with it's LiveView feature.
 The client needs to be re-written in a more maintainable and testable language. The integration of Caddy and FRP are solid
@@ -145,7 +145,7 @@ custom classes must fully style the input
 - `Ecto.Schema` fields always use the `:string` type, even for `:text`, columns, ie: `field :name, :string`
 - `Ecto.Changeset.validate_number/2` **DOES NOT SUPPORT the `:allow_nil` option**. By default, Ecto validations only run if a change for the given field exists and the change value is not nil, so such as option is never needed
 - You **must** use `Ecto.Changeset.get_field(changeset, :field)` to access changeset fields
-- Fields which are set programatically, such as `user_id`, must not be listed in `cast` calls or similar for security purposes. Instead they must be explicitly set when creating the struct
+- Fields which are set programmatically, such as `user_id`, must not be listed in `cast` calls or similar for security purposes. Instead they must be explicitly set when creating the struct
 <!-- phoenix:ecto-end -->
 
 <!-- phoenix:html-start -->
@@ -156,7 +156,6 @@ custom classes must fully style the input
 - When building forms **always** use the already imported `Phoenix.Component.to_form/2` (`assign(socket, form: to_form(...))` and `<.form for={@form} id="msg-form">`), then access those forms in the template via `@form[:field]`
 - **Always** add unique DOM IDs to key elements (like forms, buttons, etc) when writing templates, these IDs can later be used in tests (`<.form for={@form} id="product-form">`)
 - For "app wide" template imports, you can import/alias into the `my_app_web.ex`'s `html_helpers` block, so they will be available to all LiveViews, LiveComponent's, and all modules that do `use MyAppWeb, :html` (replace "my_app" by the actual app name)
-
 - Elixir supports `if/else` but **does NOT support `if/else if` or `if/elsif`. **Never use `else if` or `elseif` in Elixir**, **always** use `cond` or `case` for multiple conditionals.
 
   **Never do this (invalid)**:
@@ -185,7 +184,6 @@ custom classes must fully style the input
       </code>
 
   Within `phx-no-curly-interpolation` annotated tags, you can use `{` and `}` without escaping them, and dynamic Elixir expressions can still be used with `<%= ... %>` syntax
-
 - HEEx class attrs support lists, but you must **always** use list `[...]` syntax. You can use the class list syntax to conditionally add classes, **always do this for multiple class values**:
 
       <a class={[
@@ -230,7 +228,7 @@ custom classes must fully style the input
 <!-- phoenix:liveview-start -->
 ## Phoenix LiveView guidelines
 
-- **Never** use the deprecated `live_redirect` and `live_patch` functions, instead **always** use the `<.link navigate={href}>` and  `<.link patch={href}>` in templates, and `push_navigate` and `push_patch` functions LiveViews
+- **Never** use the deprecated `live_redirect` and `live_patch` functions, instead **always** use the `<.link navigate={href}>` and `<.link patch={href}>` in templates, and `push_navigate` and `push_patch` functions LiveViews
 - **Avoid LiveComponent's** unless you have a strong, specific need for them
 - LiveViews should be named like `AppWeb.WeatherLive`, with a `Live` suffix. When you go to add LiveView routes to the router, the default `:browser` scope is **already aliased** with the `AppWeb` module, so you can just do `live "/weather", WeatherLive`
 - Remember anytime you use `phx-hook="MyHook"` and that js hook manages its own DOM, you **must** also set the `phx-update="ignore"` attribute

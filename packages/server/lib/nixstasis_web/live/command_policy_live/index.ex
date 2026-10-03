@@ -1,10 +1,26 @@
 defmodule NixstasisWeb.CommandPolicyLive.Index do
   use NixstasisWeb, :live_view
 
+  import Ecto.Query, only: [from: 2]
+  require Ash.Query
+
   alias Nixstasis.CommandAllowlists.Audit
+  alias Nixstasis.CommandAllowlists.Category
+  alias Nixstasis.CommandAllowlists.CommandEntry
+  alias Nixstasis.CommandAllowlists.CommandEntryCategory
+  alias Nixstasis.CommandAllowlists.DevicePolicyAssignment
+  alias Nixstasis.CommandAllowlists.DevicePolicyAssignmentSource
+  alias Nixstasis.CommandAllowlists.PolicyDeliveryResult
+  alias Nixstasis.CommandCatalog.CatalogCommand
+  alias Nixstasis.CommandCatalog.Category, as: CatalogCategory
+  alias Nixstasis.Devices.Device
   alias Nixstasis.Devices
   alias Nixstasis.Domain
+  alias Nixstasis.Repo
   alias NixstasisWeb.Permissions
+
+  @collection_limit 250
+  @entry_category_limit 2_500
 
   @impl true
   def mount(_params, session, socket) do
@@ -37,8 +53,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   @impl true
   def handle_params(params, _url, socket) do
     if socket.assigns.can_view do
-      categories = Domain.list_command_allowlist_categories() |> elem(1)
-      catalog_categories = Domain.list_command_catalog_categories() |> elem(1)
+      categories = list_command_policy_categories()
+      catalog_categories = list_catalog_categories()
       catalog_commands = catalog_command_options(params)
       entries = inventory_rows(params, categories)
 
@@ -54,7 +70,6 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
         |> assign(:selected_assignment_category_id, params["assign_category_id"])
         |> assign(:devices, approved_devices(socket.assigns.session))
         |> assign_scoped_assignments()
-        |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
         |> assign(:assignment_form, %{
           "device_ids" => [],
           "entry_ids" => selected_ids(params["assign_entry_id"]),
@@ -150,8 +165,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
       {:ok, scoped_attrs, preview} ->
         {:noreply, assign(socket, assignment_form: scoped_attrs, assignment_preview: preview)}
 
-      _ ->
-        {:noreply, put_flash(socket, :error, "Failed to preview assignment")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, preview_error_message(reason))}
     end
   end
 
@@ -183,8 +198,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
              |> assign(assignment_form: scoped_form, assignment_preview: current_preview)
              |> put_flash(:error, "Preview must be conflict-free and catalog-compatible before assignment")}
 
-          _ ->
-            {:noreply, put_flash(socket, :error, "Failed to refresh assignment preview")}
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, preview_error_message(reason))}
         end
     end
   end
@@ -265,8 +280,8 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
 
   defp refresh_policy_assigns(socket) do
     params = socket.assigns.current_params
-    categories = Domain.list_command_allowlist_categories() |> elem(1)
-    catalog_categories = Domain.list_command_catalog_categories() |> elem(1)
+    categories = list_command_policy_categories()
+    catalog_categories = list_catalog_categories()
     catalog_commands = catalog_command_options(params)
     entries = inventory_rows(params, categories)
 
@@ -277,7 +292,6 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     |> assign(:entries, entries)
     |> assign(:devices, approved_devices(socket.assigns.session))
     |> assign_scoped_assignments()
-    |> assign(:delivery_results, Domain.list_command_policy_delivery_results() |> elem(1))
     |> assign(:entry, current_entry(socket.assigns.live_action, params, entries))
     |> assign(:category, current_category(socket.assigns.live_action, params, categories))
   end
@@ -285,12 +299,21 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   defp current_entry(:edit, %{"id" => id}, rows) do
     case Enum.find(rows, &(&1.entry.id == id)) do
       %{entry: entry} -> entry
-      _ -> nil
+      _ -> fetch_command_entry(id)
     end
   end
 
   defp current_entry(:new, _params, _rows), do: %{id: nil}
   defp current_entry(_, _params, _rows), do: nil
+
+  defp fetch_command_entry(id) do
+    CommandEntry
+    |> Ash.Query.filter(id == ^id)
+    |> Ash.Query.limit(1)
+    |> Ash.Query.select([:id, :name, :command_path, :description, :archived_at, :updated_at, :current_version])
+    |> Ash.read!(domain: Domain)
+    |> List.first()
+  end
 
   defp title(:new), do: "New Command Entry"
   defp title(:edit), do: "Edit Command Entry"
@@ -298,25 +321,112 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   defp title(:edit_category), do: "Edit Category"
   defp title(_), do: "Command Policies"
 
+  defp list_command_policy_categories do
+    Category
+    |> Ash.Query.sort(slug: :asc)
+    |> Ash.Query.limit(@collection_limit)
+    |> Ash.Query.select([:id, :slug, :display_name, :description])
+    |> Ash.read!(domain: Domain)
+  end
+
+  defp list_catalog_categories do
+    CatalogCategory
+    |> Ash.Query.sort(slug: :asc)
+    |> Ash.Query.limit(@collection_limit)
+    |> Ash.Query.select([:id, :slug, :display_name, :description])
+    |> Ash.read!(domain: Domain)
+  end
+
+  defp list_catalog_commands(params) do
+    CatalogCommand
+    |> Ash.Query.filter(active == true)
+    |> maybe_filter_catalog_search_query(params["search"])
+    |> Ash.Query.sort(name: :asc)
+    |> Ash.Query.limit(@collection_limit)
+    |> Ash.Query.select([:id, :name, :display_name, :description, :category_slugs, :active])
+    |> Ash.read!(domain: Domain)
+  end
+
+  defp maybe_filter_catalog_search_query(query, search) when search in [nil, ""], do: query
+
+  defp maybe_filter_catalog_search_query(query, search) do
+    needle = String.downcase(String.trim(search))
+
+    if needle == "" do
+      query
+    else
+      Ash.Query.filter(
+        query,
+        contains(string_downcase(name), ^needle) or
+          contains(string_downcase(display_name), ^needle) or
+          contains(string_downcase(description), ^needle) or
+          contains(string_downcase(string_join(category_slugs, " ")), ^needle)
+      )
+    end
+  end
+
   defp selected_ids(nil), do: []
   defp selected_ids(""), do: []
   defp selected_ids(id) when is_binary(id), do: [id]
 
   defp approved_devices(session) do
-    Domain.list_devices()
-    |> elem(1)
+    authorized_device_ids =
+      session
+      |> Permissions.device_permissions()
+      |> Permissions.authorized_device_ids()
+
+    Device
+    |> Ash.Query.filter(approval_status == :approved)
+    |> maybe_filter_authorized_devices(authorized_device_ids)
+    |> Ash.Query.sort(product_name: :asc, mac_address: :asc)
+    |> Ash.Query.limit(@collection_limit)
+    |> Ash.Query.select([:id, :mac_address, :product_name, :approval_status])
+    |> Ash.read!(domain: Domain)
     |> Enum.filter(&Permissions.can_assign_command_policy_to_device?(session, &1))
   end
 
+  defp maybe_filter_authorized_devices(query, nil), do: query
+  defp maybe_filter_authorized_devices(query, ids), do: Ash.Query.filter(query, id in ^MapSet.to_list(ids))
+
   defp assign_scoped_assignments(socket) do
-    allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
+    allowed_device_ids = Enum.map(socket.assigns.devices, & &1.id)
 
     assignments =
-      Domain.list_command_policy_assignments()
-      |> elem(1)
-      |> Enum.filter(&MapSet.member?(allowed_device_ids, &1.device_id))
+      DevicePolicyAssignment
+      |> Ash.Query.filter(device_id in ^allowed_device_ids)
+      |> Ash.Query.sort(inserted_at: :desc)
+      |> Ash.Query.limit(@collection_limit)
+      |> Ash.Query.select([
+        :id,
+        :device_id,
+        :status,
+        :revision,
+        :drift_warning,
+        :resolved_policy,
+        :inserted_at
+      ])
+      |> Ash.read!(domain: Domain)
 
     assign(socket, :assignments, assignments)
+    |> assign(:delivery_results, delivery_results_for_assignments(assignments))
+  end
+
+  defp delivery_results_for_assignments([]), do: %{}
+
+  defp delivery_results_for_assignments(assignments) do
+    assignments
+    |> Enum.map(& &1.id)
+    |> then(fn ids ->
+      PolicyDeliveryResult
+      |> Ash.Query.filter(assignment_id in ^ids)
+      |> Ash.Query.distinct(:assignment_id)
+      |> Ash.Query.distinct_sort(assignment_id: :asc, reported_at: :desc, id: :desc)
+      |> Ash.Query.limit(length(ids))
+      |> Ash.Query.select([:id, :assignment_id, :status, :failure_reason, :reported_at])
+      |> Ash.read!(domain: Domain)
+      |> Enum.group_by(& &1.assignment_id)
+      |> Map.new(fn {assignment_id, results} -> {assignment_id, List.first(results)} end)
+    end)
   end
 
   defp scoped_assignment(socket, assignment_id) do
@@ -333,52 +443,60 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     }
   end
 
-  defp list_param(values) when is_list(values), do: Enum.filter(values, &is_binary/1)
+  defp list_param(values) when is_list(values), do: values
   defp list_param(value) when is_binary(value) and value != "", do: [value]
-  defp list_param(_), do: []
+  defp list_param(nil), do: []
+  defp list_param(value), do: [value]
 
   defp scope_assignment_attrs(attrs, socket) do
     allowed_device_ids = MapSet.new(Enum.map(socket.assigns.devices, & &1.id))
-    active_catalog_command_ids = MapSet.new(Enum.map(all_active_catalog_commands(), & &1.id))
-    catalog_category_ids = MapSet.new(Enum.map(socket.assigns.catalog_categories, & &1.id))
 
-    attrs
-    |> Map.update!("device_ids", &Enum.filter(&1, fn id -> MapSet.member?(allowed_device_ids, id) end))
-    |> Map.update!("catalog_command_ids", &Enum.filter(&1, fn id -> MapSet.member?(active_catalog_command_ids, id) end))
-    |> Map.update!("catalog_category_ids", &Enum.filter(&1, fn id -> MapSet.member?(catalog_category_ids, id) end))
+    Map.update!(attrs, "device_ids", &Enum.filter(&1, fn id -> MapSet.member?(allowed_device_ids, id) end))
   end
 
   defp build_assignment_preview(socket, attrs) do
     requested_attrs = attrs
     attrs = scope_assignment_attrs(attrs, socket)
 
-    with {:ok, manual_preview} <-
-           Domain.preview_command_policy(%{entry_ids: attrs["entry_ids"], category_ids: attrs["category_ids"]}),
+    with {:ok, bounds} <- Domain.preflight_command_policy(attrs),
+         scoped_attrs =
+           attrs
+           |> Map.put("entry_ids", bounds.manual.active_entry_ids)
+           |> Map.put("category_ids", bounds.manual.valid_category_ids)
+           |> Map.put("catalog_command_ids", bounds.catalog.direct_command_ids)
+           |> Map.put("catalog_category_ids", bounds.catalog.valid_category_ids),
+         {:ok, manual_preview} <-
+           Domain.preview_command_policy(%{
+             entry_ids: scoped_attrs["entry_ids"],
+             category_ids: scoped_attrs["category_ids"]
+           }),
          {:ok, catalog_preview} <-
            Domain.preview_catalog_command_compatibility(%{
-             device_ids: attrs["device_ids"],
-             catalog_command_ids: selected_catalog_command_ids(socket, attrs)
+             device_ids: scoped_attrs["device_ids"],
+             catalog_command_ids: scoped_attrs["catalog_command_ids"],
+             catalog_category_ids: scoped_attrs["catalog_category_ids"]
            }) do
       preview =
         manual_preview
-        |> Map.put(:device_ids, attrs["device_ids"])
+        |> Map.put(:device_ids, scoped_attrs["device_ids"])
         |> Map.put(:catalog, catalog_preview)
         |> Map.put(
           :catalog_blockers,
-          catalog_blockers(catalog_preview, manual_preview.commands) ++ dropped_catalog_blockers(requested_attrs, attrs)
+          catalog_blockers(catalog_preview, manual_preview.commands) ++
+            dropped_catalog_blockers(requested_attrs, catalog_preview)
         )
         |> Map.put(:catalog_commands, catalog_commands_for_devices(catalog_preview))
 
-      {:ok, attrs, preview}
+      {:ok, scoped_attrs, preview}
     end
   end
 
-  defp dropped_catalog_blockers(requested_attrs, scoped_attrs) do
+  defp dropped_catalog_blockers(requested_attrs, catalog_preview) do
     requested_command_ids = MapSet.new(requested_attrs["catalog_command_ids"])
-    scoped_command_ids = MapSet.new(scoped_attrs["catalog_command_ids"])
+    selected_command_ids = MapSet.new(catalog_preview.selected_catalog_command_ids)
 
     requested_command_ids
-    |> MapSet.difference(scoped_command_ids)
+    |> MapSet.difference(selected_command_ids)
     |> Enum.map(fn id ->
       %{
         status: :catalog_command_unavailable,
@@ -388,22 +506,23 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     end)
   end
 
-  defp selected_catalog_command_ids(socket, attrs) do
-    selected_category_ids = MapSet.new(attrs["catalog_category_ids"])
-
-    selected_category_slugs =
-      socket.assigns.catalog_categories
-      |> Enum.filter(&MapSet.member?(selected_category_ids, &1.id))
-      |> MapSet.new(& &1.slug)
-
-    from_categories =
-      all_active_catalog_commands()
-      |> Enum.filter(fn command -> Enum.any?(command.category_slugs, &MapSet.member?(selected_category_slugs, &1)) end)
-      |> Enum.map(& &1.id)
-
-    (attrs["catalog_command_ids"] ++ from_categories)
-    |> Enum.uniq()
+  defp preview_error_message({:command_policy_limit_exceeded, %{kind: :commands, limit: limit}}) do
+    "Selection resolves to more than #{limit} commands; narrow the selected entries, categories, or catalog commands"
   end
+
+  defp preview_error_message({:command_policy_limit_exceeded, %{kind: :source_rows, limit: limit}}) do
+    "Selection contains more than #{limit} policy source rows; narrow the selected entries or categories"
+  end
+
+  defp preview_error_message({:invalid_manual_source, _details}) do
+    "One or more selected manual entries or categories are no longer available; refresh and choose valid sources"
+  end
+
+  defp preview_error_message({:invalid_catalog_source, _details}) do
+    "One or more selected catalog commands or categories are no longer available; refresh and choose valid sources"
+  end
+
+  defp preview_error_message(_reason), do: "Failed to preview assignment"
 
   defp catalog_blockers(catalog_preview, manual_commands) do
     catalog_preview.devices
@@ -569,127 +688,147 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   end
 
   defp next_revision(device_id) do
-    Domain.list_command_policy_assignments()
-    |> elem(1)
-    |> Enum.filter(&(&1.device_id == device_id))
-    |> Enum.map(& &1.revision)
-    |> Enum.max(fn -> 0 end)
-    |> Kernel.+(1)
+    revision =
+      DevicePolicyAssignment
+      |> Ash.Query.filter(device_id == ^device_id)
+      |> Ash.Query.sort(revision: :desc)
+      |> Ash.Query.limit(1)
+      |> Ash.Query.select([:revision])
+      |> Ash.read!(domain: Domain)
+      |> List.first()
+      |> case do
+        nil -> 0
+        assignment -> assignment.revision
+      end
+
+    revision + 1
   end
 
-  defp assignment_results(assignment_id) do
-    Domain.list_command_policy_delivery_results()
-    |> elem(1)
-    |> Enum.filter(&(&1.assignment_id == assignment_id))
+  defp latest_result(delivery_results, assignment_id), do: Map.get(delivery_results, assignment_id)
+
+  defp current_category(:edit_category, %{"id" => id}, categories) do
+    Enum.find(categories, &(&1.id == id)) || fetch_command_policy_category(id)
   end
 
-  defp latest_result(assignment_id),
-    do: assignment_results(assignment_id) |> Enum.sort_by(& &1.reported_at, {:desc, DateTime}) |> List.first()
-
-  defp current_category(:edit_category, %{"id" => id}, categories), do: Enum.find(categories, &(&1.id == id))
   defp current_category(:new_category, _params, _categories), do: %{id: nil}
   defp current_category(_, _params, _categories), do: nil
 
-  defp all_active_catalog_commands do
-    Domain.list_command_catalog_commands()
-    |> elem(1)
-    |> Enum.filter(& &1.active)
+  defp fetch_command_policy_category(id) do
+    Category
+    |> Ash.Query.filter(id == ^id)
+    |> Ash.Query.limit(1)
+    |> Ash.Query.select([:id, :slug, :display_name, :description])
+    |> Ash.read!(domain: Domain)
+    |> List.first()
   end
 
-  defp catalog_command_options(params) do
-    all_active_catalog_commands()
-    |> maybe_filter_catalog_search(params["search"])
-    |> Enum.sort_by(& &1.name)
-  end
-
-  defp maybe_filter_catalog_search(commands, nil), do: commands
-  defp maybe_filter_catalog_search(commands, ""), do: commands
-
-  defp maybe_filter_catalog_search(commands, search) do
-    needle = String.downcase(String.trim(search))
-
-    Enum.filter(commands, fn command ->
-      Enum.any?(
-        [command.name, command.display_name, command.description, Enum.join(command.category_slugs, " ")],
-        &String.contains?(String.downcase(&1 || ""), needle)
-      )
-    end)
-  end
+  defp catalog_command_options(params), do: list_catalog_commands(params)
 
   defp inventory_rows(params, categories) do
-    entries = Domain.list_command_allowlist_entries() |> elem(1)
-    entry_categories = Domain.list_command_allowlist_entry_categories() |> elem(1)
-    sources = Domain.list_command_policy_assignment_sources() |> elem(1)
-
+    entries = list_inventory_entries(params)
+    entry_ids = Enum.map(entries, & &1.id)
     category_map = Map.new(categories, &{&1.id, &1})
+    categories_by_entry = entry_categories_by_entry(entry_ids, category_map)
+    assignment_counts = assignment_counts_by_entry(entry_ids)
 
-    rows =
-      Enum.map(entries, fn entry ->
-        category_ids =
-          entry_categories
-          |> Enum.filter(&(&1.command_entry_id == entry.id))
-          |> Enum.map(& &1.category_id)
-
-        %{
-          entry: entry,
-          categories: Enum.map(category_ids, &category_map[&1]) |> Enum.reject(&is_nil/1),
-          assignment_count: Enum.count(sources, &(&1.source_kind == "command_entry" and &1.source_id == entry.id))
-        }
-      end)
-
-    rows
-    |> filter_rows(params)
-    |> Enum.sort_by(&{&1.entry.archived_at != nil, &1.entry.name})
-  end
-
-  defp filter_rows(rows, params) do
-    rows
-    |> maybe_filter_search(params["search"])
-    |> maybe_filter_category(params["category_id"])
-    |> maybe_filter_status(params["status"])
-    |> maybe_filter_assigned(params["assigned"])
-  end
-
-  defp maybe_filter_search(rows, nil), do: rows
-  defp maybe_filter_search(rows, ""), do: rows
-
-  defp maybe_filter_search(rows, search) do
-    needle = String.downcase(String.trim(search))
-
-    Enum.filter(rows, fn %{entry: entry} ->
-      Enum.any?(
-        [entry.name, entry.command_path, entry.description],
-        &String.contains?(String.downcase(&1 || ""), needle)
-      )
+    entries
+    |> Enum.map(fn entry ->
+      %{
+        entry: entry,
+        categories: Map.get(categories_by_entry, entry.id, []),
+        assignment_count: Map.get(assignment_counts, entry.id, 0)
+      }
     end)
   end
 
-  defp maybe_filter_category(rows, nil), do: rows
-  defp maybe_filter_category(rows, ""), do: rows
+  defp list_inventory_entries(params) do
+    CommandEntry
+    |> maybe_filter_entry_search(params["search"])
+    |> maybe_filter_entry_category(params["category_id"])
+    |> maybe_filter_entry_status(params["status"])
+    |> maybe_filter_entry_assigned(params["assigned"])
+    |> Ash.Query.sort(archived_at: :asc, name: :asc)
+    |> Ash.Query.limit(@collection_limit)
+    |> Ash.Query.select([:id, :name, :command_path, :description, :archived_at, :updated_at, :current_version])
+    |> Ash.read!(domain: Domain)
+  end
 
-  defp maybe_filter_category(rows, category_id),
-    do: Enum.filter(rows, &Enum.any?(&1.categories, fn category -> category.id == category_id end))
+  defp maybe_filter_entry_search(query, search) when search in [nil, ""], do: query
 
-  defp maybe_filter_status(rows, "archived"), do: Enum.filter(rows, &(&1.entry.archived_at != nil))
-  defp maybe_filter_status(rows, "enabled"), do: Enum.filter(rows, &is_nil(&1.entry.archived_at))
-  defp maybe_filter_status(rows, _), do: rows
+  defp maybe_filter_entry_search(query, search) do
+    needle = String.downcase(String.trim(search))
 
-  defp maybe_filter_assigned(rows, "assigned"), do: Enum.filter(rows, &(&1.assignment_count > 0))
-  defp maybe_filter_assigned(rows, "unassigned"), do: Enum.filter(rows, &(&1.assignment_count == 0))
-  defp maybe_filter_assigned(rows, _), do: rows
+    if needle == "" do
+      query
+    else
+      Ash.Query.filter(
+        query,
+        contains(string_downcase(name), ^needle) or
+          contains(string_downcase(command_path), ^needle) or
+          contains(string_downcase(description), ^needle)
+      )
+    end
+  end
+
+  defp maybe_filter_entry_category(query, category_id) when category_id in [nil, ""], do: query
+
+  defp maybe_filter_entry_category(query, category_id) do
+    Ash.Query.filter(query, exists(entry_categories, category_id == ^category_id))
+  end
+
+  defp maybe_filter_entry_status(query, "archived"), do: Ash.Query.filter(query, not is_nil(archived_at))
+  defp maybe_filter_entry_status(query, "enabled"), do: Ash.Query.filter(query, is_nil(archived_at))
+  defp maybe_filter_entry_status(query, _status), do: query
+
+  defp maybe_filter_entry_assigned(query, "assigned") do
+    Ash.Query.filter(query, exists(assignment_sources))
+  end
+
+  defp maybe_filter_entry_assigned(query, "unassigned") do
+    Ash.Query.filter(query, not exists(assignment_sources))
+  end
+
+  defp maybe_filter_entry_assigned(query, _assigned), do: query
+
+  defp entry_categories_by_entry([], _category_map), do: %{}
+
+  defp entry_categories_by_entry(entry_ids, category_map) do
+    CommandEntryCategory
+    |> Ash.Query.filter(command_entry_id in ^entry_ids)
+    |> Ash.Query.sort(command_entry_id: :asc, category_id: :asc)
+    |> Ash.Query.limit(@entry_category_limit)
+    |> Ash.Query.select([:command_entry_id, :category_id])
+    |> Ash.read!(domain: Domain)
+    |> Enum.group_by(& &1.command_entry_id, fn join -> Map.get(category_map, join.category_id) end)
+    |> Map.new(fn {entry_id, values} -> {entry_id, Enum.reject(values, &is_nil/1)} end)
+  end
+
+  defp assignment_counts_by_entry([]), do: %{}
+
+  defp assignment_counts_by_entry(entry_ids) do
+    binary_entry_ids = Enum.map(entry_ids, &Ecto.UUID.dump!/1)
+
+    Repo.all(
+      from source in "command_policy_assignment_sources",
+        where: source.source_kind == "command_entry" and source.source_id in ^binary_entry_ids,
+        group_by: source.source_id,
+        select: {source.source_id, count(source.id)}
+    )
+    |> Map.new(fn {source_id, count} -> {Ecto.UUID.cast!(source_id), count} end)
+  end
 
   defp duplicate_name(name), do: name <> "-copy"
 
   defp category_entry_count(category_id) do
-    Domain.list_command_allowlist_entry_categories()
-    |> elem(1)
-    |> Enum.count(&(&1.category_id == category_id))
+    CommandEntryCategory
+    |> Ash.Query.filter(category_id == ^category_id)
+    |> Ash.count!(domain: Domain)
   end
 
   defp category_assignment_count(category_id) do
-    Domain.list_command_policy_assignment_sources()
-    |> elem(1)
-    |> Enum.count(&(&1.source_kind == "category" and &1.source_id == category_id))
+    DevicePolicyAssignmentSource
+    |> Ash.Query.filter(source_kind == "category" and source_id == ^category_id)
+    |> Ash.count!(domain: Domain)
   end
 
   defp remove_category_tags(category_id) do

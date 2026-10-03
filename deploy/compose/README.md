@@ -7,13 +7,13 @@ variables it needs in its `environment:` block.
 
 ## Services
 
-| Service    | Description                                    |
-|------------|------------------------------------------------|
-| `nixstasis`| Phoenix server                                 |
-| `postgres` | PostgreSQL database                            |
-| `caddy`    | Reverse proxy, TLS termination, AuthCrunch     |
-| `frps`     | FRP server for NAT-busting device tunnels      |
-| `client`   | Device simulator (systemd + PCP + sshd + frpc + client binary) |
+| Service     | Description                                                    |
+|-------------|----------------------------------------------------------------|
+| `nixstasis` | Phoenix server                                                 |
+| `postgres`  | PostgreSQL database                                            |
+| `caddy`     | Reverse proxy, TLS termination, AuthCrunch                     |
+| `frps`      | FRP server for NAT-busting device tunnels                      |
+| `client`    | Device simulator (systemd + PCP + sshd + frpc + client binary) |
 
 ## Quick Start (Development)
 
@@ -41,7 +41,25 @@ mise run deploy:dev -- up --clients 2
 
 `up` is the dev-lab bootstrap command: it starts Postgres, runs migrations,
 starts the full stack, scales client containers, and pre-approves the running
-client simulators. Other commands pass through to Docker Compose, so use normal Compose commands such as
+client simulators. Seed deterministic schema-builder fixtures into the running
+Compose database with:
+
+```sh
+mise run deploy:dev:seed
+```
+
+The seed task is idempotent for its stable offline devices, alert, report, and
+telemetry samples. Each sample uses a bounded existence check, so reruns repair
+partial telemetry batches without loading the telemetry table. Telemetry fixture
+checks and inserts are serialized per seed marker, so concurrent seed invocations
+cannot duplicate samples. The database-only
+devices intentionally do not provide remote terminal/FRP routes; use a real
+Compose client device for SSH testing. Add future
+fixtures in `.mise/tasks/deploy/dev/seed.sh` with a new stable identifier or
+telemetry marker. It requires the dev lab to be running and uses Compose `exec`;
+it does not connect to a host PostgreSQL port.
+
+Other commands pass through to Docker Compose, so use normal Compose commands such as
 `mise run deploy:dev -- logs -f`, `mise run deploy:dev -- logs -f client`,
 `mise run deploy:dev -- logs -f client1`, `mise run deploy:dev -- ps`, and
 `mise run deploy:dev -- down`. The `client1`/`client2` log shorthand maps to
@@ -62,9 +80,9 @@ mise run deploy:dev -- exec nixstasis /bin/bash
 
 ### Options
 
-| Flag         | Default | Description                                      |
-|--------------|---------|--------------------------------------------------|
-| `--clients N`| 1       | Number of real Go client containers to start     |
+| Flag          | Default | Description                                  |
+|---------------|---------|----------------------------------------------|
+| `--clients N` | 1       | Number of real Go client containers to start |
 
 ## Production
 
@@ -81,25 +99,26 @@ targeting the compose `postgres` host.
 
 ## Environment Files
 
-| File            | Purpose                              |
-|-----------------|--------------------------------------|
-| `dev.env`       | Tracked defaults for local dev/test  |
-| `.env.example`  | Template for production              |
-| `.env`          | Operator-created, git-ignored        |
+| File           | Purpose                             |
+|----------------|-------------------------------------|
+| `dev.env`      | Tracked defaults for local dev/test |
+| `.env.example` | Template for production             |
+| `.env`         | Operator-created, git-ignored       |
 
 ### Key env vars that differ between dev and prod
 
-| Variable             | Dev                          | Prod                        |
-|----------------------|------------------------------|-----------------------------|
-| `BIND_HOST`          | `127.0.0.1`                  | `0.0.0.0`                   |
-| `PHOENIX_BIND_HOST`  | `127.0.0.1`                  | `127.0.0.1`                 |
-| `CADDY_CONFIG`       | `./caddy/Caddyfile.dev`      | `./caddy/Caddyfile`         |
-| `CHECK_ORIGIN_EXTRA` | `nixstasis.localhost,127.0.0.1:4000` | (unset)             |
-| `NIXSTASIS_FORCE_SSL`| `false`                      | (unset, defaults to true)   |
-| `NIXSTASIS_SESSION_COOKIE_SECURE` | `false`          | `true`                      |
-| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`           | `false`                     |
-| `NIXSTASIS_SSH_FRP_HOST` | `frps`                    | reachable FRPS TCP mux host |
-| `*_IMAGE_REF`        | Local tags (`*:dev`)         | Digest-pinned GHCR refs     |
+| Variable                           | Dev                                  | Prod                           |
+|------------------------------------|--------------------------------------|--------------------------------|
+| `BIND_HOST`                        | `127.0.0.1`                          | `0.0.0.0`                      |
+| `PHOENIX_BIND_HOST`                | `127.0.0.1`                          | `127.0.0.1`                    |
+| `CADDY_CONFIG`                     | `./caddy/Caddyfile.dev`              | `./caddy/Caddyfile`            |
+| `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                        |
+| `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
+| `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
+| `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
+| `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
+| `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
+| `*_IMAGE_REF`                      | Local tags (`*:dev`)                 | Digest-pinned GHCR refs        |
 
 ## Runtime Contract
 
@@ -118,6 +137,13 @@ targeting the compose `postgres` host.
 - `NIXSTASIS_SSH_FRP_HOST` is the hostname Phoenix uses for browser terminal SSH
   connections to FRPS TCP mux. In Compose it should stay `frps`; outside Compose
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
+- `ATOMIXOS_PROVISIONING_BASE_URL` optionally overrides the per-device public
+  FRP API base used by the server's initial AtomixOS bootstrap action. When it
+  is unset, the server derives `https://atom-<normalized-mac>.<BASE_DOMAIN>`.
+  The action still requires the authorized `atomixos-bootstrap` route and
+  resolves only the documented relative `/api/jobs/<job_id>` path.
+- The client poll service and root-owned SSH helper use the fixed local socket
+  `/run/nixstasis/ssh-authority.sock`; custom socket paths are unsupported.
 - The tracked dev/test env uses `./caddy/Caddyfile.dev`, which keeps the stack
   loopback-only and relies on Phoenix's explicit local auth fallback. Use
   `./caddy/Caddyfile.laptop` only when validating AuthCrunch with real OIDC
@@ -170,8 +196,10 @@ If the image is run with an explicit command instead of systemd, the entrypoint
 starts PCP directly before executing that command so PCP tooling can still be
 tested in non-systemd container runs.
 The image keeps `systemd-user-sessions.service` enabled so `/run/nologin` is
-removed during boot and browser SSH terminal sessions can log in as `nixstasis`.
-The tracked dev env enables the simulator HTTPS endpoint so
+removed during boot and browser SSH terminal sessions can log in as
+`nixstasis-support`. The `nixstasis` account remains the service identity, and
+`nixstasis-ssh-authority` runs only the narrow key lookup helper. The tracked dev
+env enables the simulator HTTPS endpoint so
 `atom-<normalized-device-id>.localhost` can traverse Caddy, FRPS, FRPC, and a
 real client-local TLS listener. Production env examples keep that endpoint
 disabled.

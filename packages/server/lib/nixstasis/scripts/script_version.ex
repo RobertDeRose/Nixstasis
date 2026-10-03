@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptVersion do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_versions"
@@ -21,10 +20,6 @@ defmodule Nixstasis.Scripts.ScriptVersion do
       index [:status]
       index [:version]
     end
-  end
-
-  json_api do
-    type "script_version"
   end
 
   actions do

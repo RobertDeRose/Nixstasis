@@ -6,6 +6,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
   alias Nixstasis.Monitoring.Telemetry
   alias Nixstasis.Repo
   alias Nixstasis.Reporting
+  alias Nixstasis.SchemaOptions
 
   setup do
     {:ok, _device} =
@@ -51,6 +52,60 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, permissions: %{"can_view" => true, "can_manage" => true}}
   end
 
+  test "schema option loading emits measured timing for the report builder", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    handler_id = "report-schema-options-timing-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:nixstasis, :builder, :schema_options, :load],
+        fn _event, measurements, metadata, test_pid ->
+          send(test_pid, {:schema_options_loaded, measurements, metadata})
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, _view, _html} = live(conn, ~p"/reports/new")
+
+    assert_receive {:schema_options_loaded, %{duration_ms: duration_ms}, %{builder: "report"}}, 1_000
+    assert duration_ms <= 2_000
+  end
+
+  test "excessive schema catalogs fail closed before loading report options", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    limit = SchemaOptions.max_schema_references()
+
+    Enum.each(1..(limit + 1), fn index ->
+      product = "bounded-report-product-#{index}"
+      suffix = Integer.to_string(index, 16) |> String.pad_leading(2, "0")
+
+      {:ok, _device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:EF:#{suffix}",
+          "product_name" => product,
+          "schema" => %{
+            "product" => product,
+            "version" => "v1",
+            "properties" => %{"value" => %{"type" => "number"}}
+          }
+        })
+    end)
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+
+    assert html =~ "Too many schema versions are available"
+    assert has_element?(view, "#report-save-report[disabled]")
+  end
+
   test "new report modal renders all-schema selectors and options", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, _view, html} = live(conn, ~p"/reports/new")
@@ -64,6 +119,137 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "Temp"
     assert html =~ "Battery"
     assert html =~ "Using common script fields across all products."
+  end
+
+  test "conflicting schema definitions show recovery guidance and block save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:44",
+        "product_name" => "report-schema-product",
+        "schema" => %{
+          "product" => "report-schema-product",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, _html} = live(conn, ~p"/reports/new")
+
+    html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    assert html =~ "Schema definitions conflict for this product/version."
+    assert has_element?(view, "#report-save-report[disabled]")
+  end
+
+  test "all-schema fields with conflicting types use a generic type", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:46",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    html =
+      view
+      |> element("select[id='report-field-path-#{field_id}']")
+      |> render_change(%{
+        "_target" => ["fields", field_id, "path"],
+        "fields" => %{field_id => %{"path" => "temp"}}
+      })
+
+    assert html =~ "Type: unknown"
+    refute html =~ "Type: number"
+  end
+
+  test "missing schema definitions show recovery guidance and block save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    report =
+      report_fixture(%{
+        "name" => "Missing Schema Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "missing-report-schema",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => []
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, _html} = live(conn, ~p"/reports/#{report.id}/edit")
+
+    assert has_element?(view, "p", "Schema options are unavailable.")
+    assert has_element?(view, "#report-save-report[disabled]")
+  end
+
+  test "schema conflicts introduced after load block report save", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    report =
+      report_fixture(%{
+        "name" => "Revalidated Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Original Temperature"}],
+          "filters" => []
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:45",
+        "product_name" => "report-schema-product",
+        "schema" => %{
+          "product" => "report-schema-product",
+          "version" => "v1",
+          "properties" => %{"pressure" => %{"type" => "number"}}
+        }
+      })
+
+    html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Changed Temperature"}
+        },
+        "filters" => %{}
+      })
+
+    assert html =~ "Schema definitions conflict for this product/version."
+    assert has_element?(view, "#report-save-report[disabled]")
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["fields"] == [%{"path" => "temp", "alias" => "Original Temperature"}]
   end
 
   test "schema field selection does not crash live component", %{conn: conn, permissions: permissions} do
@@ -126,6 +312,96 @@ defmodule NixstasisWeb.ReportsLiveTest do
       })
 
     assert html =~ "Pressure"
+  end
+
+  test "report builder preserves an explicit all-version scope when saving", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    _html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    _html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => "v2"})
+
+    html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => ""})
+
+    assert html =~ "Temp"
+    assert html =~ "Pressure"
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "name" => "All Version Scope Report",
+        "schema_id" => "report-schema-product",
+        "schema_version" => "",
+        "fields" => %{
+          field_id => %{"path" => "pressure", "alias" => "Pressure"}
+        },
+        "filters" => %{}
+      })
+
+    saved =
+      Reporting.list_custom_reports()
+      |> Enum.find(&(&1.name == "All Version Scope Report"))
+
+    assert saved
+    assert saved.config["schema_id"] == "report-schema-product"
+    assert is_nil(saved.config["schema_version"])
+  end
+
+  test "report builder persists a selected concrete schema version", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/new")
+    field_id = select_id!(html, "path")
+
+    _html =
+      view
+      |> element("#report-schema-id")
+      |> render_change(%{"schema_id" => "report-schema-product"})
+
+    html =
+      view
+      |> element("#report-schema-version")
+      |> render_change(%{"schema_version" => "v2"})
+
+    assert html =~ "Pressure"
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "name" => "Concrete Version Scope Report",
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v2",
+        "fields" => %{
+          field_id => %{"path" => "pressure", "alias" => "Pressure"}
+        },
+        "filters" => %{}
+      })
+
+    saved =
+      Reporting.list_custom_reports()
+      |> Enum.find(&(&1.name == "Concrete Version Scope Report"))
+
+    assert saved
+    assert saved.config["schema_id"] == "report-schema-product"
+    assert saved.config["schema_version"] == "v2"
   end
 
   test "changing schema product does not show cleared-selection warning", %{conn: conn, permissions: permissions} do
@@ -564,6 +840,109 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert html =~ "disabled"
   end
 
+  test "save validates filter values against the submitted schema context", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:47",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    report =
+      report_fixture(%{
+        "name" => "Schema Context Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => [%{"field" => "temp", "operator" => "=", "value" => "20"}]
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+    [filter_id] = select_ids!(html, "field")
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product-3",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Temperature"}
+        },
+        "filters" => %{
+          filter_id => %{"field" => "temp", "operator" => "=", "value" => "abc"}
+        }
+      })
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["schema_id"] == "report-schema-product-3"
+    assert saved.config["schema_version"] == "v1"
+    assert saved.config["filters"] == [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+  end
+
+  test "save rejects filter values incompatible with the submitted schema", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:48",
+        "product_name" => "report-schema-product-3",
+        "schema" => %{
+          "product" => "report-schema-product-3",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    report =
+      report_fixture(%{
+        "name" => "Invalid Submitted Filter Report",
+        "config" => %{
+          "source" => "telemetry",
+          "schema_id" => "report-schema-product-3",
+          "schema_version" => "v1",
+          "fields" => [%{"path" => "temp", "alias" => "Temperature"}],
+          "filters" => [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+        }
+      })
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports/#{report.id}/edit")
+    [field_id] = select_ids!(html, "path")
+    [filter_id] = select_ids!(html, "field")
+
+    _html =
+      view
+      |> element("form#report-builder-form")
+      |> render_submit(%{
+        "schema_id" => "report-schema-product",
+        "schema_version" => "v1",
+        "fields" => %{
+          field_id => %{"path" => "temp", "alias" => "Temperature"}
+        },
+        "filters" => %{
+          filter_id => %{"field" => "temp", "operator" => "=", "value" => "abc"}
+        }
+      })
+
+    saved = Reporting.get_custom_report!(report.id)
+    assert saved.config["schema_id"] == "report-schema-product-3"
+    assert saved.config["filters"] == [%{"field" => "temp", "operator" => "=", "value" => "abc"}]
+  end
+
   test "save enables immediately when filter value becomes valid", %{conn: conn, permissions: permissions} do
     conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
     {:ok, view, html} = live(conn, ~p"/reports/new")
@@ -608,6 +987,50 @@ defmodule NixstasisWeb.ReportsLiveTest do
       })
 
     refute has_element?(view, "#report-save-report[disabled]")
+  end
+
+  test "reports index paginates rows and reports the current range", %{conn: conn, permissions: permissions} do
+    for index <- 1..51 do
+      report_fixture(%{
+        "name" => "Paged Live #{String.pad_leading(Integer.to_string(index), 2, "0")}",
+        "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
+      })
+    end
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, html} = live(conn, ~p"/reports?page=2&filters[name]=Paged+Live")
+    paged_report = Reporting.list_custom_reports() |> Enum.find(&(&1.name == "Paged Live 51"))
+
+    assert html =~ "Showing 51–51 of 51 reports"
+    assert html =~ "Paged Live 51"
+    refute html =~ "Paged Live 01"
+    assert html =~ "Page 2 of 2"
+    assert html =~ "Previous report page"
+    refute html =~ "Next report page"
+
+    view
+    |> element("a[aria-label=\"Edit report Paged Live 51\"]")
+    |> render_click()
+
+    assert_patch(
+      view,
+      "/reports/#{paged_report.id}/edit?filters[field_query]=&filters[name]=Paged+Live&page=2&sort_by=name&sort_dir=asc"
+    )
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             live(conn, ~p"/reports?page=9&filters[name]=Paged+Live")
+
+    assert to == "/reports?filters[field_query]=&filters[name]=Paged+Live&page=2&sort_by=name&sort_dir=asc"
+  end
+
+  test "reports index canonicalizes malformed page parameters", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+
+    for page <- ["bogus", "0"] do
+      assert {:error, {:live_redirect, %{to: to}}} = live(conn, ~p"/reports?page=#{page}")
+      assert to =~ "/reports?"
+      assert to =~ "page=1"
+    end
   end
 
   test "reports index uses report title as primary view link and icon-only secondary actions", %{
@@ -762,6 +1185,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     assert html =~ "Temp and Humidity Reset"
     assert html =~ "Temp Only Reset"
+    refute html =~ "Saved report view preferences were invalid and have been reset to safe defaults."
   end
 
   test "field dropdown selection adds chip immediately", %{conn: conn, permissions: permissions} do
@@ -1145,6 +1569,69 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}?sort_by=temp&sort_dir=asc")
 
     assert length(Regex.scan(~r/<tr>/, html)) <= 251
+  end
+
+  test "report detail field types follow schema version and avoid arbitrary all-version types", %{
+    conn: conn,
+    permissions: permissions
+  } do
+    {:ok, _v1_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:94",
+        "product_name" => "report-schema-type-version",
+        "schema" => %{
+          "product" => "report-schema-type-version",
+          "version" => "v1",
+          "properties" => %{"temp" => %{"type" => "number"}}
+        }
+      })
+
+    {:ok, _v2_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:95",
+        "product_name" => "report-schema-type-version",
+        "schema" => %{
+          "product" => "report-schema-type-version",
+          "version" => "v2",
+          "properties" => %{"temp" => %{"type" => "string"}}
+        }
+      })
+
+    reports =
+      for {name, config} <- [
+            {"Version One Types", %{"schema_version" => "v1"}},
+            {"Version Two Types", %{"schema_version" => "v2"}},
+            {"All Version Types", %{}}
+          ] do
+        report_fixture(%{
+          "name" => name,
+          "config" =>
+            Map.merge(
+              %{
+                "source" => "telemetry",
+                "schema_id" => "report-schema-type-version",
+                "fields" => [%{"path" => "temp", "alias" => "temp"}],
+                "filters" => []
+              },
+              config
+            )
+        })
+      end
+
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    [v1_report, v2_report, all_report] = reports
+
+    {:ok, v1_view, _html} = live(conn, ~p"/reports/#{v1_report.id}")
+    assert has_element?(v1_view, "select[name='filter[operator]'] option[value='>']")
+    refute has_element?(v1_view, "select[name='filter[operator]'] option[value='contains']")
+
+    {:ok, v2_view, _html} = live(conn, ~p"/reports/#{v2_report.id}")
+    assert has_element?(v2_view, "select[name='filter[operator]'] option[value='contains']")
+    refute has_element?(v2_view, "select[name='filter[operator]'] option[value='>']")
+
+    {:ok, all_view, _html} = live(conn, ~p"/reports/#{all_report.id}")
+    assert has_element?(all_view, "select[name='filter[operator]'] option[value='contains']")
+    refute has_element?(all_view, "select[name='filter[operator]'] option[value='>']")
   end
 
   test "report detail operator list changes by selected column type", %{conn: conn, permissions: permissions} do

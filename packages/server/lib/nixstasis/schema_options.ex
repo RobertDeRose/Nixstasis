@@ -7,15 +7,131 @@ defmodule Nixstasis.SchemaOptions do
   alias Nixstasis.SchemaOptions.Normalizer
   alias Nixstasis.SchemaOptions.Validator
 
+  @schema_options_load_event [:nixstasis, :builder, :schema_options, :load]
+  @max_schema_references 128
+
   def list_schema_references do
     Devices.list_schema_references()
   end
 
+  @doc "Returns the maximum number of schema references loaded by builder LiveViews."
+  def max_schema_references, do: @max_schema_references
+
+  @doc "Loads a bounded schema-reference catalog for builder LiveViews."
+  def list_bounded_schema_references do
+    references = Devices.list_schema_references(@max_schema_references + 1)
+
+    if length(references) > @max_schema_references do
+      {:error, :too_many}
+    else
+      {:ok, references}
+    end
+  end
+
   def options_for(schema_id, schema_version, builder)
       when is_binary(schema_id) and is_binary(schema_version) and schema_id != "" do
+    started_at = System.monotonic_time(:microsecond)
+    result = options_for_result(schema_id, schema_version, builder)
+    duration_us = max(System.monotonic_time(:microsecond) - started_at, 0)
+
+    :telemetry.execute(
+      @schema_options_load_event,
+      %{duration_ms: div(duration_us, 1_000)},
+      %{
+        builder: builder_metadata(builder),
+        schema_id: schema_id,
+        schema_version: schema_version,
+        result: result_status(result)
+      }
+    )
+
+    result
+  end
+
+  def options_for(_, _, _), do: {:error, :invalid}
+
+  @doc "Loads normalized options for multiple schema references in one bounded batch."
+  def options_for_many(schema_refs, builder) when is_list(schema_refs) do
+    started_at = System.monotonic_time(:microsecond)
+    result = options_for_many_result(schema_refs, builder)
+    duration_us = max(System.monotonic_time(:microsecond) - started_at, 0)
+
+    :telemetry.execute(
+      @schema_options_load_event,
+      %{duration_ms: div(duration_us, 1_000)},
+      %{
+        builder: builder_metadata(builder),
+        schema_id: nil,
+        schema_version: nil,
+        result: result_status(result)
+      }
+    )
+
+    result
+  end
+
+  def options_for_many(_, _), do: {:error, :invalid}
+
+  defp options_for_many_result(schema_refs, builder) do
+    if length(schema_refs) > @max_schema_references do
+      {:error, :too_many}
+    else
+      options_for_many_within_limit(schema_refs, builder)
+    end
+  end
+
+  defp options_for_many_within_limit(schema_refs, builder) do
+    with {:ok, normalized_builder} <- normalize_builder(builder) do
+      product_names =
+        schema_refs
+        |> Enum.map(&schema_ref_value(&1, :schema_id))
+        |> Enum.filter(&is_binary/1)
+        |> Enum.uniq()
+
+      definitions_by_identity =
+        product_names
+        |> Devices.list_canonical_schema_definitions()
+        |> Map.new(&{{&1.schema_id, &1.schema_version}, &1})
+
+      {options, errors, options_by_identity} =
+        Enum.reduce(schema_refs, {[], [], %{}}, fn ref, {options, errors, by_identity} ->
+          identity = {schema_ref_value(ref, :schema_id), schema_ref_value(ref, :schema_version)}
+
+          case Map.get(definitions_by_identity, identity) do
+            nil ->
+              {options, [:not_found | errors], Map.put_new(by_identity, identity, {:error, :not_found})}
+
+            %{conflict?: true} ->
+              {options, [:conflict | errors], Map.put_new(by_identity, identity, {:error, :conflict})}
+
+            %{schema: schema} ->
+              normalized_options = Normalizer.normalize(schema)
+
+              {
+                [normalized_options | options],
+                errors,
+                Map.put_new(by_identity, identity, {:ok, normalized_options})
+              }
+          end
+        end)
+
+      {:ok,
+       %{
+         builder: normalized_builder,
+         options: List.flatten(options),
+         errors: Enum.uniq(errors),
+         options_by_identity: options_by_identity
+       }}
+    else
+      {:error, :invalid} -> {:error, :invalid}
+    end
+  end
+
+  defp schema_ref_value(ref, key), do: Map.get(ref, key) || Map.get(ref, Atom.to_string(key))
+
+  defp options_for_result(schema_id, schema_version, builder) do
     with {:ok, normalized_builder} <- normalize_builder(builder),
-         schema when is_map(schema) and map_size(schema) > 0 <-
-           Devices.get_schema_definition(schema_id, schema_version),
+         {:ok, schema} <- Devices.get_schema_definition(schema_id, schema_version),
          options <- Normalizer.normalize(schema) do
       {:ok,
        %{
@@ -27,12 +143,10 @@ defmodule Nixstasis.SchemaOptions do
        }}
     else
       {:error, :invalid} -> {:error, :invalid}
-      true -> {:error, :not_found}
-      _ -> {:error, :not_found}
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, :conflict} -> {:error, :conflict}
     end
   end
-
-  def options_for(_, _, _), do: {:error, :invalid}
 
   def validate_selections(builder, schema_id, schema_version, selections)
       when is_list(selections) do
@@ -41,18 +155,13 @@ defmodule Nixstasis.SchemaOptions do
         Validator.validate(selections, options)
 
       {:error, :not_found} ->
-        %{
-          valid: false,
-          issues: [
-            %{
-              issue_code: "schema_unavailable",
-              message: "Schema options are unavailable",
-              slot_id: nil,
-              blocking: true
-            }
-          ],
-          cleared_slot_ids: []
-        }
+        schema_unavailable_result("schema_unavailable", "Schema options are unavailable")
+
+      {:error, :conflict} ->
+        schema_unavailable_result(
+          "schema_conflict",
+          "Schema definitions conflict for this product/version."
+        )
 
       _ ->
         %{
@@ -72,6 +181,37 @@ defmodule Nixstasis.SchemaOptions do
 
   def validate_selections(_builder, _schema_id, _schema_version, _selections) do
     %{valid: false, issues: [], cleared_slot_ids: []}
+  end
+
+  def schema_issue_message(:conflict), do: "Schema definitions conflict for this product/version."
+  def schema_issue_message(:not_found), do: "Schema options are unavailable."
+
+  def schema_issue_message(:too_many),
+    do: "Too many schema versions are available; narrow the schema catalog before continuing."
+
+  def schema_issue_message(_), do: "Schema access is unavailable."
+
+  defp builder_metadata(builder) when builder in ["alert", :alert], do: "alert"
+  defp builder_metadata(builder) when builder in ["report", :report], do: "report"
+  defp builder_metadata(_), do: "unknown"
+
+  defp result_status({:ok, %{errors: [error | _]}}), do: error
+  defp result_status({:ok, _}), do: :ok
+  defp result_status({:error, reason}), do: reason
+
+  defp schema_unavailable_result(issue_code, message) do
+    %{
+      valid: false,
+      issues: [
+        %{
+          issue_code: issue_code,
+          message: message,
+          slot_id: nil,
+          blocking: true
+        }
+      ],
+      cleared_slot_ids: []
+    }
   end
 
   defp normalize_builder(builder) when builder in ["alert", :alert], do: {:ok, "alert"}

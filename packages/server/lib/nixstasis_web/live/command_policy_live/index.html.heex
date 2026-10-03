@@ -230,7 +230,7 @@
               <span :if={assignment.drift_warning} class="badge badge-warning">drift</span>
             </td>
             <td>
-              {case latest_result(assignment.id) do
+              {case latest_result(@delivery_results, assignment.id) do
                 nil -> "pending/offline"
                 result -> "#{result.status}: #{result.failure_reason || "ok"}"
               end}

@@ -81,11 +81,12 @@ func runPoll(cfg *config.Config) error {
 	}
 	frpManager := frp.NewManager()
 	sshAuthStore := sshauth.NewStore()
-	sshAuthServer := sshauth.NewServer(cfg.Runtime.SSHAuthoritySocket, sshAuthStore)
+	sshAuthoritySocket := sshAuthoritySocketPath(cfg)
+	sshAuthServer := sshauth.NewServer(sshAuthoritySocket, sshAuthStore)
 	if err := sshAuthServer.Start(ctx); err != nil {
 		return fmt.Errorf("start ssh authorization server: %w", err)
 	}
-	slog.Info("SSH authorization server listening", "socket", cfg.Runtime.SSHAuthoritySocket)
+	slog.Info("SSH authorization server listening", "socket", sshAuthoritySocket)
 	cmdHandler := commands.NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore(cfg.Scripts.Dir, sshAuthStore, &runtimeCfg, policyStore)
 
 	var consecutiveFailures int
@@ -120,6 +121,22 @@ func runPoll(cfg *config.Config) error {
 			timer.Reset(nextDelay)
 		}
 	}
+}
+
+func sshAuthoritySocketPath(cfg *config.Config) string {
+	const fixedPath = sshauth.DefaultSocketPath
+
+	if cfg != nil && cfg.Runtime.SSHAuthoritySocket != "" && cfg.Runtime.SSHAuthoritySocket != fixedPath {
+		slog.Warn(
+			"ignoring non-default SSH authority socket; using fixed installation path",
+			"configured_socket",
+			cfg.Runtime.SSHAuthoritySocket,
+			"socket",
+			fixedPath,
+		)
+	}
+
+	return fixedPath
 }
 
 func initialCommandPolicy(cfg *config.Config, store *commandpolicy.Store) (allowlist map[string]string, version string, revision int) {
@@ -209,6 +226,7 @@ type frpController interface {
 
 type remoteAccessPollState struct {
 	tokenHash             string
+	profileKey            string
 	commandInventoryProbe *transport.CommandInventoryProbe
 }
 
@@ -296,23 +314,40 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 	switch {
 	case resp.RemoteAccessToken != "":
 		remoteAccessTokenHash := tokenHash(resp.RemoteAccessToken)
+		profileKey, profileErr := remoteAccessProfileKey(cfg.FRP, resp.RemoteAccessProfile)
+		if profileErr != nil {
+			slog.Error("Rejected server remote access profile", "error", profileErr)
+			if currentFRPStatus.Active {
+				if err := frpManager.Stop(); err != nil {
+					slog.Error("Failed to stop FRP after rejecting route profile", "error", err)
+				} else {
+					clearRemoteAccessState(state)
+				}
+			} else {
+				clearRemoteAccessState(state)
+			}
+			reportFRPError(frpManager, profileErr)
+			break
+		}
+
 		switch {
 		case !currentFRPStatus.Active:
-			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
-		case state != nil && state.tokenHash != "" && state.tokenHash != remoteAccessTokenHash:
-			slog.Info("Server remote access token changed, restarting FRP")
+			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
+		case state != nil && state.tokenHash != "" &&
+			(state.tokenHash != remoteAccessTokenHash || state.profileKey != profileKey):
+			slog.Info("Server remote access token or profile changed, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
-				state.tokenHash = ""
-				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+				clearRemoteAccessState(state)
+				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
 			}
-		case state != nil && state.tokenHash == "":
-			slog.Info("Server remote access token state unknown, restarting FRP")
+		case state != nil && (state.tokenHash == "" || state.profileKey == ""):
+			slog.Info("Server remote access state unknown, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
-				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, remoteAccessTokenHash, state)
+				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
 			}
 		}
 	default:
@@ -320,28 +355,62 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 			slog.Info("Server disabled remote access, stopping FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP", "error", err)
-			} else if state != nil {
-				state.tokenHash = ""
+			} else {
+				clearRemoteAccessState(state)
+				clearFRPError(frpManager)
 			}
-		} else if state != nil {
-			state.tokenHash = ""
+		} else {
+			clearRemoteAccessState(state)
+			clearFRPError(frpManager)
 		}
 	}
 
 	return nil
 }
 
-func startFRP(frpManager frpController, cfg *config.Config, uuid, authToken, authTokenHash string, state *remoteAccessPollState) {
-	slog.Info("Server requested remote access, starting FRP")
+func startFRP(frpManager frpController, cfg *config.Config, uuid, authToken string, selection *config.RouteProfileSelection, authTokenHash, profileKey string, state *remoteAccessPollState) {
+	slog.Info("Server requested remote access, starting FRP", "profile", profileKey)
 	configPath := config.FRPCConfigPath()
 	frpConfig := runtimeFRPConfig(cfg.FRP, uuid)
 	frpConfig.AuthToken = authToken
+	if selection != nil {
+		frpConfig.SelectedProfileName = selection.Name
+		frpConfig.SelectedProfileVersion = selection.Version
+	}
 	if err := frpManager.Start(configPath, frpConfig); err != nil {
 		slog.Error("Failed to start FRP", "error", err)
 		return
 	}
 	if state != nil {
 		state.tokenHash = authTokenHash
+		state.profileKey = profileKey
+	}
+}
+
+func remoteAccessProfileKey(frpConfig config.FRPConfig, selection *config.RouteProfileSelection) (string, error) {
+	_, resolved, err := config.ResolveRouteProfile(frpConfig, selection)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%d", resolved.Name, resolved.Version), nil
+}
+
+func clearRemoteAccessState(state *remoteAccessPollState) {
+	if state != nil {
+		state.tokenHash = ""
+		state.profileKey = ""
+	}
+}
+
+func reportFRPError(frpManager frpController, err error) {
+	if reporter, ok := frpManager.(interface{ SetError(string) }); ok {
+		reporter.SetError(err.Error())
+	}
+}
+
+func clearFRPError(frpManager frpController) {
+	if reporter, ok := frpManager.(interface{ SetError(string) }); ok {
+		reporter.SetError("")
 	}
 }
 

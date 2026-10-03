@@ -15,6 +15,11 @@ defmodule Nixstasis.Devices.SshKeyManager do
     GenServer.start_link(__MODULE__, :terminal_sessions, name: @terminal_sessions_name)
   end
 
+  @doc """
+  Returns the maximum lifetime of server-side terminal key material in seconds.
+  """
+  def terminal_session_ttl_seconds, do: div(@terminal_session_ttl_ms, 1000)
+
   @impl true
   def handle_call({:create_terminal_session, device_id, private_key, ttl_ms}, _from, state) do
     session_ref = Ecto.UUID.generate()
@@ -93,8 +98,13 @@ defmodule Nixstasis.Devices.SshKeyManager do
   Removes terminal SSH key material for a session ref.
   """
   def clear_terminal_session(session_ref) when is_binary(session_ref) do
-    ensure_terminal_sessions_manager!()
-    GenServer.call(@terminal_sessions_name, {:clear_terminal_session, session_ref})
+    if Process.whereis(@terminal_sessions_name) do
+      GenServer.call(@terminal_sessions_name, {:clear_terminal_session, session_ref})
+    else
+      :ok
+    end
+  catch
+    :exit, _reason -> :ok
   end
 
   def clear_terminal_session(_session_ref), do: :ok

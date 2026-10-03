@@ -3,16 +3,20 @@ defmodule Nixstasis.Monitoring do
   The Monitoring context.
   """
 
+  import Ecto.Query, only: [from: 2, where: 3]
+
   require Logger
   require Ash.Query
 
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.Monitoring.RuleEvaluator
   alias Nixstasis.Notifications.Email
+  alias Nixstasis.Repo
   alias Nixstasis.Notifications.Webhook
   alias Nixstasis.Settings
 
@@ -32,6 +36,101 @@ defmodule Nixstasis.Monitoring do
 
       {:ok, device, commands}
     end
+  end
+
+  @doc """
+  Builds the device-runtime heartbeat response shared by generated and legacy transports.
+  """
+  def heartbeat_response_data(%Device{} = device, commands) do
+    data = %{
+      commands:
+        for(
+          cmd <- commands,
+          do: heartbeat_command_data(cmd)
+        )
+    }
+
+    data =
+      case FrpsToken.for_heartbeat(device) do
+        nil ->
+          data
+
+        token ->
+          data
+          |> Map.put(:remote_access_token, token)
+          |> Map.put(:remote_access_profile, Devices.remote_access_profile_data(device))
+      end
+
+    maybe_put_command_inventory_probe(data)
+  end
+
+  defp maybe_put_command_inventory_probe(data) do
+    case Domain.command_inventory_probe_manifest() do
+      {:ok, manifest} -> Map.put(data, :command_inventory_probe, manifest)
+      _ -> data
+    end
+  end
+
+  defp heartbeat_command_data(cmd) do
+    payload = cmd.command_payload || %{}
+    payload_ref = payload["payload_ref"] || payload[:payload_ref]
+    inline_payload = normalize_inline_payload(payload)
+
+    %{
+      command_id: cmd.id,
+      type: payload["type"] || payload[:type] || "unknown",
+      args: payload["args"] || payload[:args] || [],
+      payload: inline_payload,
+      public_key: payload["public_key"] || payload[:public_key],
+      payload_ref: payload_ref,
+      queued_at: cmd.queued_at
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp normalize_inline_payload(payload) do
+    if deferred_payload?(payload) do
+      nil
+    else
+      payload
+      |> nested_payload()
+      |> case do
+        %{} = nested -> nested
+        _ -> fallback_inline_payload(payload)
+      end
+    end
+  end
+
+  defp nested_payload(payload) do
+    payload["payload"] || payload[:payload]
+  end
+
+  defp deferred_payload?(payload) do
+    (payload["defer_payload"] || payload[:defer_payload]) == true and
+      not is_nil(payload["payload_ref"] || payload[:payload_ref])
+  end
+
+  defp fallback_inline_payload(payload) do
+    if has_transport_shape?(payload) do
+      transport_payload(payload)
+    else
+      payload
+    end
+  end
+
+  defp has_transport_shape?(payload) do
+    not is_nil(payload["content_type"] || payload[:content_type]) or
+      not is_nil(payload["name"] || payload[:name]) or
+      not is_nil(payload["data"] || payload[:data])
+  end
+
+  defp transport_payload(payload) do
+    %{
+      "content_type" => payload["content_type"] || payload[:content_type],
+      "name" => payload["name"] || payload[:name],
+      "data" => payload["data"] || payload[:data]
+    }
   end
 
   def check_offline_devices(opts \\ []) do
@@ -86,6 +185,22 @@ defmodule Nixstasis.Monitoring do
     Domain.list_rules!()
   end
 
+  @doc "Deletes telemetry older than the configured retention window."
+  def prune_telemetry_events(opts \\ []) do
+    retention_days = Keyword.get(opts, :retention_days, telemetry_retention_days())
+
+    if is_integer(retention_days) and retention_days > 0 do
+      cutoff = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
+
+      {pruned_events, _} =
+        Repo.delete_all(from(event in "telemetry_events", where: event.timestamp < ^cutoff))
+
+      {:ok, %{pruned_events: pruned_events, cutoff: cutoff, retention_days: retention_days}}
+    else
+      {:error, :invalid_retention_days}
+    end
+  end
+
   def get_rule!(id), do: Domain.get_rule!(id)
 
   def create_rule(attrs \\ %{}) do
@@ -100,10 +215,68 @@ defmodule Nixstasis.Monitoring do
     Domain.destroy_rule(rule)
   end
 
+  @doc "Returns whether an alert rule name is already used, ignoring case."
+  def alert_rule_name_taken?(name, except_id \\ nil)
+
+  def alert_rule_name_taken?(name, except_id) when is_binary(name) do
+    if String.trim(name) == "" do
+      false
+    else
+      query =
+        from(rule in "alert_rules",
+          where: fragment("lower(?) = lower(?)", rule.name, ^name),
+          select: rule.id,
+          limit: 1
+        )
+
+      query =
+        if is_nil(except_id) do
+          query
+        else
+          where(query, [rule], rule.id != ^except_id)
+        end
+
+      not is_nil(Repo.one(query))
+    end
+  end
+
+  def alert_rule_name_taken?(_name, _except_id), do: false
+
   def list_rules_for_product(product_name) do
     AlertRule
     |> Ash.Query.filter(product_name == ^product_name)
     |> Ash.read!(domain: Domain)
+  end
+
+  @doc "Checks for one deterministic telemetry seed sample without loading telemetry rows."
+  def telemetry_seed_sample_exists?(seed_marker, device_id, payload)
+      when is_binary(seed_marker) and is_binary(device_id) and is_map(payload) do
+    expected_payload = Map.put(payload, "deploy_dev_seed", seed_marker)
+
+    %{rows: rows} =
+      Repo.query!(
+        """
+        SELECT 1
+        FROM telemetry_events
+        WHERE device_id = $1::uuid
+          AND payload @> $2::jsonb
+        LIMIT 1
+        """,
+        [Ecto.UUID.dump!(device_id), expected_payload]
+      )
+
+    rows != []
+  end
+
+  def telemetry_seed_sample_exists?(_seed_marker, _device_id, _payload), do: false
+
+  @doc "Serializes development telemetry fixture writes for one stable seed marker."
+  def with_telemetry_seed_lock(seed_marker, fun)
+      when is_binary(seed_marker) and is_function(fun, 0) do
+    Repo.transaction(fn ->
+      Repo.query!("SELECT pg_advisory_xact_lock(hashtext($1::text))", [seed_marker])
+      fun.()
+    end)
   end
 
   defp create_rule_alert(device, rule) do
@@ -285,5 +458,10 @@ defmodule Nixstasis.Monitoring do
 
   defp broadcast_alert_created(%Alert{} = alert) do
     Phoenix.PubSub.broadcast(Nixstasis.PubSub, "alerts", {:alert_created, alert})
+  end
+
+  defp telemetry_retention_days do
+    Application.get_env(:nixstasis, :telemetry_retention, [])
+    |> Keyword.get(:retention_days, 30)
   end
 end

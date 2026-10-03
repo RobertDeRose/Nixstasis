@@ -5,8 +5,7 @@ defmodule Nixstasis.Scripts.ScriptTestRun do
 
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
-    domain: Nixstasis.Domain,
-    extensions: [AshJsonApi.Resource]
+    domain: Nixstasis.Domain
 
   postgres do
     table "script_test_runs"
@@ -22,10 +21,6 @@ defmodule Nixstasis.Scripts.ScriptTestRun do
       index [:script_version_id]
       index [:status]
     end
-  end
-
-  json_api do
-    type "script_test_run"
   end
 
   actions do
@@ -101,5 +96,9 @@ defmodule Nixstasis.Scripts.ScriptTestRun do
     has_many :client_actions, Nixstasis.Scripts.ScriptClientAction do
       destination_attribute :script_test_run_id
     end
+  end
+
+  calculations do
+    calculate :target_device_count, :integer, expr(fragment("cardinality(?)", target_device_ids))
   end
 end

@@ -23,6 +23,11 @@ defmodule NixstasisWeb.BuilderSchemaController do
         |> put_status(:not_found)
         |> json(error_payload("schema_not_found", "Schema reference not found"))
 
+      {:error, %Ash.Error.Invalid{errors: [%Nixstasis.SchemaOptions.BuilderContract.OptionsConflict{} | _]}} ->
+        conn
+        |> put_status(:conflict)
+        |> json(error_payload("schema_conflict", "Schema definitions conflict for this product/version"))
+
       {:error, _error} ->
         conn
         |> put_status(:unprocessable_entity)

@@ -136,7 +136,7 @@ local linters = new Mapping<String, Step> {
     )
     prefix = "mise x --"
     dir = "packages/server"
-    check = "mix compile --warning-as-errors"
+    check = "mix compile --no-optional-deps --warning-as-errors"
   }
   ["server-deps"] = new Step {
     glob = List("mix.exs", "mix.lock")

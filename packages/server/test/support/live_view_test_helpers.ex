@@ -1,8 +1,8 @@
 defmodule NixstasisWeb.LiveViewTestHelpers do
   @moduledoc false
 
-  def alert_new_path, do: "/alerts/new"
-  def alert_edit_path(rule_id), do: "/alerts/#{rule_id}/edit"
+  def alert_new_path, do: "/alerts/rules/new"
+  def alert_edit_path(rule_id), do: "/alerts/rules/#{rule_id}/edit"
 
   def device_attrs(overrides \\ %{}) do
     Map.merge(

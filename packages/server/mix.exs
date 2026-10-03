@@ -45,9 +45,9 @@ defmodule Nixstasis.MixProject do
       {:open_api_spex, "~> 3.0"},
       {:ymlr, "~> 5.0"},
       {:usage_rules, "~> 0.1", only: [:dev]},
-      {:live_debugger, "~> 0.6", only: [:dev]},
+      {:live_debugger, "~> 1.0", only: [:dev], optional: true},
       {:ash_state_machine, "~> 0.2"},
-      {:ash_admin, "~> 0.13"},
+      {:ash_admin, "~> 1.2"},
       {:ash_postgres, "~> 2.0"},
       {:ash_json_api, "~> 1.0"},
       {:ash_phoenix, "~> 2.0"},
@@ -56,7 +56,7 @@ defmodule Nixstasis.MixProject do
       {:dns_cluster, "~> 0.2"},
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.13"},
-      {:gettext, "~> 0.26"},
+      {:gettext, "~> 0.26 or ~> 1.0"},
       {:jason, "~> 1.2"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_ecto, "~> 4.5"},
@@ -107,7 +107,12 @@ defmodule Nixstasis.MixProject do
       "openapi.generate": [
         "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: [
+        "compile --no-optional-deps --warning-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "test"
+      ]
     ]
   end
 end

@@ -9,7 +9,7 @@ This guide outlines best practices for developing robust, maintainable, and perf
 
 ## Table of Contents
 
-1. [What's New in Go 1.26](#whats-new-in-go-125)
+1. [What's New in Go 1.26](#whats-new-in-go-126)
 2. [Project Structure](#project-structure)
 3. [Language Features & Patterns](#language-features--patterns)
 4. [Concurrency Best Practices](#concurrency-best-practices)
@@ -267,7 +267,7 @@ func setupServer() {
 
 ### Recommended Directory Layout
 
-```
+```text
 myproject/
 ├── cmd/
 │   └── myapp/

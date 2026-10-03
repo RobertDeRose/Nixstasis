@@ -18,18 +18,191 @@ defmodule NixstasisWeb.AshJsonApiRouter do
   def modify_open_api(spec, _conn, _opts) do
     spec
     |> Map.update!(:security, fn _security -> [%{"bearerAuth" => []}] end)
+    |> put_device_runtime_security()
+    |> put_device_runtime_statuses()
+    |> put_device_runtime_error_responses()
     |> put_builder_load_time_minimum()
     |> put_builder_error_responses()
   end
 
+  defp put_device_runtime_security(%{paths: paths, components: components} = spec) do
+    paths =
+      paths
+      |> put_operation_security(
+        "/api/json/device_runtime/devices",
+        :get,
+        [%{"bearerAuth" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/register",
+        :post,
+        []
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        :post,
+        [%{"deviceApiKey" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/command_results",
+        :post,
+        [%{"deviceApiKey" => []}]
+      )
+      |> put_operation_security(
+        "/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}",
+        :get,
+        [%{"deviceApiKey" => []}]
+      )
+
+    security_schemes =
+      (components.securitySchemes || %{})
+      |> Map.put(
+        "deviceApiKey",
+        %OpenApiSpex.SecurityScheme{
+          type: "apiKey",
+          in: "query",
+          name: "api_key",
+          description: "Registration-issued device token for runtime operations."
+        }
+      )
+
+    %{spec | paths: paths, components: %{components | securitySchemes: security_schemes}}
+  end
+
+  defp put_device_runtime_statuses(%{paths: paths} = spec) do
+    paths =
+      paths
+      |> move_operation_response_status(
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        :post,
+        201,
+        200
+      )
+      |> move_operation_response_status(
+        "/api/json/device_runtime/devices/{device_id}/command_results",
+        :post,
+        201,
+        202
+      )
+
+    %{spec | paths: paths}
+  end
+
+  defp move_operation_response_status(paths, path, verb, from, to) do
+    case Map.get(paths, path) do
+      %{^verb => operation} = path_item ->
+        responses = Map.get(operation, :responses, %{})
+
+        case Map.pop(responses, from) do
+          {nil, _responses} ->
+            paths
+
+          {response, responses} ->
+            operation = Map.put(operation, :responses, Map.put(responses, to, response))
+            Map.put(paths, path, Map.put(path_item, verb, operation))
+        end
+
+      _ ->
+        paths
+    end
+  end
+
+  defp put_device_runtime_error_responses(%{paths: paths} = spec) do
+    paths =
+      paths
+      |> put_operation_error_responses(
+        "/api/json/device_runtime/devices",
+        :get,
+        [403, 429]
+      )
+      |> put_operation_error_responses(
+        "/api/json/device_runtime/devices/register",
+        :post,
+        [400, 429]
+      )
+      |> put_operation_error_responses(
+        "/api/json/device_runtime/devices/{device_id}/heartbeat",
+        :post,
+        [400, 401, 403, 404, 429]
+      )
+      |> put_operation_error_responses(
+        "/api/json/device_runtime/devices/{device_id}/command_results",
+        :post,
+        [400, 401, 403, 404, 429]
+      )
+      |> put_operation_error_responses(
+        "/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}",
+        :get,
+        [401, 403, 404, 429]
+      )
+
+    %{spec | paths: paths}
+  end
+
+  defp put_operation_error_responses(paths, path, verb, statuses) do
+    case Map.get(paths, path) do
+      %{^verb => operation} = path_item ->
+        responses = Map.get(operation, :responses, %{})
+
+        responses =
+          Enum.reduce(statuses, responses, fn status, responses ->
+            Map.put_new(responses, status, runtime_error_response(status))
+          end)
+
+        operation = Map.put(operation, :responses, responses)
+        Map.put(paths, path, Map.put(path_item, verb, operation))
+
+      _ ->
+        paths
+    end
+  end
+
+  defp runtime_error_response(429), do: rate_limit_error_response()
+  defp runtime_error_response(_status), do: error_response()
+
+  defp rate_limit_error_response do
+    %{
+      description: "Rate limit exceeded",
+      content: %{
+        "application/json" => %{
+          schema: %{
+            type: "object",
+            required: [:error],
+            properties: %{
+              error: %{
+                type: "object",
+                required: [:code, :message],
+                properties: %{code: %{type: "string"}, message: %{type: "string"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  end
+
+  defp put_operation_security(paths, path, verb, security) do
+    case Map.get(paths, path) do
+      nil ->
+        paths
+
+      path_item ->
+        Map.put(paths, path, Map.update!(path_item, verb, &%{&1 | security: security}))
+    end
+  end
+
   defp put_builder_error_responses(%{paths: paths} = spec) do
     validate_path = "/api/json/builder_contract/builder_configurations/validate"
+    schema_references_path = "/api/json/builder_contract/schema_references"
     options_path = "/api/json/builder_contract/schemas/{schema_id}/versions/{schema_version}/options"
 
     updated_paths =
       paths
+      |> put_in([schema_references_path, Access.key!(:get), Access.key!(:responses), 403], error_response())
       |> put_in([validate_path, Access.key!(:post), Access.key!(:responses), 400], error_response())
+      |> put_in([validate_path, Access.key!(:post), Access.key!(:responses), 403], error_response())
       |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 400], error_response())
+      |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 403], error_response())
       |> put_in([options_path, Access.key!(:get), Access.key!(:responses), 404], error_response())
 
     %{spec | paths: updated_paths}

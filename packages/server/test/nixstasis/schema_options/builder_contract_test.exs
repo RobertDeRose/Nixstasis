@@ -40,6 +40,23 @@ defmodule Nixstasis.SchemaOptions.BuilderContractTest do
     end
   end
 
+  test "get_builder_schema_options raises when matching definitions conflict" do
+    {:ok, _device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:9A",
+        "product_name" => "shape-v1",
+        "schema" => %{
+          "product" => "shape-v1",
+          "version" => "v1",
+          "properties" => %{"humidity" => %{"type" => "number"}}
+        }
+      })
+
+    assert_raise Ash.Error.Invalid, ~r/schema definitions conflict/, fn ->
+      Domain.get_builder_schema_options!("shape-v1", "v1", "alert")
+    end
+  end
+
   test "get_builder_schema_options rejects invalid builders" do
     assert_raise Ash.Error.Invalid, fn ->
       Domain.get_builder_schema_options!("shape-v1", "v1", "unknown")

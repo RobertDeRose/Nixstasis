@@ -76,6 +76,79 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     refute Enum.any?(assignments, &(&1.device_id == other_device.id))
   end
 
+  test "assignment preview rejects invalid manual source IDs", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => ["not-a-uuid"],
+        "category_ids" => [],
+        "catalog_command_ids" => [],
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
+  test "assignment preview rejects stale catalog source IDs without queueing", %{conn: conn} do
+    stale_command_id = Ecto.UUID.generate()
+    stale_category_id = Ecto.UUID.generate()
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => [stale_command_id],
+        "catalog_category_ids" => [stale_category_id]
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
+  test "assignment preview rejects mixed malformed catalog source IDs", %{conn: conn} do
+    %{command: command} = create_catalog_fixture()
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => [command.id, 123],
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
+  test "assignment preview rejects scalar malformed catalog source IDs", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    render_submit(view, "preview_assignment", %{
+      "assignment" => %{
+        "device_ids" => [],
+        "entry_ids" => [],
+        "category_ids" => [],
+        "catalog_command_ids" => 123,
+        "catalog_category_ids" => []
+      }
+    })
+
+    assert render(view) =~ "catalog commands or categories are no longer available"
+    refute Enum.any?(Domain.list_command_policy_assignments() |> elem(1))
+  end
+
   test "catalog search filters catalog command options", %{conn: conn} do
     create_catalog_fixture()
 
@@ -92,6 +165,10 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     assert html =~ "df · catalog"
     refute html =~ "uname · catalog"
+
+    {:ok, _view, category_html} = live(conn, ~p"/scripts/command-policies?search=diagnostics")
+    assert category_html =~ "df · catalog"
+    refute category_html =~ "uname · catalog"
   end
 
   test "catalog preview shows per-device compatibility blockers", %{conn: conn} do
@@ -158,7 +235,7 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     {:ok, _command} = Domain.update_command_catalog_command(command, %{active: false})
 
     assert render_click(element(view, "button", "Confirm and queue")) =~
-             "Preview must be conflict-free and catalog-compatible before assignment"
+             "catalog commands or categories are no longer available"
 
     assignments = Domain.list_command_policy_assignments() |> elem(1)
     refute Enum.any?(assignments, &(&1.device_id == device.id))
@@ -199,6 +276,7 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
 
     sources = Domain.list_command_policy_assignment_sources() |> elem(1)
     catalog_source = Enum.find(sources, &(&1.assignment_id == assignment.id and &1.source_kind == "catalog_category"))
+    refute Enum.any?(sources, &(&1.assignment_id == assignment.id and &1.source_kind == "catalog_command"))
     assert catalog_source.source_snapshot["catalog_version"] == "catalog-v1"
     assert catalog_source.source_snapshot["catalog_category_id"] == category.id
     assert catalog_source.source_snapshot["resolved_commands"]["df"]["package_name"] == "coreutils"

@@ -3,6 +3,7 @@ defmodule Nixstasis.CommandCatalog.CatalogResolverTest do
 
   alias Nixstasis.Devices
   alias Nixstasis.Domain
+  alias Nixstasis.Repo
 
   describe "catalog resources and compatibility" do
     test "persists catalog entries, mappings, categories, and inventory snapshots" do
@@ -198,6 +199,61 @@ defmodule Nixstasis.CommandCatalog.CatalogResolverTest do
       assert snapshot.packages == %{"coreutils" => %{"installed" => true}}
       assert snapshot.commands == %{"df" => %{"path" => "/usr/bin/df"}}
       assert String.length(snapshot.architecture) == 256
+    end
+
+    test "rejects unknown or inactive catalog source IDs before materializing a preview" do
+      unknown_command_id = Ecto.UUID.generate()
+      unknown_category_id = Ecto.UUID.generate()
+
+      assert {:error,
+              {:invalid_catalog_source, %{command_ids: [^unknown_command_id], category_ids: [^unknown_category_id]}}} =
+               Domain.preview_catalog_command_compatibility(%{
+                 catalog_command_ids: [unknown_command_id],
+                 catalog_category_ids: [unknown_category_id]
+               })
+    end
+
+    test "rejects scalar malformed catalog source IDs" do
+      assert {:error, {:invalid_catalog_source, %{command_ids: [123], category_ids: []}}} =
+               Domain.preview_catalog_command_compatibility(%{catalog_command_ids: 123})
+    end
+
+    test "rejects oversized raw catalog source lists before creating blockers" do
+      ids = Enum.map(1..10_001, fn _index -> Ecto.UUID.generate() end)
+
+      assert {:error, {:command_policy_limit_exceeded, %{kind: :source_rows, limit: 10_000, actual: 10_001}}} =
+               Domain.preview_catalog_command_compatibility(%{catalog_command_ids: ids})
+    end
+
+    test "rejects more than 2,500 selected catalog commands before loading rows" do
+      ids = Enum.map(1..2_501, fn _index -> Ecto.UUID.generate() end)
+      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+
+      rows =
+        Enum.zip(ids, 1..2_501)
+        |> Enum.map(fn {id, index} ->
+          name = "bounded-catalog-#{index}"
+
+          %{
+            id: Ecto.UUID.dump!(id),
+            name: name,
+            name_key: name,
+            display_name: name,
+            description: "",
+            category_slugs: [],
+            risk_notes: "",
+            install_guidance: "",
+            current_version: 1,
+            active: true,
+            inserted_at: now,
+            updated_at: now
+          }
+        end)
+
+      {2_501, nil} = Repo.insert_all("command_catalog_commands", rows)
+
+      assert {:error, {:command_policy_limit_exceeded, %{kind: :commands, limit: 2_500, actual: 2_501}}} =
+               Domain.preview_catalog_command_compatibility(%{catalog_command_ids: ids})
     end
 
     test "seed data creates catalog commands and the probe manifest exposes them" do

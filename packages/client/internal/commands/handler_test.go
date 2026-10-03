@@ -665,11 +665,45 @@ func TestSSHAuthorizeRejectsInvalidDynamicPayloads(t *testing.T) {
 				PublicKey: testPublicKey,
 				Payload: &transport.CommandPayload{
 					ContentType: sshauth.PayloadContentType,
+					Name:        "session-1",
 					Data:        tc.payload,
 				},
 			}})[0]
 			if result.Status != transport.CommandStatusFailed {
 				t.Fatalf("expected failure, got %s", result.Status)
+			}
+		})
+	}
+}
+
+func TestSSHAuthorizeRejectsContractMismatches(t *testing.T) {
+	store := sshauth.NewStore()
+	handler := NewHandlerWithSSHAuth("", store)
+	cases := []struct {
+		name        string
+		contentType string
+		nameField   string
+		ttlSeconds  int
+	}{
+		{name: "wrong content type", contentType: sshauth.RevokePayloadContentType, nameField: "session-1", ttlSeconds: 300},
+		{name: "wrong payload name", contentType: sshauth.PayloadContentType, nameField: "other-session", ttlSeconds: 300},
+		{name: "over-limit ttl", contentType: sshauth.PayloadContentType, nameField: "session-1", ttlSeconds: int(sshauth.MaxAuthorizationTTL/time.Second) + 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-contract-" + tc.name,
+				Type:      "ssh_authorize",
+				PublicKey: testPublicKey,
+				Payload: &transport.CommandPayload{
+					ContentType: tc.contentType,
+					Name:        tc.nameField,
+					Data:        fmt.Sprintf(`{"target_user":"nixstasis-support","ttl_seconds":%d,"session_ref":"session-1"}`, tc.ttlSeconds),
+				},
+			}})[0]
+			if result.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected contract failure, got %s", result.Status)
 			}
 		})
 	}
@@ -702,6 +736,7 @@ func TestSSHRevokeRemovesStoredAuthorization(t *testing.T) {
 		Payload: &transport.CommandPayload{
 			ContentType: sshauth.RevokePayloadContentType,
 			Name:        "session-revoke",
+			Data:        `{"session_ref":"session-revoke"}`,
 		},
 	}})[0]
 	if revoke.Status != transport.CommandStatusOK {
@@ -725,7 +760,7 @@ func TestSSHRevokeRemovesStoredAuthorization(t *testing.T) {
 	}
 }
 
-func TestSSHRevokeResolvesSessionRefFromData(t *testing.T) {
+func TestSSHRevokeRequiresMatchingPayloadSessionRef(t *testing.T) {
 	store := sshauth.NewStore()
 	handler := NewHandlerWithSSHAuth("", store)
 
@@ -734,11 +769,38 @@ func TestSSHRevokeResolvesSessionRefFromData(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
+	for _, tc := range []struct {
+		name        string
+		contentType string
+		payloadName string
+		payloadData string
+	}{
+		{name: "missing name", contentType: sshauth.RevokePayloadContentType, payloadData: `{"session_ref":"session-data"}`},
+		{name: "mismatched data", contentType: sshauth.RevokePayloadContentType, payloadName: "session-data", payloadData: `{"session_ref":"other-session"}`},
+		{name: "wrong content type", contentType: sshauth.PayloadContentType, payloadName: "session-data", payloadData: `{"session_ref":"session-data"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-revoke-" + tc.name,
+				Type:      "ssh_revoke",
+				Payload: &transport.CommandPayload{
+					ContentType: tc.contentType,
+					Name:        tc.payloadName,
+					Data:        tc.payloadData,
+				},
+			}})[0]
+			if revoke.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected ssh_revoke failure, got %s: %s", revoke.Status, revoke.Error)
+			}
+		})
+	}
+
 	revoke := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
-		CommandID: "cmd-revoke",
+		CommandID: "cmd-revoke-valid",
 		Type:      "ssh_revoke",
 		Payload: &transport.CommandPayload{
 			ContentType: sshauth.RevokePayloadContentType,
+			Name:        "session-data",
 			Data:        `{"session_ref":"session-data"}`,
 		},
 	}})[0]

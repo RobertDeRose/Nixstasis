@@ -6,6 +6,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=nixstasis
+Group=nixstasis-ssh
+SupplementaryGroups=nixstasis
+RuntimeDirectory=nixstasis
+RuntimeDirectoryMode=0750
+UMask=0007
 SyslogIdentifier=nixstasis
 ExecStart=/usr/bin/nixstasis poll
 PrivateTmp=true
