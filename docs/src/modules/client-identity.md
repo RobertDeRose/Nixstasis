@@ -55,12 +55,18 @@
 ## Client-Server Interaction Details
 
 - `register` detects MAC/IP and sends identity data to `POST /api/v1/devices/register`.
-- Approved registration responses include an API token. The client stores UUID
-  and token together as JSON at `config.IdentityPath()` with owner-only file
-  permissions.
+- Initial pending registration responses include a one-time registration token.
+  The client stores the UUID and proof at `config.RegistrationPath()` with
+  owner-only permissions so systemd retries and reboots can resume enrollment.
+- After approval, the client presents that proof to the registration endpoint.
+  The server rotates it into the runtime API token; the client then stores UUID
+  and runtime token together as JSON at `config.IdentityPath()` and removes the
+  temporary registration state.
 - Legacy identity files that contain only a UUID are still readable, but runtime
   heartbeat, command-result, and command-payload requests require the stored API
-  token once the device is approved.
+  token once the device is approved. Existing approved records without a valid
+  registration/runtime proof cannot recover credentials through public
+  re-registration.
 - `poll` loads stored credentials from `/etc/nixstasis/id` via
   `config.IdentityPath()` before sending heartbeat requests.
 

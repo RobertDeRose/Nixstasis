@@ -376,6 +376,28 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.get_device!(rejected.id).approval_status == :rejected
     end
 
+    test "approve_device/1 preserves a public enrollment proof until credential exchange" do
+      attrs = %{
+        "mac_address" => "89:89:89:89:89:89",
+        "product_name" => "public-device",
+        "schema" => %{
+          "product" => "public-device",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      assert {:ok, %{data: data}} = Devices.register_runtime_device(attrs)
+      assert is_binary(data.registration_token)
+
+      pending = Devices.get_device!(data.id)
+      enrollment_hash = pending.api_token_hash
+      assert is_binary(enrollment_hash)
+
+      assert {:ok, approved} = Devices.approve_device(pending)
+      assert approved.api_token_hash == enrollment_hash
+    end
+
     test "approve_device/1 forces secure registration before runtime auth" do
       pending = device_fixture(%{approval_status: :pending})
 

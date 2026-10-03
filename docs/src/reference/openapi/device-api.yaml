@@ -59,7 +59,7 @@ paths:
     post:
       security: []
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The additive generated registration action shares this behavior; compatibility tests preserve pending and approved token behavior.
+      description: Registration is the credential issuance boundary. Public registration requires a schema payload. New or pending devices receive a one-time registration token; every re-registration of an existing enrolled MAC must present that proof (or the current runtime token). After approval, successful proof exchange returns a new runtime API token and invalidates the registration token.
       requestBody:
         required: true
         content:
@@ -97,6 +97,9 @@ paths:
                   type: string
                   format: ipv4
                   description: Optional direct IPv4 value; when absent, registration may use metadata.ip_address.
+                registration_token:
+                  type: string
+                  description: Required when re-registering an existing enrolled MAC. Use the one-time token returned by the initial pending registration, or the current runtime API token for an authenticated credential rotation.
               anyOf:
                 - required: [schema_definition]
                 - required: [schema]
@@ -139,7 +142,13 @@ paths:
                       api_token:
                         type: string
                         nullable: true
-                        description: Present only after server approval.
+                        description: Present only after server approval and successful registration proof.
+                      registration_token:
+                        type: string
+                        nullable: true
+                        description: Present only when a pending enrollment proof is first issued. Store it until approval completes.
+        "403":
+          description: Existing MAC requires a valid registration or runtime token proof.
         "422":
           description: Missing or invalid registration schema
         "429":

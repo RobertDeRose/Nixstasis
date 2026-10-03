@@ -161,6 +161,15 @@ func IdentityPath() string {
 	return filepath.Join(defaultConfigRoot, "id")
 }
 
+// RegistrationPath returns the owner-only state used while device approval is pending.
+func RegistrationPath() string {
+	if path := os.Getenv("NIXSTASIS_REGISTRATION_PATH"); path != "" {
+		return path
+	}
+
+	return filepath.Join(defaultConfigRoot, "registration")
+}
+
 // FRPCConfigPath returns the canonical frpc config path.
 func FRPCConfigPath() string {
 	if path := os.Getenv("NIXSTASIS_FRPC_CONFIG_PATH"); path != "" {

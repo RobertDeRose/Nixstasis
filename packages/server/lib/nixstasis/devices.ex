@@ -20,6 +20,7 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.SchemaValidator
   alias Nixstasis.Domain
   alias Nixstasis.Repo
+  alias Nixstasis.Utilities
 
   @remote_access_leases_name __MODULE__.RemoteAccessLeases
   @remote_access_lease_ttl_ms 60 * 60 * 1000
@@ -153,13 +154,17 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
-  Registers a device.
+  Registers a device through the public enrollment boundary.
+
+  A new device receives a one-time registration token whose hash is stored in
+  the existing device token slot while approval is pending. Re-registration of
+  an existing MAC requires proof of possession of that token (or the current
+  runtime token after enrollment has completed).
   """
   def register_public_device(attrs) do
-    attrs
-    |> normalize_registration_attrs()
-    |> validate_registration_attrs(:public)
-    |> persist_registered_device()
+    with {:ok, device, _registration_token} <- register_public_device_with_proof(attrs) do
+      {:ok, device}
+    end
   end
 
   def register_device(attrs) do
@@ -206,6 +211,100 @@ defmodule Nixstasis.Devices do
   end
 
   defp registration_schema(_attrs), do: nil
+
+  defp register_public_device_with_proof(attrs) when is_map(attrs) do
+    registration_token = runtime_param(attrs, :registration_token)
+
+    with {:ok, safe_attrs} <-
+           attrs
+           |> normalize_registration_attrs()
+           |> validate_registration_attrs(:public) do
+      safe_attrs = sanitize_public_registration_attrs(safe_attrs)
+
+      with {:ok, existing} <- public_registration_device(safe_attrs) do
+        persist_public_registration(existing, safe_attrs, registration_token)
+      end
+    end
+  end
+
+  defp sanitize_public_registration_attrs(attrs) do
+    attrs
+    |> Map.delete("registration_token")
+    |> Map.delete(:registration_token)
+    |> Map.delete("remote_access_requested")
+    |> Map.delete(:remote_access_requested)
+  end
+
+  defp public_registration_device(attrs) do
+    case registration_mac(attrs) do
+      nil -> {:ok, nil}
+      mac -> Domain.get_device_by_mac(mac)
+    end
+  end
+
+  defp registration_mac(attrs) do
+    case Map.get(attrs, "mac_address") || Map.get(attrs, :mac_address) do
+      mac when is_binary(mac) -> Utilities.format_mac_address(mac)
+      _ -> nil
+    end
+  end
+
+  defp persist_public_registration(nil, safe_attrs, _registration_token) do
+    registration_token = generate_device_token()
+
+    with {:ok, device} <- Domain.create_device(safe_attrs),
+         {:ok, secured_device} <- update_device_token_hash(device.id, hash_registration_token(registration_token)) do
+      broadcast_device(:device_registered, secured_device)
+      {:ok, secured_device, registration_token}
+    end
+  end
+
+  defp persist_public_registration(
+         %Device{approval_status: :pending, api_token_hash: nil} = device,
+         safe_attrs,
+         _registration_token
+       ) do
+    registration_token = generate_device_token()
+
+    with {:ok, updated} <- Domain.update_device(device, safe_attrs),
+         {:ok, secured_device} <- update_device_token_hash(updated.id, hash_registration_token(registration_token)) do
+      broadcast_device(:device_registered, secured_device)
+      {:ok, secured_device, registration_token}
+    end
+  end
+
+  defp persist_public_registration(%Device{} = device, safe_attrs, registration_token) do
+    with :ok <- authenticate_registration_token(device, registration_token),
+         {:ok, updated} <- Domain.update_device(device, safe_attrs) do
+      broadcast_device(:device_registered, updated)
+      {:ok, updated, nil}
+    end
+  end
+
+  defp authenticate_registration_token(%Device{api_token_hash: hash}, token)
+       when is_binary(hash) and is_binary(token) and token != "" do
+    candidate = hash_device_token(token)
+
+    if registration_token_hash_matches?(hash, candidate) or runtime_token_hash_matches?(hash, candidate),
+      do: :ok,
+      else: {:error, :forbidden}
+  end
+
+  defp authenticate_registration_token(%Device{}, _token), do: {:error, :forbidden}
+
+  defp registration_token_hash_matches?("registration:" <> hash, candidate),
+    do: secure_token_hash_compare(hash, candidate)
+
+  defp registration_token_hash_matches?(_hash, _candidate), do: false
+
+  defp runtime_token_hash_matches?("registration:" <> _hash, _candidate), do: false
+  defp runtime_token_hash_matches?(hash, candidate), do: secure_token_hash_compare(hash, candidate)
+
+  defp secure_token_hash_compare(hash, candidate)
+       when is_binary(hash) and byte_size(hash) == byte_size(candidate),
+       do: Plug.Crypto.secure_compare(hash, candidate)
+
+  defp secure_token_hash_compare(_hash, _candidate), do: false
 
   defp persist_registered_device({:ok, safe_attrs}) do
     case Domain.register_device(safe_attrs) do
@@ -271,10 +370,13 @@ defmodule Nixstasis.Devices do
   Approves a device.
   """
   def approve_device(%Device{} = device) do
-    with {:ok, approved} <- Domain.update_device(device, %{approval_status: :approved}),
-         {:ok, updated} <- update_device_token_hash(approved.id, nil) do
-      broadcast_device(:device_approval_status_changed, updated)
-      {:ok, updated}
+    case Domain.update_device(device, %{approval_status: :approved}) do
+      {:ok, approved} = result ->
+        broadcast_device(:device_approval_status_changed, approved)
+        result
+
+      result ->
+        result
     end
   end
 
@@ -293,7 +395,7 @@ defmodule Nixstasis.Devices do
       when is_binary(hash) and is_binary(token) do
     candidate = hash_device_token(token)
 
-    if Plug.Crypto.secure_compare(hash, candidate) do
+    if runtime_token_hash_matches?(hash, candidate) do
       :ok
     else
       {:error, :invalid_token}
@@ -378,17 +480,17 @@ defmodule Nixstasis.Devices do
   @doc """
   Runs public registration for the generated device-runtime action.
 
-  Approved re-registration rotates the returned token just as the compatibility
-  controller does; pending devices receive no token.
+  New and pending devices receive a one-time registration token. Approved
+  re-registration requires that proof and rotates it into the runtime API token.
   """
   def register_runtime_device(attrs) when is_map(attrs) do
-    with {:ok, device} <- register_public_device(attrs) do
-      {device, token} = runtime_registration_credentials(device)
-      {:ok, %{data: runtime_device_data(device, token)}}
+    with {:ok, device, registration_token} <- register_public_device_with_proof(attrs) do
+      {device, api_token} = runtime_registration_credentials(device)
+      {:ok, %{data: runtime_device_data(device, api_token, registration_token)}}
     end
   end
 
-  def runtime_device_data(%Device{} = device, token \\ nil) do
+  def runtime_device_data(%Device{} = device, api_token \\ nil, registration_token \\ nil) do
     data = %{
       id: device.id,
       mac_address: device.mac_address,
@@ -402,7 +504,9 @@ defmodule Nixstasis.Devices do
       remote_access_profile: device.remote_access_profile || @default_remote_access_profile
     }
 
-    if is_binary(token), do: Map.put(data, :api_token, token), else: data
+    data
+    |> maybe_put_runtime_secret(:api_token, api_token)
+    |> maybe_put_runtime_secret(:registration_token, registration_token)
   end
 
   defp runtime_list_device_data(%Device{} = device) do
@@ -543,6 +647,10 @@ defmodule Nixstasis.Devices do
   end
 
   def normalize_connectivity_status_filter(_), do: nil
+
+  defp maybe_put_runtime_secret(data, _key, nil), do: data
+  defp maybe_put_runtime_secret(data, _key, ""), do: data
+  defp maybe_put_runtime_secret(data, key, value), do: Map.put(data, key, value)
 
   defp runtime_registration_credentials(%Device{approval_status: :approved} = device) do
     case issue_device_token(device) do
@@ -796,14 +904,11 @@ defmodule Nixstasis.Devices do
 
   def approve_devices(ids) when is_list(ids) do
     case Repo.transaction(fn ->
-           pending_ids = pending_device_ids(ids)
-
            result =
              Device
              |> Ash.Query.filter(id in ^ids and approval_status == :pending)
              |> Ash.bulk_update!(:update, %{approval_status: :approved}, domain: Domain, strategy: :stream)
 
-           clear_device_token_hashes(pending_ids)
            {result, list_devices_by_ids(ids)}
          end) do
       {:ok, {result, devices}} ->
@@ -1727,15 +1832,6 @@ defmodule Nixstasis.Devices do
     |> Ash.read!(domain: Domain)
   end
 
-  defp pending_device_ids([]), do: []
-
-  defp pending_device_ids(ids) do
-    Device
-    |> Ash.Query.filter(id in ^ids and approval_status == :pending)
-    |> Ash.read!(domain: Domain)
-    |> Enum.map(& &1.id)
-  end
-
   defp broadcast_update_for_attrs(%Device{} = device, attrs) when is_map(attrs) and map_size(attrs) > 0 do
     events =
       []
@@ -1934,16 +2030,7 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  defp clear_device_token_hashes([]), do: :ok
-
-  defp clear_device_token_hashes(ids) do
-    Repo.update_all(
-      from(device in Device, where: device.id in ^ids),
-      set: [api_token_hash: nil]
-    )
-
-    :ok
-  end
+  defp hash_registration_token(token), do: "registration:" <> hash_device_token(token)
 
   defp hash_device_token(token) do
     :crypto.hash(:sha256, token)

@@ -7,6 +7,7 @@ sequenceDiagram
     autonumber
     participant Operator
     participant Client as nixstasis client
+    participant Pending as registration state
     participant Identity as identity store
     participant Phoenix
     participant Devices as Devices context
@@ -15,29 +16,36 @@ sequenceDiagram
     Operator->>Client: nixstasis register
     Client->>Client: Detect MAC/IP and product metadata
     Client->>Phoenix: POST /api/v1/devices/register
-    Phoenix->>Devices: register_device(params)
-    Devices->>Domain: register_device(params)
-    Domain-->>Devices: device record and approval state
-    Devices-->>Phoenix: registration result
-    Phoenix-->>Client: 201 data.id and optional api_token
-    Client->>Identity: Save UUID
+    Phoenix->>Devices: register_runtime_device(params)
+    Devices->>Domain: create pending device
+    Devices-->>Phoenix: device + one-time registration token
+    Phoenix-->>Client: 201 data.id + registration_token
+    Client->>Pending: Save UUID + registration proof
+    Operator->>Phoenix: Approve pending device
+    Client->>Phoenix: POST register + registration_token
+    Phoenix->>Devices: Verify proof before mutation
+    Devices-->>Phoenix: Rotate proof to runtime api_token
+    Phoenix-->>Client: 201 data.id + api_token
+    Client->>Identity: Save UUID + runtime token
+    Client->>Pending: Remove registration proof
 ```
 
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
-3. Client generates a device name from the MAC address.
-4. Client sends `POST /api/v1/devices/register` with `mac_address`, optional `product_name`, a required schema payload, and optional `metadata`.
-5. Phoenix `DeviceController.register/2` calls `Nixstasis.Devices.register_public_device/1`.
-6. `Devices.register_public_device/1` validates the supplied schema definition and calls `Nixstasis.Domain.register_device/1`.
-7. Server responds `201` with `data.id` and includes `data.api_token` when the device is approved.
-8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()` and uses the issued token for runtime API calls.
+3. Client sends `POST /api/v1/devices/register` with `mac_address`, product/schema data, and optional metadata.
+4. A new or legacy pending device without an enrollment proof receives a random `registration_token`; only its hash is stored server-side. The client persists the plaintext proof at `config.RegistrationPath()` with owner-only permissions.
+5. Re-registration of an existing enrolled MAC is denied before any record mutation unless the request supplies the matching `registration_token` or the current runtime API token. Public registration never changes `remote_access_requested`.
+6. Approval preserves the enrollment-proof hash, but the `registration:` marker prevents that proof from authenticating heartbeat or other runtime endpoints.
+7. After approval, the client exchanges the registration proof through the registration endpoint. Phoenix rotates the stored hash to a newly generated runtime `api_token`, so the enrollment proof immediately becomes invalid.
+8. Client stores UUID and runtime token at `config.IdentityPath()` and removes the temporary registration state.
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/register.go:28-93`
-- `packages/client/internal/transport/client.go:84-121`
-- `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-37`
-- `packages/server/lib/nixstasis/devices.ex:51-83`
+- `packages/client/cmd/nixstasis/register.go`
+- `packages/client/internal/transport/client.go`
+- `packages/client/internal/identity/store.go`
+- `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
+- `packages/server/lib/nixstasis/devices.ex`
 
 ## Polling and Telemetry
 
