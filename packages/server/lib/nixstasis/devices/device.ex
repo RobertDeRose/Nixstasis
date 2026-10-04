@@ -185,7 +185,12 @@ defmodule Nixstasis.Devices.Device do
                        :api_token_hash,
                        :remote_access_profile,
                        :remote_access_expires_at,
-                       :remote_access_owner
+                       :remote_access_owner,
+                       :ssh_host_key,
+                       :ssh_host_key_pending,
+                       :ssh_host_key_trusted_at,
+                       :ssh_host_key_trusted_by,
+                       :ssh_host_key_previous_fingerprint
                      ]}
     end
 
@@ -208,6 +213,18 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
       validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
+    end
+
+    update :update_ssh_host_key_state do
+      require_atomic? false
+
+      accept [
+        :ssh_host_key,
+        :ssh_host_key_pending,
+        :ssh_host_key_trusted_at,
+        :ssh_host_key_trusted_by,
+        :ssh_host_key_previous_fingerprint
+      ]
     end
 
     action :list_runtime_devices, :map do
@@ -249,6 +266,7 @@ defmodule Nixstasis.Devices.Device do
       argument :telemetry, :map, default: %{}
       argument :connection_status, :map, default: %{}
       argument :command_inventory, :map
+      argument :ssh_host_key, :string
 
       run fn input, _context ->
         case Devices.get_device(input.arguments.device_id) do
@@ -325,7 +343,7 @@ defmodule Nixstasis.Devices.Device do
   end
 
   defp heartbeat_payload(arguments) do
-    Map.take(arguments, [:telemetry, :connection_status, :command_inventory])
+    Map.take(arguments, [:telemetry, :connection_status, :command_inventory, :ssh_host_key])
   end
 
   attributes do
@@ -384,6 +402,16 @@ defmodule Nixstasis.Devices.Device do
     attribute :remote_access_expires_at, :utc_datetime_usec
 
     attribute :remote_access_owner, :string
+
+    attribute :ssh_host_key, :string
+
+    attribute :ssh_host_key_pending, :string
+
+    attribute :ssh_host_key_trusted_at, :utc_datetime_usec
+
+    attribute :ssh_host_key_trusted_by, :string
+
+    attribute :ssh_host_key_previous_fingerprint, :string
 
     attribute :remote_access_profile, :string do
       allow_nil? false

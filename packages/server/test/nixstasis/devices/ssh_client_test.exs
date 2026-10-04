@@ -3,6 +3,8 @@ defmodule Nixstasis.Devices.SshClientTest do
 
   alias Nixstasis.Devices.SshClient
 
+  @host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
   test "validate_executables reports missing ssh executable" do
     assert {:error, %{reason: :missing_executable, executable: "missing-nixstasis-ssh"}} =
              SshClient.validate_executables(
@@ -39,6 +41,21 @@ defmodule Nixstasis.Devices.SshClientTest do
                private_key: "test-only-sensitive-key-material",
                channel_pid: self(),
                ssh_executable: "missing-nixstasis-ssh",
+               proxy_executable: "sh",
+               env_executable: "env"
+             )
+  end
+
+  test "start_link rejects a missing or invalid trusted host key before opening SSH" do
+    Process.flag(:trap_exit, true)
+
+    assert {:error, %{reason: :invalid_host_key}} =
+             SshClient.start_link(
+               device_id: "11111111-2222-3333-4444-555555555555",
+               private_key: "test-only-sensitive-key-material",
+               host_key: "not-a-host-key",
+               channel_pid: self(),
+               ssh_executable: "sh",
                proxy_executable: "sh",
                env_executable: "env"
              )
@@ -153,6 +170,7 @@ defmodule Nixstasis.Devices.SshClientTest do
       SshClient.start_link(
         device_id: "11111111-2222-3333-4444-555555555555",
         private_key: "test-only-sensitive-key-material",
+        host_key: @host_key,
         channel_pid: self(),
         columns: 100,
         rows: 40,
@@ -169,6 +187,11 @@ defmodule Nixstasis.Devices.SshClientTest do
     commands = eventually_read!(log_path, &String.contains?(&1, "tty_path=$(cat"))
 
     assert commands =~ "TERM=xterm-256color"
+    assert commands =~ "StrictHostKeyChecking=yes"
+    assert commands =~ "UserKnownHostsFile=/tmp/nixstasis_known_hosts_"
+    assert commands =~ "GlobalKnownHostsFile=/dev/null"
+    refute commands =~ "StrictHostKeyChecking=no"
+    refute commands =~ "UserKnownHostsFile=/dev/null"
     assert commands =~ "tty > /tmp/nixstasis-terminal-"
     assert commands =~ "stty rows 40 cols 100"
     assert commands =~ "exec \"${SHELL:-/bin/sh}\" -l"

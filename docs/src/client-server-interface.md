@@ -169,7 +169,7 @@ canonical contract for new integrations is:
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device API key.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated
-  heartbeat action. It accepts `telemetry`, `connection_status`, and optional
+  heartbeat action. It accepts `telemetry`, `connection_status`, `ssh_host_key`, and optional
   `command_inventory`, returns `data.commands` plus optional remote-access
   token/profile and probe directives with status `200`, and preserves the same
   orchestration as the compatibility endpoint.
@@ -296,6 +296,7 @@ Request:
     "pid": 1234,
     "start_time": "2026-05-06T14:00:00Z"
   },
+  "ssh_host_key": "ssh-ed25519 AAAA...",
   "command_inventory": {
     "schema_version": 1,
     "probe_catalog_version": "catalog-v1",
@@ -317,6 +318,12 @@ Request:
   }
 }
 ```
+
+`ssh_host_key` is the public host key used by the device's sshd. The server enrolls
+the first value received over an authenticated heartbeat. A different key is held
+as pending and blocks browser terminal connections until an authorized operator
+explicitly trusts the replacement; the previous fingerprint, actor, and trust time
+are retained with the device.
 
 `command_inventory` is optional, top-level, and untrusted. The client only
 reports package names and command names from the latest server

@@ -73,7 +73,7 @@
     than creating a duplicate identity.
 - `Poll`:
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
-  - Sends `telemetry`, `connection_status`, and optional top-level `command_inventory` evidence.
+  - Sends `telemetry`, `connection_status`, the local sshd host public key as `ssh_host_key`, and optional top-level `command_inventory` evidence.
   - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
     `data.remote_access_profile`, `data.commands`, and

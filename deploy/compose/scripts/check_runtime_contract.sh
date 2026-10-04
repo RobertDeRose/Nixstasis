@@ -18,6 +18,7 @@ SERVER_README="$ROOT_DIR/packages/server/README.md"
 SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
 SERVER_MIGRATE="$ROOT_DIR/packages/server/bin/migrate"
 SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
+SERVER_SSH_CLIENT="$ROOT_DIR/packages/server/lib/nixstasis/devices/ssh_client.ex"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_DOCKERFILE="$ROOT_DIR/packages/client/Dockerfile"
 CLIENT_POSTINSTALL="$ROOT_DIR/packages/client/build/debian/postinstall.sh"
@@ -298,6 +299,11 @@ require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_SIMULATOR_
 require_text "$CLIENT_DOCKERFILE" 'container-entrypoint'
 require_text "$CLIENT_DOCKERFILE" 'pcp-metrics\.sh'
 require_text "$SERVER_DOCKERFILE" 'COPY client/scripts/e2e/journeys priv/e2e/journeys'
+require_literal "$SERVER_SSH_CLIENT" 'StrictHostKeyChecking=yes'
+require_literal "$SERVER_SSH_CLIENT" 'UserKnownHostsFile=#{known_hosts_path}'
+require_literal "$SERVER_SSH_CLIENT" 'GlobalKnownHostsFile=/dev/null'
+reject_text "$SERVER_SSH_CLIENT" 'StrictHostKeyChecking=no'
+reject_text "$SERVER_SSH_CLIENT" 'UserKnownHostsFile=/dev/null'
 require_text "$SERVER_RUNTIME" 'Application\.app_dir\(:nixstasis, "priv"\)'
 require_text "$SERVER_RUNTIME" ':e2e_journey_dir'
 require_text "$CLIENT_DOCKERFILE" 'openssl'
