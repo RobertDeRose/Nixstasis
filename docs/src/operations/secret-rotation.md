@@ -34,9 +34,9 @@ signed Phoenix state such as sessions.
    denied.
 5. Validate Caddy transforms the new OIDC groups into the expected
    `nixstasis/*` roles and Phoenix receives those roles through AuthCrunch
-   `X-Token-*` claim headers. `nixstasis/viewer` is read-only, while
-   `nixstasis/operator` and `nixstasis/admin` can use implemented operational
-   controls.
+   `X-Token-*` claim headers. `nixstasis/viewer` is read-only,
+   `nixstasis/operator` can use implemented operational controls, and only
+   `nixstasis/admin` can change global system settings.
 
 Avoid wildcard role or group values. `validate_stack.sh` rejects wildcard
 authorization inputs.

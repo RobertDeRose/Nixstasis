@@ -213,8 +213,10 @@ remains a Caddy-only ingress workflow boundary.
 - The generated `/api/json` resource surface is an operator/developer API, not
   the device runtime protocol. Viewer roles may read resource data, operator
   roles may manage device/report/alert resources according to capability maps,
-  and admin is required for system settings. Scoped device claims such as
-  `X-Token-Device-Ids` restrict JSON:API device mutations to those IDs.
+  and admin is required for system settings. The `/settings` LiveView uses the
+  same admin-only boundary and rechecks the capability on state-changing
+  events. Scoped device claims such as `X-Token-Device-Ids` restrict JSON:API
+  device mutations to those IDs.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.

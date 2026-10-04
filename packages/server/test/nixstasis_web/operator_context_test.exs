@@ -13,6 +13,7 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["roles"] == ["nixstasis/viewer"]
     assert context["device_permissions"] == %{"can_view" => true, "can_manage" => false, "can_remote_access" => false}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => false}
+    assert context["settings_permissions"] == %{"can_manage" => false}
 
     assert context["command_policy_permissions"] == %{
              "can_view_status" => true,
@@ -30,6 +31,7 @@ defmodule NixstasisWeb.OperatorContextTest do
 
     assert context["device_permissions"] == %{"can_view" => true, "can_manage" => true, "can_remote_access" => true}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
+    assert context["settings_permissions"] == %{"can_manage" => false}
 
     assert context["command_policy_permissions"] == %{
              "can_view_status" => true,
@@ -47,6 +49,7 @@ defmodule NixstasisWeb.OperatorContextTest do
 
     assert context["roles"] == ["nixstasis/viewer", "nixstasis/operator", "nixstasis/admin"]
     assert context["device_permissions"]["can_remote_access"] == true
+    assert context["settings_permissions"] == %{"can_manage" => true}
   end
 
   test "merges mixed roles with maximum privileges regardless of order", %{conn: conn} do

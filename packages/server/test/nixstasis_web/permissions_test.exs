@@ -5,6 +5,12 @@ defmodule NixstasisWeb.PermissionsTest do
   alias Nixstasis.Devices.GroupAuthorization
   alias NixstasisWeb.Permissions
 
+  test "settings permissions require explicit management capability" do
+    assert Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => true}})
+    refute Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => false}})
+    refute Permissions.can_manage_settings?(%{})
+  end
+
   test "script permissions can be scoped to allowed scripts" do
     session = %{
       "script_permissions" => %{

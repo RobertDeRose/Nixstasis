@@ -59,6 +59,14 @@
 - Offline timing is runtime-configured through settings instead of hard-coded in
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and
   offline-check sequence.
+- System monitoring and notification settings are admin-only in the LiveView,
+  matching the generated JSON:API system-settings boundary. Stored webhook URLs
+  are never rendered back into the form; leaving the replacement field blank
+  preserves the current destination and removal is explicit.
+- Webhook destinations must use HTTPS. Phoenix resolves them before each
+  delivery, rejects loopback/private/link-local/reserved answers, pins the
+  request to a validated public address while retaining the original hostname
+  for TLS verification, and does not follow redirects.
 
 ### Alert rule modal contract
 
