@@ -34,6 +34,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
           Map.drop(operator_context, [
             "device_permissions",
             "report_permissions",
+            "alert_permissions",
             "settings_permissions",
             "script_permissions",
             "command_policy_permissions"

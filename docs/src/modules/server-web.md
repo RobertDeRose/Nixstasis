@@ -220,8 +220,9 @@ remains a Caddy-only ingress workflow boundary.
   role values are normalized by Caddy to `nixstasis/viewer`,
   `nixstasis/operator`, and `nixstasis/admin`; missing or unknown production
   roles fail closed for device, report, command-policy, and JSON:API
-  permissions. Command-policy permissions intentionally split viewer status
-  access from operator/admin access to full command paths and mutation. Requests
+  permissions. Alert permissions independently split viewer read access from
+  operator/admin alert-rule mutation. Command-policy permissions intentionally
+  split viewer status access from operator/admin access to full command paths and mutation. Requests
   without `X-Token-*` claim headers keep local-development defaults only in dev
   and test; they are not production authorization.
 - The generated `/api/json` resource surface is an operator/developer API, not
@@ -231,8 +232,10 @@ remains a Caddy-only ingress workflow boundary.
   same admin-only boundary and rechecks the capability on state-changing
   events. Monitoring and notification values are validated by shared resource
   actions, including JSON:API POST/PATCH; invalid values return validation errors
-  without changing saved settings. Scoped device claims such as
-  `X-Token-Device-Ids` restrict JSON:API device mutations to those IDs.
+  without changing saved settings. The Alerts LiveView keeps rule controls
+  read-only for viewers and rechecks manage permission on every mutation event.
+  Scoped device claims such as `X-Token-Device-Ids` restrict JSON:API device
+  mutations to those IDs.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.

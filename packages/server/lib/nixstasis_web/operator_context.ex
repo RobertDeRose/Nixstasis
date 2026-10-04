@@ -10,6 +10,7 @@ defmodule NixstasisWeb.OperatorContext do
     "nixstasis/viewer" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => false, "can_remote_access" => false},
       "report_permissions" => %{"can_view" => true, "can_manage" => false},
+      "alert_permissions" => %{"can_view" => true, "can_manage" => false},
       "settings_permissions" => %{"can_manage" => false},
       "script_permissions" => %{"can_view" => true, "can_manage" => false},
       "command_policy_permissions" => %{"can_view_status" => true, "can_view_details" => false, "can_manage" => false}
@@ -17,6 +18,7 @@ defmodule NixstasisWeb.OperatorContext do
     "nixstasis/operator" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "alert_permissions" => %{"can_view" => true, "can_manage" => true},
       "settings_permissions" => %{"can_manage" => false},
       "script_permissions" => %{"can_view" => true, "can_manage" => true},
       "command_policy_permissions" => %{"can_view_status" => true, "can_view_details" => true, "can_manage" => true}
@@ -24,6 +26,7 @@ defmodule NixstasisWeb.OperatorContext do
     "nixstasis/admin" => %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "alert_permissions" => %{"can_view" => true, "can_manage" => true},
       "settings_permissions" => %{"can_manage" => true},
       "script_permissions" => %{"can_view" => true, "can_manage" => true},
       "command_policy_permissions" => %{"can_view_status" => true, "can_view_details" => true, "can_manage" => true}
@@ -90,6 +93,7 @@ defmodule NixstasisWeb.OperatorContext do
            "roles" => roles,
            "device_permissions" => permissions["device_permissions"],
            "report_permissions" => permissions["report_permissions"],
+           "alert_permissions" => permissions["alert_permissions"],
            "settings_permissions" => permissions["settings_permissions"],
            "script_permissions" => permissions["script_permissions"],
            "command_policy_permissions" => permissions["command_policy_permissions"]
@@ -110,6 +114,7 @@ defmodule NixstasisWeb.OperatorContext do
     %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
       "report_permissions" => %{"can_view" => true, "can_manage" => true},
+      "alert_permissions" => %{"can_view" => true, "can_manage" => true},
       "settings_permissions" => %{"can_manage" => true},
       "script_permissions" => %{"can_view" => true, "can_manage" => true},
       "command_policy_permissions" => %{"can_view_status" => true, "can_view_details" => true, "can_manage" => true}
@@ -126,6 +131,7 @@ defmodule NixstasisWeb.OperatorContext do
     %{
       "device_permissions" => %{"can_view" => false, "can_manage" => false, "can_remote_access" => false},
       "report_permissions" => %{"can_view" => false, "can_manage" => false},
+      "alert_permissions" => %{"can_view" => false, "can_manage" => false},
       "settings_permissions" => %{"can_manage" => false},
       "script_permissions" => %{"can_view" => false, "can_manage" => false},
       "command_policy_permissions" => %{"can_view_status" => false, "can_view_details" => false, "can_manage" => false}
@@ -185,6 +191,8 @@ defmodule NixstasisWeb.OperatorContext do
         merge_capabilities(permissions["device_permissions"], role_permissions["device_permissions"]),
       "report_permissions" =>
         merge_capabilities(permissions["report_permissions"], role_permissions["report_permissions"]),
+      "alert_permissions" =>
+        merge_capabilities(permissions["alert_permissions"], role_permissions["alert_permissions"]),
       "settings_permissions" =>
         merge_capabilities(permissions["settings_permissions"], role_permissions["settings_permissions"]),
       "script_permissions" =>
