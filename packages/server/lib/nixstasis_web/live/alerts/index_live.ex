@@ -19,10 +19,12 @@ defmodule NixstasisWeb.AlertLive.Index do
   def mount(_params, session, socket) do
     can_view_alerts = Permissions.can_view_alerts?(session)
     can_manage_alert_rules = Permissions.can_manage_alert_rules?(session)
+    device_data_actor = device_data_actor(session)
 
     socket =
       socket
       |> assign(:can_view_alerts, can_view_alerts)
+      |> assign(:device_data_actor, device_data_actor)
       |> assign(:can_manage_alert_rules, can_manage_alert_rules)
       |> assign(:alerts, [])
       |> assign(:rule_filters, %{"query" => ""})
@@ -95,7 +97,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         socket =
           socket
           |> assign(:alerts_tab, tab)
-          |> assign(:alerts, list_alerts(tab))
+          |> assign(:alerts, list_alerts(tab, socket.assigns.device_data_actor))
           |> assign(:rule_filters, view_state["filters"])
           |> assign(:rule_sort_by, view_state["sort_by"])
           |> assign(:rule_sort_dir, view_state["sort_dir"])
@@ -1622,16 +1624,25 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp list_alerts("rules"), do: []
+  defp list_alerts("rules", _actor), do: []
 
-  defp list_alerts("active") do
+  defp list_alerts("active", actor) when is_map(actor) do
     Alert
     |> Ash.Query.filter(status == :active)
     |> Ash.Query.sort(triggered_at: :desc)
     |> Ash.Query.limit(@alert_limit)
     |> Ash.Query.select([:id, :type, :device_id, :message, :triggered_at, :status])
     |> Ash.Query.load(device: [:mac_address])
-    |> Ash.read!(domain: Domain)
+    |> Ash.read!(domain: Domain, actor: actor)
+  end
+
+  defp list_alerts("active", _actor), do: []
+
+  defp device_data_actor(session) do
+    case Permissions.device_data_actor(session) do
+      {:ok, actor} -> actor
+      {:error, _reason} -> nil
+    end
   end
 
   defp normalize_rule_view_state(params) do
