@@ -209,14 +209,17 @@ precedence. `.7.41` delivered the generated heartbeat orchestration action,
 actions, preserving 202/200 status and not-found/replay behavior while reusing
 the same branch for command-result side effects.
 
-Both generated and compatibility routes use the existing API rate limiter:
-heartbeat is 30 requests per 60 seconds per device identity and other API routes
-are 120 requests per 60 seconds. The generated heartbeat path is included in
-heartbeat detection and uses the same 30-request limit. All five generated
-paths have runtime tests and appear in the generated static artifact; the
-committed `docs/src/reference/openapi/device-api.yaml` remains the compatibility
-reference for `/api/v1` wrappers because its transport contract is distinct. Duplicate hand-maintained sections are not removed when they document
-that compatibility surface.
+Both generated and compatibility routes use the layered API limiter. Before
+device authentication, requests are limited by trusted network origin plus a
+finite route bucket and by a global flood ceiling; raw device IDs never allocate
+pre-authentication keys. After successful device authentication, heartbeat is 30
+requests per 60 seconds per device and other device runtime actions are 120
+requests per 60 seconds, with separate keys per action. All five generated paths
+have runtime tests and appear in the generated static artifact; the committed
+`docs/src/reference/openapi/device-api.yaml` remains the compatibility reference
+for `/api/v1` wrappers because its transport contract is distinct. Duplicate
+hand-maintained sections are not removed when they document that compatibility
+surface.
 
 #### Current `/api/v1` compatibility contract
 

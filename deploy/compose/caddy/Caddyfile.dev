@@ -23,6 +23,7 @@ nixstasis.{$BASE_DOMAIN} {
     reverse_proxy nixstasis:{$PORT} {
       header_up -X-Token-*
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+      header_up X-Nixstasis-Client-IP {http.request.remote.host}
     }
   }
 }

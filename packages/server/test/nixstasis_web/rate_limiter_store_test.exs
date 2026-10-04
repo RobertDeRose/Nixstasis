@@ -7,7 +7,7 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
     # Ensure the store is running (started by application supervisor)
     assert Process.whereis(RateLimiterStore)
     # Clear all entries between tests
-    :ets.delete_all_objects(:nixstasis_rate_limiter)
+    RateLimiterStore.clear()
     :ok
   end
 
@@ -47,6 +47,26 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
 
       assert :limited = RateLimiterStore.check_rate(key_a, 2, 60_000)
       assert :ok = RateLimiterStore.check_rate(key_b, 2, 60_000)
+    end
+  end
+
+  describe "check_bounded_rate/4" do
+    test "caps new key cardinality without evicting active counters" do
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, 60_000, 2)
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, 60_000, 2)
+      assert :limited = RateLimiterStore.check_bounded_rate({:origin, 3}, 10, 60_000, 2)
+      assert RateLimiterStore.bounded_size() == 2
+
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, 60_000, 2)
+      assert RateLimiterStore.bounded_size() == 2
+    end
+
+    test "reuses an expired key without consuming additional cardinality" do
+      key = {:origin, :expiry}
+      assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
+      Process.sleep(20)
+      assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
+      assert RateLimiterStore.bounded_size() == 1
     end
   end
 end

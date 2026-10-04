@@ -9,6 +9,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   alias Nixstasis.Monitoring.Telemetry
   alias Nixstasis.Scripts
   alias NixstasisWeb.Plugs.JsonApiPermissions
+  alias NixstasisWeb.RateLimiterStore
 
   setup do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
@@ -306,10 +307,12 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     token: token
   } do
     previous = Application.get_env(:nixstasis, :rate_limit)
-    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1)
-    :ets.delete_all_objects(:nixstasis_rate_limiter)
+    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1, preauth_limit: 100)
+    RateLimiterStore.clear()
 
     on_exit(fn ->
+      RateLimiterStore.clear()
+
       if previous do
         Application.put_env(:nixstasis, :rate_limit, previous)
       else
@@ -328,7 +331,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     assert response = request.(conn)
     assert response.status == 200
-    assert %{"error" => %{"code" => "rate_limited"}} = json_response(request.(conn), 429)
+    assert %{"errors" => [%{"code" => "rate_limited"}]} = json_response(request.(conn), 429)
   end
 
   test "generated command results preserves acknowledgement and replay behavior", %{

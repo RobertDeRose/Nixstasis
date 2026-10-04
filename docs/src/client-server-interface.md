@@ -65,22 +65,36 @@ artifact, state, retry, authorization, audit, and recovery contract.
 
 ## Rate Limiting
 
-All `/api/v1` and `/api/json` requests are rate-limited per device (or per
-remote IP when no device identity is available).
+API limiting has separate network-origin and authenticated-device boundaries.
+Before authentication, Phoenix keys requests by a finite route bucket plus the
+network origin. In the supported Caddy deployment, Caddy overwrites the internal
+`X-Nixstasis-Client-IP` header and Phoenix trusts it only when the accompanying
+proxy credential is valid; direct backend callers are keyed by their socket peer.
+Attacker-supplied device IDs are never used as pre-authentication keys.
 
-| Scope                            | Default Limit | Window     |
-|----------------------------------|---------------|------------|
-| Heartbeat (`POST .../heartbeat`) | 30 requests   | 60 seconds |
-| Other API requests               | 120 requests  | 60 seconds |
+| Scope                                     | Default Limit   | Window     |
+|-------------------------------------------|-----------------|------------|
+| Pre-auth origin + route                   | 1,000 requests  | 60 seconds |
+| Pre-auth global flood ceiling             | 50,000 requests | 60 seconds |
+| Authenticated heartbeat per device        | 30 requests     | 60 seconds |
+| Other authenticated device runtime action | 120 requests    | 60 seconds |
 
-When the limit is exceeded the server responds with HTTP `429` and body:
+The pre-authentication origin table is capped at 4,096 active keys. Heartbeat,
+command-result, and command-payload quotas use distinct authenticated keys, so
+invalid-token traffic cannot consume a device quota and one runtime action does
+not consume another action's quota.
+
+When the limit is exceeded the compatibility API responds with HTTP `429` and body:
 
 ```json
 {"error": {"code": "rate_limited", "message": "Rate limit exceeded"}}
 ```
 
-Limits are configurable via application config (`:nixstasis, :rate_limit`
-keyword list with `:limit`, `:heartbeat_limit`, and `:window_ms` keys).
+Generated JSON:API runtime routes use the equivalent JSON:API `errors` envelope.
+Limits are configurable via application config (`:nixstasis, :rate_limit`) with
+`:preauth_limit`, `:preauth_global_limit`, `:preauth_max_keys`, `:device_limit`,
+`:heartbeat_limit`, and `:window_ms`. The legacy `:limit` value remains a fallback
+for pre-authentication and non-heartbeat device limits.
 
 Traceable references:
 
