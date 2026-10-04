@@ -84,6 +84,17 @@ defmodule NixstasisWeb.OperatorContextTest do
            }
   end
 
+  test "preserves an explicit empty device scope as deny-all", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_req_header("x-token-device-ids", "")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
+
+    assert context["device_permissions"]["device_ids"] == []
+  end
+
   test "rejects forged AuthCrunch claims without proxy authentication", %{conn: conn} do
     assert :error =
              conn

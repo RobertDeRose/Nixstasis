@@ -32,14 +32,18 @@ defmodule NixstasisWeb.OperatorContext do
 
   @proxy_auth_header "x-nixstasis-proxy-token"
 
+  @device_scope_headers [
+    "x-token-device-id",
+    "x-token-device-ids",
+    "x-token-allowed-device-ids"
+  ]
+
   @token_headers [
     "x-token-subject",
     "x-token-user-email",
     "x-token-user-name",
-    "x-token-user-roles",
-    "x-token-device-id",
-    "x-token-device-ids",
-    "x-token-allowed-device-ids"
+    "x-token-user-roles"
+    | @device_scope_headers
   ]
 
   def from_conn(conn) do
@@ -176,16 +180,15 @@ defmodule NixstasisWeb.OperatorContext do
   defp normalize_claim_values(_value), do: []
 
   defp device_scope_from_headers(headers) do
-    [
-      Map.get(headers, "x-token-device-id"),
-      Map.get(headers, "x-token-device-ids"),
-      Map.get(headers, "x-token-allowed-device-ids")
-    ]
-    |> Enum.flat_map(&normalize_claim_values/1)
-    |> Enum.uniq()
+    if Enum.any?(@device_scope_headers, &Map.has_key?(headers, &1)) do
+      @device_scope_headers
+      |> Enum.map(&Map.get(headers, &1))
+      |> Enum.flat_map(&normalize_claim_values/1)
+      |> Enum.uniq()
+    end
   end
 
-  defp scope_device_permissions(permissions, []), do: permissions
+  defp scope_device_permissions(permissions, nil), do: permissions
 
   defp scope_device_permissions(permissions, device_ids) do
     update_in(permissions, ["device_permissions"], &Map.put(&1, "device_ids", device_ids))

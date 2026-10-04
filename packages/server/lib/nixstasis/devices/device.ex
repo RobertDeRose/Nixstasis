@@ -9,6 +9,7 @@ defmodule Nixstasis.Devices.Device do
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
     domain: Nixstasis.Domain,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshJsonApi.Resource]
 
   alias Nixstasis.CommandAllowlists

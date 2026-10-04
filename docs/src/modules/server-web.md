@@ -107,6 +107,13 @@ Other generated resource routes:
 - `/api/json/custom_reports`
 - `/api/json/system_settings`
 
+For the device-backed resource routes (`devices`, `pending_commands`, `alerts`,
+and `telemetry_events`), `JsonApiPermissions` validates the forwarded device
+scope and installs it as the Ash actor. Resource read policies apply that scope
+to collection and member queries. Explicit empty scope is deny-all and malformed
+device IDs are rejected; only an omitted scope claim represents fleet-wide read
+access for an otherwise authorized operator.
+
 The six `script_*` persistence resources remain Ash-owned for the Stary
 workbench, but they are intentionally not generic JSON:API routes. The current
 LiveView calls `Nixstasis.Domain` directly; exposing generic CRUD would bypass
