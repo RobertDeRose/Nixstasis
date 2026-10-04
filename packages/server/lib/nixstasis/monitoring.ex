@@ -24,6 +24,7 @@ defmodule Nixstasis.Monitoring do
     telemetry_payload = normalize_telemetry_payload(payload)
 
     with {:ok, device} <- Devices.update_last_seen(device),
+         {:ok, device} <- record_heartbeat_ssh_host_key(device, payload),
          {:ok, _event} <- persist_telemetry_event(device, telemetry_payload),
          {:ok, _inventory} <- persist_command_inventory(device, payload) do
       resolve_offline_alerts(device)
@@ -58,6 +59,23 @@ defmodule Nixstasis.Monitoring do
 
     maybe_put_command_inventory_probe(data)
   end
+
+  defp record_heartbeat_ssh_host_key(%Device{} = device, payload) do
+    case Devices.record_ssh_host_key(device, heartbeat_ssh_host_key(payload)) do
+      {:error, :invalid_ssh_host_key} ->
+        Logger.warning("Ignoring invalid SSH host key from authenticated heartbeat", device_id: device.id)
+        {:ok, device}
+
+      result ->
+        result
+    end
+  end
+
+  defp heartbeat_ssh_host_key(payload) when is_map(payload) do
+    Map.get(payload, "ssh_host_key") || Map.get(payload, :ssh_host_key)
+  end
+
+  defp heartbeat_ssh_host_key(_payload), do: nil
 
   defp maybe_put_command_inventory_probe(data) do
     case Domain.command_inventory_probe_manifest() do
@@ -352,7 +370,14 @@ defmodule Nixstasis.Monitoring do
   defp normalize_telemetry_payload(payload) when is_map(payload) do
     sanitized =
       payload
-      |> Map.drop(["device_id", :device_id, "command_inventory", :command_inventory])
+      |> Map.drop([
+        "device_id",
+        :device_id,
+        "command_inventory",
+        :command_inventory,
+        "ssh_host_key",
+        :ssh_host_key
+      ])
 
     case map_get(sanitized, "telemetry") do
       telemetry when is_map(telemetry) ->

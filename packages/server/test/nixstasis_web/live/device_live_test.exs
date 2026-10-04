@@ -14,6 +14,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias NixstasisWeb.DeviceLive.FormComponent
 
   @endpoint NixstasisWeb.Endpoint
+  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
   defmodule TerminalJourneySshClient do
     use GenServer
@@ -57,6 +58,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp create_device!(attrs) do
     {:ok, device} = Devices.create_device(Map.merge(@base_attrs, attrs))
+    {:ok, device} = Devices.record_ssh_host_key(device, @ssh_host_key)
     device
   end
 
@@ -1069,6 +1071,32 @@ defmodule NixstasisWeb.DeviceLiveTest do
       with_log(fn -> Devices.sync_remote_access_leases() end)
 
       assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "changed SSH host key blocks terminal until an identified operator trusts it", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:01"})
+
+      new_host_key =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
+
+      {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
+
+      conn = put_session(conn, "operator_context", %{"subject" => "operator-host-key-reviewer"})
+      {:ok, view, html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert html =~ ~s(id="ssh-host-key-change-warning")
+      assert html =~ "SSH host identity changed"
+      assert has_element?(view, "#trust-pending-ssh-host-key")
+
+      view
+      |> element("#trust-pending-ssh-host-key")
+      |> render_click()
+
+      updated = Devices.get_device!(device.id)
+      assert updated.ssh_host_key == new_host_key
+      assert is_nil(updated.ssh_host_key_pending)
+      assert updated.ssh_host_key_trusted_by == "operator-host-key-reviewer"
+      refute render(view) =~ ~s(id="ssh-host-key-change-warning")
     end
 
     test "starting ssh session renders terminal socket token", %{conn: conn} do

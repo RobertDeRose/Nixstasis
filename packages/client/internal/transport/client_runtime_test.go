@@ -140,6 +140,42 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	}
 }
 
+func TestPollWithInventoryAndHostKeySendsSSHHostKey(t *testing.T) {
+	t.Parallel()
+
+	deviceID := "d-host-key"
+	hostKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE5peHN0YXNpcy10ZXN0LWhvc3Qta2V5LTEyMzQ1Ng=="
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req PollRequest
+		if err := json.UnmarshalRead(r.Body, &req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.SSHHostKey != hostKey {
+			t.Fatalf("ssh_host_key = %q, want %q", req.SSHHostKey, hostKey)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.PollWithInventoryAndHostKey(
+		context.Background(),
+		deviceID,
+		telemetry.Payload{},
+		frp.ConnectionStatus{},
+		nil,
+		hostKey,
+	); err != nil {
+		t.Fatalf("PollWithInventoryAndHostKey failed: %v", err)
+	}
+}
+
 func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	t.Parallel()
 

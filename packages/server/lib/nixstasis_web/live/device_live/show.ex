@@ -98,6 +98,34 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
+  def handle_event("trust_pending_ssh_host_key", _, socket) do
+    device = socket.assigns.device
+
+    cond do
+      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
+        {:noreply, put_flash(socket, :error, "You are not authorized to trust SSH host keys for this device.")}
+
+      not (is_binary(socket.assigns.remote_access_actor_id) and String.trim(socket.assigns.remote_access_actor_id) != "") ->
+        {:noreply, put_flash(socket, :error, "Unable to identify the operator accepting this SSH host key.")}
+
+      true ->
+        case Devices.accept_pending_ssh_host_key(device, socket.assigns.remote_access_actor_id) do
+          {:ok, updated} ->
+            {:noreply,
+             socket
+             |> refresh_device_view(updated)
+             |> put_flash(:info, "The new SSH host key is now trusted for this device.")}
+
+          {:error, :no_pending_ssh_host_key} ->
+            {:noreply, put_flash(socket, :error, "There is no pending SSH host key to trust.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Unable to update the trusted SSH host key.")}
+        end
+    end
+  end
+
+  @impl true
   def handle_event("toggle_maximized", _, socket) do
     {:noreply, Phoenix.Component.update(socket, :maximized?, &(!&1))}
   end
@@ -174,6 +202,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
       socket.assigns.device_offline ->
         {:error, "Device is offline; unable to start remote access"}
+
+      not trusted_ssh_host_key?(device) ->
+        {:error, "Device SSH host identity has not been enrolled yet. Wait for the next authenticated heartbeat."}
+
+      pending_ssh_host_key?(device) ->
+        {:error, "Device SSH host identity changed. Review and trust the pending host key before connecting."}
 
       true ->
         socket = clear_ssh_session(socket)
@@ -572,6 +606,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
       socket
     end
   end
+
+  defp trusted_ssh_host_key?(%Device{ssh_host_key: value}),
+    do: is_binary(value) and String.trim(value) != ""
+
+  defp pending_ssh_host_key?(%Device{ssh_host_key_pending: value}),
+    do: is_binary(value) and String.trim(value) != ""
 
   defp page_title(device) do
     if Devices.online?(device) do
