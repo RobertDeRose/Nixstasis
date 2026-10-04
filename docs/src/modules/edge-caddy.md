@@ -40,6 +40,12 @@ headers. Phoenix treats those headers as trusted only behind the supported Caddy
 deployment path; Caddy still enforces `authorize with entra_policy` before
 proxying protected browser hosts.
 
+Every Caddy-to-Phoenix proxy block also overwrites `X-Nixstasis-Client-IP` with
+the socket peer address observed by Caddy. Phoenix consumes that value only when
+`X-Nixstasis-Proxy-Token` authenticates the proxy; otherwise rate limiting uses
+the direct Phoenix peer address. This keeps pre-authentication rate-limit keys
+independent of attacker-controlled device IDs and forwarded-IP headers.
+
 Group-to-role mapping happens in Caddy/AuthCrunch, not Phoenix. The production
 environment provides provider-specific OIDC group values in
 `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and

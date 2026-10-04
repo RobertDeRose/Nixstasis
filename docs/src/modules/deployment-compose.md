@@ -172,6 +172,8 @@
   ingress; the direct Phoenix host port remains loopback-bound for diagnostics.
   Direct callers cannot authenticate by forging AuthCrunch headers because
   Phoenix accepts `X-Token-*` claims only with the Caddy-to-Phoenix proxy token.
+  Caddy also overwrites `X-Nixstasis-Client-IP` on every Phoenix proxy request;
+  Phoenix trusts that rate-limit origin only with the same proxy credential.
 - External managed devices point at the public Caddy host. The local Compose
   client simulator writes `/etc/nixstasis/config.yaml` from Compose environment
   before systemd starts and uses the Compose-internal Phoenix and FRPS services.

@@ -155,8 +155,10 @@ Traceable references:
   before those requests reach Phoenix. Caddy maps provider-specific OIDC groups
   into provider-generic `nixstasis/*` roles, then Phoenix maps trusted
   `X-Token-*` role claim headers into UI permission maps and JSON:API route
-  permissions. Forwarded headers are not trusted outside the supported Caddy
-  deployment path.
+  permissions. Caddy also overwrites `X-Nixstasis-Client-IP` with the network peer
+  it observes so Phoenix can key pre-authentication limits by origin plus route.
+  Neither forwarded identity nor the client-origin header is trusted without the
+  Caddy-to-Phoenix proxy credential.
 - Caddy intentionally bypasses AuthCrunch only for the Go client device protocol:
   `POST /api/v1/devices/register`, `POST /api/v1/devices/:id/heartbeat`,
   `POST /api/v1/devices/:id/command_results`, and

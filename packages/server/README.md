@@ -103,7 +103,8 @@ your local database before continuing.
   `NIXSTASIS_PROXY_AUTH_TOKEN`, `FRPS_BIND_PORT`, `FRPS_HTTP_PORT`,
   `FRPS_DASHBOARD_PORT`, `FRPS_TCPMUX_PORT`, and `NIXSTASIS_SSH_FRP_HOST`
 - `NIXSTASIS_PROXY_AUTH_TOKEN` is a 32-byte-or-longer random secret shared only
-  by Caddy and Phoenix; it authenticates the source of forwarded AuthCrunch claims.
+  by Caddy and Phoenix; it authenticates forwarded AuthCrunch claims and the
+  Caddy-overwritten client-origin header used for pre-authentication rate limiting.
 - Canonical internal Phoenix port: `4000`
 - Canonical TLS approval path: `GET /api/v1/check_domain`
 - Reserved public hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
