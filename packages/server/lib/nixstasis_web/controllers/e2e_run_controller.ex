@@ -7,9 +7,10 @@ defmodule NixstasisWeb.E2ERunController do
   alias Nixstasis.E2E.Run
 
   @protocol_header "x-e2e-protocol-version"
+  @max_list_limit 100
 
-  def index(conn, _params) do
-    runs = e2e_context().list_runs()
+  def index(conn, params) do
+    runs = e2e_context().list_runs_for_runner(runner_id(conn), limit: list_limit(params))
     render(conn, :index, runs: runs)
   end
 
@@ -24,7 +25,10 @@ defmodule NixstasisWeb.E2ERunController do
       |> get_req_header(@protocol_header)
       |> List.first()
 
-    params = Map.put(params, "protocol_version", protocol_version)
+    params =
+      params
+      |> Map.put("protocol_version", protocol_version)
+      |> Map.put("runner_id", runner_id(conn))
 
     case e2e_context().create_run(params) do
       {:ok, %Run{} = run} ->
@@ -67,32 +71,43 @@ defmodule NixstasisWeb.E2ERunController do
   end
 
   def show(conn, %{"id" => id}) do
-    case e2e_context().get_run(id) do
+    case e2e_context().get_run_for_runner(id, runner_id(conn)) do
       {:ok, run} -> render(conn, :show, run: run)
       {:error, :not_found} -> send_resp(conn, :not_found, "")
     end
   end
 
   def cancel(conn, %{"id" => id}) do
-    case e2e_context().cancel_run(id) do
-      {:ok, run} ->
-        conn
-        |> put_status(:accepted)
-        |> render(:show, run: run)
+    with {:ok, _run} <- e2e_context().get_run_for_runner(id, runner_id(conn)) do
+      case e2e_context().cancel_run(id) do
+        {:ok, run} ->
+          conn
+          |> put_status(:accepted)
+          |> render(:show, run: run)
 
-      {:error, :not_found} ->
-        send_resp(conn, :not_found, "")
+        {:error, :not_found} ->
+          send_resp(conn, :not_found, "")
 
-      {:error, changeset} ->
-        Logger.error("Failed to cancel E2E run #{id}: #{inspect(changeset)}")
+        {:error, changeset} ->
+          Logger.error("Failed to cancel E2E run #{id}: #{inspect(changeset)}")
 
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(error_payload("database_error", "Failed to cancel run."))
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(error_payload("database_error", "Failed to cancel run."))
+      end
+    else
+      {:error, :not_found} -> send_resp(conn, :not_found, "")
     end
   end
 
-  defp error_payload(code, message), do: %{error: %{code: code, message: message}}
+  defp list_limit(params) do
+    case Integer.parse(to_string(Map.get(params, "limit", "100"))) do
+      {limit, ""} when limit > 0 -> min(limit, @max_list_limit)
+      _ -> @max_list_limit
+    end
+  end
 
+  defp runner_id(conn), do: conn.assigns.e2e_runner_id
+  defp error_payload(code, message), do: %{error: %{code: code, message: message}}
   defp e2e_context, do: Application.get_env(:nixstasis, :e2e_context, E2E)
 end

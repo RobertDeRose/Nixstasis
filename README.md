@@ -90,6 +90,13 @@ Prerequisites:
 - Server migrations are up to date.
 - You run the harness from `packages/client`.
 
+Set the dedicated local runner credential (the tracked development server uses the same local-only value):
+
+```bash
+export NIXSTASIS_E2E_RUNNER_ID=local-runner
+export NIXSTASIS_E2E_RUNNER_TOKEN=dev-e2e-runner-token-0123456789abcdef0123456789abcdef
+```
+
 Run full suite:
 
 ```bash
@@ -104,7 +111,7 @@ cd packages/client
 scripts/e2e/run --journey auth --env local --trigger manual --protocol-version 1
 ```
 
-Run with idempotent create semantics (1-hour window scoped by environment):
+Run with idempotent create semantics (1-hour window scoped by runner and environment):
 
 ```bash
 cd packages/client
@@ -119,10 +126,12 @@ Inspect results:
 
 ### Contract Rules (Server-Enforced)
 
+- Every `/e2e` request requires `X-E2E-Runner-ID` plus `Authorization: Bearer <token>`; browser/AuthCrunch roles do not grant E2E access.
 - `POST /e2e/runs` requires `X-E2E-Protocol-Version` header.
 - `client_version`/`server_version` request fields are rejected (immediate break).
 - `trigger_source` accepts `manual|ci` and is reporting metadata only.
-- Idempotency applies to run creation only: `(environment_label, idempotency_key)` with 1-hour TTL.
+- Runs, results, cancellation, and logs are owner-scoped to the authenticated runner.
+- Idempotency applies to run creation only: `(runner_id, environment_label, idempotency_key)` with 1-hour TTL.
 - Only one active run per environment is allowed at a time (`409 environment_locked`).
 - Run creation fails if baseline seed fails (`422 seed_failed`).
 - Action/expect pairs are validated by server-side registry before accepting run execution (`400
@@ -131,7 +140,7 @@ Inspect results:
 ### Execution Model
 
 1. Client loads config and journey specs.
-2. Client sends `POST /e2e/runs` with protocol header and optional idempotency key.
+2. Client authenticates as an E2E runner and sends `POST /e2e/runs` with protocol header and optional idempotency key.
 3. Server validates protocol/env/suite/journeys/action-expect pairs, acquires environment lock, runs seed script, and
    queues run+journey rows.
 4. Client executes journey steps and writes JSONL logs using schema `e2e_log.v1`.

@@ -346,16 +346,16 @@ stateDiagram-v2
 ```
 
 1. Client E2E runner loads config and journey specs.
-2. Client sends `POST /e2e/runs` with `X-E2E-Protocol-Version`.
+2. Client authenticates with its dedicated runner ID/bearer token and sends `POST /e2e/runs` with `X-E2E-Protocol-Version`.
 3. Server validates legacy fields, environment policy, protocol version, suite/journey selection, and action/expect registrations.
-4. Server enforces idempotency for `(environment_label, idempotency_key)`.
+4. Server binds the run to the authenticated runner and enforces idempotency for `(runner_id, environment_label, idempotency_key)`.
 5. Server acquires an environment lock for new runs.
 6. Server runs the configured seed script.
 7. Server persists run and queued journey result rows.
 8. Client executes journeys and writes JSONL logs.
-9. Client submits results to `POST /e2e/runs/:id/results`.
+9. The owning runner submits results to `POST /e2e/runs/:id/results`; other runner principals receive `404` for the run.
 10. Server updates journey result rows, computes aggregate status, and releases environment lock on final status.
-11. Logs are fetched through `GET /e2e/runs/:id/results/:journey_id/log`.
+11. Logs are fetched through `GET /e2e/runs/:id/results/:journey_id/log` only by the owning runner.
 12. Retention worker periodically prunes old runs/logs according to retention policy.
 
 Observable error paths:

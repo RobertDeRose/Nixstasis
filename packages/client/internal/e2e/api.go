@@ -11,8 +11,10 @@ import (
 )
 
 type apiClient struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL     string
+	runnerID    string
+	runnerToken string
+	httpClient  *http.Client
 }
 
 type runCreateRequest struct {
@@ -52,10 +54,12 @@ type resultsRequest struct {
 	Results []resultPayload `json:"results"`
 }
 
-func newAPIClient(baseURL string) *apiClient {
+func newAPIClient(baseURL, runnerID, runnerToken string) *apiClient {
 	return &apiClient{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		baseURL:     strings.TrimRight(baseURL, "/"),
+		runnerID:    strings.TrimSpace(runnerID),
+		runnerToken: strings.TrimSpace(runnerToken),
+		httpClient:  &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -105,6 +109,8 @@ func (c *apiClient) doJSON(ctx context.Context, method, url string, payload []by
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-E2E-Runner-ID", c.runnerID)
+	req.Header.Set("Authorization", "Bearer "+c.runnerToken)
 	for key, value := range headers {
 		if strings.TrimSpace(key) != "" && strings.TrimSpace(value) != "" {
 			req.Header.Set(key, value)

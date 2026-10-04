@@ -33,6 +33,8 @@ defmodule NixstasisWeb.Router do
   pipeline :e2e_api do
     plug(:accepts, ["json"])
     plug(NixstasisWeb.Plugs.E2EEnabled)
+    plug(NixstasisWeb.Plugs.RateLimiter)
+    plug(NixstasisWeb.Plugs.E2EAuthorization)
   end
 
   scope "/api/json" do

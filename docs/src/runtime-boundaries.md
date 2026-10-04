@@ -90,7 +90,7 @@ Traceable references:
 - Browser form and event inputs enter through Phoenix LiveViews and controllers.
 - Device API inputs enter through Phoenix JSON controllers under `/api/v1`.
 - Ash JSON:API inputs enter through `/api/json` forwarded to `NixstasisWeb.AshJsonApiRouter`.
-- E2E API inputs enter through `/e2e` routes when E2E is enabled.
+- E2E API inputs enter through `/e2e` routes only when E2E is enabled and a dedicated runner ID/bearer token authenticates; run-owned reads and mutations are scoped to that principal.
 - Caddy on-demand TLS sends domain approval input to `GET /api/v1/check_domain`.
   This route remains controller-backed because it is a Caddy ingress ask
   workflow with allow/deny semantics, not a durable product data resource.

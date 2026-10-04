@@ -124,6 +124,17 @@ nixstasis.{$BASE_DOMAIN} {
     }
   }
 
+  @e2e_api {
+    path /e2e/*
+  }
+
+  handle @e2e_api {
+    reverse_proxy nixstasis:{$PORT} {
+      header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+      header_up X-Nixstasis-Client-IP {http.request.remote.host}
+    }
+  }
+
   handle {
     authorize with entra_policy
     reverse_proxy nixstasis:{$PORT} {
