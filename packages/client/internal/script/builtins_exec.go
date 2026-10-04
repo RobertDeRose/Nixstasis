@@ -83,6 +83,10 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 		}
 	}
 
+	if err := r.validateExecArguments(cmdPath, argv[1:]); err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(runtimeContext(thread), r.config.Timeout)
 	defer cancel()
 
@@ -131,7 +135,6 @@ func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {
 	if filepath.IsAbs(cmdName) && filepath.Clean(cmdName) != clean {
 		return "", fmt.Errorf("command path does not match allowlist: %s", cmdName)
 	}
-
 	return clean, nil
 }
 
@@ -178,4 +181,34 @@ func execEnvBlocked(key string) bool {
 	}
 
 	return false
+}
+
+func (r *Runtime) validateExecArguments(cmdPath string, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	cleanPath := filepath.Clean(cmdPath)
+	allowedSets, ok := r.config.ExecArgumentAllowlist[cleanPath]
+	if !ok {
+		return fmt.Errorf("arguments are not permitted for %s without a local exec_command_args rule", cleanPath)
+	}
+
+	for _, allowed := range allowedSets {
+		if len(allowed) != len(args) {
+			continue
+		}
+		matched := true
+		for index := range args {
+			if args[index] != allowed[index] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("arguments are not allowlisted for %s", cleanPath)
 }

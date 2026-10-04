@@ -867,3 +867,32 @@ def main():
 		t.Fatalf("expected remove_script to succeed once committed, got status=%s error=%s", result.Status, result.Error)
 	}
 }
+
+func TestApplyCommandPolicyCannotExpandLocalArgumentOrReadCapabilities(t *testing.T) {
+	runtimeCfg := script.RuntimeConfig{
+		ExecArgumentAllowlist: map[string][][]string{
+			"/usr/bin/uname": {{"-srmo"}},
+		},
+		ReadFileAllowlist: []string{"/proc/loadavg"},
+	}
+	handler := NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore("", nil, &runtimeCfg, nil)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-policy",
+		Type:      applyCommandPolicyCommandType,
+		Payload: &transport.CommandPayload{
+			Data: `{"version":"v1","commands":{"reader":"/usr/bin/cat"}}`,
+		},
+	}})[0]
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected apply_command_policy to succeed, got %s: %s", result.Status, result.Error)
+	}
+
+	allowedArgs := runtimeCfg.ExecArgumentAllowlist["/usr/bin/uname"]
+	if len(allowedArgs) != 1 || len(allowedArgs[0]) != 1 || allowedArgs[0][0] != "-srmo" {
+		t.Fatalf("command policy mutated local argument capabilities: %#v", runtimeCfg.ExecArgumentAllowlist)
+	}
+	if len(runtimeCfg.ReadFileAllowlist) != 1 || runtimeCfg.ReadFileAllowlist[0] != "/proc/loadavg" {
+		t.Fatalf("command policy mutated local file capabilities: %#v", runtimeCfg.ReadFileAllowlist)
+	}
+}

@@ -75,6 +75,8 @@ func runPoll(cfg *config.Config) error {
 		WarnAfter:             3 * time.Second,
 		MQTTBroker:            runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
 		ExecCommandAllowlist:  execCommandAllowlist,
+		ExecArgumentAllowlist: cfg.Runtime.ExecCommandArgs,
+		ReadFileAllowlist:     cfg.Runtime.ReadFiles,
 		CommandPolicyVersion:  commandPolicyVersion,
 		CommandPolicyRevision: commandPolicyRevision,
 		ExecWorkDir:           cfg.Runtime.ExecWorkDir,

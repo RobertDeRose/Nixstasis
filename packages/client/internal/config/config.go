@@ -66,13 +66,15 @@ type FRPConfig struct {
 
 // RuntimeConfig holds opt-in script command capabilities.
 type RuntimeConfig struct {
-	MQTTBroker          string            `mapstructure:"mqtt_broker"`
-	ExecCommands        map[string]string `mapstructure:"exec_commands"`
-	ExecWorkDir         string            `mapstructure:"exec_work_dir"`
-	ExecEnv             []string          `mapstructure:"exec_env"`
-	MQTTPublishTopics   []string          `mapstructure:"mqtt_publish_topics"`
-	MQTTSubscribeTopics []string          `mapstructure:"mqtt_subscribe_topics"`
-	SSHAuthoritySocket  string            `mapstructure:"ssh_authority_socket"`
+	MQTTBroker          string                `mapstructure:"mqtt_broker"`
+	ExecCommands        map[string]string     `mapstructure:"exec_commands"`
+	ExecCommandArgs     map[string][][]string `mapstructure:"exec_command_args"`
+	ReadFiles           []string              `mapstructure:"read_files"`
+	ExecWorkDir         string                `mapstructure:"exec_work_dir"`
+	ExecEnv             []string              `mapstructure:"exec_env"`
+	MQTTPublishTopics   []string              `mapstructure:"mqtt_publish_topics"`
+	MQTTSubscribeTopics []string              `mapstructure:"mqtt_subscribe_topics"`
+	SSHAuthoritySocket  string                `mapstructure:"ssh_authority_socket"`
 }
 
 // LogConfig holds configuration for logging.
