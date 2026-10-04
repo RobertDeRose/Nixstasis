@@ -34,12 +34,15 @@ from the dashboard/server contexts and renders compact statistic cards plus
 workflow navigation. LiveView updates keep the snapshot fresh as devices register,
 heartbeats arrive, approvals change, and alerts resolve.
 
-The feature assumes one visible role for this iteration: users who can load the
-dashboard see the full summary.
+Dashboard aggregates follow the same device-data authorization scope as device-backed
+views. Unscoped authorized operators see the full fleet summary; device-scoped
+operators see counts only for their allowed device IDs. Missing or malformed device
+scope fails closed to zero-valued device-backed statistics.
 
 ## Validation
 
-- Seed devices, approvals, and alerts; verify displayed counts match database state.
+- Seed devices, approvals, and alerts; verify displayed counts match the authorized device scope.
+- Verify malformed or missing device-data authorization cannot expose fleet-wide aggregate counts.
 - Verify navigation links reach the expected routes.
 - Verify empty-state counts display as zero rather than errors.
 - Verify updates arrive without manual page reload.

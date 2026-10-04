@@ -9,11 +9,11 @@ defmodule Nixstasis.Alerts do
   alias Nixstasis.Monitoring.Alert
 
   @doc """
-  Counts active alerts.
+  Counts active alerts visible to the optional Ash actor.
   """
-  def count_active do
+  def count_active(opts \\ []) do
     Alert
     |> Ash.Query.filter(status == :active)
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 end

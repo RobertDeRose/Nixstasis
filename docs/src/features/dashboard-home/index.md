@@ -21,7 +21,8 @@ heartbeats, approvals, alerts, and device deletion events occur.
 ## Design Integration
 
 The dashboard uses server contexts and LiveView PubSub updates rather than duplicating device-state logic. Connectivity
-counts share the established heartbeat freshness model.
+counts share the established heartbeat freshness model. Device-backed aggregates are evaluated with the verified Ash
+device-data actor, so scoped operators see only totals for authorized device IDs and invalid scope fails closed.
 
 ## Operational Impact
 
@@ -46,7 +47,8 @@ Fleet summaries, workflow navigation, real-time updates, and resilient states we
 
 ### Intentional Changes
 
-Later work added debouncing, explicit deletion broadcasts, and selectable UI palettes without changing dashboard intent.
+Later work added debouncing, explicit deletion broadcasts, selectable UI palettes, and device-scoped aggregate
+authorization without changing dashboard intent.
 
 ### Deferred Work
 
