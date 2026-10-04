@@ -102,6 +102,10 @@
   - `GET {baseURL}/api/v1/devices/{uuid}/command_payloads/{ref}`
   - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` and a `CommandPayload`.
+- JSON responses decoded by the shared client transport are limited to 1 MiB
+  before decoding. Responses larger than that fail the request with a normal
+  transport error; empty response bodies remain valid where the caller supplies
+  a response target.
 
 Traceable references:
 
