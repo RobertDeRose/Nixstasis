@@ -26,4 +26,7 @@ func TestGivenReplCommand_WhenRun_ThenBuiltinsAvailable(t *testing.T) {
 	if _, ok := globals["exec_cmd"]; !ok {
 		t.Fatalf("expected exec_cmd builtin to be available")
 	}
+	if _, ok := globals["read_file"]; !ok {
+		t.Fatalf("expected read_file builtin to be available")
+	}
 }

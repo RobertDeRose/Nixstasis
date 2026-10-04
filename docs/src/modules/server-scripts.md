@@ -110,8 +110,10 @@ Starlark parser. `ScriptVersion.rendered_content` is the artifact used for valid
 test, and deployment; mutable draft fields are not re-rendered after a version is queued.
 
 The Go client's `internal/script` package remains authoritative for parser fidelity, schema
-compilation, builtins, timeout enforcement, output validation, runtime errors, and
-`exec_cmd` allowlisting.
+compilation, builtins, timeout enforcement, output validation, runtime errors, `exec_cmd`
+allowlisting, the exact path-bound client-local `exec_command_args` policy, and the local exact-path
+policy used by `read_file`. Server-delivered command policies cannot expand either argument
+capabilities or `runtime.read_files`.
 
 ## Command delivery and results
 
