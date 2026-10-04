@@ -8,6 +8,7 @@ defmodule NixstasisWeb.AlertLive.Index do
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.SchemaOptions
+  alias NixstasisWeb.Permissions
 
   @success_flash_timeout_ms 3_000
   @duplicate_rule_name_message "Alert rule name is already used."
@@ -15,83 +16,230 @@ defmodule NixstasisWeb.AlertLive.Index do
   @rule_page_size 50
   @rule_search_fields [:name, :product_name, :condition_field, :operator, :threshold_value]
 
-  def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(:alerts, [])
-     |> assign(:rule_filters, %{"query" => ""})
-     |> assign(:rule_sort_by, "product_name")
-     |> assign(:rule_sort_dir, "asc")
-     |> assign(:rule_page, 1)
-     |> assign(:rule_total_count, 0)
-     |> assign(:rule_total_pages, 1)
-     |> assign(:alerts_tab, "active")
-     |> assign(:all_rules, [])
-     |> assign(:rules, [])
-     |> assign(:rule_schema_metadata, %{})
-     |> assign(:form, nil)
-     |> assign(:schema_refs, [])
-     |> assign(:selected_schema_id, nil)
-     |> assign(:selected_schema_version, nil)
-     |> assign(:schema_options, [])
-     |> assign(:schema_option_types, %{})
-     |> assign(:schema_issue, nil)
-     |> assign(:rule_name_issue, nil)
-     |> assign(:rule_dirty?, false)
-     |> assign(:rule_initial_draft, %{})
-     |> assign(:rule_editing, nil)
-     |> assign(:rule_edit_blocked_reason, nil)
-     |> assign(:rule_to_delete, nil)
-     |> assign(:show_discard_confirm, false)
-     |> assign(:no_schema_fields_message, nil)
-     |> assign(:modal_focus_id, nil)
-     |> assign(:modal_focus_return_id, nil)
-     |> assign(:rule_success_message, nil)
-     |> assign(:success_flash_generation, 0)
-     |> assign(:rule_save_in_flight?, false)}
+  def mount(_params, session, socket) do
+    can_view_alerts = Permissions.can_view_alerts?(session)
+    can_manage_alert_rules = Permissions.can_manage_alert_rules?(session)
+
+    socket =
+      socket
+      |> assign(:can_view_alerts, can_view_alerts)
+      |> assign(:can_manage_alert_rules, can_manage_alert_rules)
+      |> assign(:alerts, [])
+      |> assign(:rule_filters, %{"query" => ""})
+      |> assign(:rule_sort_by, "product_name")
+      |> assign(:rule_sort_dir, "asc")
+      |> assign(:rule_page, 1)
+      |> assign(:rule_total_count, 0)
+      |> assign(:rule_total_pages, 1)
+      |> assign(:alerts_tab, "active")
+      |> assign(:all_rules, [])
+      |> assign(:rules, [])
+      |> assign(:rule_schema_metadata, %{})
+      |> assign(:form, nil)
+      |> assign(:schema_refs, [])
+      |> assign(:selected_schema_id, nil)
+      |> assign(:selected_schema_version, nil)
+      |> assign(:schema_options, [])
+      |> assign(:schema_option_types, %{})
+      |> assign(:schema_issue, nil)
+      |> assign(:rule_name_issue, nil)
+      |> assign(:rule_dirty?, false)
+      |> assign(:rule_initial_draft, %{})
+      |> assign(:rule_editing, nil)
+      |> assign(:rule_edit_blocked_reason, nil)
+      |> assign(:rule_to_delete, nil)
+      |> assign(:show_discard_confirm, false)
+      |> assign(:no_schema_fields_message, nil)
+      |> assign(:modal_focus_id, nil)
+      |> assign(:modal_focus_return_id, nil)
+      |> assign(:rule_success_message, nil)
+      |> assign(:success_flash_generation, 0)
+      |> assign(:rule_save_in_flight?, false)
+
+    cond do
+      not can_view_alerts ->
+        {:ok, socket |> put_flash(:error, "Not authorized to view alerts") |> push_navigate(to: ~p"/")}
+
+      socket.assigns.live_action in [:new, :edit] and not can_manage_alert_rules ->
+        {:ok, unauthorized_rule_route(socket)}
+
+      true ->
+        {:ok, socket}
+    end
   end
 
   def handle_params(params, _url, socket) do
-    if socket.assigns.live_action == :index and Map.get(params, "tab") == "rules" do
-      {:noreply, push_patch(socket, to: rule_index_path_from_params(params))}
-    else
-      tab =
-        case socket.assigns.live_action do
-          action when action in [:rules, :new, :edit] -> "rules"
-          _ -> normalize_tab(Map.get(params, "tab"))
+    cond do
+      socket.assigns.live_action in [:new, :edit] and not can_manage_alert_rules?(socket) ->
+        {:noreply, unauthorized_rule_route(socket)}
+
+      socket.assigns.live_action == :index and Map.get(params, "tab") == "rules" ->
+        {:noreply, push_patch(socket, to: rule_index_path_from_params(params))}
+
+      true ->
+        tab =
+          case socket.assigns.live_action do
+            action when action in [:rules, :new, :edit] -> "rules"
+            _ -> normalize_tab(Map.get(params, "tab"))
+          end
+
+        view_state = normalize_rule_view_state(params)
+        total_count = if tab == "rules", do: count_rules(view_state), else: 0
+        total_pages = max(div(total_count + @rule_page_size - 1, @rule_page_size), 1)
+        requested_page = view_state["page"]
+        page = min(requested_page, total_pages)
+        page_reset? = requested_page != page or not canonical_page_param?(params["page"], requested_page)
+        view_state = Map.put(view_state, "page", page)
+        rules = if tab == "rules", do: list_rules_page(view_state), else: []
+
+        socket =
+          socket
+          |> assign(:alerts_tab, tab)
+          |> assign(:alerts, list_alerts(tab))
+          |> assign(:rule_filters, view_state["filters"])
+          |> assign(:rule_sort_by, view_state["sort_by"])
+          |> assign(:rule_sort_dir, view_state["sort_dir"])
+          |> assign(:rule_page, page)
+          |> assign(:rule_total_count, total_count)
+          |> assign(:rule_total_pages, total_pages)
+          |> assign_rule_page(tab, rules)
+          |> apply_action(socket.assigns.live_action, params)
+
+        if tab == "rules" and page_reset? do
+          {:noreply, push_patch(socket, to: canonical_rule_page_path(socket, params, page))}
+        else
+          {:noreply, socket}
         end
-
-      view_state = normalize_rule_view_state(params)
-      total_count = if tab == "rules", do: count_rules(view_state), else: 0
-      total_pages = max(div(total_count + @rule_page_size - 1, @rule_page_size), 1)
-      requested_page = view_state["page"]
-      page = min(requested_page, total_pages)
-      page_reset? = requested_page != page or not canonical_page_param?(params["page"], requested_page)
-      view_state = Map.put(view_state, "page", page)
-      rules = if tab == "rules", do: list_rules_page(view_state), else: []
-
-      socket =
-        socket
-        |> assign(:alerts_tab, tab)
-        |> assign(:alerts, list_alerts(tab))
-        |> assign(:rule_filters, view_state["filters"])
-        |> assign(:rule_sort_by, view_state["sort_by"])
-        |> assign(:rule_sort_dir, view_state["sort_dir"])
-        |> assign(:rule_page, page)
-        |> assign(:rule_total_count, total_count)
-        |> assign(:rule_total_pages, total_pages)
-        |> assign_rule_page(tab, rules)
-        |> apply_action(socket.assigns.live_action, params)
-
-      if tab == "rules" and page_reset? do
-        {:noreply, push_patch(socket, to: canonical_rule_page_path(socket, params, page))}
-      else
-        {:noreply, socket}
-      end
     end
   end
 
   def handle_event("validate_rule", params, socket) do
+    if can_manage_alert_rules?(socket) do
+      validate_rule_event(params, socket)
+    else
+      unauthorized_rule_mutation(socket)
+    end
+  end
+
+  def handle_event("save_rule", params, socket) do
+    if can_manage_alert_rules?(socket) do
+      save_rule_event(params, socket)
+    else
+      unauthorized_rule_mutation(socket)
+    end
+  end
+
+  def handle_event("request_close_rule_modal", _params, socket) do
+    if socket.assigns.rule_dirty? do
+      {:noreply, assign(socket, :show_discard_confirm, true)}
+    else
+      {:noreply, push_patch(socket, to: rule_index_path(socket, socket.assigns.rule_page))}
+    end
+  end
+
+  def handle_event("keydown", %{"key" => "Escape"}, socket) do
+    if socket.assigns.show_discard_confirm do
+      handle_event("cancel_discard_rule_changes", %{}, socket)
+    else
+      handle_event("request_close_rule_modal", %{}, socket)
+    end
+  end
+
+  def handle_event("cancel_discard_rule_changes", _params, socket) do
+    {:noreply, assign(socket, :show_discard_confirm, false)}
+  end
+
+  def handle_event("confirm_discard_rule_changes", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_discard_confirm, false)
+     |> push_patch(to: rule_index_path(socket, socket.assigns.rule_page))}
+  end
+
+  def handle_event("edit_rule", %{"id" => id}, socket) do
+    if can_manage_alert_rules?(socket) do
+      {:noreply,
+       socket
+       |> assign(:modal_focus_return_id, "alert-edit-rule-#{id}")
+       |> push_patch(to: rule_edit_path(id, socket, socket.assigns.rule_page))}
+    else
+      unauthorized_rule_mutation(socket)
+    end
+  end
+
+  def handle_event("confirm_delete_rule", %{"id" => id}, socket) do
+    if can_manage_alert_rules?(socket) do
+      rule = Enum.find(socket.assigns.rules, &(to_string(&1.id) == to_string(id)))
+      {:noreply, assign(socket, :rule_to_delete, rule)}
+    else
+      unauthorized_rule_mutation(socket)
+    end
+  end
+
+  def handle_event("cancel_delete_rule", _params, socket) do
+    {:noreply, assign(socket, :rule_to_delete, nil)}
+  end
+
+  def handle_event("delete_rule", _params, socket) do
+    if can_manage_alert_rules?(socket) do
+      delete_rule_event(socket)
+    else
+      unauthorized_rule_mutation(socket)
+    end
+  end
+
+  def handle_event("select_alerts_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_patch(socket, to: tab_path(tab, socket))}
+  end
+
+  def handle_event("set_rule_sort", %{"by" => by}, socket) do
+    sort_by = if by in ~w(name product_name condition_field operator updated_at), do: by, else: "product_name"
+
+    sort_dir =
+      if socket.assigns.rule_sort_by == sort_by and socket.assigns.rule_sort_dir == "asc",
+        do: "desc",
+        else: "asc"
+
+    {:noreply,
+     push_patch(socket,
+       to:
+         rule_index_path(
+           socket,
+           1,
+           socket.assigns.rule_filters,
+           sort_by,
+           sort_dir
+         )
+     )}
+  end
+
+  def handle_event("update_rule_filters", %{"filters" => filters}, socket) do
+    merged =
+      socket.assigns.rule_filters
+      |> Map.merge(filters)
+      |> normalize_rule_filters()
+
+    {:noreply,
+     push_patch(socket,
+       to:
+         rule_index_path(
+           socket,
+           1,
+           merged,
+           socket.assigns.rule_sort_by,
+           socket.assigns.rule_sort_dir
+         )
+     )}
+  end
+
+  def handle_event("clear_rule_filters", _params, socket) do
+    {:noreply,
+     push_patch(socket,
+       to: rule_index_path(socket, 1, %{"query" => ""}, "product_name", "asc")
+     )}
+  end
+
+  defp validate_rule_event(params, socket) do
     previous_condition_field = form_field_value(socket.assigns.form, :condition_field)
     {schema_id, schema_version, rule_params} = normalize_rule_payload(params, socket)
 
@@ -149,7 +297,7 @@ defmodule NixstasisWeb.AlertLive.Index do
      |> assign(:show_discard_confirm, false)}
   end
 
-  def handle_event("save_rule", params, socket) do
+  defp save_rule_event(params, socket) do
     if socket.assigns.rule_save_in_flight? or socket.assigns.live_action not in [:new, :edit] do
       {:noreply, socket}
     else
@@ -206,56 +354,13 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  def handle_event("request_close_rule_modal", _params, socket) do
-    if socket.assigns.rule_dirty? do
-      {:noreply, assign(socket, :show_discard_confirm, true)}
-    else
-      {:noreply, push_patch(socket, to: rule_index_path(socket, socket.assigns.rule_page))}
-    end
-  end
-
-  def handle_event("keydown", %{"key" => "Escape"}, socket) do
-    if socket.assigns.show_discard_confirm do
-      handle_event("cancel_discard_rule_changes", %{}, socket)
-    else
-      handle_event("request_close_rule_modal", %{}, socket)
-    end
-  end
-
-  def handle_event("cancel_discard_rule_changes", _params, socket) do
-    {:noreply, assign(socket, :show_discard_confirm, false)}
-  end
-
-  def handle_event("confirm_discard_rule_changes", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_discard_confirm, false)
-     |> push_patch(to: rule_index_path(socket, socket.assigns.rule_page))}
-  end
-
-  def handle_event("edit_rule", %{"id" => id}, socket) do
-    {:noreply,
-     socket
-     |> assign(:modal_focus_return_id, "alert-edit-rule-#{id}")
-     |> push_patch(to: rule_edit_path(id, socket, socket.assigns.rule_page))}
-  end
-
-  def handle_event("confirm_delete_rule", %{"id" => id}, socket) do
-    rule = Enum.find(socket.assigns.rules, &(to_string(&1.id) == to_string(id)))
-    {:noreply, assign(socket, :rule_to_delete, rule)}
-  end
-
-  def handle_event("cancel_delete_rule", _params, socket) do
-    {:noreply, assign(socket, :rule_to_delete, nil)}
-  end
-
-  def handle_event("delete_rule", _params, socket) do
+  defp delete_rule_event(socket) do
     case socket.assigns.rule_to_delete do
       nil ->
         {:noreply, put_flash(socket, :error, "Unable to delete rule")}
 
       rule ->
-        case Domain.destroy_rule(rule.rule) do
+        case Domain.destroy_rule(rule.rule, actor: alert_rule_actor(socket), authorize?: true) do
           {:ok, _} ->
             delete_rule_success(socket)
 
@@ -338,7 +443,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         <:subtitle>System notifications and device alerts</:subtitle>
         <:actions>
           <.link
-            :if={@alerts_tab == "rules"}
+            :if={@alerts_tab == "rules" and @can_manage_alert_rules}
             id="alert-add-rule"
             patch={rule_new_path(@rule_page, @rule_filters, @rule_sort_by, @rule_sort_dir)}
           >
@@ -364,7 +469,7 @@ defmodule NixstasisWeb.AlertLive.Index do
           phx-value-tab="rules"
           class={["tab", @alerts_tab == "rules" && "tab-active"]}
         >
-          Edit Alert Rules
+          {if @can_manage_alert_rules, do: "Edit Alert Rules", else: "Alert Rules"}
         </button>
       </div>
 
@@ -454,7 +559,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                       Condition {sort_indicator(@rule_sort_by, @rule_sort_dir, "condition_field")}
                     </button>
                   </th>
-                  <th class="w-[10%]">Actions</th>
+                  <th :if={@can_manage_alert_rules} class="w-[10%]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -480,7 +585,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                   <td class="w-[45%]">
                     <span class="truncate text-base-content/80">{condition_expression(rule)}</span>
                   </td>
-                  <td class="w-[10%]">
+                  <td :if={@can_manage_alert_rules} class="w-[10%]">
                     <div class="grid grid-cols-[1.5rem_1.5rem] items-center gap-2">
                       <%= if is_nil(rule.edit_disabled_reason) do %>
                         <button
@@ -521,7 +626,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       </div>
 
       <.modal
-        :if={@live_action in [:new, :edit]}
+        :if={@can_manage_alert_rules and @live_action in [:new, :edit]}
         id="rule-modal"
         show
         focus_return_target={@modal_focus_return_id}
@@ -700,7 +805,12 @@ defmodule NixstasisWeb.AlertLive.Index do
         </.simple_form>
       </.modal>
 
-      <.modal :if={@rule_to_delete} id="delete-rule-modal" show on_cancel={JS.push("cancel_delete_rule")}>
+      <.modal
+        :if={@can_manage_alert_rules and @rule_to_delete}
+        id="delete-rule-modal"
+        show
+        on_cancel={JS.push("cancel_delete_rule")}
+      >
         <div class="space-y-4">
           <h3 class="text-lg font-semibold">Delete Rule</h3>
           <p>
@@ -743,6 +853,25 @@ defmodule NixstasisWeb.AlertLive.Index do
     """
   end
 
+  defp can_manage_alert_rules?(socket), do: socket.assigns.can_manage_alert_rules == true
+
+  defp alert_rule_actor(socket) do
+    %{
+      can_view_alert_rules: socket.assigns.can_view_alerts == true,
+      can_manage_alert_rules: can_manage_alert_rules?(socket)
+    }
+  end
+
+  defp unauthorized_rule_route(socket) do
+    socket
+    |> put_flash(:error, "Not authorized to manage alert rules")
+    |> push_navigate(to: ~p"/alerts/rules")
+  end
+
+  defp unauthorized_rule_mutation(socket) do
+    {:noreply, put_flash(socket, :error, "Not authorized to manage alert rules")}
+  end
+
   defp load_schema_references do
     case SchemaOptions.list_bounded_schema_references() do
       {:ok, schema_refs} -> {schema_refs, nil}
@@ -775,6 +904,8 @@ defmodule NixstasisWeb.AlertLive.Index do
       AlertRule
       |> AshPhoenix.Form.for_create(:create,
         domain: Domain,
+        actor: alert_rule_actor(socket),
+        authorize?: true,
         params: %{"name" => "", "product_name" => selected_schema_id || ""}
       )
       |> to_form()
@@ -852,7 +983,11 @@ defmodule NixstasisWeb.AlertLive.Index do
 
     form =
       rule
-      |> AshPhoenix.Form.for_update(:update, domain: Domain)
+      |> AshPhoenix.Form.for_update(:update,
+        domain: Domain,
+        actor: alert_rule_actor(socket),
+        authorize?: true
+      )
       |> to_form()
 
     initial_draft =
