@@ -12,6 +12,13 @@ import (
 	"go.starlark.net/starlark"
 )
 
+const maxMQTTReplyBytes = 1 << 20
+
+type mqttReply struct {
+	payload []byte
+	err     error
+}
+
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	ctx := runtimeContext(thread)
@@ -65,17 +72,26 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 		return nil, err
 	}
 
-	responseCh := make(chan []byte, 1)
+	responseCh := make(chan mqttReply, 1)
 	var handler mqtt.MessageHandler = func(_ mqtt.Client, message mqtt.Message) {
 		payload := message.Payload()
-		if replyTopic == topic && string(payload) == msg {
+		if replyTopic == topic && len(payload) == len(msg) && string(payload) == msg {
 			return
 		}
-		if !responseMatchesAccept(payload, acceptCriteria) {
+
+		matches, err := responseMatchesAccept(payload, acceptCriteria)
+		if err != nil {
+			select {
+			case responseCh <- mqttReply{err: err}:
+			default:
+			}
+			return
+		}
+		if !matches {
 			return
 		}
 		select {
-		case responseCh <- payload:
+		case responseCh <- mqttReply{payload: payload}:
 		default:
 		}
 	}
@@ -93,8 +109,11 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 	}
 
 	select {
-	case payload := <-responseCh:
-		return starlark.String(string(payload)), nil
+	case response := <-responseCh:
+		if response.err != nil {
+			return nil, response.err
+		}
+		return starlark.String(string(response.payload)), nil
 	case <-ctx.Done():
 		return nil, ErrTimeout
 	case <-time.After(5 * time.Second):
@@ -134,21 +153,24 @@ func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string
 	return criteria, nil
 }
 
-func responseMatchesAccept(payload []byte, accept map[string]any) bool {
+func responseMatchesAccept(payload []byte, accept map[string]any) (bool, error) {
+	if len(payload) > maxMQTTReplyBytes {
+		return false, fmt.Errorf("mqtt reply payload exceeded %d-byte limit", maxMQTTReplyBytes)
+	}
 	if len(accept) == 0 {
-		return true
+		return true, nil
 	}
 	var input map[string]any
 	if err := json.Unmarshal(payload, &input); err != nil {
-		return false
+		return false, nil //nolint:nilerr // Malformed replies do not match accept criteria; keep waiting for a valid reply.
 	}
 	for key, want := range accept {
 		got, ok := input[key]
 		if !ok || !acceptValuesEqual(got, want) {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func acceptValuesEqual(got, want any) bool {
