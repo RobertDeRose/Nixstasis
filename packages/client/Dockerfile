@@ -9,16 +9,19 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /nixstasis ./cmd/nixstasis
 
-# Fetch frpc
+# Fetch frpc through the same checksum-verified path used by native releases.
 ARG FRP_VERSION=0.68.1
+ARG FRP_LINUX_AMD64_SHA256
+ARG FRP_LINUX_ARM64_SHA256
 ARG TARGETARCH
-RUN set -eux; \
-    curl -fsSL "https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_linux_${TARGETARCH}.tar.gz" \
-      -o /tmp/frpc.tar.gz && \
-    tar -xzf /tmp/frpc.tar.gz -C /tmp && \
-    cp "/tmp/frp_${FRP_VERSION}_linux_${TARGETARCH}/frpc" /frpc && \
-    chmod 0755 /frpc && \
-    rm -rf /tmp/frpc.tar.gz /tmp/frp_*
+RUN FRP_VERSION="$FRP_VERSION" \
+    FRP_LINUX_AMD64_SHA256="$FRP_LINUX_AMD64_SHA256" \
+    FRP_LINUX_ARM64_SHA256="$FRP_LINUX_ARM64_SHA256" \
+    OUTPUT_DIR=/tmp/frpc-dist \
+    FRP_CACHE_DIR=/tmp/frpc-cache \
+    ./build/bin/fetch_frpc.sh "$TARGETARCH" && \
+    install -m 0755 "/tmp/frpc-dist/frpc_${TARGETARCH}" /frpc && \
+    rm -rf /tmp/frpc-dist /tmp/frpc-cache
 
 # Runtime stage: systemd + sshd + frpc + client
 FROM ubuntu:noble-20260410

@@ -190,8 +190,11 @@ self-extracting `.run` installers for systemd Linux hosts that do not use deb or
 1. Review the shared production version pins:
 
 ```bash
-grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' ../../prod.env
+grep -E '^(FRP_VERSION|FRP_LINUX_(AMD64|ARM64)_SHA256|CADDY_VERSION|POSTGRES_VERSION)=' ../../prod.env
 ```
+
+Treat `FRP_VERSION` and both `FRP_LINUX_*_SHA256` values as one pin set. Native release packaging and the Compose
+client simulator both use `build/bin/fetch_frpc.sh`, which verifies the selected archive before extraction.
 
 1. Build snapshot artifacts from `packages/client`:
 

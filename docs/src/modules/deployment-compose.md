@@ -155,6 +155,8 @@
 - Server startup and database migrations are separate operations; application
   startup must not implicitly run migrations.
 - Externally sourced runtime artifacts must be pinned by digest or checksum.
+- The Compose client simulator passes the shared FRP version/checksum pins into its build and uses the same
+  checksum-verifying `packages/client/build/bin/fetch_frpc.sh` path as native client packaging.
 - Client release artifacts install bundled `frpc` at
   `/usr/libexec/nixstasis/frpc` so managed devices do not depend on a separate
   FRP package.

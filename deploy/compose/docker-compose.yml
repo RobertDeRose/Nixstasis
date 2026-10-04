@@ -142,6 +142,10 @@ services:
     build:
       context: ../../packages/client
       dockerfile: Dockerfile
+      args:
+        FRP_VERSION: ${FRP_VERSION}
+        FRP_LINUX_AMD64_SHA256: ${FRP_LINUX_AMD64_SHA256}
+        FRP_LINUX_ARM64_SHA256: ${FRP_LINUX_ARM64_SHA256}
     environment:
       NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-https://nixstasis.${BASE_DOMAIN}}
       NIXSTASIS_FRP_SERVER_ADDR: frps

@@ -88,6 +88,19 @@ require_compose_service_env() {
     fail "missing $env_name environment wiring for compose service $service"
 }
 
+require_compose_build_arg() {
+  service="$1"
+  arg_name="$2"
+
+  awk -v service="$service" -v arg_name="$arg_name" '
+    $0 ~ "^  " service ":$" { in_service = 1; next }
+    in_service && /^  [[:alnum:]_-]+:$/ { in_service = 0 }
+    in_service && $0 ~ "^[[:space:]]+" arg_name ": \\$\\{" arg_name "(:-[^}]*)?\\}" { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$ROOT_DIR/deploy/compose/docker-compose.yml" ||
+    fail "missing $arg_name build arg wiring for compose service $service"
+}
+
 for file in \
   "$ENV_EXAMPLE" \
   "$DEV_ENV" \
@@ -142,6 +155,12 @@ require_text "$ENV_EXAMPLE" '^FRPS_BIND_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_HTTP_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_DASHBOARD_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_TCPMUX_PORT='
+require_text "$ENV_EXAMPLE" '^FRP_VERSION='
+require_text "$ENV_EXAMPLE" '^FRP_LINUX_AMD64_SHA256=[0-9a-f]{64}$'
+require_text "$ENV_EXAMPLE" '^FRP_LINUX_ARM64_SHA256=[0-9a-f]{64}$'
+require_text "$DEV_ENV" '^FRP_VERSION='
+require_text "$DEV_ENV" '^FRP_LINUX_AMD64_SHA256=[0-9a-f]{64}$'
+require_text "$DEV_ENV" '^FRP_LINUX_ARM64_SHA256=[0-9a-f]{64}$'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_SSH_FRP_HOST='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_FRP_HTTP_LOCAL_ADDR=127\.0\.0\.1:443$'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_SIMULATOR_HTTP_ENABLED=false$'
@@ -213,6 +232,13 @@ require_compose_service_env caddy NIXSTASIS_VIEWER_GROUPS
 require_compose_service_env caddy NIXSTASIS_OPERATOR_GROUPS
 require_compose_service_env caddy NIXSTASIS_ADMIN_GROUPS
 require_compose_service_env caddy NIXSTASIS_PROXY_AUTH_TOKEN
+require_compose_build_arg client FRP_VERSION
+require_compose_build_arg client FRP_LINUX_AMD64_SHA256
+require_compose_build_arg client FRP_LINUX_ARM64_SHA256
+require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_AMD64_SHA256'
+require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_ARM64_SHA256'
+require_literal "$CLIENT_DOCKERFILE" './build/bin/fetch_frpc.sh "$TARGETARCH"'
+reject_text "$CLIENT_DOCKERFILE" 'curl .*fatedier/frp/releases'
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'
