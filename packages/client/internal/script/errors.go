@@ -23,6 +23,9 @@ func mapError(err error) *ScriptError {
 	if errors.Is(err, ErrTimeout) {
 		return &ScriptError{Type: ErrorTimeout, Message: err.Error()}
 	}
+	if errors.Is(err, ErrExecutionLimit) {
+		return &ScriptError{Type: ErrorExecution, Message: err.Error()}
+	}
 
 	var syntaxErr *syntax.Error
 	if errors.As(err, &syntaxErr) {

@@ -74,6 +74,9 @@ Traceable references:
 - Scripts must define a callable `main()`.
 - `main()` output is converted from Starlark values to Go values and must be a dictionary when non-null.
 - Runtime execution is bounded by `RuntimeConfig.Timeout`; timeout cancels the Starlark thread.
+- Each runtime thread also has a fixed 1,000,000-step Starlark computation budget. Exceeding it
+  cancels evaluation and returns a normal execution-limit error. This deterministic guard bounds
+  interpreter work but does not claim a per-thread heap quota.
 
 Traceable references:
 

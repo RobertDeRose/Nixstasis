@@ -19,6 +19,15 @@ import (
 // ErrTimeout is returned when a script execution exceeds its allowed runtime.
 var ErrTimeout = errors.New("script timeout")
 
+// ErrExecutionLimit is returned when a script exceeds the runtime Starlark
+// computation-step budget.
+var ErrExecutionLimit = errors.New("script execution step limit exceeded")
+
+// defaultMaxStarlarkExecutionSteps bounds deterministic interpreter work in
+// addition to the wall-clock timeout. Builtins remain responsible for their
+// own I/O and allocation limits.
+const defaultMaxStarlarkExecutionSteps uint64 = 1_000_000
+
 // maxMQTTConnectAttempts is the maximum number of consecutive MQTT connection
 // failures before the Runtime stops attempting for the rest of this poll cycle.
 // A new Runtime is created each poll cycle, so the breaker resets automatically.
@@ -31,10 +40,11 @@ type Runtime struct {
 	config RuntimeConfig
 	// builtins is populated once in NewRuntime and must not be mutated after
 	// construction. Multiple goroutines read it concurrently via ExecFileOptions.
-	builtins     starlark.StringDict
-	mqttMu       sync.Mutex
-	mqttClient   mqtt.Client
-	mqttFailures int
+	builtins          starlark.StringDict
+	maxExecutionSteps uint64
+	mqttMu            sync.Mutex
+	mqttClient        mqtt.Client
+	mqttFailures      int
 	// pubAndGetSem serializes pub_and_get calls. Capacity MUST be 1 because
 	// the shared MQTT client's Subscribe/Unsubscribe are not scoped per-call;
 	// allowing concurrent pub_and_get on the same reply topic would race the
@@ -58,7 +68,11 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 		config.ExecWorkDir = os.TempDir()
 	}
 
-	r := &Runtime{config: config, pubAndGetSem: make(chan struct{}, 1)}
+	r := &Runtime{
+		config:            config,
+		maxExecutionSteps: defaultMaxStarlarkExecutionSteps,
+		pubAndGetSem:      make(chan struct{}, 1),
+	}
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),
 		"exec_cmd":    starlark.NewBuiltin("exec_cmd", r.execCmdBuiltin),
@@ -100,6 +114,12 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 
 	resCh := make(chan result, 1)
 	thread := &starlark.Thread{Name: "stary"}
+	stepLimitExceeded := false
+	thread.OnMaxSteps = func(thread *starlark.Thread) {
+		stepLimitExceeded = true
+		thread.Cancel(ErrExecutionLimit.Error())
+	}
+	thread.SetMaxExecutionSteps(r.maxExecutionSteps)
 	thread.SetLocal(runtimeContextThreadKey, ctx)
 
 	// Defensive copy: ExecFileOptions may mutate the predeclared dict during
@@ -109,6 +129,9 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 	go func() {
 		globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, scriptPath, body, predeclared)
 		if err != nil {
+			if stepLimitExceeded {
+				err = ErrExecutionLimit
+			}
 			resCh <- result{err: err}
 			return
 		}
@@ -127,6 +150,9 @@ func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[str
 
 		val, err := starlark.Call(thread, callable, nil, nil)
 		if err != nil {
+			if stepLimitExceeded {
+				err = ErrExecutionLimit
+			}
 			resCh <- result{err: err}
 			return
 		}
