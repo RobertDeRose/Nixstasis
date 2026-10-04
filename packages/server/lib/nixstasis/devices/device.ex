@@ -177,7 +177,16 @@ defmodule Nixstasis.Devices.Device do
 
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash, :remote_access_profile]}
+
+      upsert_fields {:replace_all_except,
+                     [
+                       :id,
+                       :approval_status,
+                       :api_token_hash,
+                       :remote_access_profile,
+                       :remote_access_expires_at,
+                       :remote_access_owner
+                     ]}
     end
 
     update :update do
@@ -371,6 +380,10 @@ defmodule Nixstasis.Devices.Device do
       default false
       public? true
     end
+
+    attribute :remote_access_expires_at, :utc_datetime_usec
+
+    attribute :remote_access_owner, :string
 
     attribute :remote_access_profile, :string do
       allow_nil? false

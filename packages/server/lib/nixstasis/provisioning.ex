@@ -248,7 +248,7 @@ defmodule Nixstasis.Provisioning do
 
     case Domain.create_provisioning_delivery(attrs) do
       {:ok, delivery} ->
-        case open_bootstrap_lease(device, opts) do
+        case open_bootstrap_lease(device, Keyword.put(opts, :audit_owner, actor_id)) do
           {:ok, _updated_device, lease_ref} ->
             state = put_in(state.leases[delivery.id], lease_ref)
             Audit.emit(:bootstrap_started, actor_id, delivery_attributes(delivery))
@@ -279,6 +279,8 @@ defmodule Nixstasis.Provisioning do
     do: {{:error, {:reconciliation_required, delivery}}, state}
 
   defp resume_delivery(delivery, device, actor_id, opts, state) do
+    opts = Keyword.put(opts, :audit_owner, actor_id)
+
     case ensure_lease(delivery, device, opts, state) do
       {:ok, lease_state} when is_binary(delivery.job_url) ->
         get_job_fun = Keyword.get(opts, :get_job_fun, default_get_job_fun(opts))
@@ -511,7 +513,11 @@ defmodule Nixstasis.Provisioning do
   end
 
   defp open_bootstrap_lease(device, opts) do
-    lease_opts = [owner: self(), profile: @route_profile]
+    lease_opts = [
+      owner: self(),
+      profile: @route_profile,
+      audit_owner: Keyword.get(opts, :audit_owner)
+    ]
 
     lease_opts =
       case Keyword.fetch(opts, :lease_ttl_ms) do

@@ -18,6 +18,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
   @impl true
   def mount(_params, session, socket) do
     permissions = Permissions.device_permissions(session)
+    remote_access_actor_id = remote_access_actor_id(session)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
@@ -26,6 +27,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     {:ok,
      socket
      |> assign(:device_permissions, permissions)
+     |> assign(:remote_access_actor_id, remote_access_actor_id)
      |> assign(:can_view_device_details?, Permissions.can_view_device_details?(permissions))
      |> assign(:can_remote_access_device?, Permissions.can_remote_access_device?(permissions))
      |> assign(:remote_access_auto_open?, true)
@@ -433,6 +435,13 @@ defmodule NixstasisWeb.DeviceLive.Show do
     {:noreply, socket}
   end
 
+  defp remote_access_actor_id(session) do
+    case Permissions.actor_id(session) do
+      {:ok, actor_id} -> actor_id
+      {:error, _reason} -> nil
+    end
+  end
+
   defp safe_get_device(id) do
     {:ok, Devices.get_device!(id)}
   rescue
@@ -444,7 +453,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
     {device, lease_ref} =
       if connected?(socket) and socket.assigns.can_remote_access_device? do
-        {:ok, device, lease_ref} = Devices.open_remote_access_lease(device, owner: self())
+        {:ok, device, lease_ref} =
+          Devices.open_remote_access_lease(device,
+            owner: self(),
+            audit_owner: socket.assigns.remote_access_actor_id
+          )
+
         {device, lease_ref}
       else
         {device, nil}
@@ -523,7 +537,11 @@ defmodule NixstasisWeb.DeviceLive.Show do
     if connected?(socket) and Devices.online?(device) and socket.assigns.can_remote_access_device? and
          Map.get(socket.assigns, :remote_access_auto_open?, true) and
          is_nil(socket.assigns[:remote_access_lease_ref]) do
-      {:ok, device, lease_ref} = Devices.open_remote_access_lease(device, owner: self())
+      {:ok, device, lease_ref} =
+        Devices.open_remote_access_lease(device,
+          owner: self(),
+          audit_owner: socket.assigns.remote_access_actor_id
+        )
 
       socket
       |> assign(:device, device)

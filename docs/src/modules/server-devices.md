@@ -137,10 +137,12 @@ metadata payloads.
   offline/lease expiry, queue failure, failed join, or other cleanup paths as a
   best-effort early invalidation signal. The complete wire contract is in
   [API & Runtime Contracts](../reference/contracts.md#browser-terminal-ssh-authorization-contract).
-- Device detail is reached through `/devices/:id`; opening remote-access tabs may
-  set `remote_access_requested`, and close/cleanup paths must clear stale remote
-  access intent. Authorized device updates may select a profile name, while route
-  definitions and target capabilities remain client-owned.
+- Device detail is reached through `/devices/:id`; opening remote-access tabs creates
+  a bounded lease with a persisted absolute `remote_access_expires_at` and audit
+  owner. Phoenix reconstructs unexpired lease timers after restart, clears stale
+  requested state fail-closed, and binds issued FRPS credentials to the same absolute
+  expiry. Authorized device updates may select a profile name,
+  while route definitions and target capabilities remain client-owned.
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 
