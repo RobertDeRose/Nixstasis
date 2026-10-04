@@ -184,7 +184,7 @@ func topicAllowed(topic string, patterns []string) bool {
 }
 
 func mqttTopicMatch(pattern, topic string) bool {
-	if pattern == "" || topic == "" {
+	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
 	}
 	patternParts := strings.Split(pattern, "/")
@@ -201,6 +201,10 @@ func mqttTopicMatch(pattern, topic string) bool {
 		}
 	}
 	return len(patternParts) == len(topicParts)
+}
+
+func mqttTopicNameIsConcrete(topic string) bool {
+	return topic != "" && !strings.ContainsAny(topic, "+#")
 }
 
 func (r *Runtime) connectMQTT() (mqtt.Client, error) {

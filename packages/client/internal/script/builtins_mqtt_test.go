@@ -22,6 +22,59 @@ func TestMQTTTopicRestrictions(t *testing.T) {
 	}
 }
 
+func TestMQTTTopicRestrictionsRejectRequestedWildcards(t *testing.T) {
+	tests := []struct {
+		name    string
+		topic   string
+		allowed []string
+	}{
+		{
+			name:    "single-level allowlist does not authorize multi-level wildcard",
+			topic:   "reply/#",
+			allowed: []string{"reply/+"},
+		},
+		{
+			name:    "multi-level allowlist does not authorize single-level wildcard",
+			topic:   "reply/+",
+			allowed: []string{"reply/#"},
+		},
+		{
+			name:    "exact multi-level wildcard is still not a concrete topic",
+			topic:   "reply/#",
+			allowed: []string{"reply/#"},
+		},
+		{
+			name:    "embedded wildcard character is not a concrete topic",
+			topic:   "reply/device+1",
+			allowed: []string{"reply/#"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if topicAllowed(test.topic, test.allowed) {
+				t.Fatalf("expected requested wildcard topic %q to be rejected", test.topic)
+			}
+		})
+	}
+}
+
+func TestPubAndGetRejectsWildcardReplyTopicBeforeBroker(t *testing.T) {
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:             5 * time.Second,
+		MQTTBroker:          "tcp://127.0.0.1:1",
+		MQTTPublishTopics:   []string{"request/+"},
+		MQTTSubscribeTopics: []string{"reply/+"},
+	})
+	_, err := runtime.Execute(t.Context(), "test.star", `
+def main():
+    return {"out": pub_and_get(topic="request/device-1", msg="b", reply_topic="reply/#")}
+`)
+	if err == nil || !strings.Contains(err.Error(), "subscribe topic is not allowed: reply/#") {
+		t.Fatalf("expected wildcard reply topic rejection before broker interaction, got %v", err)
+	}
+}
+
 func TestPubAndGetRequiresMQTTCapability(t *testing.T) {
 	runtime := NewRuntime(RuntimeConfig{Timeout: 5 * time.Second})
 	_, err := runtime.Execute(t.Context(), "test.star", `
