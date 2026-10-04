@@ -6,7 +6,9 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
+  alias Nixstasis.Monitoring
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
 
   setup do
     {:ok, device} =
@@ -47,6 +49,50 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
 
     assert length(telemetry) == 1
     assert hd(telemetry).payload["scripts"]["disk"]["data"]["usage_pct"] == 73.2
+  end
+
+  test "oversized telemetry is rejected before heartbeat side effects", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    stale_at = DateTime.utc_now() |> DateTime.add(-20, :minute) |> DateTime.truncate(:second)
+    {:ok, device} = Devices.update_device(device, %{last_seen_at: stale_at})
+
+    result = Monitoring.check_offline_devices(window_minutes: 10)
+    assert result.status == :success
+    assert [%{status: :active} = offline_alert] = Domain.list_alerts!()
+
+    {:ok, queued_command} = Devices.queue_command(device, %{"cmd" => "update"})
+    limits = TelemetryLimits.limits()
+
+    conn =
+      post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{
+        "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
+      })
+
+    assert %{
+             "error" => %{
+               "code" => "telemetry_limits_exceeded",
+               "message" => "Telemetry exceeds the accepted persistence limits"
+             }
+           } = json_response(conn, 413)
+
+    unchanged = Devices.get_device!(device.id)
+    assert unchanged.last_seen_at == stale_at
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^device.id)
+      |> Ash.read!(domain: Domain)
+
+    assert telemetry == []
+
+    alert = Enum.find(Domain.list_alerts!(), &(&1.id == offline_alert.id))
+    assert alert.status == :active
+
+    pending = Enum.find(Domain.list_pending_commands!(), &(&1.id == queued_command.id))
+    assert pending.status == :queued
   end
 
   test "POST /api/v1/devices/:id/heartbeat returns ssh_authorize public key at top level", %{

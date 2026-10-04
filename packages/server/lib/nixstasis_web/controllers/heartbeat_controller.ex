@@ -13,6 +13,16 @@ defmodule NixstasisWeb.HeartbeatController do
         {:ok, updated_device, commands} ->
           render(conn, :show, commands: commands, device: updated_device)
 
+        {:error, {:telemetry_limits, _message}} ->
+          conn
+          |> put_status(413)
+          |> json(%{
+            error: %{
+              code: "telemetry_limits_exceeded",
+              message: "Telemetry exceeds the accepted persistence limits"
+            }
+          })
+
         {:error, _reason} ->
           conn
           |> put_status(:unprocessable_entity)

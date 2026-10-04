@@ -15,6 +15,7 @@ defmodule Nixstasis.Monitoring do
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.Monitoring.RuleEvaluator
+  alias Nixstasis.Monitoring.TelemetryLimits
   alias Nixstasis.Notifications.Email
   alias Nixstasis.Repo
   alias Nixstasis.Notifications.Webhook
@@ -23,7 +24,8 @@ defmodule Nixstasis.Monitoring do
   def heartbeat(%Device{} = device, payload \\ %{}) do
     telemetry_payload = normalize_telemetry_payload(payload)
 
-    with {:ok, device} <- Devices.update_last_seen(device),
+    with :ok <- validate_telemetry_payload(telemetry_payload),
+         {:ok, device} <- Devices.update_last_seen(device),
          {:ok, device} <- record_heartbeat_ssh_host_key(device, payload),
          {:ok, _event} <- persist_telemetry_event(device, telemetry_payload),
          {:ok, _inventory} <- persist_command_inventory(device, payload) do
@@ -323,6 +325,13 @@ defmodule Nixstasis.Monitoring do
         _ -> :ok
       end
     end)
+  end
+
+  defp validate_telemetry_payload(payload) do
+    case TelemetryLimits.validate(payload) do
+      :ok -> :ok
+      {:error, message} -> {:error, {:telemetry_limits, message}}
+    end
   end
 
   defp persist_telemetry_event(%Device{} = device, payload) do

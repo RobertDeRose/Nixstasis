@@ -86,6 +86,8 @@
     `data.command_inventory_probe`.
   - `remote_access_profile` is only a named/versioned reference; the client
     resolves it against local configuration and rejects unknown or unsafe routes.
+  - HTTP `413` indicates normalized telemetry exceeded the server persistence
+    limits; the heartbeat is rejected before device or monitoring state changes.
   - HTTP `429` indicates the server rate limit rejected the heartbeat.
 - `PollWithInventory`:
   - Uses the same heartbeat endpoint as `Poll`.

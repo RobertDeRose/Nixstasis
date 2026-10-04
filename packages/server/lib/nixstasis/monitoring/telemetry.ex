@@ -33,10 +33,13 @@ defmodule Nixstasis.Monitoring.Telemetry do
 
     create :create do
       accept [:device_id, :payload, :timestamp]
+      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}
     end
 
     update :update do
+      require_atomic? false
       accept [:payload, :timestamp]
+      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}
     end
   end
 

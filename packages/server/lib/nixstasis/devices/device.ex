@@ -290,6 +290,9 @@ defmodule Nixstasis.Devices.Device do
               {:ok, updated_device, commands} ->
                 {:ok, %{data: Monitoring.heartbeat_response_data(updated_device, commands)}}
 
+              {:error, {:telemetry_limits, message}} ->
+                {:error, Ash.Error.Action.InvalidArgument.exception(field: :telemetry, message: message)}
+
               {:error, _reason} ->
                 {:error, "heartbeat processing failed"}
             end
