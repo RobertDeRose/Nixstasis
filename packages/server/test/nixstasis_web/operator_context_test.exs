@@ -98,6 +98,31 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["device_permissions"]["device_ids"] == []
   end
 
+  test "uses only the canonical device scope header", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_req_header("x-token-device-ids", "device-a")
+             |> put_req_header("x-token-device-id", "device-b")
+             |> put_req_header("x-token-allowed-device-ids", "device-c")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
+
+    assert context["device_permissions"]["device_ids"] == ["device-a"]
+  end
+
+  test "ignores legacy device scope aliases", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_req_header("x-token-device-id", "device-a")
+             |> put_req_header("x-token-allowed-device-ids", "device-b")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
+
+    refute Map.has_key?(context["device_permissions"], "device_ids")
+  end
+
   test "rejects forged AuthCrunch claims without proxy authentication", %{conn: conn} do
     assert :error =
              conn

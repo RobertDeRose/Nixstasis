@@ -49,6 +49,7 @@
       crypto key verify {$JWT_KEY}
       validate bearer header
       inject headers with claims
+      inject header "X-Token-Device-Ids" from device_ids
     }
   }
 }
@@ -127,6 +128,8 @@ nixstasis.{$BASE_DOMAIN} {
   handle {
     authorize with entra_policy
     reverse_proxy nixstasis:{$PORT} {
+      header_up -X-Token-Device-Id
+      header_up -X-Token-Allowed-Device-Ids
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
       header_up X-Nixstasis-Client-IP {http.request.remote.host}
     }
