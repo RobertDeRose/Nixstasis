@@ -41,7 +41,7 @@ func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 	if err := accept.SetKey(starlark.String("count"), starlark.MakeInt(2)); err != nil {
 		t.Fatalf("set accept count: %v", err)
 	}
-	criteria, err := parseAcceptCriteria(accept)
+	criteria, err := parseAcceptCriteria(t.Context(), accept)
 	if err != nil {
 		t.Fatalf("parseAcceptCriteria failed: %v", err)
 	}
@@ -54,12 +54,24 @@ func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 	}
 }
 
+func TestParseAcceptCriteriaRejectsCyclicValue(t *testing.T) {
+	accept := starlark.NewDict(1)
+	if err := accept.SetKey(starlark.String("status"), accept); err != nil {
+		t.Fatalf("set cyclic accept value: %v", err)
+	}
+
+	_, err := parseAcceptCriteria(t.Context(), accept)
+	if err == nil || !strings.Contains(err.Error(), "cyclic dict") {
+		t.Fatalf("expected cyclic accept criteria error, got %v", err)
+	}
+}
+
 func TestParseAcceptCriteriaRejectsNestedSelectors(t *testing.T) {
 	accept := starlark.NewDict(1)
 	if err := accept.SetKey(starlark.String("status.ok"), starlark.String("ready")); err != nil {
 		t.Fatalf("set accept key: %v", err)
 	}
-	if _, err := parseAcceptCriteria(accept); err == nil {
+	if _, err := parseAcceptCriteria(t.Context(), accept); err == nil {
 		t.Fatalf("expected nested accept selector to fail")
 	}
 }
