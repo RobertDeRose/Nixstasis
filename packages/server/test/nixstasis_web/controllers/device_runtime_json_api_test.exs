@@ -7,6 +7,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
   alias Nixstasis.Scripts
   alias NixstasisWeb.Plugs.JsonApiPermissions
   alias NixstasisWeb.RateLimiterStore
@@ -232,6 +233,35 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
     assert [%{device_id: device_id}] = Enum.filter(snapshots, &(&1.device_id == approved.id))
     assert device_id == approved.id
+  end
+
+  test "generated heartbeat rejects over-limit telemetry before persistence", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    limits = TelemetryLimits.limits()
+    last_seen_at = approved.last_seen_at
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+        "data" => %{
+          "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
+        }
+      })
+
+    assert conn.status == 400
+    assert Devices.get_device!(approved.id).last_seen_at == last_seen_at
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^approved.id)
+      |> Ash.read!(domain: Domain)
+
+    assert telemetry == []
   end
 
   test "generated heartbeat ignores malformed inventory while delivering commands", %{

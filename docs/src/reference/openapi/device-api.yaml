@@ -158,7 +158,12 @@ paths:
       security:
         - deviceApiKey: []
       summary: Submit device heartbeat and telemetry
-      description: Current compatibility controller contract with an additive generated heartbeat action. Preserve api_key authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command polling through Go-client compatibility tests.
+      description: >-
+        Current compatibility controller contract with an additive generated heartbeat action. Preserve api_key
+        authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command
+        polling through Go-client compatibility tests. Normalized persisted telemetry is limited to 65,536 encoded
+        bytes, depth 8, 512 total keys, 128 keys per object, 128 bytes per key, 256 array items, and 16,384 bytes
+        per string. Limit violations reject the heartbeat before state changes.
       parameters:
         - in: path
           name: id
@@ -182,6 +187,9 @@ paths:
                 telemetry:
                   type: object
                   additionalProperties: true
+                  description: >-
+                    Untrusted telemetry document subject to the server persistence size and structural limits
+                    described by this operation.
                 connection_status:
                   type: object
                   properties:
@@ -242,6 +250,8 @@ paths:
           description: Device is not approved
         "404":
           description: Device not found
+        "413":
+          description: Normalized telemetry exceeds the persistence size or structural limits
         "422":
           description: Heartbeat processing failed
         "429":
