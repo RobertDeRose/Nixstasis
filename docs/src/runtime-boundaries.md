@@ -129,7 +129,11 @@ Traceable references:
 
 - FRPC runs on managed devices and connects to FRPS.
 - FRPS exposes tunnel transport ports from the Compose deployment.
-- Caddy proxies wildcard `*.{$BASE_DOMAIN}` traffic to FRPS HTTP vhost port.
+- Caddy authenticates wildcard `*.{$BASE_DOMAIN}` traffic with AuthCrunch, then
+  forward-authorizes it through Phoenix `/internal/frp/access`. Phoenix maps the
+  FRP hostname to its device UUID and requires both remote-access capability and
+  membership in the operator's device scope before Caddy proxies to the FRPS
+  HTTP vhost port.
 - Caddy proxies `frp-admin.{$BASE_DOMAIN}` to the FRPS dashboard port.
 - Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH

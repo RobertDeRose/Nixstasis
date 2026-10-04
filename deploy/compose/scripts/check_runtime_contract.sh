@@ -19,6 +19,8 @@ SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
 SERVER_MIGRATE="$ROOT_DIR/packages/server/bin/migrate"
 SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
 SERVER_SSH_CLIENT="$ROOT_DIR/packages/server/lib/nixstasis/devices/ssh_client.ex"
+SERVER_ROUTER="$ROOT_DIR/packages/server/lib/nixstasis_web/router.ex"
+FRP_ACCESS_CONTROLLER="$ROOT_DIR/packages/server/lib/nixstasis_web/controllers/frp_access_controller.ex"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_DOCKERFILE="$ROOT_DIR/packages/client/Dockerfile"
 CLIENT_POSTINSTALL="$ROOT_DIR/packages/client/build/debian/postinstall.sh"
@@ -60,19 +62,23 @@ reject_text() {
   fi
 }
 
-require_wildcard_authorize_before_proxy() {
+require_wildcard_remote_access_gate() {
+  file="$1"
+
   awk '
-    /^\*\.\{\$BASE_DOMAIN\} \{/ { in_wildcard = 1; authorized = 0; saw_wildcard = 1; next }
-    in_wildcard && /^}/ {
-      if (!authorized) {
-        exit 1
-      }
-      in_wildcard = 0
+    /^\*\.\{\$BASE_DOMAIN\} \{/ { in_wildcard = 1; next }
+    in_wildcard && /authorize with entra_policy/ { authorized = NR }
+    in_wildcard && /forward_auth nixstasis:\{\$PORT\}/ { forwarded = NR }
+    in_wildcard && /uri \/internal\/frp\/access/ { access_uri = 1 }
+    in_wildcard && /header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}/ { proxy_token = 1 }
+    in_wildcard && /header_up X-Nixstasis-Requested-Host \{host\}/ { requested_host = 1 }
+    in_wildcard && /reverse_proxy frps:\{\$FRPS_HTTP_PORT\}/ {
+      if (!authorized || !forwarded || !access_uri || !proxy_token || !requested_host || authorized > forwarded || forwarded > NR) exit 1
+      found = 1
+      exit 0
     }
-    in_wildcard && /authorize with entra_policy/ { authorized = 1 }
-    in_wildcard && /reverse_proxy frps:\{\$FRPS_HTTP_PORT\}/ && !authorized { exit 1 }
-    END { if (!saw_wildcard) exit 1 }
-  ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
+    END { if (!found) exit 1 }
+  ' "$file" || fail "wildcard FRP host must enforce AuthCrunch and Phoenix device-scope authorization before proxying"
 }
 
 require_compose_service_env() {
@@ -210,11 +216,14 @@ require_literal "$CADDYFILE" 'header_up -X-Token-Allowed-Device-Ids'
 require_literal "$LAPTOP_CADDYFILE" 'inject header "X-Token-Device-Ids" from device_ids'
 require_literal "$LAPTOP_CADDYFILE" 'header_up -X-Token-Device-Id'
 require_literal "$LAPTOP_CADDYFILE" 'header_up -X-Token-Allowed-Device-Ids'
+require_literal "$CADDYFILE" 'order authorize before forward_auth'
+require_literal "$LAPTOP_CADDYFILE" 'order authorize before forward_auth'
+require_wildcard_remote_access_gate "$LAPTOP_CADDYFILE"
 reject_text "$CADDYFILE" 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_text "$CADDYFILE" 'reverse_proxy nixstasis:4000'
 reject_text "$CADDYFILE" 'allow roles \*'
 reject_text "$CADDYFILE" 'allow groups \*'
-require_wildcard_authorize_before_proxy
+require_wildcard_remote_access_gate "$CADDYFILE"
 require_text "$FRPS_TOML" '__BASE_DOMAIN__'
 require_text "$FRPS_TOML" '__FRPS_BIND_PORT__'
 require_text "$FRPS_TOML" '__FRPS_HTTP_PORT__'
@@ -223,6 +232,10 @@ require_text "$FRPS_TOML" '__FRPS_TCPMUX_PORT__'
 require_text "$FRPS_TOML" 'nixstasis-frp-plugin-gated'
 require_text "$FRPS_TOML" 'nixstasis:4000'
 require_text "$FRPS_TOML" '/internal/frp/authorize'
+require_text "$SERVER_ROUTER" 'get\("/access", FrpAccessController, :authorize\)'
+require_text "$FRP_ACCESS_CONTROLLER" 'OperatorContext\.from_conn\(conn\)'
+require_text "$FRP_ACCESS_CONTROLLER" 'Permissions\.can_remote_access_device\?'
+require_text "$FRP_ACCESS_CONTROLLER" 'x-nixstasis-requested-host'
 require_text "$FRPS_TOML" 'Login.*NewProxy'
 reject_text "$FRPS_TOML" '__FRPS_AUTH_TOKEN__'
 require_text "$CADDYFILE" 'path /internal/frp/\*'
