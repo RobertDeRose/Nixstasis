@@ -19,6 +19,8 @@ defmodule NixstasisWeb.TerminalChannel do
   @idle_warning_time @idle_timeout - @idle_warning_offset
   @ssh_authorization_wait_attempts 30
   @ssh_authorization_wait_interval_ms 500
+  @max_terminal_dimension 1_000
+  @resize_debounce_ms 50
 
   # Join "terminal:DEVICE_ID"
   @impl true
@@ -51,6 +53,8 @@ defmodule NixstasisWeb.TerminalChannel do
                 |> assign(:ssh_client_module, ssh_client_module())
                 |> assign(:idle_timer, idle_timer)
                 |> assign(:idle_generation, 0)
+                |> assign(:resize_timer, nil)
+                |> assign(:pending_resize, nil)
 
               {:ok, socket}
             end
@@ -156,15 +160,36 @@ defmodule NixstasisWeb.TerminalChannel do
     rows = parse_terminal_dimension(rows, nil)
 
     if columns && rows do
-      if pid = socket.assigns[:ssh_client] do
-        resize_ssh_client(socket.assigns.ssh_client_module, pid, columns, rows)
-      end
-    end
+      socket =
+        socket
+        |> assign(:pending_resize, {columns, rows})
+        |> schedule_resize()
 
-    {:noreply, socket}
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Session management callbacks
+  @impl true
+  def handle_info(:flush_resize, socket) do
+    case socket.assigns[:pending_resize] do
+      {columns, rows} ->
+        if pid = socket.assigns[:ssh_client] do
+          resize_ssh_client(socket.assigns.ssh_client_module, pid, columns, rows)
+        end
+
+      _ ->
+        :ok
+    end
+
+    {:noreply,
+     socket
+     |> assign(:resize_timer, nil)
+     |> assign(:pending_resize, nil)}
+  end
+
   @impl true
   def handle_info(:max_duration_reached, socket) do
     push(socket, "output", %{data: "\r\n[Session time limit reached (60m). Disconnecting...]\r\n"})
@@ -314,6 +339,14 @@ defmodule NixstasisWeb.TerminalChannel do
     Process.send_after(self(), {:idle_warning, generation}, @idle_warning_time)
   end
 
+  defp schedule_resize(socket) do
+    if socket.assigns[:resize_timer] do
+      socket
+    else
+      assign(socket, :resize_timer, Process.send_after(self(), :flush_resize, @resize_debounce_ms))
+    end
+  end
+
   defp stop_ssh_client(_module, nil), do: :ok
 
   defp stop_ssh_client(module, pid) do
@@ -339,11 +372,13 @@ defmodule NixstasisWeb.TerminalChannel do
     _, _ -> :ok
   end
 
-  defp parse_terminal_dimension(value, _default) when is_integer(value) and value > 0, do: value
+  defp parse_terminal_dimension(value, _default)
+       when is_integer(value) and value > 0 and value <= @max_terminal_dimension,
+       do: value
 
   defp parse_terminal_dimension(value, default) when is_binary(value) do
     case Integer.parse(value) do
-      {integer, ""} when integer > 0 -> integer
+      {integer, ""} when integer > 0 and integer <= @max_terminal_dimension -> integer
       _ -> default
     end
   end
