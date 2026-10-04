@@ -44,6 +44,26 @@ defmodule NixstasisWeb.PermissionsTest do
     assert {:error, :missing_actor} = Permissions.actor_id(%{})
   end
 
+  test "report device scope requires device-view permission and preserves explicit scope" do
+    scoped_device_id = Ecto.UUID.generate()
+
+    assert Permissions.authorized_report_device_ids(%{
+             "report_permissions" => %{"can_view" => true},
+             "device_permissions" => %{"can_view" => true, "device_ids" => [scoped_device_id]}
+           }) == MapSet.new([scoped_device_id])
+
+    assert is_nil(
+             Permissions.authorized_report_device_ids(%{
+               "report_permissions" => %{"can_view" => true},
+               "device_permissions" => %{"can_view" => true}
+             })
+           )
+
+    assert Permissions.authorized_report_device_ids(%{
+             "report_permissions" => %{"can_view" => true}
+           }) == MapSet.new()
+  end
+
   test "command policy permissions separate status, details, and management" do
     viewer = %{
       "command_policy_permissions" => %{

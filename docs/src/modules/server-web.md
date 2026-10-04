@@ -138,7 +138,8 @@ Legacy `/api/v1` compatibility routes and bespoke controller routes:
 - `POST /api/v1/devices/:device_id/heartbeat`
 - `POST /api/v1/devices/:device_id/command_results`
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
-- `GET /api/v1/reports/:id/results`
+- `GET /api/v1/reports/:id/results` (verified operator report-view permission;
+  telemetry rows are constrained to the operator device scope)
 - `GET /api/v1/check_domain`
 
 The `/api/v1/builder-*` routes are compatibility wrappers around Ash-backed

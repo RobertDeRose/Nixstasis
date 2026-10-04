@@ -61,7 +61,12 @@
 - Custom reports are also exposed through Ash JSON:API under `/api/json/custom_reports`.
 - `GET /api/v1/reports/:id/results` remains a bespoke controller endpoint for
   now because it executes report query construction and returns shaped preview
-  rows, not simple `CustomReport` CRUD.
+  rows, not simple `CustomReport` CRUD. The endpoint requires a verified operator
+  context with report-view permission. Telemetry queries apply the operator's
+  authorized device IDs in SQL before report filters, sorting, or pagination;
+  an explicitly unscoped operator retains fleet-wide report access.
+- The report detail LiveView applies the same SQL-level device scope so browser
+  rendering and the bespoke result endpoint share the same telemetry boundary.
 - Report list/detail interaction requirements, including filtering, sorting,
   delete confirmation, and saved view preferences, are captured in
   [Report View Improvements](../features/report-view-improvements/index.md).

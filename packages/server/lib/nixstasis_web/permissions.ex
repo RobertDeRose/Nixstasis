@@ -92,6 +92,18 @@ defmodule NixstasisWeb.Permissions do
 
   def authorized_device_ids(_permissions), do: nil
 
+  def authorized_report_device_ids(session) when is_map(session) do
+    permissions = device_permissions(session)
+
+    if can_view_device_details?(permissions) do
+      authorized_device_ids(permissions)
+    else
+      MapSet.new()
+    end
+  end
+
+  def authorized_report_device_ids(_session), do: MapSet.new()
+
   def can_view_reports?(session) when is_map(session), do: report_permissions(session)["can_view"] == true
   def can_view_reports?(_session), do: false
 

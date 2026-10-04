@@ -33,9 +33,11 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     sort_by = opts[:sort_by] || opts["sort_by"]
     sort_dir = opts[:sort_dir] || opts["sort_dir"] || "asc"
     numeric_sort? = telemetry_numeric_sort?(source, sort_by, filters, opts)
+    authorized_device_ids = opts[:authorized_device_ids] || opts["authorized_device_ids"]
 
     source
     |> base_query()
+    |> apply_authorized_device_scope(source, authorized_device_ids)
     |> apply_schema_scope(config, source)
     |> apply_filters(filters, source)
     |> apply_result_sort(sort_by, sort_dir, fields, source, numeric_sort?)
@@ -114,6 +116,30 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp base_query("e2e"), do: from(r in Run)
 
   defp base_query(_unknown), do: from(r in Run, where: false)
+
+  defp apply_authorized_device_scope(query, "telemetry", nil), do: query
+
+  defp apply_authorized_device_scope(query, "telemetry", %MapSet{} = device_ids) do
+    apply_authorized_device_scope(query, "telemetry", MapSet.to_list(device_ids))
+  end
+
+  defp apply_authorized_device_scope(query, "telemetry", device_ids) when is_list(device_ids) do
+    valid_device_ids = Enum.flat_map(device_ids, &cast_device_id/1)
+    from(q in query, where: q.device_id in ^valid_device_ids)
+  end
+
+  defp apply_authorized_device_scope(query, "telemetry", _invalid_scope) do
+    from(q in query, where: false)
+  end
+
+  defp apply_authorized_device_scope(query, _source, _device_ids), do: query
+
+  defp cast_device_id(device_id) do
+    case Ecto.UUID.cast(device_id) do
+      {:ok, valid_id} -> [valid_id]
+      :error -> []
+    end
+  end
 
   defp apply_schema_scope(query, config, "telemetry") do
     schema_id = config["schema_id"] || config[:schema_id]
