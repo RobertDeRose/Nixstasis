@@ -5,7 +5,7 @@ poll:
   interval: 30s
 
 scripts:
-  dir: "/usr/libexec/nixstasis/scripts"
+  dir: "/var/lib/nixstasis/scripts"
 
 frp:
   auth_token: ""
