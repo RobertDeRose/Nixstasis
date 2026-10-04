@@ -24,6 +24,8 @@ front matter and declared output schemas.
 - Allow scripts to be selected by path or unique name; conflicting names require path selection.
 - Support install, remove, list, test, and REPL workflows from the CLI.
 - Provide Starlark builtins including MQTT-style `pub_and_get` and deny-by-default command execution.
+- Treat configured MQTT topic entries as allowlist filters while requiring scripts to request concrete
+  publish and reply topic names without MQTT wildcards.
 - Execute heartbeat command batches and send aggregated command results back to the server.
 - Correlate command results by `command_id` and handle duplicate IDs deterministically.
 - Time out scripts and commands that exceed configured execution windows.

@@ -58,6 +58,8 @@ runtime:
     /usr/bin/stat:
       - ["-f", "-c", "%T", "/"]
   read_files: []
+  # Allowlist entries may use MQTT wildcards, but scripts must request
+  # concrete publish and reply topic names without + or #.
   mqtt_publish_topics:
     - "nixstasis/+/request"
   mqtt_subscribe_topics:
