@@ -155,6 +155,8 @@ targeting the compose `postgres` host.
   image layout.
 - `FRPS_HTTP_PORT` is an internal Compose port for Caddy wildcard proxying and is
   not published directly on the host.
+- `FRPS_TCPMUX_PORT` is internal to the Compose network and is not published on
+  the host. Phoenix connects to it directly through the `frps` service.
 - `NIXSTASIS_SSH_FRP_HOST` is the hostname Phoenix uses for browser terminal SSH
   connections to FRPS TCP mux. In Compose it should stay `frps`; outside Compose
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.

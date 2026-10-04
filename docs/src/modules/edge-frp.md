@@ -24,8 +24,9 @@
 
 ## Public Interfaces
 
-- FRPS published ports from Compose:
+- FRPS published port from Compose:
   - `${FRPS_BIND_PORT}`
+- FRPS internal TCP mux port used by Phoenix for remote SSH/PCP access:
   - `${FRPS_TCPMUX_PORT}`
 - FRPS internal HTTP vhost port used only by Caddy wildcard proxying:
   - `${FRPS_HTTP_PORT}`
@@ -88,7 +89,9 @@
   mutation begins. It resolves only the documented relative job path and
   withdraws the lease after a terminal result.
 - Server SSH terminal uses FRP TCP mux through `ncat --proxy-type http` and
-  resolves the TCP mux host from `NIXSTASIS_SSH_FRP_HOST` in Compose.
+  resolves the TCP mux host from `NIXSTASIS_SSH_FRP_HOST` in Compose. The TCP
+  mux port is not host-published in the supported Compose deployment; Phoenix
+  reaches it directly on the internal Compose network.
 - PCP diagnostic TCP mux routes are registered by the same on-demand FRPC
   session as SSH. They are not always-on; they exist only while remote access is
   requested for the device. The Device page PCP chart itself uses heartbeat

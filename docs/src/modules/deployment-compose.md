@@ -109,7 +109,9 @@
   ingress.
 - `FRPS_DASHBOARD_USER`: FRPS dashboard username.
 - `FRPS_DASHBOARD_PASSWORD`: FRPS dashboard password.
-- `FRPS_TCPMUX_PORT`: FRPS TCP mux port for TCP remote access.
+- `FRPS_TCPMUX_PORT`: internal FRPS TCP mux port for TCP remote access. The
+  supported Compose deployment does not publish this port on the host; Phoenix
+  reaches it over the internal Compose network.
 - `NIXSTASIS_SSH_FRP_HOST`: hostname the Phoenix server uses for outbound SSH
   terminal connections to FRPS TCP mux. Compose sets this to the internal
   `frps` service name; external deployments should use the reachable FRPS host.
