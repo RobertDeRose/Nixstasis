@@ -88,12 +88,12 @@ Generated device-runtime action routes:
 
 - `GET /api/json/device_runtime/devices` — operator/device-view filtered list.
 - `POST /api/json/device_runtime/devices/register` — public registration.
-- `POST /api/json/device_runtime/devices/:device_id/heartbeat` — device-key heartbeat.
-- `POST /api/json/device_runtime/devices/:device_id/command_results` — device-key result acknowledgement.
-- `GET /api/json/device_runtime/devices/:device_id/command_payloads/:ref` — device-key deferred-payload fetch.
+- `POST /api/json/device_runtime/devices/:device_id/heartbeat` — device-token heartbeat.
+- `POST /api/json/device_runtime/devices/:device_id/command_results` — device-token result acknowledgement.
+- `GET /api/json/device_runtime/devices/:device_id/command_payloads/:ref` — device-token deferred-payload fetch.
 
-Heartbeat, command-result, and payload actions use the `deviceApiKey` query
-scheme; registration is public at the application layer and list uses the
+Heartbeat, command-result, and payload actions use the `deviceBearer` HTTP bearer
+scheme and reject query-string device credentials; registration is public at the application layer and list uses the
 operator bearer/device-view boundary. The Go client remains on the compatible
 `/api/v1` wrappers.
 

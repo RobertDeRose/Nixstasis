@@ -5550,11 +5550,11 @@ components:
       description: JWT for bearer authentication
       scheme: bearer
       type: http
-    deviceApiKey:
+    deviceBearer:
+      bearerFormat: Device token
       description: Registration-issued device token for runtime operations.
-      in: query
-      name: api_key
-      type: apiKey
+      scheme: bearer
+      type: http
 info:
   title: Nixstasis JSON API
   version: 1.0.0
@@ -7928,7 +7928,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/device_runtime/devices/{device_id}/command_results:
@@ -8092,7 +8092,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/device_runtime/devices/{device_id}/heartbeat:
@@ -8371,7 +8371,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/devices:

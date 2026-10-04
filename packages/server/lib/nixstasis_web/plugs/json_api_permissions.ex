@@ -13,6 +13,7 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   import Plug.Conn
 
   alias Nixstasis.Devices
+  alias NixstasisWeb.DeviceAuthentication
   alias NixstasisWeb.OperatorContext
   alias NixstasisWeb.Permissions
   alias NixstasisWeb.Plugs.RateLimiter
@@ -184,10 +185,10 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
         runtime_error(conn, :not_found, "device_not_found", "Device not found")
 
       {:ok, device} ->
-        case Map.get(conn.query_params || %{}, "api_key") do
-          nil -> runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
-          "" -> runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
-          token -> authenticate_device_runtime(conn, device, token)
+        case DeviceAuthentication.bearer_token(conn) do
+          {:ok, token} -> authenticate_device_runtime(conn, device, token)
+          {:error, :missing_token} -> runtime_error(conn, :unauthorized, "missing_api_key", "Bearer token is required")
+          {:error, :invalid_token} -> runtime_error(conn, :unauthorized, "invalid_api_key", "Bearer token is invalid")
         end
 
       {:error, _reason} ->
@@ -213,10 +214,10 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
         runtime_error(conn, :forbidden, "device_not_approved", "Device is not approved")
 
       {:error, :invalid_token} ->
-        runtime_error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
+        runtime_error(conn, :unauthorized, "invalid_api_key", "Bearer token is invalid")
 
       {:error, :missing_token} ->
-        runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
+        runtime_error(conn, :unauthorized, "missing_api_key", "Bearer token is required")
     end
   end
 

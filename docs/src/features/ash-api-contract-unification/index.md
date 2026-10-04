@@ -29,9 +29,9 @@ replay, and payload behavior without requiring an unversioned client migration.
 - Operators can use the generated device list with the existing device filters
   and operator/device-view authorization boundary.
 - Devices can use the additive generated registration, heartbeat, command-result,
-  and payload actions with the documented `deviceApiKey` query scheme.
+  and payload actions with the documented `deviceBearer` HTTP bearer scheme.
 - Registration remains a public credential-issuance action; heartbeat,
-  command-result, and payload routes authenticate the device API key and retain
+  command-result, and payload routes authenticate the device bearer token and retain
   unknown-device, missing/invalid-key, and unapproved-device error precedence.
 - Existing `/api/v1` clients continue to receive their established JSON
   envelopes and statuses, including `201` registration, `200` heartbeat and
@@ -51,8 +51,8 @@ logic.
 
 The generated device-runtime family is deliberately separate from operator CRUD
 at `/api/json/devices`. `JsonApiPermissions` owns route-specific device lookup,
-API-key authentication, actor assignment, and operator authorization. The raw
-API key is not an Ash action argument. The compatibility transport remains the
+bearer-token authentication, actor assignment, and operator authorization. The raw
+device token is not an Ash action argument. The compatibility transport remains the
 Go client's boundary until a separately reviewed client migration.
 
 ## Operational Impact

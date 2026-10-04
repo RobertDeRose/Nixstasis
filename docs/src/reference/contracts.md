@@ -226,8 +226,8 @@ locked `nixstasis-ssh-authority` account to run the helper.
 - The device runtime generated contract is delivered under
   `/api/json/device_runtime/devices`: list, public registration, heartbeat,
   command-result acknowledgement, and deferred-payload fetch are available.
-  Route-level `deviceApiKey` query security applies to the heartbeat and command
-  actions; registration is public at the application layer and the generated
+  Route-level `deviceBearer` HTTP bearer security applies to the heartbeat and command
+  actions; query-string device credentials are rejected; registration is public at the application layer and the generated
   list uses the operator bearer boundary. The Go client remains on `/api/v1`
   until a separately reviewed migration is approved.
 - Other bespoke Phoenix controller APIs under `/api/v1` and `/e2e` are documented

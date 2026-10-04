@@ -74,7 +74,7 @@
 - `Poll`:
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
   - Sends `telemetry`, `connection_status`, the local sshd host public key as `ssh_host_key`, and optional top-level `command_inventory` evidence.
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
     `data.remote_access_profile`, `data.commands`, and
     `data.command_inventory_probe`.
@@ -96,11 +96,11 @@
 - `SendCommandResults`:
   - `POST {baseURL}/api/v1/devices/{uuid}/command_results`
   - Sends `results` array.
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` or `202`.
 - `FetchCommandPayload`:
   - `GET {baseURL}/api/v1/devices/{uuid}/command_payloads/{ref}`
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` and a `CommandPayload`.
 
 Traceable references:
