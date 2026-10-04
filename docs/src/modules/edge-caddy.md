@@ -34,11 +34,15 @@
   - `X-Token-User-Email`
   - `X-Token-User-Name`
   - `X-Token-User-Roles`
+  - `X-Token-Device-Ids` (custom injection from the authenticated `device_ids` claim)
 
 `inject headers with claims` is the source for the default `X-Token-*` claim
-headers. Production and laptop Nixstasis hosts delete client-supplied
-`X-Token-*` headers at request entry, before AuthCrunch authorization injects
-verified claims. Do not delete these headers in the operator `reverse_proxy`:
+headers. Device scope is deliberately narrower: `X-Token-Device-Ids` is the only
+supported scope header and is injected explicitly from the authenticated
+`device_ids` claim; Phoenix ignores the legacy `X-Token-Device-Id` and
+`X-Token-Allowed-Device-Ids` aliases. Production and laptop Nixstasis hosts
+delete client-supplied `X-Token-*` headers at request entry, before AuthCrunch
+authorization injects verified claims. Do not delete these headers in the operator `reverse_proxy`:
 that would also remove the legitimate injected claims. Phoenix additionally
 requires the matching Caddy-to-Phoenix proxy credential before trusting claims;
 Caddy still enforces `authorize with entra_policy` on protected browser routes.

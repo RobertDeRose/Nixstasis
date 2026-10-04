@@ -35,18 +35,14 @@ defmodule NixstasisWeb.OperatorContext do
 
   @proxy_auth_header "x-nixstasis-proxy-token"
 
-  @device_scope_headers [
-    "x-token-device-id",
-    "x-token-device-ids",
-    "x-token-allowed-device-ids"
-  ]
+  @device_scope_header "x-token-device-ids"
 
   @token_headers [
     "x-token-subject",
     "x-token-user-email",
     "x-token-user-name",
-    "x-token-user-roles"
-    | @device_scope_headers
+    "x-token-user-roles",
+    @device_scope_header
   ]
 
   @doc """
@@ -218,11 +214,10 @@ defmodule NixstasisWeb.OperatorContext do
   # Merge the supported device-scope headers. No header means unrestricted scope
   # (nil); a present but empty header means an explicit empty scope, denying rows.
   defp device_scope_from_headers(headers) do
-    if Enum.any?(@device_scope_headers, &Map.has_key?(headers, &1)) do
-      @device_scope_headers
-      |> Enum.map(&Map.get(headers, &1))
-      |> Enum.flat_map(&normalize_claim_values/1)
-      |> Enum.uniq()
+    if Map.has_key?(headers, @device_scope_header) do
+      headers
+      |> Map.get(@device_scope_header)
+      |> normalize_claim_values()
     end
   end
 
