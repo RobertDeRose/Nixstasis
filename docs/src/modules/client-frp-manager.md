@@ -81,9 +81,9 @@
   are rendered from them. Plain HTTP routes may optionally set a Host-header
   rewrite, but only to `localhost` or a loopback IP; the built-in
   `atomixos-bootstrap` profile uses `localhost` for its `127.0.0.1:8080` route.
-- FRPS auth is passed to the transient unit through a root-only environment file
-  and converted to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure
-  in `systemd-run --setenv` metadata.
+- The signed FRPS device credential is passed to the transient unit through a
+  root-only environment file and exposed to frpc as `FRPS_AUTH_TOKEN`; the FRPC
+  template sends it only as FRPS plugin metadata, not as the shared transport token.
 - If an unprivileged poll service is denied access to the system manager (as in
   the nested systemd Compose client), the manager starts a poll-owned
   `frp-session` child with the same bounded timeout and stops it when remote

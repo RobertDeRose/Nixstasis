@@ -109,8 +109,16 @@ metadata payloads.
   tests continue to cover authentication, pending/approved registration token
   behavior, heartbeat directives, command results, payloads, and status-code
   semantics.
-- `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
-- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested and the shared FRPS token exists, the response also carries the device's named, versioned `remote_access_profile` reference. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
+- `POST /api/v1/devices/register` calls `Devices.register_runtime_device/1`.
+  New devices and legacy pending devices without a stored proof receive a
+  pending enrollment proof. Re-registering a previously enrolled device
+  requires its enrollment proof or current runtime token; missing or invalid
+  proof returns `403` on both compatibility and generated registration routes
+  without changing the stored device or credentials.
+- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested, the response carries a short-lived signed FRPS credential bound to that device plus the device's named, versioned `remote_access_profile` reference. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
+- Telemetry persistence limits are checked before heartbeat side effects. An
+  over-limit payload returns `413` through the compatibility controller and
+  `400` through the generated Ash argument-validation contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.

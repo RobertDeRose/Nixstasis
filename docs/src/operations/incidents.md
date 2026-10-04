@@ -50,18 +50,18 @@ Recovery:
 2. Restart `nixstasis` and `caddy` after correcting env or Caddy config issues.
 3. Validate one known approved device hostname and one denied hostname.
 
-## FRPS Token Exposure
+## FRPS Device Credential Exposure
 
 Symptoms:
 
-- The shared FRPS token may have been logged, copied, or exposed on a managed
+- A signed FRPS device credential may have been logged, copied, or exposed on a managed
   host.
 - Unexpected FRPC clients appear in FRPS logs.
 
 Immediate response:
 
-1. Rotate `FRPS_AUTH_TOKEN` in `.env`.
-2. Restart `frps` and `nixstasis`.
+1. Rotate `SECRET_KEY_BASE` if FRPS device authorization credentials may have been exposed.
+2. Restart `nixstasis`; short-lived outstanding credentials then fail verification.
 3. Review recent remote-access activity and device heartbeat state.
 
 Recovery:

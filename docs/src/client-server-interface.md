@@ -355,7 +355,7 @@ Remote-access response:
 ```json
 {
   "data": {
-    "remote_access_token": "shared-frps-token",
+    "remote_access_token": "<signed-device-frp-credential>",
     "remote_access_profile": {
       "name": "default",
       "version": 1

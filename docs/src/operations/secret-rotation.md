@@ -45,7 +45,7 @@ authorization inputs.
 
 `NIXSTASIS_PROXY_AUTH_TOKEN` is consumed only by `caddy` and `nixstasis`. It
 authenticates the source of AuthCrunch `X-Token-*` claim headers. Generate it
-with `openssl rand -hex 32`; do not reuse `JWT_KEY`, `FRPS_AUTH_TOKEN`, or a
+with `openssl rand -hex 32`; do not reuse `JWT_KEY` or a
 Phoenix secret.
 
 1. Generate a fresh value and update `NIXSTASIS_PROXY_AUTH_TOKEN` in `.env`.
@@ -56,14 +56,11 @@ Phoenix secret.
 
 ## FRPS Secrets
 
-`FRPS_AUTH_TOKEN` is consumed by `frps` and `nixstasis`; Phoenix returns it only
-to authenticated device heartbeats while remote access is requested.
-
-1. Update `FRPS_AUTH_TOKEN` in `.env`.
-2. Restart `frps` and `nixstasis`.
-3. Expect existing FRPC sessions to reconnect with the new token after clients
-   receive the next remote-access heartbeat response.
-4. Validate a browser-launched remote-access session from `/devices/:id`.
+FRPS device credentials are signed from `SECRET_KEY_BASE` and expire quickly.
+There is no separate device-visible FRPS shared secret to rotate. If FRPS device
+credentials may have been exposed, rotate `SECRET_KEY_BASE`, restart `nixstasis`,
+and re-open only the remote-access sessions that are still required. Existing
+signed login credentials then fail verification after their short validity window.
 
 `FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are FRPS dashboard
 credentials consumed by `frps`. Caddy protects the dashboard route with

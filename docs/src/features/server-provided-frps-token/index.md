@@ -10,23 +10,23 @@
 
 ## Delivered Capability
 
-Authenticated heartbeat responses carry the FRPS token only while remote access is requested. The Go client uses token
+Authenticated heartbeat responses carry a signed, device-bound FRPS credential only while remote access is requested. The Go client uses token
 presence as the FRPC lifecycle signal and supplies the secret through the transient systemd unit credential path.
 
 ## User-Facing Behavior
 
 Remote access starts when the server returns a non-empty token and stops when the token is absent. Operators no longer
-configure the shared FRPS token in static client configuration.
+configure a deployment-wide FRPS credential in static client configuration.
 
 ## Design Integration
 
-Phoenix and FRPS receive the same deployment secret, while device API credentials remain separate. FRPC lifecycle stays
-inside the client manager and the existing client-owned template expansion model.
+Phoenix signs a short-lived device credential and FRPS validates it through the internal `Login`/`NewProxy` authorization
+plugin. FRPC lifecycle stays inside the client manager and the existing client-owned template expansion model.
 
 ## Operational Impact
 
-A missing server token prevents tunnel startup without breaking heartbeat processing. Shared-token rotation remains a
-fleet-wide operation under the current upstream FRP authentication model.
+The deployment-wide FRPS client secret has been removed. Device credentials are session-bounded and signed from
+`SECRET_KEY_BASE`; FRPS rejects credentials and proxy registrations that do not match the device identity.
 
 ## Reference and Contracts
 
@@ -37,7 +37,7 @@ fleet-wide operation under the current upstream FRP authentication model.
 ## Validation Evidence
 
 Client polling and transport tests cover token-present and token-absent behavior; server controller tests cover
-conditional response rendering; the Compose runtime-contract check verifies shared configuration.
+signed credential and cross-device proxy rejection; the Compose runtime-contract check verifies the FRPS plugin wiring.
 
 ## Design Reconciliation
 
@@ -47,15 +47,16 @@ The boolean trigger was replaced by a token-bearing contract without persisting 
 
 ### Intentional Changes
 
-Later client work derives FRP route identity from the server-assigned device UUID while retaining token semantics.
+Security hardening now derives FRP route identity from the server-assigned device UUID, uses signed per-device
+credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoenix.
 
 ### Deferred Work
 
-Per-device FRPS credentials and independent revocation remain deferred.
+Durable lease expiry and independent revocation across Phoenix restarts remain separate concerns.
 
 ### Rejected or Removed Scope
 
-The feature did not replace FRP authentication or alter browser and terminal authorization.
+Browser and terminal authorization remain separate from FRPS client authorization.
 
 ## Documentation Updated
 
