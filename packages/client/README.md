@@ -111,9 +111,11 @@ allowlist executable paths in the client runtime configuration before scripts ca
 host commands. Commands execute with no arguments unless the exact argument vector is
 listed locally under `runtime.exec_command_args` for that absolute executable path; server-delivered command
 policies cannot expand those argument capabilities. The shipped configuration no longer exposes `cat`.
-Scripts that need file-backed diagnostics must use `read_file`, which accepts only exact
-paths listed locally under `runtime.read_files`; Nixstasis state under `/etc/nixstasis`
-and `/run/nixstasis` is always denied, and each read is capped at 64 KiB.
+Each `exec_cmd` invocation captures at most 1 MiB of combined stdout and stderr; exceeding
+that limit cancels the child process and fails the script invocation. Scripts that need
+file-backed diagnostics must use `read_file`, which accepts only exact paths listed locally
+under `runtime.read_files`; Nixstasis state under `/etc/nixstasis` and `/run/nixstasis` is
+always denied, and each read is capped at 64 KiB.
 
 Runtime suite journeys:
 
