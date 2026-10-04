@@ -248,8 +248,11 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{"id":"cmd-1"}}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/devices/device-1/command_payloads/runtime-install-script":
-			if got := r.URL.Query().Get("api_key"); got != issuedToken {
-				t.Fatalf("expected payload fetch api_key %q, got %q", issuedToken, got)
+			if got := r.Header.Get("Authorization"); got != "Bearer "+issuedToken {
+				t.Fatalf("expected payload fetch bearer token %q, got %q", issuedToken, got)
+			}
+			if r.URL.RawQuery != "" {
+				t.Fatalf("device token must not appear in payload-fetch URL query: %q", r.URL.RawQuery)
 			}
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"content_type":"text/plain","name":"alpha","data":"hello"}`))

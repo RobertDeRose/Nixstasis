@@ -157,11 +157,11 @@ operator CRUD family at `/api/json/devices`:
 
 | Generated route                                                           | Ash/domain boundary                                                                                                 | Authentication                                                                          |
 |---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
-| `GET /api/json/device_runtime/devices`                                    | `:list_runtime_devices`, which adapts `Devices.list_devices/1` and returns normalized active-filter metadata.       | Operator bearer/device-view permission; this is not a device-runtime API-key operation. |
-| `POST /api/json/device_runtime/devices/register`                          | `:register_runtime_device`, which calls `Device.register` through public normalization and approved-token issuance. | No application API key; deployment-edge protection remains separate.                    |
-| `POST /api/json/device_runtime/devices/{device_id}/heartbeat`             | `:heartbeat`, delegating to `Monitoring.heartbeat/2`.                                                               | `deviceApiKey` query security.                                                          |
-| `POST /api/json/device_runtime/devices/{device_id}/command_results`       | `:acknowledge_command_results`, with `Scripts` and `CommandAllowlists` ingestion.                                   | `deviceApiKey` query security.                                                          |
-| `GET /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}` | `:fetch_command_payload`, backed by `Devices.get_command_payload/2`.                                                | `deviceApiKey` query security.                                                          |
+| `GET /api/json/device_runtime/devices`                                    | `:list_runtime_devices`, which adapts `Devices.list_devices/1` and returns normalized active-filter metadata.       | Operator bearer/device-view permission; this is not a device-runtime credential operation. |
+| `POST /api/json/device_runtime/devices/register`                          | `:register_runtime_device`, which calls `Device.register` through public normalization and approved-token issuance. | No application device credential; deployment-edge protection remains separate.                    |
+| `POST /api/json/device_runtime/devices/{device_id}/heartbeat`             | `:heartbeat`, delegating to `Monitoring.heartbeat/2`.                                                               | `deviceBearer` HTTP bearer security.                                                          |
+| `POST /api/json/device_runtime/devices/{device_id}/command_results`       | `:acknowledge_command_results`, with `Scripts` and `CommandAllowlists` ingestion.                                   | `deviceBearer` HTTP bearer security.                                                          |
+| `GET /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}` | `:fetch_command_payload`, backed by `Devices.get_command_payload/2`.                                                | `deviceBearer` HTTP bearer security.                                                          |
 
 The generated family uses the Ash JSON:API media type and an explicit OpenAPI
 schema for each action. POST action inputs are JSON:API `data` objects; the
@@ -185,23 +185,23 @@ compatibility transport with their exact `application/json` body/status/error
 behavior. Both surfaces call the same Ash/domain boundary; the Go client remains
 on `/api/v1` until a separately reviewed client migration is approved.
 
-`deviceApiKey` is the route-level generated OpenAPI security scheme:
-`type: apiKey`, `in: query`, `name: api_key`. The existing `/api/json` pipeline
+`deviceBearer` is the route-level generated OpenAPI security scheme:
+`type: http`, `scheme: bearer`, with the registration-issued device token carried only in `Authorization`. The existing `/api/json` pipeline
 must dispatch these paths explicitly before its generic `JsonApiPermissions`
 policy: `GET` list uses the existing operator bearer/device-view check,
 `POST .../register` is an application-level public exception, and the three
-runtime actions fetch the device and authenticate the query key. The permission
+runtime actions fetch the device and authenticate the bearer token. Query-string credentials are rejected. The permission
 boundary sets the authenticated device with `Ash.PlugHelpers.set_actor/2` (and
-context when needed) before forwarding to `AshJsonApiRouter`; the raw key is never
+context when needed) before forwarding to `AshJsonApiRouter`; the raw token is never
 an action argument. It must preserve error precedence: unknown device `404`,
-missing/invalid key `401`, and unapproved device `403`. `security: []` in generated
+missing/invalid bearer token `401`, and unapproved device `403`. `security: []` in generated
 OpenAPI documents the registration exception; it does not bypass the Plug. The
 `/api/v1` controllers retain the same lookup and error precedence during the
 transition.
 
 **Implementation handoff delivered:** `.7.40` implemented the explicit
 `device_runtime` dispatch in the existing JSON API pipeline, including the public
-registration exception, operator list policy, device lookup/API-key validation,
+registration exception, operator list policy, device lookup/bearer-token validation,
 `Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests for `404`/`401`/`403`
 precedence. `.7.41` delivered the generated heartbeat orchestration action,
 200 response, heartbeat-rate-limit classification, and OpenAPI/runtime coverage.
@@ -241,8 +241,9 @@ authenticated device runtime actions consume the separate per-device quotas:
   filter values are normalized before being echoed. The route has no mutation
   side effects and returns `429` when either pre-authentication limit is exceeded.
 - **Registration — `POST /api/v1/devices/register`:** the current `:api`
-  pipeline has no device API-key requirement and uses only the pre-authentication
-  origin-and-route limit and global flood ceiling, without a device quota.
+  pipeline has no device bearer-token requirement and uses only the
+  pre-authentication origin-and-route limit and global flood ceiling, without a
+  device quota.
   `schema_definition` is copied to `schema`; `schema` is the legacy alias; public
   registration requires a schema with `product`; and `ipv4_address` may be taken
   from either the direct field or `metadata.ip_address`. Registration is keyed by
@@ -257,10 +258,11 @@ authenticated device runtime actions consume the separate per-device quotas:
   Invalid schema or required new credentials are `422`, invalid proof is `403`,
   and exceeding either pre-authentication limit is `429`.
 - **Heartbeat — `POST /api/v1/devices/:device_id/heartbeat`:** the controller
-  fetches the device before authenticating `api_key`; approved devices require a
-  secure token match. After successful device authentication, the route is limited
-  to 30 requests per 60 seconds per device, in addition to the pre-authentication
-  limits. A successful `200` response contains `data.commands` and may contain the
+  fetches the device before authenticating the `Authorization` bearer token;
+  approved devices require a secure token match. After successful device
+  authentication, the route is limited to 30 requests per 60 seconds per device,
+  in addition to the pre-authentication limits. A successful `200` response
+  contains `data.commands` and may contain the
   server-owned `command_inventory_probe` and the FRPS `remote_access_token`.
   Telemetry is sanitized so top-level and nested `command_inventory` do not enter
   the telemetry event; inventory is persisted separately and malformed inventory
@@ -283,10 +285,10 @@ authenticated device runtime actions consume the separate per-device quotas:
   the route has a separate 120-requests-per-60-seconds per-device command-result
   quota. Exceeding that quota or either pre-authentication limit returns `429`.
 - **Deferred payload — `GET /api/v1/devices/:device_id/command_payloads/:ref`:**
-  lookup and API-key authentication use the same precedence. After successful
-  device authentication, a separate command-payload quota allows 120 requests per
-  60 seconds per device, in addition to the pre-authentication limits. Success is
-  `200` with the raw `{content_type, name, data}` payload;
+  lookup and bearer-token authentication use the same precedence. After
+  successful device authentication, a separate command-payload quota allows 120
+  requests per 60 seconds per device, in addition to the pre-authentication
+  limits. Success is `200` with the raw `{content_type, name, data}` payload;
   missing device or payload is `404`, missing/invalid key is `401`, and an
   unapproved device is `403`. Fetching a payload has no command acknowledgement
   side effect; rate limiting returns `429`.

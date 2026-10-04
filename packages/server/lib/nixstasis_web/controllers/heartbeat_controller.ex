@@ -3,6 +3,7 @@ defmodule NixstasisWeb.HeartbeatController do
 
   alias Nixstasis.Devices
   alias Nixstasis.Monitoring
+  alias NixstasisWeb.DeviceAuthentication
   alias NixstasisWeb.Plugs.RateLimiter
 
   def create(conn, %{"device_id" => device_id} = params) do
@@ -30,8 +31,8 @@ defmodule NixstasisWeb.HeartbeatController do
       end
     else
       {:error, :not_found} -> error(conn, :not_found, "device_not_found", "Device not found")
-      {:error, :missing_token} -> error(conn, :unauthorized, "missing_api_key", "API key is required")
-      {:error, :invalid_token} -> error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
+      {:error, :missing_token} -> error(conn, :unauthorized, "missing_api_key", "Bearer token is required")
+      {:error, :invalid_token} -> error(conn, :unauthorized, "invalid_api_key", "Bearer token is invalid")
       {:error, :device_not_approved} -> error(conn, :forbidden, "device_not_approved", "Device is not approved")
       :limited -> RateLimiter.reject(conn)
     end
@@ -45,16 +46,7 @@ defmodule NixstasisWeb.HeartbeatController do
     end
   end
 
-  defp authenticate(conn, device) do
-    conn
-    |> Map.get(:query_params, %{})
-    |> Map.get("api_key")
-    |> case do
-      nil -> {:error, :missing_token}
-      "" -> {:error, :missing_token}
-      token -> Devices.authenticate_device(device, token)
-    end
-  end
+  defp authenticate(conn, device), do: DeviceAuthentication.authenticate(conn, device)
 
   defp error(conn, status, code, message) do
     conn

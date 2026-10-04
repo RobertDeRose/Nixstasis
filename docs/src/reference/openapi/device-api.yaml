@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes have additive Ash-backed counterparts under /api/json/device_runtime/devices. The compatibility surface preserves Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration has no application device key, while list requires verified operator authentication and applies the operator device scope. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
+  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes have additive Ash-backed counterparts under /api/json/device_runtime/devices. The compatibility surface preserves Go-client token, authentication, status-code, and response-shape behavior. The deviceBearer HTTP bearer scheme applies to heartbeat and command operations; registration has no application device credential, while list requires verified operator authentication and applies the operator device scope. Query-string device credentials are not accepted. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
 paths:
   /api/v1/devices:
     get:
@@ -167,10 +167,10 @@ paths:
   /api/v1/devices/{id}/heartbeat:
     post:
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       summary: Submit device heartbeat and telemetry
       description: >-
-        Current compatibility controller contract with an additive generated heartbeat action. Preserve api_key
+        Current compatibility controller contract with an additive generated heartbeat action. Preserve device bearer
         authentication, device approval checks, telemetry ingestion, remote-access token behavior, and command
         polling through Go-client compatibility tests. Normalized persisted telemetry is limited to 65,536 encoded
         bytes, depth 8, 512 total keys, 128 keys per object, 128 bytes per key, 256 array items, and 16,384 bytes
@@ -182,12 +182,6 @@ paths:
           schema:
             type: string
             format: uuid
-        - in: query
-          name: api_key
-          required: true
-          schema:
-            type: string
-          description: Device runtime token issued after approval.
       requestBody:
         required: true
         content:
@@ -266,7 +260,7 @@ paths:
                         additionalProperties: true
                         description: Optional server-owned probe manifest describing requested package and command evidence.
         "401":
-          description: Missing or invalid API key
+          description: Missing or invalid device bearer token
         "403":
           description: Device is not approved
         "404":
@@ -280,9 +274,9 @@ paths:
   /api/v1/devices/{id}/command_results:
     post:
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       summary: Submit command execution results
-      description: Current compatibility controller contract with an additive generated command-result action. Preserve api_key authentication, replay/duplicate command handling, acknowledged_count shape, malformed-results status, and rate-limit behavior through compatibility tests.
+      description: Current compatibility controller contract with an additive generated command-result action. Preserve device bearer authentication, replay/duplicate command handling, acknowledged_count shape, malformed-results status, and rate-limit behavior through compatibility tests.
       parameters:
         - in: path
           name: id
@@ -290,11 +284,6 @@ paths:
           schema:
             type: string
             format: uuid
-        - in: query
-          name: api_key
-          required: true
-          schema:
-            type: string
       requestBody:
         required: true
         content:
@@ -323,7 +312,7 @@ paths:
         "400":
           description: Missing or malformed results list
         "401":
-          description: Missing or invalid API key
+          description: Missing or invalid device bearer token
         "403":
           description: Device is not approved
         "404":
@@ -333,9 +322,9 @@ paths:
   /api/v1/devices/{id}/command_payloads/{ref}:
     get:
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       summary: Fetch deferred command payload
-      description: Current compatibility controller contract with an additive generated payload-fetch action. Preserve api_key authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
+      description: Current compatibility controller contract with an additive generated payload-fetch action. Preserve device bearer authentication, payload lookup, payload shape, and 404 behavior through compatibility tests.
       parameters:
         - in: path
           name: id
@@ -348,11 +337,6 @@ paths:
           required: true
           schema:
             type: string
-        - in: query
-          name: api_key
-          required: true
-          schema:
-            type: string
       responses:
         "200":
           description: Command payload
@@ -361,7 +345,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CommandPayload"
         "401":
-          description: Missing or invalid API key
+          description: Missing or invalid device bearer token
         "403":
           description: Device is not approved
         "404":
@@ -491,11 +475,11 @@ components:
       type: http
       scheme: bearer
       description: Trusted operator bearer claims admitted by the Caddy/AuthCrunch edge.
-    deviceApiKey:
-      type: apiKey
-      in: query
-      name: api_key
-      description: Registration-issued device token used by runtime heartbeat and command operations.
+    deviceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Device token
+      description: Registration-issued device token used in the Authorization header by runtime heartbeat and command operations. Query-string credentials are rejected.
   schemas:
     CommandRequest:
       type: object
