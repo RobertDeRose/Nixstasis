@@ -30,7 +30,7 @@ defmodule Nixstasis.Devices do
 
   @impl true
   def init(:remote_access_leases) do
-    {:ok, %{leases: %{}, device_refs: %{}}}
+    {:ok, %{leases: %{}, device_refs: %{}}, {:continue, :restore_remote_access_leases}}
   end
 
   def start_link(:remote_access_leases) do
@@ -38,15 +38,27 @@ defmodule Nixstasis.Devices do
   end
 
   @impl true
-  def handle_call({:open_remote_access_lease, device_id, owner, ttl_ms}, _from, state) do
+  def handle_continue(:restore_remote_access_leases, state) do
+    {:noreply, restore_remote_access_leases(state)}
+  end
+
+  @impl true
+  def handle_call({:open_remote_access_lease, device_id, owner, expires_at, audit_owner}, _from, state) do
     lease_ref = Ecto.UUID.generate()
-    timer = Process.send_after(self(), {:remote_access_lease_expired, lease_ref}, ttl_ms)
+    timer = schedule_remote_access_expiry(lease_ref, expires_at)
     monitor = monitor_remote_access_owner(owner)
 
-    lease = %{device_id: device_id, owner: owner, timer: timer, monitor: monitor}
+    lease = %{
+      device_id: device_id,
+      owner: owner,
+      audit_owner: audit_owner,
+      expires_at: expires_at,
+      timer: timer,
+      monitor: monitor
+    }
 
     state = put_remote_access_lease(state, lease_ref, lease)
-    {:reply, lease_ref, state}
+    {:reply, {lease_ref, remote_access_authorization(state, device_id)}, state}
   end
 
   def handle_call({:close_remote_access_lease, lease_ref}, _from, state) do
@@ -60,14 +72,18 @@ defmodule Nixstasis.Devices do
       |> Enum.filter(fn {_lease_ref, lease} -> lease.owner == owner end)
       |> Enum.map(fn {lease_ref, _lease} -> lease_ref end)
 
-    {replies, state} =
-      Enum.reduce(lease_refs, {[], state}, fn lease_ref, {replies, state} ->
+    {device_ids, state} =
+      Enum.reduce(lease_refs, {MapSet.new(), state}, fn lease_ref, {device_ids, state} ->
         case pop_remote_access_lease(state, lease_ref) do
-          {{:ok, device_id, _owner, clear_device?}, state} -> {[{device_id, clear_device?} | replies], state}
-          {:ok, state} -> {replies, state}
+          {{:ok, device_id, _owner, _authorization}, state} ->
+            {MapSet.put(device_ids, device_id), state}
+
+          {:ok, state} ->
+            {device_ids, state}
         end
       end)
 
+    replies = Enum.map(device_ids, &{&1, remote_access_authorization(state, &1)})
     {:reply, replies, state}
   end
 
@@ -82,13 +98,9 @@ defmodule Nixstasis.Devices do
   @impl true
   def handle_info({:remote_access_lease_expired, lease_ref}, state) do
     case pop_remote_access_lease(state, lease_ref) do
-      {{:ok, device_id, owner, clear_device?}, state} ->
-        send(owner, {:remote_access_lease_expired, lease_ref})
-
-        if clear_device? do
-          clear_remote_access_device(device_id)
-        end
-
+      {{:ok, device_id, owner, authorization}, state} ->
+        notify_remote_access_owner(owner, lease_ref)
+        reconcile_remote_access_device(device_id, authorization)
         {:noreply, state}
 
       {:ok, state} ->
@@ -105,8 +117,8 @@ defmodule Nixstasis.Devices do
 
   defp handle_remote_access_owner_down(state, lease_ref, device_id) do
     case pop_remote_access_lease(state, lease_ref) do
-      {{:ok, ^device_id, _owner, clear_device?}, state} ->
-        if clear_device?, do: clear_remote_access_device(device_id)
+      {{:ok, ^device_id, _owner, authorization}, state} ->
+        reconcile_remote_access_device(device_id, authorization)
         {:noreply, state}
 
       {:ok, state} ->
@@ -717,15 +729,22 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
-  Check if a device is requesting remote access by MAC address.
+  Check if a device has an unexpired remote-access authorization by MAC address.
   """
   def requesting_remote_access?(mac) do
     case Domain.get_device_by_mac(mac) do
       {:ok, nil} -> false
-      {:ok, device} -> device.remote_access_requested
+      {:ok, device} -> remote_access_active?(device)
       {:error, _} -> false
     end
   end
+
+  @doc false
+  def remote_access_active?(%{remote_access_requested: true, remote_access_expires_at: %DateTime{} = expires_at}) do
+    DateTime.compare(expires_at, DateTime.utc_now()) == :gt
+  end
+
+  def remote_access_active?(_device), do: false
 
   @doc """
   Normalizes approval status filters to known status atoms.
@@ -1049,22 +1068,17 @@ defmodule Nixstasis.Devices do
   end
 
   @doc """
-  Sets the remote_access_requested flag and optionally selects a named profile.
+  Sets the remote-access state and optionally selects a named profile.
 
-  The profile is a reference only. Route definitions remain client-owned and
-  are never accepted from or returned by the server.
+  Direct callers that enable access receive the same one-hour absolute expiry as
+  a normal lease. Lease-managed callers persist their exact aggregate expiry via
+  `open_remote_access_lease/2`.
   """
   def set_remote_access(%Device{} = device, requested?, profile \\ nil) do
     with {:ok, normalized_profile} <-
-           normalize_remote_access_profile(profile || device.remote_access_profile),
-         attrs <-
-           if(is_nil(profile),
-             do: %{remote_access_requested: requested?},
-             else: %{remote_access_requested: requested?, remote_access_profile: normalized_profile}
-           ),
-         {:ok, updated} <- Domain.update_device(device, attrs) do
-      broadcast_device(:device_remote_access_changed, updated)
-      {:ok, updated}
+           normalize_remote_access_profile(profile || device.remote_access_profile) do
+      expires_at = if requested?, do: remote_access_expiry(@remote_access_lease_ttl_ms)
+      persist_remote_access_state(device, requested?, normalized_profile, expires_at, nil)
     end
   end
 
@@ -1101,27 +1115,42 @@ defmodule Nixstasis.Devices do
   def normalize_remote_access_profile(_profile), do: {:error, :invalid_remote_access_profile}
 
   @doc """
-  Opens a leased remote-access session and marks the device as requesting access.
+  Opens a leased remote-access session and persists its absolute expiry.
   """
   def open_remote_access_lease(%Device{} = device, opts \\ []) do
     ensure_remote_access_leases_manager!()
     owner = Keyword.get(opts, :owner, self())
+    audit_owner = normalize_remote_access_audit_owner(Keyword.get(opts, :audit_owner))
     ttl_ms = Keyword.get(opts, :ttl_ms, @remote_access_lease_ttl_ms)
     profile = Keyword.get(opts, :profile)
-    lease_ref = GenServer.call(@remote_access_leases_name, {:open_remote_access_lease, device.id, owner, ttl_ms})
 
-    case set_remote_access(device, true, profile) do
-      {:ok, updated} ->
-        {:ok, updated, lease_ref}
+    with true <- is_integer(ttl_ms) and ttl_ms > 0,
+         {:ok, normalized_profile} <- normalize_remote_access_profile(profile || device.remote_access_profile) do
+      expires_at = remote_access_expiry(ttl_ms)
 
-      {:error, _reason} = error ->
-        close_remote_access_lease(lease_ref)
-        error
+      {lease_ref, authorization} =
+        GenServer.call(
+          @remote_access_leases_name,
+          {:open_remote_access_lease, device.id, owner, expires_at, audit_owner}
+        )
+
+      case persist_remote_access_authorization(device, normalized_profile, authorization) do
+        {:ok, updated} ->
+          {:ok, updated, lease_ref}
+
+        {:error, _reason} = error ->
+          close_remote_access_lease(lease_ref)
+          error
+      end
+    else
+      false -> {:error, :invalid_remote_access_lease_ttl}
+      {:error, _reason} = error -> error
     end
   end
 
   @doc """
-  Closes a remote-access lease and clears access when no leases remain.
+  Closes a remote-access lease and reconciles the durable authorization to the
+  remaining lease with the latest absolute expiry.
   """
   def close_remote_access_lease(nil), do: :ok
 
@@ -1129,8 +1158,7 @@ defmodule Nixstasis.Devices do
     ensure_remote_access_leases_manager!()
 
     case GenServer.call(@remote_access_leases_name, {:close_remote_access_lease, lease_ref}) do
-      {:ok, device_id, _owner, true} -> clear_remote_access_device(device_id)
-      {:ok, _device_id, _owner, false} -> :ok
+      {:ok, device_id, _owner, authorization} -> reconcile_remote_access_device(device_id, authorization)
       :ok -> :ok
     end
   end
@@ -1145,10 +1173,8 @@ defmodule Nixstasis.Devices do
 
     @remote_access_leases_name
     |> GenServer.call({:close_remote_access_leases_for, owner})
-    |> Enum.each(fn {device_id, clear_device?} ->
-      if clear_device? do
-        clear_remote_access_device(device_id)
-      end
+    |> Enum.each(fn {device_id, authorization} ->
+      reconcile_remote_access_device(device_id, authorization)
     end)
 
     :ok
@@ -1179,8 +1205,7 @@ defmodule Nixstasis.Devices do
     ensure_remote_access_leases_manager!()
 
     case GenServer.call(@remote_access_leases_name, {:close_remote_access_lease, lease_ref}) do
-      {:ok, device_id, _owner, true} -> clear_remote_access_device(device_id)
-      {:ok, _device_id, _owner, false} -> :ok
+      {:ok, device_id, _owner, authorization} -> reconcile_remote_access_device(device_id, authorization)
       :ok -> :ok
     end
   end
@@ -1524,6 +1549,41 @@ defmodule Nixstasis.Devices do
     end
   end
 
+  defp restore_remote_access_leases(state) do
+    from(device in "devices",
+      where: device.remote_access_requested == true,
+      select: %{
+        id: type(device.id, Ecto.UUID),
+        expires_at: type(device.remote_access_expires_at, :utc_datetime_usec),
+        audit_owner: device.remote_access_owner
+      }
+    )
+    |> Repo.all()
+    |> Enum.reduce(state, fn persisted, state ->
+      if remote_access_expiry_active?(persisted.expires_at) do
+        lease_ref = Ecto.UUID.generate()
+
+        lease = %{
+          device_id: persisted.id,
+          owner: nil,
+          audit_owner: persisted.audit_owner,
+          expires_at: persisted.expires_at,
+          timer: schedule_remote_access_expiry(lease_ref, persisted.expires_at),
+          monitor: nil
+        }
+
+        put_remote_access_lease(state, lease_ref, lease)
+      else
+        clear_remote_access_device(persisted.id)
+        state
+      end
+    end)
+  rescue
+    error ->
+      Logger.error("Failed to restore remote-access leases: #{Exception.message(error)}")
+      reraise error, __STACKTRACE__
+  end
+
   defp put_remote_access_lease(state, lease_ref, lease) do
     device_refs = Map.update(state.device_refs, lease.device_id, MapSet.new([lease_ref]), &MapSet.put(&1, lease_ref))
     leases = Map.put(state.leases, lease_ref, lease)
@@ -1539,9 +1599,11 @@ defmodule Nixstasis.Devices do
         Process.cancel_timer(timer)
         demonitor_remote_access_owner(monitor)
 
-        {device_refs, clear_device?} = delete_remote_access_device_ref(state.device_refs, device_id, lease_ref)
+        device_refs = delete_remote_access_device_ref(state.device_refs, device_id, lease_ref)
+        state = %{state | leases: leases, device_refs: device_refs}
+        authorization = remote_access_authorization(state, device_id)
 
-        {{:ok, device_id, owner, clear_device?}, %{state | leases: leases, device_refs: device_refs}}
+        {{:ok, device_id, owner, authorization}, state}
     end
   end
 
@@ -1552,9 +1614,22 @@ defmodule Nixstasis.Devices do
       |> MapSet.delete(lease_ref)
 
     if MapSet.size(refs) == 0 do
-      {Map.delete(device_refs, device_id), true}
+      Map.delete(device_refs, device_id)
     else
-      {Map.put(device_refs, device_id, refs), false}
+      Map.put(device_refs, device_id, refs)
+    end
+  end
+
+  defp remote_access_authorization(state, device_id) do
+    state.device_refs
+    |> Map.get(device_id, MapSet.new())
+    |> Enum.map(&Map.get(state.leases, &1))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(&remote_access_expiry_active?(&1.expires_at))
+    |> Enum.max_by(&DateTime.to_unix(&1.expires_at, :microsecond), fn -> nil end)
+    |> case do
+      nil -> nil
+      lease -> %{expires_at: lease.expires_at, audit_owner: lease.audit_owner}
     end
   end
 
@@ -1568,11 +1643,98 @@ defmodule Nixstasis.Devices do
   defp demonitor_remote_access_owner(nil), do: false
   defp demonitor_remote_access_owner(monitor), do: Process.demonitor(monitor, [:flush])
 
-  defp clear_remote_access_device(device_id) do
-    device_id
-    |> get_device!()
-    |> set_remote_access(false)
+  defp notify_remote_access_owner(owner, lease_ref) when is_pid(owner) do
+    send(owner, {:remote_access_lease_expired, lease_ref})
+  end
 
+  defp notify_remote_access_owner(_owner, _lease_ref), do: :ok
+
+  defp schedule_remote_access_expiry(lease_ref, %DateTime{} = expires_at) do
+    delay_ms = max(DateTime.diff(expires_at, DateTime.utc_now(), :millisecond), 1)
+    Process.send_after(self(), {:remote_access_lease_expired, lease_ref}, delay_ms)
+  end
+
+  defp remote_access_expiry(ttl_ms) do
+    DateTime.add(DateTime.utc_now(), ttl_ms, :millisecond)
+  end
+
+  defp remote_access_expiry_active?(%DateTime{} = expires_at) do
+    DateTime.compare(expires_at, DateTime.utc_now()) == :gt
+  end
+
+  defp remote_access_expiry_active?(_expires_at), do: false
+
+  defp normalize_remote_access_audit_owner(owner) when is_binary(owner) do
+    case String.trim(owner) do
+      "" -> nil
+      owner -> String.slice(owner, 0, 255)
+    end
+  end
+
+  defp normalize_remote_access_audit_owner(_owner), do: nil
+
+  defp persist_remote_access_authorization(device, profile, %{expires_at: expires_at, audit_owner: audit_owner}) do
+    persist_remote_access_state(device, true, profile, expires_at, audit_owner)
+  end
+
+  defp reconcile_remote_access_device(device_id, authorization) do
+    device = get_device!(device_id)
+
+    case authorization do
+      %{expires_at: expires_at, audit_owner: audit_owner} when is_struct(expires_at, DateTime) ->
+        if remote_access_expiry_active?(expires_at) do
+          persist_remote_access_state(device, true, device.remote_access_profile, expires_at, audit_owner)
+        else
+          persist_remote_access_state(device, false, device.remote_access_profile, nil, nil)
+        end
+
+      _ ->
+        persist_remote_access_state(device, false, device.remote_access_profile, nil, nil)
+    end
+
+    :ok
+  rescue
+    error ->
+      Logger.warning("Failed to reconcile remote access for #{device_id}: #{Exception.message(error)}")
+      :ok
+  catch
+    :exit, {{:shutdown, "owner " <> _}, {DBConnection.Holder, :checkout, _}} ->
+      :ok
+
+    :exit, reason ->
+      Logger.warning("Failed to reconcile remote access for #{device_id}: #{inspect(reason)}")
+      :ok
+  end
+
+  defp persist_remote_access_state(device, requested?, profile, expires_at, audit_owner) do
+    now = DateTime.utc_now()
+
+    {count, _} =
+      Repo.update_all(
+        from(current in Device, where: current.id == ^device.id),
+        set: [
+          remote_access_requested: requested?,
+          remote_access_profile: profile,
+          remote_access_expires_at: expires_at,
+          remote_access_owner: audit_owner,
+          updated_at: now
+        ]
+      )
+
+    if count == 1 do
+      updated = get_device!(device.id)
+      broadcast_device(:device_remote_access_changed, updated)
+      {:ok, updated}
+    else
+      {:error, :not_found}
+    end
+  rescue
+    error -> {:error, error}
+  end
+
+  defp clear_remote_access_device(device_id) do
+    device = get_device!(device_id)
+    persist_remote_access_state(device, false, device.remote_access_profile, nil, nil)
     :ok
   rescue
     error ->

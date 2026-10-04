@@ -182,8 +182,12 @@ sequenceDiagram
 
 1. Browser opens `/devices/:id`.
 2. `DeviceLive.Show.handle_params/3` loads device.
-3. If device is online, `setup_device_view/3` sets `remote_access_requested` to true when not already requested.
-4. Next client heartbeat receives a non-empty `remote_access_token` and an
+3. If device is online, `setup_device_view/3` opens a bounded remote-access lease.
+   Phoenix persists the absolute expiry and initiating operator identity with the
+   requested state so a restart cannot discard the original timeout.
+4. Next client heartbeat receives a non-empty `remote_access_token` only while the
+   persisted lease expiry remains in the future. The signed token carries that same
+   absolute expiry, plus an
    optional named, versioned `remote_access_profile` reference.
 5. Client resolves the reference against its local typed profile definitions;
    token-only legacy responses select `default`, while invalid references fail
@@ -192,7 +196,10 @@ sequenceDiagram
    only validated loopback routes and using the heartbeat-provided token.
 7. FRPC connects to FRPS with the rendered configuration and heartbeat token.
 8. Caddy wildcard host routes `*.{$BASE_DOMAIN}` to FRPS HTTP vhost port.
-9. When LiveView terminates, `DeviceLive.Show.terminate/2` sets `remote_access_requested` to false.
+9. When LiveView terminates, its lease is closed; Phoenix clears requested access
+   when no other lease remains. After a Phoenix restart, unexpired persisted leases
+   are restored only until their original absolute expiry; missing or expired expiry
+   state is cleared fail-closed.
 10. Next client heartbeat omits `remote_access_token`, so the client can stop FRPC.
 
 Traceable references:

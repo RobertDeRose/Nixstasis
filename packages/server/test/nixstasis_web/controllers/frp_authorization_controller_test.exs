@@ -92,6 +92,7 @@ defmodule NixstasisWeb.FrpAuthorizationControllerTest do
     FrpsToken.for_heartbeat(%{
       id: device_id,
       remote_access_requested: true,
+      remote_access_expires_at: DateTime.add(DateTime.utc_now(), 60, :second),
       remote_access_profile: "default"
     })
   end

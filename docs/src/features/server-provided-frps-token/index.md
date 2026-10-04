@@ -52,7 +52,10 @@ credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoen
 
 ### Deferred Work
 
-Durable lease expiry and independent revocation across Phoenix restarts remain separate concerns.
+Remote-access lease expiry is durable: Phoenix persists an absolute expiry and audit
+owner, restores only unexpired leases after restart, refuses to mint FRPS
+credentials after that persisted expiry, and embeds the same expiry in each signed
+FRPS credential.
 
 ### Rejected or Removed Scope
 
