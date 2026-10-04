@@ -102,7 +102,12 @@ same Nixstasis role contract.
   and preservation of WebSocket upgrade headers; they do not exercise TLS,
   OIDC login, or a full WebSocket handshake. See the
   [Compose validation commands](deployment-compose.md#contract-validation).
-- Wildcard device traffic is routed to FRPS HTTP vhost port.
+- Wildcard device traffic is authenticated by AuthCrunch, then Caddy calls the
+  internal Phoenix FRP access endpoint before routing to the FRPS HTTP vhost
+  port. Phoenix requires remote-access capability for the device ID encoded in
+  the requested FRP hostname. Caddy forwards no device scope; Phoenix applies
+  only its own device grants (see the operator scope contract in
+  [Contracts](../reference/contracts.md)).
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
   Device hosts use the normalized device UUID, with an optional route suffix such
