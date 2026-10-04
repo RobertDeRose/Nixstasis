@@ -117,6 +117,32 @@ defmodule NixstasisWeb.PermissionsTest do
     refute Permissions.can_manage_command_policy_for_device?(%{}, "device-a")
   end
 
+  test "builds a validated Ash actor for device-backed reads" do
+    allowed_id = Ecto.UUID.generate()
+
+    assert {:ok, actor} =
+             Permissions.device_data_actor(%{
+               "device_permissions" => %{
+                 "can_view" => true,
+                 "device_ids" => [allowed_id]
+               }
+             })
+
+    assert actor == %{
+             can_view_device_data: true,
+             unscoped_device_access: false,
+             authorized_device_ids: [allowed_id]
+           }
+
+    assert {:error, :forbidden} =
+             Permissions.device_data_actor(%{"device_permissions" => %{"can_view" => false}})
+
+    assert {:error, :invalid_device_scope} =
+             Permissions.device_data_actor(%{
+               "device_permissions" => %{"can_view" => true, "device_ids" => ["not-a-uuid"]}
+             })
+  end
+
   test "builds trusted group authorization from operator context and device permissions" do
     first_id = Ecto.UUID.generate()
     second_id = Ecto.UUID.generate()

@@ -108,38 +108,16 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   end
 
   defp operator_actor(context) when is_map(context) do
-    device_permissions = Map.get(context, "device_permissions", %{})
     alert_permissions = Map.get(context, "alert_permissions", %{})
 
-    with {:ok, authorized_device_ids} <-
-           validated_device_scope(Permissions.authorized_device_ids(device_permissions)) do
+    with {:ok, actor} <- Permissions.device_data_actor(context) do
       {:ok,
-       %{
-         can_view_device_data: Permissions.can_view_device_details?(device_permissions),
-         unscoped_device_access: is_nil(authorized_device_ids),
-         authorized_device_ids: authorized_device_ids || [],
+       Map.merge(actor, %{
          can_view_alert_rules: alert_permissions["can_view"] == true,
          can_manage_alert_rules: alert_permissions["can_manage"] == true
-       }}
+       })}
     end
   end
-
-  defp validated_device_scope(nil), do: {:ok, nil}
-
-  defp validated_device_scope(%MapSet{} = ids) do
-    Enum.reduce_while(ids, {:ok, []}, fn id, {:ok, valid_ids} ->
-      case Ecto.UUID.cast(id) do
-        {:ok, valid_id} -> {:cont, {:ok, [valid_id | valid_ids]}}
-        :error -> {:halt, {:error, :invalid_device_scope}}
-      end
-    end)
-    |> case do
-      {:ok, valid_ids} -> {:ok, Enum.reverse(valid_ids)}
-      error -> error
-    end
-  end
-
-  defp validated_device_scope(_ids), do: {:error, :invalid_device_scope}
 
   defp permitted?(nil, _policy), do: false
 

@@ -93,6 +93,26 @@ defmodule NixstasisWeb.Permissions do
 
   def authorized_device_ids(_permissions), do: nil
 
+  @doc "Builds the Ash actor used for device-backed operator reads."
+  def device_data_actor(context) when is_map(context) do
+    permissions = Map.get(context, "device_permissions", %{})
+
+    with true <- can_view_device_details?(permissions),
+         {:ok, authorized_device_ids} <- validate_device_data_scope(authorized_device_ids(permissions)) do
+      {:ok,
+       %{
+         can_view_device_data: true,
+         unscoped_device_access: is_nil(authorized_device_ids),
+         authorized_device_ids: authorized_device_ids || []
+       }}
+    else
+      false -> {:error, :forbidden}
+      {:error, :invalid_device_scope} = error -> error
+    end
+  end
+
+  def device_data_actor(_context), do: {:error, :forbidden}
+
   def authorized_report_device_ids(session) when is_map(session) do
     permissions = device_permissions(session)
 
@@ -176,6 +196,23 @@ defmodule NixstasisWeb.Permissions do
   end
 
   def can_assign_command_policy_to_device?(_session, _device), do: false
+
+  defp validate_device_data_scope(nil), do: {:ok, nil}
+
+  defp validate_device_data_scope(%MapSet{} = ids) do
+    Enum.reduce_while(ids, {:ok, []}, fn id, {:ok, valid_ids} ->
+      case Ecto.UUID.cast(id) do
+        {:ok, valid_id} -> {:cont, {:ok, [valid_id | valid_ids]}}
+        :error -> {:halt, {:error, :invalid_device_scope}}
+      end
+    end)
+    |> case do
+      {:ok, valid_ids} -> {:ok, Enum.reverse(valid_ids)}
+      error -> error
+    end
+  end
+
+  defp validate_device_data_scope(_ids), do: {:error, :invalid_device_scope}
 
   defp validate_group_device_scope(nil), do: {:ok, nil}
 
