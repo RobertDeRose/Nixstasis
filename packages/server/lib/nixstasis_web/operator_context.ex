@@ -2,8 +2,8 @@ defmodule NixstasisWeb.OperatorContext do
   @moduledoc """
   Parses Caddy/AuthCrunch forwarded operator claims into application permissions.
 
-  Caddy remains the production authorization edge. This module only maps trusted
-  forwarded claims into LiveView capability maps after Caddy admits a request.
+  Caddy remains the production authorization edge. This module maps forwarded
+  claims only after validating the dedicated Caddy-to-Phoenix proxy credential.
   """
 
   @role_capabilities %{
@@ -27,6 +27,8 @@ defmodule NixstasisWeb.OperatorContext do
     }
   }
 
+  @proxy_auth_header "x-nixstasis-proxy-token"
+
   @token_headers [
     "x-token-subject",
     "x-token-user-email",
@@ -40,10 +42,10 @@ defmodule NixstasisWeb.OperatorContext do
   def from_conn(conn) do
     headers = Map.new(conn.req_headers)
 
-    if token_claim_path?(headers) do
-      from_headers(headers)
-    else
-      fallback_context()
+    cond do
+      token_claim_path?(headers) and trusted_proxy?(headers) -> from_trusted_headers(headers)
+      token_claim_path?(headers) -> :error
+      true -> fallback_context()
     end
   end
 
@@ -55,7 +57,7 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
-  def from_headers(headers) when is_map(headers) do
+  defp from_trusted_headers(headers) when is_map(headers) do
     roles = headers |> Map.get("x-token-user-roles") |> normalize_claim_values()
 
     device_ids = device_scope_from_headers(headers)
@@ -79,8 +81,6 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
-  def from_headers(_headers), do: :error
-
   def local_development_permissions do
     %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
@@ -102,6 +102,21 @@ defmodule NixstasisWeb.OperatorContext do
   defp token_claim_path?(headers) do
     Enum.any?(@token_headers, &Map.has_key?(headers, &1))
   end
+
+  defp trusted_proxy?(headers) do
+    expected = Application.get_env(:nixstasis, :proxy_auth_token)
+    provided = Map.get(headers, @proxy_auth_header)
+
+    if valid_proxy_token?(expected) and valid_proxy_token?(provided) do
+      expected_digest = :crypto.hash(:sha256, expected)
+      provided_digest = :crypto.hash(:sha256, provided)
+      Plug.Crypto.secure_compare(expected_digest, provided_digest)
+    else
+      false
+    end
+  end
+
+  defp valid_proxy_token?(token), do: is_binary(token) and byte_size(token) >= 32
 
   defp local_development_fallback? do
     Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)

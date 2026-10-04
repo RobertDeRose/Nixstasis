@@ -52,6 +52,7 @@
   - `CLIENT_SECRET`
   - `TENANT_ID`
   - `JWT_KEY`
+  - `NIXSTASIS_PROXY_AUTH_TOKEN`
   - `AUTHORIZED_ROLES`
   - `AUTHORIZED_GROUPS`
   - `NIXSTASIS_VIEWER_GROUPS`
@@ -86,6 +87,10 @@
 - `CLIENT_SECRET`: Entra application secret consumed by Caddy auth.
 - `TENANT_ID`: Entra tenant identifier consumed by Caddy auth.
 - `JWT_KEY`: Caddy auth JWT signing key.
+- `NIXSTASIS_PROXY_AUTH_TOKEN`: dedicated 32-byte-or-longer random secret shared
+  only by Caddy and Phoenix. Caddy overwrites `X-Nixstasis-Proxy-Token` on
+  proxied Phoenix requests; Phoenix requires the matching value before trusting
+  any AuthCrunch `X-Token-*` operator claims.
 - `AUTHORIZED_ROLES`: normalized Caddy/AuthCrunch roles allowed at the edge.
   Production should include `nixstasis/viewer`, `nixstasis/operator`, and
   `nixstasis/admin` as needed.
@@ -165,6 +170,8 @@
 
 - Compose deployment exposes the Phoenix app only through Caddy for public HTTP
   ingress; the direct Phoenix host port remains loopback-bound for diagnostics.
+  Direct callers cannot authenticate by forging AuthCrunch headers because
+  Phoenix accepts `X-Token-*` claims only with the Caddy-to-Phoenix proxy token.
 - External managed devices point at the public Caddy host. The local Compose
   client simulator writes `/etc/nixstasis/config.yaml` from Compose environment
   before systemd starts and uses the Compose-internal Phoenix and FRPS services.

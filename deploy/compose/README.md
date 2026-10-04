@@ -86,7 +86,10 @@ mise run deploy:dev -- exec nixstasis /bin/bash
 
 ## Production
 
-1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, and the `NIXSTASIS_*_GROUPS` group-to-role mapping values.
+1. Copy `.env.example` to `.env` and fill every required value, including
+   `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, the
+   `NIXSTASIS_*_GROUPS` group-to-role mapping values, and a fresh
+   `NIXSTASIS_PROXY_AUTH_TOKEN` generated with `openssl rand -hex 32`.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
@@ -115,6 +118,7 @@ targeting the compose `postgres` host.
 | `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                        |
 | `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
 | `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
+| `NIXSTASIS_PROXY_AUTH_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
 | `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
 | `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
 | `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
@@ -123,6 +127,10 @@ targeting the compose `postgres` host.
 ## Runtime Contract
 
 - Public ingress terminates at Caddy.
+- Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
+  `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
+  unless that internal proxy credential matches, so direct loopback or Compose
+  peers cannot manufacture an AuthCrunch identity from claim headers alone.
 - Phoenix runs on `PORT=4000` internally.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
@@ -166,9 +174,10 @@ targeting the compose `postgres` host.
   sync.
 - Caddy injects AuthCrunch claims for Phoenix browser UI permission mapping with
   `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
-  `X-Token-User-Roles`. Phoenix consumes only normalized `nixstasis/viewer`,
-  `nixstasis/operator`, and `nixstasis/admin` role values; missing or unknown
-  production role claims fail closed.
+  `X-Token-User-Roles`. Phoenix accepts those claims only when the request also
+  carries the valid Caddy-injected `X-Nixstasis-Proxy-Token`, then consumes only
+  normalized `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin`
+  role values. Missing, untrusted, or unknown production claims fail closed.
 - Migrations are explicit, not part of container startup.
 
 Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.

@@ -36,4 +36,9 @@ defmodule NixstasisWeb.ConnCase do
     Nixstasis.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  def put_trusted_proxy_auth(conn) do
+    token = Application.fetch_env!(:nixstasis, :proxy_auth_token)
+    Plug.Conn.put_req_header(conn, "x-nixstasis-proxy-token", token)
+  end
 end

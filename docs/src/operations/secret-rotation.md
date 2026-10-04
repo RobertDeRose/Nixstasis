@@ -41,6 +41,19 @@ signed Phoenix state such as sessions.
 Avoid wildcard role or group values. `validate_stack.sh` rejects wildcard
 authorization inputs.
 
+## Caddy-To-Phoenix Proxy Credential
+
+`NIXSTASIS_PROXY_AUTH_TOKEN` is consumed only by `caddy` and `nixstasis`. It
+authenticates the source of AuthCrunch `X-Token-*` claim headers. Generate it
+with `openssl rand -hex 32`; do not reuse `JWT_KEY`, `FRPS_AUTH_TOKEN`, or a
+Phoenix secret.
+
+1. Generate a fresh value and update `NIXSTASIS_PROXY_AUTH_TOKEN` in `.env`.
+2. Recreate `caddy` and `nixstasis` together so both sides use the same value.
+3. Validate browser login through Caddy.
+4. Confirm a direct request to the loopback Phoenix port with only a forged
+   `X-Token-User-Roles` header is denied.
+
 ## FRPS Secrets
 
 `FRPS_AUTH_TOKEN` is consumed by `frps` and `nixstasis`; Phoenix returns it only
