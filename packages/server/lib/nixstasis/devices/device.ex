@@ -245,7 +245,10 @@ defmodule Nixstasis.Devices.Device do
       argument :ipv4_address, :string
 
       run fn input, context ->
-        {:ok, Devices.runtime_list(input.arguments, actor: context.actor)}
+        case Map.get(context, :actor) do
+          nil -> {:ok, Devices.runtime_list(input.arguments, authorized_device_ids: MapSet.new())}
+          actor -> {:ok, Devices.runtime_list(input.arguments, actor: actor)}
+        end
       end
     end
 

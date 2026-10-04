@@ -736,7 +736,11 @@ defmodule Nixstasis.Devices do
 
     %{
       data:
-        list_devices(filter: filter, actor: Keyword.get(opts, :actor))
+        list_devices(
+          filter: filter,
+          actor: Keyword.get(opts, :actor),
+          authorized_device_ids: Keyword.get(opts, :authorized_device_ids)
+        )
         |> Enum.map(&runtime_list_device_data/1),
       meta: %{active_filters: runtime_active_filters(params)}
     }

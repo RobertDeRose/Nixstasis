@@ -65,6 +65,19 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
            } = json_response(conn, 200)
   end
 
+  test "generated list enforces the trusted operator device scope", %{conn: conn, approved: approved} do
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_req_header("x-token-device-ids", approved.id)
+      |> put_trusted_proxy_auth()
+      |> get("/api/json/device_runtime/devices")
+
+    assert %{"data" => [%{"id" => id}]} = json_response(conn, 200)
+    assert id == approved.id
+  end
+
   test "generated list omits blank and invalid active filters", %{conn: conn} do
     conn =
       conn
