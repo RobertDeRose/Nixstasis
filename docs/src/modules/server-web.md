@@ -198,6 +198,7 @@ remains a Caddy-only ingress workflow boundary.
 - `Nixstasis.E2E`
 - `Nixstasis.Deployment`
 - `NixstasisWeb.Plugs.E2EEnabled`
+- `NixstasisWeb.Plugs.E2EAuthorization`
 
 ### External
 
@@ -241,7 +242,7 @@ remains a Caddy-only ingress workflow boundary.
   supported surface.
 - Terminal UI uses Phoenix Channels over WebSocket.
 - Caddy on-demand TLS calls `/api/v1/check_domain`.
-- E2E harness calls `/e2e` routes with `X-E2E-Protocol-Version` on run creation.
+- E2E harness calls `/e2e` routes with `X-E2E-Runner-ID` plus bearer authentication on every request and `X-E2E-Protocol-Version` on run creation.
 
 Traceable references:
 

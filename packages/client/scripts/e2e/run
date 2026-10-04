@@ -160,5 +160,7 @@ fi
   -w /app \
   -e E2E_CONTAINER_PATH_PREFIX="/app" \
   -e E2E_HOST_PATH_PREFIX="${ROOT_DIR}" \
+  -e NIXSTASIS_E2E_RUNNER_ID="${NIXSTASIS_E2E_RUNNER_ID:-}" \
+  -e NIXSTASIS_E2E_RUNNER_TOKEN="${NIXSTASIS_E2E_RUNNER_TOKEN:-}" \
   "${image_tag}" \
   "${container_go_bin}" run ./scripts/e2e "${forwarded_args[@]}"

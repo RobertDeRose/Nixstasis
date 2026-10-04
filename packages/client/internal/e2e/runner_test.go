@@ -11,6 +11,11 @@ import (
 	"testing"
 )
 
+const (
+	testE2ERunnerID    = "test-runner"
+	testE2ERunnerToken = "test-e2e-runner-token-0123456789abcdef0123456789abcdef"
+)
+
 func TestRunSuiteUsesConfiguredJourneys(t *testing.T) {
 	var gotCreate runCreateRequest
 	var gotResults resultsRequest
@@ -32,6 +37,8 @@ func TestRunSuiteUsesConfiguredJourneys(t *testing.T) {
 		Environment:     "local",
 		Trigger:         "manual",
 		ProtocolVersion: "1",
+		RunnerID:        testE2ERunnerID,
+		RunnerToken:     testE2ERunnerToken,
 		IdempotencyKey:  "run-1",
 		Journeys:        []string{"auth", "dashboard"},
 	}
@@ -87,6 +94,8 @@ func TestRunSuiteOverridesJourneys(t *testing.T) {
 		Environment:     "local",
 		Trigger:         "manual",
 		ProtocolVersion: "1",
+		RunnerID:        testE2ERunnerID,
+		RunnerToken:     testE2ERunnerToken,
 		Journeys:        []string{"auth"},
 	}
 
@@ -124,6 +133,8 @@ func TestRunSuiteWritesV1JourneyLogs(t *testing.T) {
 		Environment:     "local",
 		Trigger:         "manual",
 		ProtocolVersion: "1",
+		RunnerID:        testE2ERunnerID,
+		RunnerToken:     testE2ERunnerToken,
 		Journeys:        []string{"auth"},
 		LogDir:          logDir,
 	}
@@ -199,6 +210,7 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs":
+			assertE2ERunnerHeaders(t, r)
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{"id":"run-123","suite_id":"runtime","journey_ids":["runtime_transport_negative"],"environment_label":"local","trigger_source":"manual","protocol_version":"1","status":"queued"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs/run-123/results":
@@ -273,6 +285,16 @@ func decodeLogLine(t *testing.T, line string) map[string]any {
 	return decoded
 }
 
+func assertE2ERunnerHeaders(t *testing.T, r *http.Request) {
+	t.Helper()
+	if got := r.Header.Get("X-E2E-Runner-ID"); got != testE2ERunnerID {
+		t.Fatalf("expected E2E runner id %q, got %q", testE2ERunnerID, got)
+	}
+	if got := r.Header.Get("Authorization"); got != "Bearer "+testE2ERunnerToken {
+		t.Fatalf("expected E2E bearer credential, got %q", got)
+	}
+}
+
 func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResults func(string, resultsRequest)) *httptest.Server {
 	t.Helper()
 
@@ -282,6 +304,7 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs":
+			assertE2ERunnerHeaders(t, r)
 			var payload runCreateRequest
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Fatalf("failed to decode create request: %v", err)
@@ -346,6 +369,7 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/json/devices/"):
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/e2e/runs/") && strings.HasSuffix(r.URL.Path, "/results"):
+			assertE2ERunnerHeaders(t, r)
 			runID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/e2e/runs/"), "/results")
 			var payload resultsRequest
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {

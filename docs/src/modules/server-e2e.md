@@ -74,11 +74,13 @@
   protocol-version checks, environment locking, seed execution, typed errors,
   result ingestion, and log-retention semantics without weakening the harness
   contract.
-- `POST /e2e/runs` reads `X-E2E-Protocol-Version`, validates protocol/environment/suite/journeys/action-expect pairs, runs configured seed script, creates run rows, and returns `201` on success.
+- Every `/e2e` request requires `X-E2E-Runner-ID` plus `Authorization: Bearer <token>`. These credentials are independent of browser/AuthCrunch roles. Runs are stamped with the authenticated runner ID; run details, cancellation, results, and logs are visible only to that owner.
+- `GET /e2e/runs` is owner-scoped and bounded to at most 100 most-recent runs per request.
+- `POST /e2e/runs` reads `X-E2E-Protocol-Version`, validates protocol/environment/suite/journeys/action-expect pairs, runs configured seed script, creates an owner-bound run row, and returns `201` on success.
 - Run creation can return typed errors including `environment_locked`, `protocol_mismatch`, `invalid_action_expectation`, `seed_failed`, `invalid_request`, and `database_error`.
 - `POST /e2e/runs/:id/results` stores journey outcomes and updates run status.
 - `GET /e2e/runs/:id/results/:journey_id/log` retrieves log content or typed log-unavailable errors.
-- Production deployments disable E2E endpoints by default through `NixstasisWeb.Plugs.E2EEnabled` unless `NIXSTASIS_E2E_ENABLED=true`.
+- Production deployments disable E2E endpoints by default through `NixstasisWeb.Plugs.E2EEnabled` unless `NIXSTASIS_E2E_ENABLED=true`. Enabling E2E also requires `NIXSTASIS_E2E_RUNNER_ID` and a 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN`.
 - Seed scripts and journey definitions resolve from the release's application
   `priv` directory. The server container packages client journey YAML under
   `priv/e2e/journeys`; development and test configurations read the source

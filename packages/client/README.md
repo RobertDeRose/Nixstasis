@@ -55,6 +55,13 @@ bin/nixstasis poll
 ## E2E Testing
 
 The client includes a lightweight E2E harness for validating client/server integration.
+Every E2E API call uses a dedicated runner principal. Set the runner token in the environment rather than in the YAML config:
+
+```bash
+export NIXSTASIS_E2E_RUNNER_ID=local-runner
+export NIXSTASIS_E2E_RUNNER_TOKEN=dev-e2e-runner-token-0123456789abcdef0123456789abcdef
+```
+
 An entire suite of journeys can be run like the following:
 
 ```bash
@@ -93,7 +100,7 @@ scripts/e2e/scaffold  --dry-run --id runtime_disk_pressure --steps register_devi
 scripts/e2e/scaffold --id runtime_disk_pressure --steps register_phase=register_device:device_registered
 ```
 
-Configuration lives in `scripts/e2e/config.example.yaml` and can be customized per environment. The CLI posts runs and
+Configuration lives in `scripts/e2e/config.example.yaml` and can be customized per environment. `e2e.runner_id` may be set there or overridden with `--runner-id`/`NIXSTASIS_E2E_RUNNER_ID`; the bearer token is read only from `NIXSTASIS_E2E_RUNNER_TOKEN`. The CLI posts runs and
 results to the server; use the printed `RunID` to query `/e2e/runs/:id`, `/e2e/runs/:id/results`, and
 `/e2e/runs/:id/results/:journey_id/log`.
 

@@ -847,8 +847,7 @@ Traceable references:
 | `POST /e2e/runs/:id/results`                | `E2ERunResultController.create/2` | Submit results         |
 | `GET /e2e/runs/:id/results/:journey_id/log` | `E2ERunResultController.log/2`    | Fetch journey log      |
 
-Run creation requires `X-E2E-Protocol-Version`; protocol version `1` is the
-default supported version. Legacy `client_version`/`server_version` fields are
+All E2E routes require `X-E2E-Runner-ID` and `Authorization: Bearer <token>`. The runner identity is independent of browser/AuthCrunch roles and owns every run it creates. Cross-runner run/result/log access is hidden with `404`. Run creation additionally requires `X-E2E-Protocol-Version`; protocol version `1` is the default supported version. Legacy `client_version`/`server_version` fields are
 not accepted as the version-pairing contract.
 
 Traceable references:
@@ -863,6 +862,8 @@ Run creation request:
 
 ```http
 POST /e2e/runs
+X-E2E-Runner-ID: ci-runner
+Authorization: Bearer <runner-token>
 X-E2E-Protocol-Version: 1
 Content-Type: application/json
 ```
@@ -1091,7 +1092,7 @@ Traceable references:
   for the complete command payloads.
 - Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as an `api_key` query parameter.
 - `apply_command_policy` uses the same heartbeat + optional command-payload-ref transport as other runtime commands; clients persist the accepted policy outside the script directory and use it to override local `runtime.exec_commands` until a newer server policy replaces it.
-- E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled`.
+- E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled` and the dedicated E2E runner credential; enablement is not authorization.
 - Initial device registration does not attach a device API key because it is the credential issuance step.
 
 Traceable references:

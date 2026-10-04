@@ -8,6 +8,8 @@ api_url="http://localhost:4000"
 env_label="local"
 trigger_source="manual"
 protocol_version="1"
+runner_id="${NIXSTASIS_E2E_RUNNER_ID:-local-runner}"
+runner_token="${NIXSTASIS_E2E_RUNNER_TOKEN:-}"
 reports_dir="${ROOT_DIR}/tmp/e2e/reports"
 logs_dir="${ROOT_DIR}/tmp/e2e/logs"
 
@@ -21,6 +23,8 @@ Options:
   --env <label>               Environment label for runs. Default: local
   --trigger <manual|ci>       Trigger source. Default: manual
   --protocol-version <value>  Protocol version header value. Default: 1
+  --runner-id <id>            E2E runner principal id. Default: NIXSTASIS_E2E_RUNNER_ID or local-runner
+                              Token is read from NIXSTASIS_E2E_RUNNER_TOKEN.
   --reports-dir <path>        Output dir for per-suite JSON summaries.
                               Default: tmp/e2e/reports
   --logs-dir <path>           Log root dir used by exporter.
@@ -51,6 +55,11 @@ while (($#)); do
       protocol_version="${1:-}"
       shift || true
       ;;
+    --runner-id)
+      shift
+      runner_id="${1:-}"
+      shift || true
+      ;;
     --reports-dir)
       shift
       reports_dir="${1:-}"
@@ -73,11 +82,24 @@ while (($#)); do
   esac
 done
 
+if [[ -z "${runner_id}" || -z "${runner_token}" ]]; then
+  echo "NIXSTASIS_E2E_RUNNER_TOKEN and a runner id are required." >&2
+  exit 1
+fi
+
 mkdir -p "${reports_dir}"
 cd "${ROOT_DIR}"
 
 echo "Fetching suite catalog from ${api_url}/e2e/suites..."
-suite_catalog="$(curl -fsS "${api_url}/e2e/suites")"
+suite_catalog="$(
+  printf '%s\n' \
+    'fail' \
+    'silent' \
+    'show-error' \
+    "header = \"X-E2E-Runner-ID: ${runner_id}\"" \
+    "header = \"Authorization: Bearer ${runner_token}\"" \
+    "url = \"${api_url}/e2e/suites\"" | curl --config -
+)"
 
 mapfile -t suite_rows < <(
   python3 -c '
@@ -119,7 +141,8 @@ for row in "${suite_rows[@]}"; do
     --suite "${suite}"
     --env "${env_label}"
     --trigger "${trigger_source}"
-    --protocol-version "${protocol_version}")
+    --protocol-version "${protocol_version}"
+    --runner-id "${runner_id}")
 
   if [[ -n "${journeys_csv}" ]]; then
     cmd+=(--journeys "${journeys_csv}")

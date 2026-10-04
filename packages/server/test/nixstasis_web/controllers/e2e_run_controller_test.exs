@@ -5,7 +5,12 @@ defmodule NixstasisWeb.E2ERunControllerTest do
 
   alias Nixstasis.E2E
 
-  setup do
+  @runner_id "test-runner"
+  @runner_token "test-e2e-runner-token-0123456789abcdef0123456789abcdef"
+  @other_runner_id "other-runner"
+  @other_runner_token "other-e2e-runner-token-0123456789abcdef0123456789abcdef"
+
+  setup %{conn: conn} do
     previous = Application.get_env(:nixstasis, :e2e)
     previous_context = Application.get_env(:nixstasis, :e2e_context)
 
@@ -32,10 +37,20 @@ defmodule NixstasisWeb.E2ERunControllerTest do
       end
     end)
 
-    :ok
+    {:ok, conn: e2e_auth(conn)}
   end
 
-  defp create_headers(conn), do: put_req_header(conn, "x-e2e-protocol-version", "1")
+  defp create_headers(conn) do
+    conn
+    |> e2e_auth()
+    |> put_req_header("x-e2e-protocol-version", "1")
+  end
+
+  defp e2e_auth(conn, runner_id \\ @runner_id, token \\ @runner_token) do
+    conn
+    |> put_req_header("x-e2e-runner-id", runner_id)
+    |> put_req_header("authorization", "Bearer " <> token)
+  end
 
   test "Given valid run params, when POST /e2e/runs, then a run is created", %{conn: conn} do
     params = %{
@@ -51,6 +66,50 @@ defmodule NixstasisWeb.E2ERunControllerTest do
     assert data["suite_id"] == "full"
     assert data["status"] == "queued"
     assert data["protocol_version"] == "1"
+
+    assert {:ok, stored} = E2E.get_run(data["id"])
+    assert stored.runner_id == @runner_id
+  end
+
+  test "Given no runner credential, when E2E is enabled, then browser roles cannot access the API" do
+    conn =
+      build_conn()
+      |> put_req_header("x-token-user-roles", "nixstasis/admin")
+      |> get(~p"/e2e/runs")
+
+    assert %{"error" => %{"code" => "unauthorized"}} = json_response(conn, 401)
+  end
+
+  test "Given an invalid runner token, when E2E is enabled, then the request is rejected" do
+    conn =
+      build_conn()
+      |> e2e_auth(@runner_id, String.duplicate("x", 32))
+      |> get(~p"/e2e/runs")
+
+    assert %{"error" => %{"code" => "unauthorized"}} = json_response(conn, 401)
+  end
+
+  test "Given a run owned by another runner, when reading or cancelling it, then it is hidden" do
+    {:ok, run} =
+      E2E.create_run(%{
+        suite_id: "full",
+        environment_label: "local",
+        trigger_source: "manual",
+        protocol_version: "1",
+        runner_id: @runner_id
+      })
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert %{"data" => []} = other_conn |> get(~p"/e2e/runs") |> json_response(200)
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert response(get(other_conn, ~p"/e2e/runs/#{run.id}"), 404)
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert response(post(other_conn, ~p"/e2e/runs/#{run.id}/cancel"), 404)
+
+    assert {:ok, unchanged} = E2E.get_run(run.id)
+    assert unchanged.status == "queued"
   end
 
   test "Given existing runs, when GET /e2e/runs, then runs are listed", %{conn: conn} do
@@ -59,7 +118,8 @@ defmodule NixstasisWeb.E2ERunControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     conn = get(conn, ~p"/e2e/runs")
@@ -85,7 +145,8 @@ defmodule NixstasisWeb.E2ERunControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     conn = get(conn, ~p"/e2e/runs/#{run.id}")
@@ -100,7 +161,8 @@ defmodule NixstasisWeb.E2ERunControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     conn = post(conn, ~p"/e2e/runs/#{run.id}/cancel")
@@ -248,6 +310,7 @@ defmodule NixstasisWeb.E2ERunControllerTest do
   end
 
   defmodule CancelErrorContext do
+    def get_run_for_runner(_id, _runner_id), do: {:ok, %Nixstasis.E2E.Run{id: Ecto.UUID.generate()}}
     def cancel_run(_id), do: {:error, {:stale, :e2e_run}}
   end
 end

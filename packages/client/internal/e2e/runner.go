@@ -62,6 +62,12 @@ func (r *Runner) RunSuite(ctx context.Context, journeyIDs []string) (*RunSummary
 	if r.cfg.ProtocolVersion == "" {
 		return nil, errors.New("protocol version is required")
 	}
+	if r.cfg.RunnerID == "" {
+		return nil, errors.New("E2E runner id is required")
+	}
+	if len(r.cfg.RunnerToken) < 32 {
+		return nil, errors.New("E2E runner token must be at least 32 bytes")
+	}
 
 	journeys := journeyIDs
 	if len(journeys) == 0 {
@@ -72,7 +78,7 @@ func (r *Runner) RunSuite(ctx context.Context, journeyIDs []string) (*RunSummary
 		return nil, fmt.Errorf("no journeys selected")
 	}
 
-	api := newAPIClient(r.cfg.APIURL)
+	api := newAPIClient(r.cfg.APIURL, r.cfg.RunnerID, r.cfg.RunnerToken)
 	run, err := api.createRun(ctx, runCreateRequest{
 		SuiteID:          r.cfg.Suite,
 		JourneyIDs:       journeys,
