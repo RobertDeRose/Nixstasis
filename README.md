@@ -229,6 +229,8 @@ Files that make up this example journey:
   - `runs.json` is source of truth
   - run directories live under `runs/<ref-name>/<short-sha>/`
   - root `index.html` loads `runs.json` client-side
+  - manifest/report values are rendered with text-only DOM APIs; untrusted run metadata
+    is never inserted as HTML
 - Retention:
   - governed by `MAX_E2E_RUNS` (fallback `200`)
   - non-release runs are pruned oldest-first
