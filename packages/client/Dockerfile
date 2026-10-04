@@ -92,6 +92,7 @@ RUN groupadd --system nixstasis && \
     passwd --lock nixstasis-ssh-authority && \
     usermod --append --groups nixstasis-ssh nixstasis && \
     install -d -m 0750 -o nixstasis -g nixstasis /etc/nixstasis && \
+    install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts && \
     install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis && \
     mkdir -p /var/lib/nixstasis/.ssh /var/lib/nixstasis-support/.ssh /etc/sudoers.d && \
     chown -R nixstasis:nixstasis /var/lib/nixstasis && \

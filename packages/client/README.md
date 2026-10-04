@@ -139,7 +139,7 @@ poll:
   interval: 10s
 
 scripts:
-  dir: "/usr/libexec/nixstasis/scripts"
+  dir: "/var/lib/nixstasis/scripts"
 ```
 
 For Compose dev-harness remote-access validation, use `mise run deploy:dev -- up`
@@ -189,7 +189,11 @@ The generated archive and native packages install these client assets:
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one. It also ensures
-the `nixstasis` system user has `/var/lib/nixstasis` as its home. Remote SSH
+the `nixstasis` system user has `/var/lib/nixstasis` as its home and owns the
+managed script directory `/var/lib/nixstasis/scripts`. Packaged scripts under
+`/usr/libexec/nixstasis/scripts` remain root-owned and are discovered as
+read-only system scripts. Upgrades migrate the exact former packaged default
+`/usr/libexec/nixstasis/scripts` to the writable state directory. Remote SSH
 access uses a separate `nixstasis-support` account with `/bin/bash` as its
 login shell, in-memory SSH keys handled via an OpenSSH `AuthorizedKeysCommand`
 helper backed by the client runtime over local IPC, and passwordless sudo for

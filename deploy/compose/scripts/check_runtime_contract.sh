@@ -238,6 +238,9 @@ require_compose_build_arg client FRP_LINUX_ARM64_SHA256
 require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_AMD64_SHA256'
 require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_ARM64_SHA256'
 require_literal "$CLIENT_DOCKERFILE" './build/bin/fetch_frpc.sh "$TARGETARCH"'
+require_literal "$CLIENT_DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
+require_literal "$CLIENT_POSTINSTALL" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
+require_literal "$CLIENT_CONFIG_TEMPLATE" 'dir: "/var/lib/nixstasis/scripts"'
 reject_text "$CLIENT_DOCKERFILE" 'curl .*fatedier/frp/releases'
 
 require_text "$COMPOSE_README" 'DATABASE_URL'

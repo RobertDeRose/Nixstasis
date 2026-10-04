@@ -419,12 +419,76 @@ def validate_feature_files(root: Path, *, migration_mode: bool) -> list[Finding]
     return findings
 
 
+def validate_pages_workflow(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    workflow = root / ".github/workflows/docs.yml"
+    if not workflow.exists():
+        add(
+            findings,
+            severity="error",
+            code="missing-pages-workflow",
+            path=workflow,
+            message="GitHub Pages workflow is required",
+            root=root,
+        )
+        return findings
+
+    text = read_text(workflow)
+    required = {
+        "missing-pages-build-job": "  build:\n",
+        "missing-pages-deploy-job": "  deploy:\n",
+        "missing-pages-deployment-gate": "if: vars.DOCS_DEPLOYMENT_ENABLED == 'true'",
+        "missing-pages-read-permission": "      contents: read",
+        "missing-pages-write-permission": "      pages: write",
+        "missing-pages-oidc-permission": "      id-token: write",
+    }
+    for code, literal in required.items():
+        if literal not in text:
+            add(
+                findings,
+                severity="error",
+                code=code,
+                path=workflow,
+                message=f"Pages workflow is missing required contract: {literal.strip()}",
+                root=root,
+            )
+
+    jobs_marker = "\njobs:\n"
+    build_marker = "\n  build:\n"
+    deploy_marker = "\n  deploy:\n"
+    if jobs_marker in text:
+        prefix = text.split(jobs_marker, 1)[0]
+        if "pages: write" in prefix or "id-token: write" in prefix:
+            add(
+                findings,
+                severity="error",
+                code="global-pages-write-permission",
+                path=workflow,
+                message="Pages write/OIDC permissions must be scoped to the deploy job",
+                root=root,
+            )
+    if build_marker in text and deploy_marker in text:
+        build_block = text.split(build_marker, 1)[1].split(deploy_marker, 1)[0]
+        if "pages: write" in build_block or "id-token: write" in build_block:
+            add(
+                findings,
+                severity="error",
+                code="pages-build-has-deploy-permission",
+                path=workflow,
+                message="Pages build job must remain read-only",
+                root=root,
+            )
+
+    return findings
+
+
 def validate(root: Path, *, migration_mode: bool) -> list[Finding]:
     findings, published_files = validate_summary(root, migration_mode=migration_mode)
     findings.extend(validate_feature_files(root, migration_mode=migration_mode))
     docs_src = root / "docs/src"
     markdown_files = sorted(docs_src.rglob("*.md")) if docs_src.exists() else []
     findings.extend(validate_links(root, markdown_files, published_files))
+    findings.extend(validate_pages_workflow(root))
     return findings
 
 
