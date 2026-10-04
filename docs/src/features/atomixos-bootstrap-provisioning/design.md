@@ -85,6 +85,9 @@ unknown result and withdraw temporary access.
 - Never return artifact bytes or follow `forwarding_url`.
 - Attribute audit events to the trusted operator subject and bound diagnostic
   text and payloads to durable, non-secret fields.
+- Enforce a 1 MiB receive budget while streaming submission, error, and polling
+  response bodies so an untrusted device cannot force Req to buffer an
+  unbounded response before validation or decoding.
 - Preserve the existing server/client FRP ownership boundary: the server sends
   only the named profile reference, while the client owns route details and
   the fixed local Host rewrite.
@@ -100,9 +103,10 @@ the route-definition authority.
 
 ## Operational Considerations
 
-The default compressed/plain upload limit is 32 MiB, request timeout is 30
-seconds, polling deadline is five minutes, and route leases use the existing
-one-hour lease default. Operators must retain the public wildcard FRP/Caddy
+The default compressed/plain upload limit is 32 MiB, each AtomixOS response
+body has a 1 MiB streaming receive budget, request timeout is 30 seconds,
+polling deadline is five minutes, and route leases use the existing one-hour
+lease default. Operators must retain the public wildcard FRP/Caddy
 route and AtomixOS API base. `ATOMIXOS_PROVISIONING_BASE_URL` is an optional
 runtime override; otherwise `BASE_DOMAIN` derives the per-device host.
 

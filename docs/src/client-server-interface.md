@@ -48,10 +48,12 @@ filesystem.
 
 AtomixOS returns HTTP 202 with `job_id`, `state`, and a relative `job_url`.
 The server resolves that URL against the FRP API base and polls it until
-`succeeded`, `failed`, or the bounded deadline. It records events, result,
-error, and rollback diagnostics. Only HTTP 409 queue conflicts may be retried
-(two attempts after the initial request); an accepted or ambiguous upload is
-never submitted again.
+`succeeded`, `failed`, or the bounded deadline. Submit, error, and polling
+response bodies are streamed through a 1 MiB receive budget and are aborted
+before decoding if that budget is exceeded. It records events, result, error,
+and rollback diagnostics. Only HTTP 409 queue conflicts may be retried (two
+attempts after the initial request); an accepted or ambiguous upload is never
+submitted again.
 
 Delivery state is durable and idempotent by device, artifact SHA-256, and
 bootstrap attempt UUID. Active attempts are polled, terminal results are
