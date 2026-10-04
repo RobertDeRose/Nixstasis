@@ -226,7 +226,7 @@ paths:
                       remote_access_token:
                         type: string
                         nullable: true
-                        description: Shared FRPS token. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                        description: Short-lived signed FRPS device credential. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
                       remote_access_profile:
                         type: object
                         nullable: true

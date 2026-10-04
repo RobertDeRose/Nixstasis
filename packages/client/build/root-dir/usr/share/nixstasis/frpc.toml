@@ -6,7 +6,9 @@
 serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"
 serverPort = {{ .Envs.FRPS_SERVER_PORT }}
 auth.method = "token"
-auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"
+auth.token = "nixstasis-frp-plugin-gated"
+user = "{{ .Envs.NAME }}"
+metadatas.nixstasis_token = "{{ .Envs.FRPS_AUTH_TOKEN }}"
 webServer.addr = "{{ .Envs.FRPC_WEB_SERVER_ADDR }}"
 webServer.port = {{ .Envs.FRPC_WEB_SERVER_PORT }}
 log.to = "console"

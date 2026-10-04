@@ -60,7 +60,7 @@
 - The server stores remote-access intent and a named route-profile reference on
   devices. Operators or authorized API clients select the profile through the
   device update contract; the server stores only its bounded name.
-- It exposes the active FRPS token and versioned `remote_access_profile`
+- It exposes a short-lived, signed device authorization credential and versioned `remote_access_profile`
   reference only through heartbeat responses.
 - Client polling validates the profile reference against client-owned route
   definitions, then starts/stops FRPC through a transient systemd unit. A

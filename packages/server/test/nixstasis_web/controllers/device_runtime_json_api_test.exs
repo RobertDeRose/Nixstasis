@@ -4,6 +4,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   require Ash.Query
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
   alias Nixstasis.Scripts
@@ -237,26 +238,26 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       }
     }
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn =
-        conn
-        |> put_req_header("accept", "application/vnd.api+json")
-        |> put_req_header("content-type", "application/vnd.api+json")
-        |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", payload)
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", payload)
 
-      assert %{
-               "data" => %{
-                 "commands" => [%{"command_id" => command_id, "payload" => %{"cmd" => "update"}}],
-                 "command_inventory_probe" => probe,
-                 "remote_access_token" => "shared-secret"
-               }
-             } = json_response(conn, 200)
+    assert %{
+             "data" => %{
+               "commands" => [%{"command_id" => command_id, "payload" => %{"cmd" => "update"}}],
+               "command_inventory_probe" => probe,
+               "remote_access_token" => remote_access_token
+             }
+           } = json_response(conn, 200)
 
-      assert command_id
-      assert probe["catalog_version"] == "catalog-v1"
-      assert "coreutils" in probe["package_names"]
-      assert Enum.any?(probe["command_probes"], &(&1["name"] == "df"))
-    end)
+    assert {:ok, %{"device_id" => device_id}} = FrpsToken.verify(remote_access_token)
+    assert device_id == to_string(approved.id)
+    assert command_id
+    assert probe["catalog_version"] == "catalog-v1"
+    assert "coreutils" in probe["package_names"]
+    assert Enum.any?(probe["command_probes"], &(&1["name"] == "df"))
 
     updated = Devices.get_device!(approved.id)
     refute is_nil(updated.last_seen_at)
@@ -649,20 +650,6 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     refute conn.halted
     assert Ash.PlugHelpers.get_actor(conn).id == approved.id
   end
-
-  defp with_env(name, value, fun) do
-    previous = System.get_env(name)
-    System.put_env(name, value)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp restore_env(name, nil), do: System.delete_env(name)
-  defp restore_env(name, value), do: System.put_env(name, value)
 
   defp runtime_permission_conn(conn, device_id, query_params) do
     conn

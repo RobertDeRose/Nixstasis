@@ -154,9 +154,10 @@ targeting the compose `postgres` host.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
   production; browser authorization is only supported through Caddy/AuthCrunch.
-- `FRPS_AUTH_TOKEN` is provided to both `frps` and `nixstasis`; FRPS uses it for
-  token auth, and Phoenix only returns it to authenticated device heartbeats while
-  remote access is requested for that device.
+- FRPS delegates `Login` and `NewProxy` authorization to Phoenix. Heartbeats
+  return a short-lived signed credential bound to the requesting device, and
+  FRPS confines proxy names and domains to that device namespace. Devices no
+  longer receive a deployment-wide FRPS client secret.
 - PostgreSQL data is mounted at `/var/lib/postgresql` to match the PostgreSQL 18+
   image layout.
 - `FRPS_HTTP_PORT` is an internal Compose port for Caddy wildcard proxying and is

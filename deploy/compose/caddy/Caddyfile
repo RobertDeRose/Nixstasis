@@ -68,6 +68,8 @@ nixstasis.{$BASE_DOMAIN} {
     on_demand
   }
 
+  @frp_internal path /internal/frp/*
+
   # Prevent hop-by-hop cleanup from removing verified claims after authorization.
   @unsafe_connection header_regexp Connection `(?i)(^|,)[ \t]*x-(token-[^, \t]*|nixstasis-proxy-token)[ \t]*(,|$)`
 
@@ -97,6 +99,7 @@ nixstasis.{$BASE_DOMAIN} {
   # Explicit order keeps rejection ahead of all device and operator handlers.
   route {
     respond @unsafe_connection 400
+    respond @frp_internal "Not Found" 404
 
     handle @device_registration {
       reverse_proxy nixstasis:{$PORT} {
