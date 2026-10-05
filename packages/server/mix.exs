@@ -52,6 +52,7 @@ defmodule Nixstasis.MixProject do
       {:ash_json_api, "~> 1.0"},
       {:ash_phoenix, "~> 2.0"},
       {:ash, "~> 3.0"},
+      {:simple_sat, "~> 0.1"},
       {:bandit, "~> 1.5"},
       {:dns_cluster, "~> 0.2"},
       {:ecto_psql_extras, "~> 0.6"},
@@ -108,7 +109,7 @@ defmodule Nixstasis.MixProject do
         "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
       precommit: [
-        "compile --no-optional-deps --warning-as-errors",
+        "compile --no-optional-deps --warnings-as-errors",
         "deps.unlock --unused",
         "format",
         "test"

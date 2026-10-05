@@ -123,6 +123,7 @@ defmodule Nixstasis.E2E.RetentionTest do
   defp insert_run_with_inserted_at(attrs, inserted_at) do
     attrs
     |> Map.merge(%{
+      runner_id: "test-runner",
       inserted_at: inserted_at,
       updated_at: inserted_at
     })

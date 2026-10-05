@@ -58,6 +58,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
           "properties" => %{}
         }
     }
+
     attack_params = Map.put(attack_params, "remote_access_requested", true)
 
     attack_conn =

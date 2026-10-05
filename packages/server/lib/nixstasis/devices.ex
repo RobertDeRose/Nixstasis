@@ -254,8 +254,13 @@ defmodule Nixstasis.Devices do
 
   defp public_registration_device(attrs) do
     case registration_mac(attrs) do
-      nil -> {:ok, nil}
-      mac -> Domain.get_device_by_mac(mac)
+      nil ->
+        {:ok, nil}
+
+      mac ->
+        Device
+        |> Ash.Query.filter(mac_address == ^mac)
+        |> Ash.read_one(domain: Domain)
     end
   end
 

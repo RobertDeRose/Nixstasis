@@ -378,57 +378,6 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  def handle_event("select_alerts_tab", %{"tab" => tab}, socket) do
-    {:noreply, push_patch(socket, to: tab_path(tab, socket))}
-  end
-
-  def handle_event("set_rule_sort", %{"by" => by}, socket) do
-    sort_by = if by in ~w(name product_name condition_field operator updated_at), do: by, else: "product_name"
-
-    sort_dir =
-      if socket.assigns.rule_sort_by == sort_by and socket.assigns.rule_sort_dir == "asc",
-        do: "desc",
-        else: "asc"
-
-    {:noreply,
-     push_patch(socket,
-       to:
-         rule_index_path(
-           socket,
-           1,
-           socket.assigns.rule_filters,
-           sort_by,
-           sort_dir
-         )
-     )}
-  end
-
-  def handle_event("update_rule_filters", %{"filters" => filters}, socket) do
-    merged =
-      socket.assigns.rule_filters
-      |> Map.merge(filters)
-      |> normalize_rule_filters()
-
-    {:noreply,
-     push_patch(socket,
-       to:
-         rule_index_path(
-           socket,
-           1,
-           merged,
-           socket.assigns.rule_sort_by,
-           socket.assigns.rule_sort_dir
-         )
-     )}
-  end
-
-  def handle_event("clear_rule_filters", _params, socket) do
-    {:noreply,
-     push_patch(socket,
-       to: rule_index_path(socket, 1, %{"query" => ""}, "product_name", "asc")
-     )}
-  end
-
   def handle_info({:clear_rule_success, generation}, socket) do
     if socket.assigns.success_flash_generation == generation do
       {:noreply, assign(socket, :rule_success_message, nil)}
@@ -503,7 +452,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       <div :if={@alerts_tab == "rules"} class="mt-2 ui-card-panel">
         <div class="card-body p-0">
           <div class="grid grid-cols-1 gap-3 border-b border-base-300 p-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <form phx-change="update_rule_filters" class="w-full">
+            <form id="alert-rule-filters" phx-change="update_rule_filters" class="w-full">
               <label class="ui-label-strong">
                 Filter rules
               </label>

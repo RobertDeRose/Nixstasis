@@ -137,10 +137,36 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     refute body["data"]["api_token"]
   end
 
+  test "generated registration rejects missing or invalid enrollment proof", %{conn: conn, approved: approved} do
+    for registration_token <- [nil, "invalid-proof"] do
+      params = %{
+        "data" => %{
+          "mac_address" => approved.mac_address,
+          "registration_token" => registration_token,
+          "product_name" => "unauthorized-change",
+          "schema" => %{"product" => "unauthorized-change", "type" => "object", "properties" => %{}}
+        }
+      }
+
+      response =
+        conn
+        |> recycle()
+        |> put_req_header("accept", "application/vnd.api+json")
+        |> put_req_header("content-type", "application/vnd.api+json")
+        |> post("/api/json/device_runtime/devices/register", params)
+
+      assert [%{"status" => "403"}] = json_response(response, 403)["errors"]
+      unchanged = Devices.get_device!(approved.id)
+      assert unchanged.product_name == approved.product_name
+      assert unchanged.api_token_hash == approved.api_token_hash
+    end
+  end
+
   test "generated registration rotates an approved device token", %{conn: conn, approved: approved, token: old_token} do
     params = %{
       "data" => %{
         "mac_address" => approved.mac_address,
+        "registration_token" => old_token,
         "product_name" => approved.product_name,
         "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
       }

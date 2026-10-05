@@ -258,7 +258,10 @@ defmodule Nixstasis.Devices.Device do
       argument :registration_token, :string
 
       run fn input, _context ->
-        Devices.register_runtime_device(input.arguments)
+        case Devices.register_runtime_device(input.arguments) do
+          {:error, :forbidden} -> {:error, Ash.Error.Forbidden.exception([])}
+          result -> result
+        end
       end
     end
 
@@ -277,6 +280,9 @@ defmodule Nixstasis.Devices.Device do
             case Monitoring.heartbeat(device, heartbeat_payload(input.arguments)) do
               {:ok, updated_device, commands} ->
                 {:ok, %{data: Monitoring.heartbeat_response_data(updated_device, commands)}}
+
+              {:error, {:telemetry_limits, message}} ->
+                {:error, Ash.Error.Query.InvalidArgument.exception(field: :telemetry, message: message)}
 
               {:error, _reason} ->
                 {:error, "heartbeat processing failed"}
@@ -342,6 +348,23 @@ defmodule Nixstasis.Devices.Device do
             {:error, Ash.Error.Query.NotFound.exception()}
         end
       end
+    end
+  end
+
+  policies do
+    bypass actor_absent() do
+      authorize_if always()
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(
+                     ^actor(:can_view_device_data) == true and
+                       (^actor(:unscoped_device_access) == true or id in ^actor(:authorized_device_ids))
+                   )
+    end
+
+    policy always() do
+      authorize_if actor_present()
     end
   end
 
