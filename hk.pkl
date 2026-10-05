@@ -1,5 +1,5 @@
-amends "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Builtins.pkl"
 
 local commit_message_validation: Step = new Step {
   check = #"""
@@ -86,17 +86,23 @@ local harper_commit_message = (Builtins.harper_commit_message) {
       /^#/ { next }
       NR == 1 && /^release: v[0-9]+\.[0-9]+\.[0-9]+$/ { next }
       /^Beads: [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*(, [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*)*$/ { next }
+      NR == 1 && /^[a-z]+(\([a-z0-9-]+\))?!?: / {
+        sub(/^[a-z]+(\([a-z0-9-]+\))?!?: /, "")
+        $0 = toupper(substr($0, 1, 1)) substr($0, 2)
+      }
       { print }
     ' {{commit_msg_file}} | harper-cli lint --quiet --no-color --user-dict-path .config/harper-dictionary.txt
     """#
 }
 
 local linters = new Mapping<String, Step> {
-  ["check_byte_order_marker"] = Builtins.check_byte_order_marker
+  ["check_byte_order_marker"] = Builtins.byte_order_marker
   ["check_case_conflict"] = Builtins.check_case_conflict
   ["check_executables_have_shebangs"] = Builtins.check_executables_have_shebangs
   ["check_symlinks"] = Builtins.check_symlinks
-  ["check-added-large-files"] = Builtins.check_added_large_files
+  ["check-added-large-files"] = (Builtins.check_added_large_files) {
+    exclude = List("packages/server/priv/static/images/sad_little_toaster.png")
+  }
   ["check-exec-shebangs"] = Builtins.check_executables_have_shebangs
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["detect-private-key"] = Builtins.detect_private_key
@@ -136,13 +142,14 @@ local linters = new Mapping<String, Step> {
     )
     prefix = "mise x --"
     dir = "packages/server"
-    check = "mix compile --no-optional-deps --warning-as-errors"
+    check = "mix compile --no-optional-deps --warnings-as-errors"
   }
   ["server-deps"] = new Step {
     glob = List("mix.exs", "mix.lock")
     prefix = "mise x --"
     dir = "packages/server"
-    check = "mix deps.unlock --unused"
+    check = "mix deps.unlock --check-unused"
+    fix = "mix deps.unlock --unused"
   }
   ["server-format"] = new Step {
     glob = List("**/*.ex", "**/*.exs", "**/*.heex")
@@ -177,7 +184,8 @@ local linters = new Mapping<String, Step> {
     glob = List("**/go.mod", "**/go.sum")
     prefix = "mise x -- sh -c"
     dir = "packages/client"
-    check = "'go mod tidy && go mod verify'"
+    check = "'go mod tidy -diff && go mod verify'"
+    fix = "'go mod tidy && go mod verify'"
   }
   ["go-lint"] = new Step {
     glob = List("**/*.go", "**/go.mod", "**/go.sum", "**/.golangci.yml")

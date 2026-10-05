@@ -8,19 +8,20 @@ env_shell_expand = true
 config_roots = [".", "packages/client", "packages/server"]
 
 [tools]
-"github:RobertDeRose/mdbook-mermaid" = "1.1.1"
-"github:joshrotenberg/mdbook-lint" = "0.14.3"
+"github:RobertDeRose/mdbook-mermaid" = "1.2.0"
+"github:joshrotenberg/mdbook-lint" = "0.16.2"
+# Match the mdBook version used to build the pinned mdbook-mermaid fork.
 "github:rust-lang/mdbook" = "0.5.2"
-"npm:@commitlint/cli" = "20.5.3"
+"npm:@commitlint/cli" = "21.2.3"
 "npm:@contextlint/cli" = { version = "latest", aube_args = "--allow-low-downloads" }
 "npm:markdown-table-formatter" = "latest"
 cocogitto = "latest"
-go = "1.26.2"
-goreleaser = "2.15.4"
+go = "1.27.1"
+goreleaser = "2.18.2"
 harper-cli = "latest"
 hk = "latest"
 node = "lts"
-pkl = "0.31"
+pkl = "0.32"
 rumdl = "latest"
 typos = "latest"
 uv = "latest"
