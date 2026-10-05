@@ -311,10 +311,9 @@ func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[st
 		if err != nil {
 			return nil, err
 		}
-		return res, nil
-	default:
-		return nil, fmt.Errorf("unsupported starlark type: %s", value.Type())
+		res[keyString] = val
 	}
+	return res, nil
 }
 
 func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, depth int) ([]any, error) {
