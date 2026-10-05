@@ -136,7 +136,7 @@
 
 - `nixstasis.<base-domain>`: public Phoenix application host behind Caddy.
 - `auth.<base-domain>`: AuthCrunch/OIDC callback and auth host.
-- `frp-admin.<base-domain>`: authenticated FRPS dashboard host.
+- `frp-admin.<base-domain>`: FRPS dashboard host protected by an admin-only AuthCrunch policy (`nixstasis/admin`) plus the FRPS dashboard credentials.
 - `atom-<normalized-device-id>.<base-domain>`: device remote-access host pattern
   routed through Caddy wildcard TLS and FRPS HTTP vhost support.
 

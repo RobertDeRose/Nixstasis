@@ -179,7 +179,9 @@ targeting the compose `postgres` host.
 - The tracked dev/test Caddyfile uses Caddy's internal CA directly instead of
   on-demand TLS so local HTTPS is deterministic without public ACME or OIDC.
 - Reserved hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
-  `frp-admin.<base-domain>`.
+  `frp-admin.<base-domain>`. Production and laptop AuthCrunch configurations
+  restrict the FRPS dashboard host to the normalized `nixstasis/admin` role
+  before FRPS applies its own dashboard credentials.
 - Wildcard device hosts require `authorize with entra_policy` and a Phoenix
   `/internal/frp/access` forward-auth check before proxying. Phoenix derives the
   owning device ID from the FRP hostname, requires `can_remote_access`, and

@@ -107,6 +107,27 @@ reject_caddy_text() {
   fi
 }
 
+require_frp_admin_gate() {
+  file="$1"
+
+  awk '
+    /authorization policy frp_admin_policy \{/ { in_policy = 1; next }
+    in_policy && /allow roles nixstasis\/admin/ { admin_role = 1 }
+    in_policy && /allow groups/ { policy_groups = 1 }
+    in_policy && /^    }$/ { in_policy = 0 }
+
+    /^frp-admin\.\{\$BASE_DOMAIN\} \{/ { in_admin = 1; next }
+    in_admin && /authorize with frp_admin_policy/ { authorized = NR }
+    in_admin && /authorize with entra_policy/ { broad_policy = 1 }
+    in_admin && /reverse_proxy frps:\{\$FRPS_DASHBOARD_PORT\}/ {
+      if (!admin_role || policy_groups || broad_policy || !authorized || authorized > NR) exit 1
+      found = 1
+      exit 0
+    }
+    END { if (!found) exit 1 }
+  ' "$file" || fail "FRPS dashboard must require the admin-only AuthCrunch policy before proxying"
+}
+
 require_wildcard_remote_access_gate() {
   file="$1"
 
@@ -156,6 +177,9 @@ require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\
 reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'
+require_caddy_text 'authorization policy frp_admin_policy \{'
+require_caddy_text 'allow roles nixstasis/admin'
+require_frp_admin_gate "$CADDYFILE"
 require_caddy_text 'allow groups \{\$AUTHORIZED_GROUPS\}'
 require_caddy_text 'match groups \{\$NIXSTASIS_VIEWER_GROUPS\}'
 require_caddy_text 'action add role nixstasis/viewer'

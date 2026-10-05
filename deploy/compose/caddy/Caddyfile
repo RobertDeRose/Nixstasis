@@ -54,6 +54,13 @@
       inject headers with claims
       inject header "X-Token-Device-Ids" from device_ids
     }
+
+    authorization policy frp_admin_policy {
+      set auth url https://auth.{$BASE_DOMAIN}
+      allow roles nixstasis/admin
+      crypto key verify {$JWT_KEY}
+      validate bearer header
+    }
   }
 }
 
@@ -153,7 +160,7 @@ frp-admin.{$BASE_DOMAIN} {
     on_demand
   }
 
-  authorize with entra_policy
+  authorize with frp_admin_policy
   reverse_proxy frps:{$FRPS_DASHBOARD_PORT}
 }
 
