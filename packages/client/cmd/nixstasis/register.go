@@ -62,13 +62,7 @@ func runRegister(cfg *config.Config) error {
 	// 3. Load any proof from an interrupted enrollment or an existing runtime identity.
 	identityStore := identity.NewStore(config.IdentityPath())
 	registrationStore := identity.NewStore(config.RegistrationPath())
-	registrationProof := ""
-
-	if existing, loadErr := identityStore.Load(); loadErr == nil && existing.Token != "" {
-		registrationProof = existing.Token
-	} else if pending, pendingErr := registrationStore.Load(); pendingErr == nil && pending.Token != "" {
-		registrationProof = pending.Token
-	}
+	registrationProof := loadRegistrationProof(identityStore, registrationStore)
 
 	// 4. Register with Retries (T015)
 	var credentials transport.DeviceCredentials
@@ -120,4 +114,13 @@ func runRegister(cfg *config.Config) error {
 
 	slog.Info("Credentials persisted successfully")
 	return nil
+}
+
+func loadRegistrationProof(stores ...*identity.Store) string {
+	for _, store := range stores {
+		if credentials, err := store.Load(); err == nil && credentials.Token != "" {
+			return credentials.Token
+		}
+	}
+	return ""
 }
