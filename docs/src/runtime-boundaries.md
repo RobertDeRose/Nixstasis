@@ -140,7 +140,10 @@ Traceable references:
   membership in the operator's device scope before Caddy proxies to the FRPS
   HTTP vhost port.
 - Caddy proxies `frp-admin.{$BASE_DOMAIN}` to the FRPS dashboard port.
-- Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
+- Server-side SSH terminal sessions keep their private key and pinned
+  known-hosts data inside a mode-`0700` per-session temporary directory, with
+  each file mode `0600`, then use `ssh` with an `ncat` HTTP proxy command
+  pointed at the configured FRP host and TCP mux port.
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH
   process boundaries with `localhost` as the base domain and Caddy internal/local
   certificates for TLS.

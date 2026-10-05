@@ -32,6 +32,16 @@ defmodule Nixstasis.Devices.SshClientTest do
              )
   end
 
+  test "validate_executables reports missing mktemp executable" do
+    assert {:error, %{reason: :missing_executable, executable: "missing-nixstasis-mktemp"}} =
+             SshClient.validate_executables(
+               ssh_executable: "sh",
+               proxy_executable: "sh",
+               env_executable: "env",
+               mktemp_executable: "missing-nixstasis-mktemp"
+             )
+  end
+
   test "start_link reports missing executable before opening port" do
     Process.flag(:trap_exit, true)
 
@@ -136,6 +146,58 @@ defmodule Nixstasis.Devices.SshClientTest do
     assert SshClient.terminal_type() == "vt100"
   end
 
+  test "SSH credentials are stored in a private per-session temp directory" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-private-temp-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+    env_path = Path.join(temp_dir, "env")
+
+    File.write!(env_path, "#!/bin/sh\nprintf 'ready\\n'\nsleep 30\n")
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color"
+    )
+
+    {:ok, pid} =
+      SshClient.start_link(
+        device_id: "11111111-2222-3333-4444-555555555555",
+        private_key: "test-only-sensitive-key-material",
+        host_key: @host_key,
+        channel_pid: self(),
+        ssh_executable: "sh",
+        proxy_executable: "sh",
+        env_executable: env_path
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    state = :sys.get_state(pid)
+
+    assert Path.dirname(state.key_path) == state.temp_dir
+    assert Path.dirname(state.known_hosts_path) == state.temp_dir
+    assert permission_bits(state.temp_dir) == 0o700
+    assert permission_bits(state.key_path) == 0o600
+    assert permission_bits(state.known_hosts_path) == 0o600
+    assert File.read!(state.key_path) == "test-only-sensitive-key-material"
+
+    GenServer.stop(pid)
+    refute File.exists?(state.temp_dir)
+  end
+
   test "start_link records remote tty and resize updates it without writing to terminal stdin" do
     previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
     temp_dir = Path.join(System.tmp_dir!(), "nixstasis-ssh-client-test-#{System.unique_integer([:positive])}")
@@ -193,7 +255,8 @@ defmodule Nixstasis.Devices.SshClientTest do
 
     assert commands =~ "TERM=xterm-256color"
     assert commands =~ "StrictHostKeyChecking=yes"
-    assert commands =~ "UserKnownHostsFile=/tmp/nixstasis_known_hosts_"
+    assert commands =~ "UserKnownHostsFile=#{:sys.get_state(pid).temp_dir}/known_hosts"
+    assert commands =~ "/known_hosts"
     assert commands =~ "GlobalKnownHostsFile=/dev/null"
     refute commands =~ "StrictHostKeyChecking=no"
     refute commands =~ "UserKnownHostsFile=/dev/null"
@@ -297,6 +360,13 @@ defmodule Nixstasis.Devices.SshClientTest do
 
   defp restore_env(key, nil), do: Application.delete_env(:nixstasis, key)
   defp restore_env(key, value), do: Application.put_env(:nixstasis, key, value)
+
+  defp permission_bits(path) do
+    path
+    |> File.stat!()
+    |> Map.fetch!(:mode)
+    |> Bitwise.band(0o777)
+  end
 
   defp eventually_read!(path, predicate, attempts \\ 50)
 

@@ -29,11 +29,13 @@ defmodule Nixstasis.Devices.SshClient do
     ssh_executable = Keyword.get(opts, :ssh_executable, "ssh")
     proxy_executable = Keyword.get(opts, :proxy_executable, "ncat")
     env_executable = Keyword.get(opts, :env_executable, "env")
+    mktemp_executable = Keyword.get(opts, :mktemp_executable, "mktemp")
 
     with {:ok, ssh_path} <- find_required_executable(ssh_executable),
          {:ok, proxy_path} <- find_required_executable(proxy_executable),
-         {:ok, env_path} <- find_required_executable(env_executable) do
-      {:ok, %{ssh: ssh_path, proxy: proxy_path, env: env_path}}
+         {:ok, env_path} <- find_required_executable(env_executable),
+         {:ok, mktemp_path} <- find_required_executable(mktemp_executable) do
+      {:ok, %{ssh: ssh_path, proxy: proxy_path, env: env_path, mktemp: mktemp_path}}
     end
   end
 
@@ -82,9 +84,10 @@ defmodule Nixstasis.Devices.SshClient do
   end
 
   defp start_ssh_port(device_id, private_key, host_key, channel_pid, executables, columns, rows) do
-    with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key) do
-      key_path = write_temp_key(private_key)
-      known_hosts_path = write_temp_known_hosts(device_id, normalized_host_key)
+    with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key),
+         {:ok, temp_dir} <- create_private_temp_dir(executables.mktemp) do
+      key_path = write_temp_key(temp_dir, private_key)
+      known_hosts_path = write_temp_known_hosts(temp_dir, device_id, normalized_host_key)
       tty_path = remote_tty_path()
 
       ssh_args =
@@ -111,6 +114,7 @@ defmodule Nixstasis.Devices.SshClient do
       {:ok,
        %{
          port: port,
+         temp_dir: temp_dir,
          key_path: key_path,
          known_hosts_path: known_hosts_path,
          channel_pid: channel_pid,
@@ -123,6 +127,7 @@ defmodule Nixstasis.Devices.SshClient do
        }}
     else
       {:error, :invalid_ssh_host_key} -> {:stop, %{reason: :invalid_host_key}}
+      {:error, reason} -> {:stop, reason}
     end
   end
 
@@ -193,33 +198,59 @@ defmodule Nixstasis.Devices.SshClient do
   def terminate(_reason, state) do
     stop_resize_task(state[:resize_task])
 
-    if state[:key_path] do
-      File.rm(state.key_path)
-    end
-
-    if state[:known_hosts_path] do
-      File.rm(state.known_hosts_path)
+    if state[:temp_dir] do
+      File.rm_rf(state.temp_dir)
     end
 
     :ok
   end
 
-  defp write_temp_key(content) do
-    dir = System.tmp_dir!()
-    id = Ecto.UUID.generate()
-    path = Path.join(dir, "nixstasis_ssh_client_#{id}")
-    File.write!(path, content)
-    File.chmod!(path, 0o600)
+  defp create_private_temp_dir(mktemp_executable) do
+    template = Path.join(System.tmp_dir!(), "nixstasis_ssh_client_XXXXXXXXXX")
+
+    case System.cmd(mktemp_executable, ["-d", template], stderr_to_stdout: true) do
+      {output, 0} ->
+        path = String.trim(output)
+
+        case File.stat(path) do
+          {:ok, %File.Stat{type: :directory, mode: mode}} ->
+            if Bitwise.band(mode, 0o777) == 0o700 do
+              {:ok, path}
+            else
+              File.rm_rf(path)
+              {:error, %{reason: :insecure_temp_directory}}
+            end
+
+          _ ->
+            File.rm_rf(path)
+            {:error, %{reason: :insecure_temp_directory}}
+        end
+
+      {output, status} ->
+        {:error,
+         %{
+           reason: :temp_directory_creation_failed,
+           status: status,
+           output: String.trim(output)
+         }}
+    end
+  end
+
+  defp write_temp_key(dir, content) do
+    path = Path.join(dir, "identity")
+    write_private_temp_file(path, content)
     path
   end
 
-  defp write_temp_known_hosts(device_id, host_key) do
-    dir = System.tmp_dir!()
-    id = Ecto.UUID.generate()
-    path = Path.join(dir, "nixstasis_known_hosts_#{id}")
-    File.write!(path, "#{ssh_host(device_id)} #{host_key}\n")
-    File.chmod!(path, 0o600)
+  defp write_temp_known_hosts(dir, device_id, host_key) do
+    path = Path.join(dir, "known_hosts")
+    write_private_temp_file(path, "#{ssh_host(device_id)} #{host_key}\n")
     path
+  end
+
+  defp write_private_temp_file(path, content) do
+    File.write!(path, content, [:exclusive])
+    File.chmod!(path, 0o600)
   end
 
   defp find_required_executable(executable) do
