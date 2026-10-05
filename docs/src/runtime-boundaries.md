@@ -118,7 +118,9 @@ Traceable references:
 - The shipped command map excludes generic `cat`. File-backed diagnostics use the separate
   `read_file` capability. It accepts only
   exact locally configured `runtime.read_files` paths, caps each read at 64 KiB,
-  and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`.
+  and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`. The Linux
+  client opens the authorized canonical target using descriptor-relative no-follow
+  traversal so path components cannot be swapped to symlinks after authorization.
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:

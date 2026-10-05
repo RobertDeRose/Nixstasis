@@ -115,7 +115,9 @@ Each `exec_cmd` invocation captures at most 1 MiB of combined stdout and stderr;
 that limit cancels the child process and fails the script invocation. Scripts that need
 file-backed diagnostics must use `read_file`, which accepts only exact paths listed locally
 under `runtime.read_files`; Nixstasis state under `/etc/nixstasis` and `/run/nixstasis` is
-always denied, and each read is capped at 64 KiB.
+always denied, and each read is capped at 64 KiB. On Linux, the authorized canonical path
+is opened component-by-component with no-follow semantics, so a file or parent directory
+swapped to a symlink between authorization and open is rejected instead of redirected.
 
 Runtime suite journeys:
 

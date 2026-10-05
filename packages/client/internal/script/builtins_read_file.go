@@ -33,7 +33,7 @@ func (r *Runtime) readFileBuiltin(
 		return nil, err
 	}
 
-	file, err := os.Open(resolved)
+	file, err := secureOpenReadFile(resolved)
 	if err != nil {
 		return nil, fmt.Errorf("open allowlisted file: %w", err)
 	}

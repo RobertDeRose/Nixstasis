@@ -89,3 +89,30 @@ def main():
 		t.Fatalf("expected oversized read to fail, got %v", err)
 	}
 }
+
+func TestReadFilePreservesStableAllowlistedSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	link := filepath.Join(dir, "allowed-link")
+	if err := os.WriteFile(target, []byte("diagnostic\n"), 0o600); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("create allowlisted symlink: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:           5 * time.Second,
+		ReadFileAllowlist: []string{link},
+	})
+	out, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": read_file(path="`+link+`")}
+`)
+	if err != nil {
+		t.Fatalf("read stable allowlisted symlink: %v", err)
+	}
+	if got := out["out"]; got != "diagnostic" {
+		t.Fatalf("read_file symlink output = %q", got)
+	}
+}
