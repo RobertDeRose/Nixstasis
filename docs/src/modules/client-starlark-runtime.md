@@ -84,7 +84,9 @@
   missing payloads become failed command results.
 - `.stary` scripts contain YAML front matter plus a Starlark body. Validation
   compiles front matter schemas before installed scripts can contribute
-  telemetry.
+  telemetry. Stary source is limited to 1 MiB before YAML or Starlark parsing;
+  file-backed scripts are read through the same bounded source reader, and
+  server-delivered `install_script`/`run_script` content uses the same parser.
 - Script execution is bounded by two independent interpreter guards: executions have a five-second
   wall-clock timeout and each Starlark thread has a deterministic 1,000,000 computation-step ceiling.
   Hitting the step ceiling returns a normal execution error. Scripts also emit a slow-script warning

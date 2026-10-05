@@ -106,6 +106,10 @@ The runtime suite generates and executes 10+ Linux-oriented Starlark scripts (re
 - telemetry persistence and report queryability
 - alert triggering from script data
 
+Stary source is capped at 1 MiB before YAML or Starlark parsing. The same limit
+applies to discovered/installed files and server-delivered `install_script` or
+`run_script` payloads, so parse-time work cannot bypass runtime execution limits.
+
 Production `exec_cmd` usage is deny-by-default. Operators must explicitly
 allowlist executable paths in the client runtime configuration before scripts can run
 host commands. Commands execute with no arguments unless the exact argument vector is

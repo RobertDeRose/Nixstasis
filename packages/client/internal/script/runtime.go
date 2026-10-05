@@ -109,6 +109,10 @@ type result struct {
 
 // Execute runs the provided script body and returns the output dict as a Go map.
 func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[string]any, error) {
+	if len(body) > maxStarySourceBytes {
+		return nil, starySourceTooLargeError(len(body))
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, r.config.Timeout)
 	defer cancel()
 

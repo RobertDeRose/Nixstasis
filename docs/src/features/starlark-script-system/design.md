@@ -19,6 +19,8 @@ front matter and declared output schemas.
 ## Requirements
 
 - Accept user-authored `stary` files with YAML front matter and Starlark body.
+- Reject Stary source larger than 1 MiB before YAML or Starlark parsing, including
+  file-backed, installed, and server-delivered test scripts.
 - Require front matter to declare an output schema.
 - Validate script output against the declared schema with field-level errors.
 - Allow scripts to be selected by path or unique name; conflicting names require path selection.
