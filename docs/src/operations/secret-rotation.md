@@ -96,8 +96,8 @@ expiry extends beyond the installed deadline; do not assume every heartbeat
 reloads the credential or extends its lease.
 
 `FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are FRPS dashboard
-credentials consumed by `frps`. Caddy protects the dashboard route with
-AuthCrunch and proxies it to FRPS.
+credentials consumed by `frps`. Caddy protects the dashboard route with an
+admin-only AuthCrunch policy (`nixstasis/admin`) and proxies it to FRPS.
 
 1. Update dashboard credentials in `.env`.
 2. Restart `frps`.

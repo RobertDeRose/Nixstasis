@@ -83,8 +83,8 @@ class EchoHandler(BaseHTTPRequestHandler):
         pass
 
 
-def signed_token(scoped):
-    """Create a short-lived HS512 viewer JWT using the isolated test signing key.
+def signed_token(scoped, role="nixstasis/viewer"):
+    """Create a short-lived HS512 JWT for role using the isolated test signing key.
 
     When scoped, include a fixed device_ids claim to prove the deployment never
     forwards it as device scope; otherwise omit it. This is not a production key.
@@ -98,7 +98,7 @@ def signed_token(scoped):
         "sub": "trusted-viewer",
         "name": "Trusted Viewer",
         "email": "viewer@example.test",
-        "roles": ["nixstasis/viewer"],
+        "roles": [role],
         "iat": now,
         "exp": now + 300,
     }
@@ -125,14 +125,16 @@ def local_config(caddy, filename, backend_port, listen_port):
     config = json.loads(adapted.stdout)
     # Keep the adapted Nixstasis handlers and policy intact. Only replace external
     # listeners/upstreams and remove unused TLS/OIDC services for this local test.
-    # Keep the adapted route order: the Nixstasis host must win over the wildcard.
+    # Keep the adapted route order: named hosts must win over the wildcard.
     routes = [route for server in config["apps"]["http"]["servers"].values()
               for route in server["routes"]
               if any(host in match.get("host", [])
                      for match in route.get("match", [])
-                     for host in ["nixstasis.proxy.test", "*.proxy.test"])]
-    if len(routes) != 2:
-        raise AssertionError("Expected exactly one Nixstasis and one wildcard host route")
+                     for host in ["nixstasis.proxy.test", "frp-admin.proxy.test",
+                                  "*.proxy.test"])]
+    if len(routes) != 3:
+        raise AssertionError(
+            "Expected exactly one Nixstasis, FRPS dashboard, and wildcard host route")
     config["admin"] = {"disabled": True}
     config["apps"].pop("tls", None)
     config["apps"]["http"]["servers"] = {"test": {
@@ -161,8 +163,16 @@ def local_config(caddy, filename, backend_port, listen_port):
     return config
 
 
+def drain_requests(backend):
+    """Return the upstream arrivals recorded since the previous drain."""
+    arrivals = []
+    while not backend.requests.empty():
+        arrivals.append(backend.requests.get())
+    return arrivals
+
+
 class ProxyClaimsTest(unittest.TestCase):
-    """Verify deployed claim sanitization with real Caddy and signed viewer JWTs."""
+    """Verify deployed claim sanitization with real Caddy and signed role JWTs."""
 
     caddy = "caddy"
 
@@ -217,6 +227,7 @@ class ProxyClaimsTest(unittest.TestCase):
                             time.sleep(0.05)
                     self.exercise_requests(port, scoped)
                     self.exercise_device_tunnel(port, backend, scoped)
+                    self.exercise_frp_admin(port, backend)
                     self.exercise_rejected_connections(port, backend)
                 finally:
                     process.terminate()
@@ -227,10 +238,10 @@ class ProxyClaimsTest(unittest.TestCase):
                         process.wait()
 
     def request(self, port, method, path, authenticated=False, extra_headers=(),
-                scoped=False, host="nixstasis.proxy.test"):
+                scoped=False, host="nixstasis.proxy.test", role="nixstasis/viewer"):
         """Send forged claim headers and return the proxy's status and body bytes.
 
-        authenticated adds a genuine signed viewer token alongside the forged
+        authenticated adds a genuine signed token for role alongside the forged
         headers so tests can distinguish trusted claims from client input;
         scoped selects whether that token carries a device_ids claim.
         extra_headers accepts ordered name/value pairs, including repeated fields
@@ -240,7 +251,7 @@ class ProxyClaimsTest(unittest.TestCase):
         headers = dict(FORGED_HEADERS)
         headers["Host"] = host
         if authenticated:
-            headers["Authorization"] = f"Bearer {signed_token(scoped)}"
+            headers["Authorization"] = f"Bearer {signed_token(scoped, role)}"
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         try:
             # Emit separate fields so repeated Connection headers are tested too.
@@ -319,18 +330,11 @@ class ProxyClaimsTest(unittest.TestCase):
         """
         tunnel_host = f"atom-{DEVICE_ID.replace('-', '')}.proxy.test"
 
-        def drain():
-            """Return the upstream arrivals recorded since the previous drain."""
-            arrivals = []
-            while not backend.requests.empty():
-                arrivals.append(backend.requests.get())
-            return arrivals
-
-        drain()
+        drain_requests(backend)
         status, body = self.request(port, "GET", "/", authenticated=True, scoped=scoped,
                                     host=tunnel_host)
         self.assertEqual(status, 200, body)
-        checks = [headers for _method, path, headers in drain()
+        checks = [headers for _method, path, headers in drain_requests(backend)
                   if path == "/internal/frp/access"]
         self.assertEqual(len(checks), 1, "Phoenix access check was not called once")
         check = checks[0]
@@ -346,7 +350,33 @@ class ProxyClaimsTest(unittest.TestCase):
 
         status, _body = self.request(port, "GET", "/", host=tunnel_host)
         self.assertIn(status, [302, 303, 401, 403])
-        self.assertEqual(drain(), [], "Anonymous tunnel request reached an upstream")
+        self.assertEqual(drain_requests(backend), [],
+                         "Anonymous tunnel request reached an upstream")
+
+    def exercise_frp_admin(self, port, backend):
+        """Assert that only admin tokens reach the FRPS dashboard upstream.
+
+        The admin request must be served by the dashboard host itself, not the
+        wildcard device route and its Phoenix access check. Viewer, operator, and
+        anonymous requests, including forged admin role headers, must be rejected
+        before FRPS is reached.
+        """
+        host = "frp-admin.proxy.test"
+        drain_requests(backend)
+        status, body = self.request(port, "GET", "/", authenticated=True,
+                                    role="nixstasis/admin", host=host)
+        self.assertEqual(status, 200, body)
+        self.assertEqual([path for _method, path, _headers in drain_requests(backend)],
+                         ["/"])
+
+        for role in ["nixstasis/viewer", "nixstasis/operator"]:
+            status, _body = self.request(port, "GET", "/", authenticated=True,
+                                         role=role, host=host)
+            self.assertIn(status, [302, 303, 401, 403], role)
+        status, _body = self.request(port, "GET", "/", host=host)
+        self.assertIn(status, [302, 303, 401, 403])
+        self.assertEqual(drain_requests(backend), [],
+                         "Non-admin dashboard request reached FRPS")
 
     def exercise_rejected_connections(self, port, backend):
         """Assert that trusted-header Connection nominations never reach the backend.
