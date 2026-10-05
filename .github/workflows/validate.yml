@@ -22,6 +22,14 @@ jobs:
         env:
           MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
         run: mise install --locked
+      - name: Install server dependencies
+        working-directory: packages/server
+        env:
+          MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
+        run: |
+          mise x -- mix local.hex --force
+          mise x -- mix local.rebar --force
+          mise x -- mix deps.get
       - name: Run repository checks
         env:
           MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
