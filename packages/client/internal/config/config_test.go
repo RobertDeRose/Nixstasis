@@ -8,11 +8,15 @@ import (
 
 func TestPathsUseNixstasisDefaults(t *testing.T) {
 	t.Setenv("NIXSTASIS_IDENTITY_PATH", "")
+	t.Setenv("NIXSTASIS_REGISTRATION_PATH", "")
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "")
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "")
 
 	if got := IdentityPath(); got != "/etc/nixstasis/id" {
 		t.Fatalf("IdentityPath() = %q", got)
+	}
+	if got := RegistrationPath(); got != "/etc/nixstasis/registration" {
+		t.Fatalf("RegistrationPath() = %q", got)
 	}
 
 	if got := FRPCConfigPath(); got != "/usr/share/nixstasis/frpc.toml" {
@@ -35,11 +39,15 @@ func TestPathsUseNixstasisDefaults(t *testing.T) {
 
 func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 	t.Setenv("NIXSTASIS_IDENTITY_PATH", "/tmp/nixstasis/id")
+	t.Setenv("NIXSTASIS_REGISTRATION_PATH", "/tmp/nixstasis/registration")
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/tmp/nixstasis/frpc.toml")
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/tmp/nixstasis/frpc")
 
 	if got := IdentityPath(); got != "/tmp/nixstasis/id" {
 		t.Fatalf("IdentityPath() = %q", got)
+	}
+	if got := RegistrationPath(); got != "/tmp/nixstasis/registration" {
+		t.Fatalf("RegistrationPath() = %q", got)
 	}
 
 	if got := FRPCConfigPath(); got != "/tmp/nixstasis/frpc.toml" {

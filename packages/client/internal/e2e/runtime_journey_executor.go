@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -29,13 +30,14 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	productName := fmt.Sprintf("runtime-linux-e2e-%d", time.Now().UnixNano())
 
 	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
-	deviceID, err := apiClient.RegisterDevice(ctx, identity.DeviceIdentity{
+	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: mac,
 		Name:       productName,
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, transport.ErrDevicePendingApproval) {
 		return stepOutcome{}, err
 	}
+	deviceID := credentials.UUID
 
 	if deviceID == "" {
 		return stepOutcome{}, assertionFailure(
@@ -86,6 +88,7 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	state.DeviceID = deviceID
 	state.DeviceMac = mac
 	state.ProductName = productName
+	state.RegistrationToken = credentials.RegistrationToken
 
 	return stepOutcome{
 		ResponseType: responseTypeJSON,
@@ -162,7 +165,7 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: state.DeviceMac,
 		Name:       state.ProductName,
-	})
+	}, state.RegistrationToken)
 	if err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeHTTPRequestFailed,

@@ -27,7 +27,8 @@ defmodule Nixstasis.Devices.Device do
     metadata: [type: :map, allow_nil?: false],
     remote_access_requested: [type: :boolean, allow_nil?: false],
     remote_access_profile: [type: :string, allow_nil?: false],
-    api_token: [type: :string]
+    api_token: [type: :string],
+    registration_token: [type: :string]
   ]
 
   @runtime_list_device_fields [
@@ -224,6 +225,7 @@ defmodule Nixstasis.Devices.Device do
       argument :schema, :map
       argument :metadata, :map
       argument :remote_access_requested, :boolean
+      argument :registration_token, :string
 
       run fn input, _context ->
         Devices.register_runtime_device(input.arguments)

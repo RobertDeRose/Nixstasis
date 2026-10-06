@@ -63,7 +63,7 @@ if [ -f /etc/nixstasis/config.yaml ]; then
     chown root:nixstasis /etc/nixstasis/config.yaml
     chmod 0640 /etc/nixstasis/config.yaml
 fi
-for state_file in /etc/nixstasis/id /etc/nixstasis/command-policy.json; do
+for state_file in /etc/nixstasis/id /etc/nixstasis/registration /etc/nixstasis/command-policy.json; do
     if [ -f "$state_file" ]; then
         chown nixstasis:nixstasis "$state_file"
         chmod 0600 "$state_file"

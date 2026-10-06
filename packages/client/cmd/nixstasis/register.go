@@ -59,14 +59,19 @@ func runRegister(cfg *config.Config) error {
 	// 2. Setup Client
 	client := transport.NewClient(cfg.API)
 
-	// 3. Register with Retries (T015)
+	// 3. Load any proof from an interrupted enrollment or an existing runtime identity.
+	identityStore := identity.NewStore(config.IdentityPath())
+	registrationStore := identity.NewStore(config.RegistrationPath())
+	registrationProof := loadRegistrationProof(identityStore, registrationStore)
+
+	// 4. Register with Retries (T015)
 	var credentials transport.DeviceCredentials
 	maxRetries := 8
 	baseDelay := 2 * time.Second
 	maxDelay := 30 * time.Second
 
 	for i := range maxRetries {
-		credentials, err = client.RegisterDeviceCredentials(context.Background(), id)
+		credentials, err = client.RegisterDeviceCredentials(context.Background(), id, registrationProof)
 		if err == nil {
 			break
 		}
@@ -74,6 +79,15 @@ func runRegister(cfg *config.Config) error {
 		message := "Registration failed"
 		if errors.Is(err, transport.ErrDevicePendingApproval) {
 			message = "Registration pending approval"
+			if credentials.RegistrationToken != "" {
+				registrationProof = credentials.RegistrationToken
+				if saveErr := registrationStore.Save(identity.Credentials{
+					UUID:  credentials.UUID,
+					Token: registrationProof,
+				}); saveErr != nil {
+					return fmt.Errorf("failed to persist registration proof: %w", saveErr)
+				}
+			}
 		}
 		slog.Warn(message, "attempt", i+1, "error", err)
 		if i < maxRetries-1 {
@@ -90,12 +104,23 @@ func runRegister(cfg *config.Config) error {
 
 	slog.Info("Registration successful", "uuid", credentials.UUID, "token_issued", credentials.Token != "")
 
-	// 4. Save credentials
-	store := identity.NewStore(config.IdentityPath())
-	if err := store.Save(identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}); err != nil {
+	// 5. Save runtime credentials and discard the one-time enrollment proof.
+	if err := identityStore.Save(identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
+	}
+	if err := registrationStore.Remove(); err != nil {
+		return fmt.Errorf("failed to remove registration proof: %w", err)
 	}
 
 	slog.Info("Credentials persisted successfully")
 	return nil
+}
+
+func loadRegistrationProof(stores ...*identity.Store) string {
+	for _, store := range stores {
+		if credentials, err := store.Load(); err == nil && credentials.Token != "" {
+			return credentials.Token
+		}
+	}
+	return ""
 }

@@ -105,10 +105,11 @@ func (c *Client) deviceURL(path string) string {
 	return u.String()
 }
 
-// DeviceCredentials are issued once the server has approved a device.
+// DeviceCredentials carries pending enrollment proof or approved runtime credentials.
 type DeviceCredentials struct {
-	UUID  string
-	Token string
+	UUID              string
+	Token             string
+	RegistrationToken string
 }
 
 // RegisterDevice registers the device with the Nixstasis API.
@@ -122,10 +123,18 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 }
 
 // RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
-func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.DeviceIdentity) (DeviceCredentials, error) {
+func (c *Client) RegisterDeviceCredentials(
+	ctx context.Context,
+	id identity.DeviceIdentity,
+	registrationToken ...string,
+) (DeviceCredentials, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
 	reqBody := map[string]any{
 		"mac_address": id.MACAddress,
+	}
+
+	if len(registrationToken) > 0 && registrationToken[0] != "" {
+		reqBody["registration_token"] = registrationToken[0]
 	}
 
 	if id.Name != "" {
@@ -146,8 +155,9 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 
 	var response struct {
 		Data struct {
-			ID       string `json:"id"`
-			APIToken string `json:"api_token"`
+			ID                string `json:"id"`
+			APIToken          string `json:"api_token"`
+			RegistrationToken string `json:"registration_token"`
 		} `json:"data"`
 	}
 	if err := c.doJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusCreated); err != nil {
@@ -158,7 +168,10 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 		return DeviceCredentials{}, fmt.Errorf("API returned empty device id")
 	}
 	if response.Data.APIToken == "" {
-		return DeviceCredentials{UUID: response.Data.ID}, ErrDevicePendingApproval
+		return DeviceCredentials{
+			UUID:              response.Data.ID,
+			RegistrationToken: response.Data.RegistrationToken,
+		}, ErrDevicePendingApproval
 	}
 
 	return DeviceCredentials{UUID: response.Data.ID, Token: response.Data.APIToken}, nil
