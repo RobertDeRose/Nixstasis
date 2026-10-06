@@ -91,7 +91,10 @@ func TestRegistrationRetryAfterLostExchangeResponse(t *testing.T) {
 		_, _ = w.Write(data)
 	}))
 	defer server.Close()
-	client := transport.NewClient(config.APIConfig{URL: server.URL})
+	client, err := transport.NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 	device := identity.DeviceIdentity{MACAddress: "02:00:00:10:00:01", Name: "retry-device"}
 	if _, err := client.RegisterDeviceCredentials(context.Background(), device, first.Token, first.ReplacementToken); err == nil {
 		t.Fatal("expected a lost-response error")

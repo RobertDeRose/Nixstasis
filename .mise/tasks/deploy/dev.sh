@@ -119,6 +119,26 @@ run_migrations() {
   compose exec -T nixstasis /app/bin/migrate
 }
 
+trust_client_caddy_ca() {
+  [ "$1" -gt 0 ] || return
+
+  # Transfer only the public certificate; never mount Caddy's private CA keys.
+  ca_dir=$(mktemp -d)
+  if ! compose cp caddy:/data/caddy/pki/authorities/local/root.crt "$ca_dir/root.crt"; then
+    rm -rf "$ca_dir"
+    fail "failed to read Caddy's public dev CA certificate"
+  fi
+  for container_id in $(compose ps -q client); do
+    if ! docker cp "$ca_dir/root.crt" "$container_id:/usr/local/share/ca-certificates/nixstasis-caddy.crt" ||
+      ! docker exec "$container_id" update-ca-certificates; then
+      rm -rf "$ca_dir"
+      fail "failed to trust Caddy's dev CA in client $container_id"
+    fi
+    docker exec "$container_id" systemctl restart nixstasis-registration.service
+  done
+  rm -rf "$ca_dir"
+}
+
 seed_client_devices() {
   count="$1"
   [ "$count" -gt 0 ] || return
@@ -233,6 +253,7 @@ up() {
   compose up -d --scale client="$clients"
   wait_for_running_services "$clients"
   wait_for_server
+  trust_client_caddy_ca "$clients"
   seed_client_devices "$clients"
 
   cat <<EOF

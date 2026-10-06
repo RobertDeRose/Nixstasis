@@ -106,9 +106,12 @@ func TestRegisterDevice(t *testing.T) {
 			defer server.Close()
 
 			cfg := config.APIConfig{
-				URL: server.URL,
+				URL: server.URL, AllowLoopbackHTTP: true,
 			}
-			client := NewClient(cfg)
+			client, err := NewClient(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			deviceID, err := client.RegisterDevice(context.Background(), tt.device, identity.NewToken(), identity.NewToken())
 
@@ -170,7 +173,10 @@ func TestRegisterDeviceCredentialsUsesEnrollmentProof(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 	device := identity.DeviceIdentity{MACAddress: "00:11:22:33:44:55", Name: "atom-001122334455"}
 
 	pending, err := client.RegisterDeviceCredentials(context.Background(), device, registrationToken, runtimeToken)

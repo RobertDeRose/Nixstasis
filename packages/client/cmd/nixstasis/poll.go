@@ -63,7 +63,10 @@ func runPoll(cfg *config.Config) error {
 	slog.Info("Device identity loaded", "uuid", uuid)
 
 	// 2. Setup Components
-	client := transport.NewClient(cfg.API)
+	client, err := transport.NewClient(cfg.API)
+	if err != nil {
+		return err
+	}
 	client.SetAPIKey(credentials.Token)
 	policyStore := commandpolicy.NewStore(config.CommandPolicyPath())
 	execCommandAllowlist, commandPolicyVersion, commandPolicyRevision := initialCommandPolicy(cfg, policyStore)

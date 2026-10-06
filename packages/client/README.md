@@ -140,14 +140,26 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
+The API URL defaults to `https://localhost:4000`. HTTPS certificate and hostname
+verification are mandatory; API redirects are not followed. Install private CA
+certificates in the client's OS trust store, or set Go's `SSL_CERT_FILE` to a
+trusted PEM CA bundle. Do not disable certificate verification.
+
+For a local HTTP mock only, set `api.url: http://127.0.0.1:4000` and
+`api.allow_loopback_http: true` (environment: `NIXSTASIS_API_ALLOW_LOOPBACK_HTTP=true`).
+This option defaults to false and accepts only `localhost` or loopback IP
+addresses, never LAN addresses or Compose service names. HTTP connections bypass
+proxies; `localhost` connects directly to `127.0.0.1` without DNS resolution.
+
 For Compose dev-harness remote-access validation, use `mise run deploy:dev -- up`
 from the repository root. It starts the full
 stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
 with `--clients N`. The container image entrypoint writes
 `/etc/nixstasis/config.yaml` from Compose-provided environment before systemd
-starts, so the packaged systemd units can use the local Compose server and FRPS
-service names without changing the native package defaults. The image also keeps
+starts. Clients use Caddy's HTTPS API hostname and the internal FRPS service
+name. The dev task installs only Caddy's public local CA certificate into client
+trust stores and restarts registration; Caddy's private CA keys are not shared. The image also keeps
 `systemd-user-sessions.service` in `multi-user.target` so systemd removes
 `/run/nologin` and SSH remote-access sessions can authenticate as the dedicated
 `nixstasis-support` account.

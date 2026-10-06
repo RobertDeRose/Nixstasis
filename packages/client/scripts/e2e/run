@@ -4,6 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+if [[ -n "${SSL_CERT_FILE:-}" ]]; then
+  [[ -f "${SSL_CERT_FILE}" ]] || { echo "SSL_CERT_FILE must name a CA certificate file" >&2; exit 1; }
+  export SSL_CERT_FILE="$(cd "$(dirname "${SSL_CERT_FILE}")" && pwd)/$(basename "${SSL_CERT_FILE}")"
+fi
+
 cd "${ROOT_DIR}"
 
 host_os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -80,6 +85,9 @@ elif [[ "${requested_journeys}" == *"runtime_linux_telemetry"* ]] || [[ "${reque
 fi
 
 if [[ "${host_os}" == "linux" || "${needs_linux_runtime}" != "true" ]]; then
+  if [[ -n "${source_api_url}" ]]; then
+    forwarded_args+=(--api-url "${source_api_url}")
+  fi
   go run ./scripts/e2e "${forwarded_args[@]}"
   exit 0
 fi
@@ -108,10 +116,15 @@ elif [[ "${container_runtime}" == "podman" ]]; then
 fi
 container_host_alias="${E2E_CONTAINER_HOST_ALIAS:-${default_host_alias}}"
 
-container_api_url="${source_api_url/localhost/${container_host_alias}}"
-container_api_url="${container_api_url/127.0.0.1/${container_host_alias}}"
-container_api_url="${container_api_url/host.container.internal/${container_host_alias}}"
-container_api_url="${container_api_url/host.docker.internal/${container_host_alias}}"
+container_api_url="${source_api_url}"
+# Preserve HTTPS hostnames for certificate verification. Remote HTTP is not
+# permitted by the runtime client, even when the E2E loopback opt-in is set.
+if [[ "${source_api_url}" == http://* ]]; then
+  container_api_url="${container_api_url/localhost/${container_host_alias}}"
+  container_api_url="${container_api_url/127.0.0.1/${container_host_alias}}"
+  container_api_url="${container_api_url/host.container.internal/${container_host_alias}}"
+  container_api_url="${container_api_url/host.docker.internal/${container_host_alias}}"
+fi
 forwarded_args+=(--api-url "${container_api_url}")
 
 image_tag="docker.io/library/golang:1.27.1-trixie"
@@ -128,6 +141,10 @@ mkdir -p "${host_gocache}" "${host_gomodcache}"
 
 if [[ "${container_runtime}" == "docker" ]]; then
   runtime_args+=(--add-host "${container_host_alias}:host-gateway")
+fi
+
+if [[ -n "${SSL_CERT_FILE:-}" ]]; then
+  runtime_args+=(-v "${SSL_CERT_FILE}:/tmp/nixstasis-e2e-ca.pem:ro" -e SSL_CERT_FILE=/tmp/nixstasis-e2e-ca.pem)
 fi
 
 "${container_runtime}" "${runtime_args[@]}" \

@@ -69,6 +69,13 @@
   The server atomically exchanges it for the saved replacement token; the client then stores UUID
   and runtime token together as JSON at `config.IdentityPath()` and removes the
   temporary registration state.
+- Registration and runtime API requests require HTTPS with certificate and
+  hostname verification. Redirects are rejected rather than forwarding bearer
+  credentials. Private CAs must be installed in the OS trust store or supplied
+  via Go's `SSL_CERT_FILE` PEM bundle. For local development only,
+  `api.allow_loopback_http: true` (`NIXSTASIS_API_ALLOW_LOOPBACK_HTTP=true`) permits
+  HTTP to loopback IP addresses or `localhost`; it defaults to false. HTTP
+  bypasses proxies, and `localhost` is dialed as `127.0.0.1` without DNS.
 - Lost responses and restarts reuse both saved secrets. A committed replacement
   recovers the same runtime token without another rotation. If saving the runtime
   identity fails, the recovery store preserves the new runtime credentials for

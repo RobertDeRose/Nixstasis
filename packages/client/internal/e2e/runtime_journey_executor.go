@@ -29,7 +29,10 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	account := generateAccountNumber()
 	productName := fmt.Sprintf("runtime-linux-e2e-%d", time.Now().UnixNano())
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: mac,
 		Name:       productName,
@@ -161,7 +164,10 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 		return stepOutcome{}, err
 	}
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: state.DeviceMac,
 		Name:       state.ProductName,
@@ -411,7 +417,10 @@ func (e *journeyExecutor) runtimePollWithScripts(ctx context.Context, state *jou
 
 	pollStart := time.Now()
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	apiClient.SetAPIKey(state.DeviceToken)
 	scripts, err := script.DiscoverScripts(scriptDir)
 	if err != nil {

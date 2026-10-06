@@ -30,6 +30,10 @@ services:
     restart: unless-stopped
 
   caddy:
+    networks:
+      default:
+        aliases:
+          - nixstasis.${BASE_DOMAIN}
     image: ${NIXSTASIS_CADDY_IMAGE_REF:-nixstasis-caddy:dev}
     build:
       context: ../../packages/caddy
@@ -140,7 +144,7 @@ services:
       context: ../../packages/client
       dockerfile: Dockerfile
     environment:
-      NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-http://nixstasis:4000}
+      NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-https://nixstasis.${BASE_DOMAIN}}
       NIXSTASIS_FRP_AUTH_TOKEN: ${NIXSTASIS_FRP_AUTH_TOKEN:-}
       NIXSTASIS_FRP_SERVER_ADDR: frps
       NIXSTASIS_FRP_SERVER_PORT: ${FRPS_BIND_PORT}
@@ -155,6 +159,7 @@ services:
     depends_on:
       - nixstasis
       - frps
+      - caddy
     restart: unless-stopped
 
 volumes:

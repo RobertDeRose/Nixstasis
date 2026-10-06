@@ -31,6 +31,14 @@ func init() {
 }
 
 func runRegister(cfg *config.Config) error {
+	client, err := transport.NewClient(cfg.API)
+	if err != nil {
+		return err
+	}
+	return runRegisterWithClient(client)
+}
+
+func runRegisterWithClient(client *transport.Client) error {
 	slog.Info("Starting registration process")
 
 	// 1. Detect Identity
@@ -55,9 +63,6 @@ func runRegister(cfg *config.Config) error {
 		Name:       identity.GenerateDeviceName(mac),
 	}
 	slog.Info("Device identity detected", "name", id.Name, "mac", mac, "ip", ip)
-
-	// 2. Setup Client
-	client := transport.NewClient(cfg.API)
 
 	// 3. Load any proof from an interrupted enrollment or an existing runtime identity.
 	identityPath := config.IdentityPath()
