@@ -15,6 +15,7 @@ defmodule Nixstasis.E2E.Run do
     field :environment_label, :string
     field :trigger_source, :string
     field :protocol_version, :string
+    field :runner_id, :string
     field :idempotency_key, :string
     field :idempotency_expires_at, :utc_datetime_usec
     field :status, :string, default: "queued"
@@ -27,7 +28,7 @@ defmodule Nixstasis.E2E.Run do
     timestamps(type: :utc_datetime_usec)
   end
 
-  @required_fields ~w(suite_id environment_label trigger_source protocol_version)a
+  @required_fields ~w(suite_id environment_label trigger_source protocol_version runner_id)a
   @status_values ~w(queued running passed failed cancelled blocked)
   @trigger_values ~w(manual ci)
 
@@ -39,6 +40,8 @@ defmodule Nixstasis.E2E.Run do
         [:journey_ids, :status, :started_at, :finished_at, :run_metadata, :idempotency_key, :idempotency_expires_at]
     )
     |> validate_required(@required_fields)
+    |> validate_length(:runner_id, max: 64)
+    |> validate_format(:runner_id, ~r/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/)
     |> validate_inclusion(:status, @status_values)
     |> validate_inclusion(:trigger_source, @trigger_values)
   end

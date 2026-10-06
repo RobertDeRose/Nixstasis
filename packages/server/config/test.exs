@@ -73,4 +73,10 @@ config :nixstasis, :telemetry_retention,
 
 config :nixstasis, :base_domain, "devices.example.com"
 config :nixstasis, :proxy_auth_token, "test-proxy-auth-token-0123456789abcdef0123456789abcdef"
+
+config :nixstasis, :e2e_runners, %{
+  "test-runner" => "test-e2e-runner-token-0123456789abcdef0123456789abcdef",
+  "other-runner" => "other-e2e-runner-token-0123456789abcdef0123456789abcdef"
+}
+
 config :nixstasis, :local_browser_auth_fallback?, true

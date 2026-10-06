@@ -123,6 +123,9 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
        }),
        do: :json_device_command_payload
 
+  defp preauth_route(%{path_info: ["e2e" | _], method: method}),
+    do: {:e2e, method_bucket(method)}
+
   defp preauth_route(%{path_info: ["api", "json" | _], method: method}),
     do: {:json_api, method_bucket(method)}
 

@@ -57,7 +57,12 @@
 - Commands with deferred payload references are hydrated through `FetchCommandPayload` in
   the poll loop before execution. A failed or invalid hydration produces a failed command
   result and the command handler is not invoked with incomplete content.
-- `apply_command_policy` succeeds only after the client updates runtime config and durably writes the persisted server policy outside the script directory.
+- `apply_command_policy` succeeds only after the client updates runtime config and
+  durably writes the persisted server policy outside the script directory.
+- Remote script installation targets `scripts.dir`, whose packaged default is
+  `/var/lib/nixstasis/scripts`; the service user owns that state directory. Packaged
+  scripts remain root-owned under `/usr/libexec/nixstasis/scripts` and are still
+  included in discovery as read-only system scripts.
 - Results are sent to `POST /api/v1/devices/:device_id/command_results`.
 - `run_script` uses `text/x-stary` (or the compatibility `text/stary`) payload content types,
   preserves client validation/runtime output, and is bounded by the handler's five-second

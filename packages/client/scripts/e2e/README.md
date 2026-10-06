@@ -14,7 +14,11 @@ The CLI posts run metadata and results to the server. Use the returned `RunID` t
 Per-journey log files use JSONL schema `e2e_log.v1` (journey start, one terminal row per step, journey completion
 summary).
 
-Run creation requires `X-E2E-Protocol-Version` (set via `--protocol-version` or config `e2e.protocol_version`).
+All `/e2e/*` requests require a dedicated runner identity and bearer credential. Set
+`NIXSTASIS_E2E_RUNNER_TOKEN` in the environment and either set `NIXSTASIS_E2E_RUNNER_ID` or configure
+`e2e.runner_id`. The token is intentionally not accepted in YAML or as a CLI argument.
+
+Run creation also requires `X-E2E-Protocol-Version` (set via `--protocol-version` or config `e2e.protocol_version`).
 
 ## Runtime Suite
 
@@ -91,7 +95,14 @@ The default config example also includes:
 
 ```yaml
 e2e:
+  runner_id: local-runner
   base_domain: devices.example.com
+```
+
+For a local development server, export its configured runner token before running the harness:
+
+```bash
+export NIXSTASIS_E2E_RUNNER_TOKEN=dev-e2e-runner-token-0123456789abcdef0123456789abcdef
 ```
 
 This uses server suite configuration as source of truth via `GET /e2e/suites`. If any suite fails, the command exits

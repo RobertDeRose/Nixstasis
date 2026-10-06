@@ -75,7 +75,8 @@ Git rejects merges that require a merge commit.
 
 The universal tool count remains ten; `gh` is an external administrative prerequisite, not a mise tool. Pages requires
 `build_type=workflow` plus `DOCS_DEPLOYMENT_ENABLED=true`. The build job has `contents: read`; only the deploy job has
-`pages: write` and `id-token: write`.
+`pages: write` and `id-token: write`, and that job is gated on the repository variable being exactly `true`. Eligible
+events are matching pushes to `main`, manual dispatches, and successful tagged `E2E Suites Report` workflow runs.
 
 Provisioning reports separate mise availability, lock, install, and hook states. Overall status is `succeeded`,
 `degraded`, or `skipped`; failed or skipped stages include exact recovery commands.

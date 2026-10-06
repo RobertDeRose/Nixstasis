@@ -6,7 +6,12 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
   alias Nixstasis.E2E
   alias Nixstasis.E2E.LogStore
 
-  setup do
+  @runner_id "test-runner"
+  @runner_token "test-e2e-runner-token-0123456789abcdef0123456789abcdef"
+  @other_runner_id "other-runner"
+  @other_runner_token "other-e2e-runner-token-0123456789abcdef0123456789abcdef"
+
+  setup %{conn: conn} do
     previous = Application.get_env(:nixstasis, :e2e)
     previous_context = Application.get_env(:nixstasis, :e2e_context)
 
@@ -33,7 +38,13 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
       end
     end)
 
-    :ok
+    {:ok, conn: e2e_auth(conn)}
+  end
+
+  defp e2e_auth(conn, runner_id \\ @runner_id, token \\ @runner_token) do
+    conn
+    |> put_req_header("x-e2e-runner-id", runner_id)
+    |> put_req_header("authorization", "Bearer " <> token)
   end
 
   test "Given a run, when GET /e2e/runs/:id/results, then results are returned", %{conn: conn} do
@@ -42,7 +53,8 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     conn = get(conn, ~p"/e2e/runs/#{run.id}/results")
@@ -52,13 +64,41 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
     assert hd(results)["journey_id"] == "auth"
   end
 
+  test "Given another runner's run, when results or logs are accessed, then they are hidden" do
+    {:ok, run} =
+      E2E.create_run(%{
+        suite_id: "full",
+        environment_label: "local",
+        trigger_source: "manual",
+        protocol_version: "1",
+        runner_id: @runner_id
+      })
+
+    payload = %{
+      "results" => [%{"journey_id" => "auth", "status" => "passed", "duration_ms" => 1}]
+    }
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert response(get(other_conn, ~p"/e2e/runs/#{run.id}/results"), 404)
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert response(post(other_conn, ~p"/e2e/runs/#{run.id}/results", payload), 404)
+
+    other_conn = e2e_auth(build_conn(), @other_runner_id, @other_runner_token)
+    assert response(get(other_conn, ~p"/e2e/runs/#{run.id}/results/auth/log"), 404)
+
+    assert {:ok, unchanged} = E2E.get_run(run.id)
+    assert unchanged.status == "queued"
+  end
+
   test "Given results payload, when POST /e2e/runs/:id/results, then results are stored", %{conn: conn} do
     {:ok, run} =
       E2E.create_run(%{
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     payload = %{
@@ -89,7 +129,8 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     assert {:ok, _} =
@@ -113,7 +154,8 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
         suite_id: "full",
         environment_label: "local",
         trigger_source: "manual",
-        protocol_version: "1"
+        protocol_version: "1",
+        runner_id: @runner_id
       })
 
     {:ok, log_ref} = LogStore.write_log(run.id, 1, "auth", "{\"status\":\"ok\"}\n")
@@ -159,6 +201,7 @@ defmodule NixstasisWeb.E2ERunResultControllerTest do
   end
 
   defmodule SubmitErrorContext do
+    def get_run_for_runner(_id, _runner_id), do: {:ok, %Nixstasis.E2E.Run{id: Ecto.UUID.generate()}}
     def submit_results(_run_id, _results), do: {:error, {:database_error, {:not_null_violation, :status}}}
   end
 end

@@ -145,6 +145,8 @@
 - Server startup and database migrations are separate operations; application
   startup must not implicitly run migrations.
 - Externally sourced runtime artifacts must be pinned by digest or checksum.
+- The Compose client simulator passes the shared FRP version/checksum pins into its build and uses the same
+  checksum-verifying `packages/client/build/bin/fetch_frpc.sh` path as native client packaging.
 - Client release artifacts install bundled `frpc` at
   `/usr/libexec/nixstasis/frpc` so managed devices do not depend on a separate
   FRP package.
@@ -188,7 +190,7 @@
   builds images locally with `dev` tags.
 - `packages/frp` currently provides FRPS image build assets and the shared FRP
   binary acquisition script used by server/client packaging flows.
-- E2E endpoints are disabled by default in production and can be enabled for staging validation with `NIXSTASIS_E2E_ENABLED=true`.
+- E2E endpoints are disabled by default in production. Enabling them with `NIXSTASIS_E2E_ENABLED=true` also requires a dedicated `NIXSTASIS_E2E_RUNNER_ID` and 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN`; browser/AuthCrunch roles alone cannot access `/e2e`.
 - Development laptop mode uses the same single `docker-compose.yml` with a
   tracked `dev.env` file passed via `docker compose --env-file dev.env`.
 - The tracked local dev/test image build passes

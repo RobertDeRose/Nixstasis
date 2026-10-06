@@ -200,7 +200,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", payload)
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", payload)
 
     assert %{
              "data" => %{
@@ -247,7 +248,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", %{
         "data" => %{
           "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
         }
@@ -275,8 +277,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/heartbeat",
         %{"data" => %{"command_inventory" => %{"schema_version" => "bad"}}}
       )
 
@@ -310,7 +313,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", %{
         "data" => %{}
       })
     end
@@ -343,7 +347,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}", payload)
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/command_results", payload)
     end
 
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(request.(conn), 202)
@@ -371,8 +376,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{
           "data" => %{
             "results" => [
@@ -401,15 +407,16 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{"data" => %{"results" => "not-a-list"}}
       )
 
     assert is_list(json_response(conn, 400)["errors"])
   end
 
-  test "generated command results uses the device API-key boundary", %{
+  test "generated command results uses the device bearer boundary", %{
     conn: conn,
     pending: pending,
     approved: approved,
@@ -420,14 +427,18 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn = post(conn, path, %{"data" => %{"results" => []}})
     assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
 
-    conn = post(build_conn(), "#{path}?api_key=wrong", %{"data" => %{"results" => []}})
+    conn = post(build_conn(), "#{path}?api_key=#{token}", %{"data" => %{"results" => []}})
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = post(put_device_bearer(build_conn(), "wrong"), path, %{"data" => %{"results" => []}})
     assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
 
     conn =
       build_conn()
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("#{path}?api_key=#{token}", %{"data" => %{"results" => []}})
+      |> put_device_bearer(token)
+      |> post(path, %{"data" => %{"results" => []}})
 
     assert json_response(conn, 202)["data"]["acknowledged_count"] == 0
 
@@ -442,8 +453,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "#{path}?api_key=#{other_token}",
+        put_device_bearer(build_conn(), other_token),
+        path,
         %{"data" => %{"results" => []}}
       )
 
@@ -451,8 +462,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/command_results?api_key=wrong",
+        put_device_bearer(build_conn(), "wrong"),
+        "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/command_results",
         %{"data" => %{"results" => []}}
       )
 
@@ -460,8 +471,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "/api/json/device_runtime/devices/#{pending.id}/command_results?api_key=anything",
+        put_device_bearer(build_conn(), "anything"),
+        "/api/json/device_runtime/devices/#{pending.id}/command_results",
         %{"data" => %{"results" => []}}
       )
 
@@ -516,8 +527,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{
           "data" => %{
             "results" => [
@@ -555,7 +567,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn =
       conn
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/generated-payload?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/generated-payload")
 
     assert %{
              "content_type" => "text/plain",
@@ -572,12 +585,13 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn =
       conn
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload")
 
     assert is_list(json_response(conn, 404)["errors"])
   end
 
-  test "generated deferred payload uses the device API-key boundary", %{
+  test "generated deferred payload uses the device bearer boundary", %{
     conn: conn,
     approved: approved,
     token: token
@@ -587,13 +601,17 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn = get(conn, path)
     assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
 
-    conn = get(build_conn(), "#{path}?api_key=wrong")
+    conn = get(build_conn(), "#{path}?api_key=#{token}")
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = get(put_device_bearer(build_conn(), "wrong"), path)
     assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
 
     conn =
       build_conn()
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("#{path}?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get(path)
 
     assert is_list(json_response(conn, 404)["errors"])
   end
@@ -611,7 +629,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   end
 
   test "device runtime HTTP permission returns 404 before authentication for an unknown device", %{conn: conn} do
-    conn = get(conn, "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/heartbeat?api_key=wrong")
+    conn = get(put_device_bearer(conn, "wrong"), "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/heartbeat")
 
     assert %{"errors" => [%{"code" => "device_not_found"}]} = json_response(conn, 404)
   end
@@ -623,7 +641,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   end
 
   test "device runtime HTTP permission rejects unapproved devices", %{conn: conn, pending: pending} do
-    conn = get(conn, "/api/json/device_runtime/devices/#{pending.id}/heartbeat?api_key=anything")
+    conn = get(put_device_bearer(conn, "anything"), "/api/json/device_runtime/devices/#{pending.id}/heartbeat")
 
     assert %{"errors" => [%{"code" => "device_not_approved"}]} = json_response(conn, 403)
   end
@@ -633,18 +651,19 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     approved: approved,
     token: token
   } do
-    conn = runtime_permission_conn(conn, approved.id, %{"api_key" => token})
+    conn = runtime_permission_conn(conn, approved.id, token)
     conn = JsonApiPermissions.call(conn, [])
 
     refute conn.halted
     assert Ash.PlugHelpers.get_actor(conn).id == approved.id
   end
 
-  defp runtime_permission_conn(conn, device_id, query_params) do
+  defp runtime_permission_conn(conn, device_id, token) do
     conn
+    |> put_device_bearer(token)
     |> Map.put(:method, "POST")
     |> Map.put(:path_info, ["api", "json", "device_runtime", "devices", device_id, "heartbeat"])
     |> Map.put(:path_params, %{"device_id" => device_id})
-    |> Map.put(:query_params, query_params)
+    |> Map.put(:query_params, %{})
   end
 end

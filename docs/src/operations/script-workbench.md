@@ -69,7 +69,8 @@ deferred. The client poll loop fetches the payload through the authenticated com
 endpoint before invoking the command handler:
 
 ```text
-GET /api/v1/devices/:device_id/command_payloads/:ref?api_key=...
+GET /api/v1/devices/:device_id/command_payloads/:ref
+Authorization: Bearer <device-token>
 ```
 
 A missing or invalid deferred payload produces a failed command result and a failed

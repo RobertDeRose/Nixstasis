@@ -88,6 +88,19 @@ require_compose_service_env() {
     fail "missing $env_name environment wiring for compose service $service"
 }
 
+require_compose_build_arg() {
+  service="$1"
+  arg_name="$2"
+
+  awk -v service="$service" -v arg_name="$arg_name" '
+    $0 ~ "^  " service ":$" { in_service = 1; next }
+    in_service && /^  [[:alnum:]_-]+:$/ { in_service = 0 }
+    in_service && $0 ~ "^[[:space:]]+" arg_name ": \\$\\{" arg_name "(:-[^}]*)?\\}" { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$ROOT_DIR/deploy/compose/docker-compose.yml" ||
+    fail "missing $arg_name build arg wiring for compose service $service"
+}
+
 for file in \
   "$ENV_EXAMPLE" \
   "$DEV_ENV" \
@@ -127,7 +140,12 @@ require_text "$ENV_EXAMPLE" '^CLIENT_SECRET='
 require_text "$ENV_EXAMPLE" '^TENANT_ID='
 require_text "$ENV_EXAMPLE" '^JWT_KEY='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_PROXY_AUTH_TOKEN='
+require_text "$ENV_EXAMPLE" '^NIXSTASIS_E2E_ENABLED=false$'
+require_text "$ENV_EXAMPLE" '^NIXSTASIS_E2E_RUNNER_ID='
+require_text "$ENV_EXAMPLE" '^NIXSTASIS_E2E_RUNNER_TOKEN='
 require_text "$DEV_ENV" '^NIXSTASIS_PROXY_AUTH_TOKEN=.{32,}$'
+require_text "$DEV_ENV" '^NIXSTASIS_E2E_RUNNER_ID=local-runner$'
+require_text "$DEV_ENV" '^NIXSTASIS_E2E_RUNNER_TOKEN=.{32,}$'
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_ROLES='
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_GROUPS='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_VIEWER_GROUPS='
@@ -137,6 +155,12 @@ require_text "$ENV_EXAMPLE" '^FRPS_BIND_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_HTTP_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_DASHBOARD_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_TCPMUX_PORT='
+require_text "$ENV_EXAMPLE" '^FRP_VERSION='
+require_text "$ENV_EXAMPLE" '^FRP_LINUX_AMD64_SHA256=[0-9a-f]{64}$'
+require_text "$ENV_EXAMPLE" '^FRP_LINUX_ARM64_SHA256=[0-9a-f]{64}$'
+require_text "$DEV_ENV" '^FRP_VERSION='
+require_text "$DEV_ENV" '^FRP_LINUX_AMD64_SHA256=[0-9a-f]{64}$'
+require_text "$DEV_ENV" '^FRP_LINUX_ARM64_SHA256=[0-9a-f]{64}$'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_SSH_FRP_HOST='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_FRP_HTTP_LOCAL_ADDR=127\.0\.0\.1:443$'
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_SIMULATOR_HTTP_ENABLED=false$'
@@ -154,6 +178,7 @@ require_text "$CADDYFILE" 'path /api/v1/devices/register'
 require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
 require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
 require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
+require_text "$CADDYFILE" 'path /e2e/\*'
 require_text "$CADDYFILE" 'handle \{'
 require_text "$CADDYFILE" 'frp-admin\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'allow roles \{\$AUTHORIZED_ROLES\}'
@@ -187,6 +212,8 @@ require_text "$SERVER_RUNTIME" 'required_env!\("SECRET_KEY_BASE"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("PHX_HOST"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("BASE_DOMAIN"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("NIXSTASIS_PROXY_AUTH_TOKEN"\)'
+require_text "$SERVER_RUNTIME" 'required_env!\("NIXSTASIS_E2E_RUNNER_ID"\)'
+require_text "$SERVER_RUNTIME" 'required_env!\("NIXSTASIS_E2E_RUNNER_TOKEN"\)'
 require_text "$SERVER_RUNTIME" ':proxy_auth_token'
 require_text "$SERVER_RUNTIME" 'optional_env\("NIXSTASIS_SSH_FRP_HOST", "frps"\)'
 require_text "$SERVER_RUNTIME" 'FRPS_TCPMUX_PORT'
@@ -199,10 +226,22 @@ require_text "$ROOT_DIR/packages/server/Dockerfile" 'ARG NIXSTASIS_SESSION_COOKI
 require_compose_service_env nixstasis FRPS_TCPMUX_PORT
 require_compose_service_env nixstasis NIXSTASIS_SSH_FRP_HOST
 require_compose_service_env nixstasis NIXSTASIS_PROXY_AUTH_TOKEN
+require_compose_service_env nixstasis NIXSTASIS_E2E_RUNNER_ID
+require_compose_service_env nixstasis NIXSTASIS_E2E_RUNNER_TOKEN
 require_compose_service_env caddy NIXSTASIS_VIEWER_GROUPS
 require_compose_service_env caddy NIXSTASIS_OPERATOR_GROUPS
 require_compose_service_env caddy NIXSTASIS_ADMIN_GROUPS
 require_compose_service_env caddy NIXSTASIS_PROXY_AUTH_TOKEN
+require_compose_build_arg client FRP_VERSION
+require_compose_build_arg client FRP_LINUX_AMD64_SHA256
+require_compose_build_arg client FRP_LINUX_ARM64_SHA256
+require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_AMD64_SHA256'
+require_text "$CLIENT_DOCKERFILE" 'ARG FRP_LINUX_ARM64_SHA256'
+require_literal "$CLIENT_DOCKERFILE" './build/bin/fetch_frpc.sh "$TARGETARCH"'
+require_literal "$CLIENT_DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
+require_literal "$CLIENT_POSTINSTALL" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
+require_literal "$CLIENT_CONFIG_TEMPLATE" 'dir: "/var/lib/nixstasis/scripts"'
+reject_text "$CLIENT_DOCKERFILE" 'curl .*fatedier/frp/releases'
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'
@@ -213,6 +252,8 @@ require_text "$COMPOSE_README" 'NIXSTASIS_VIEWER_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_OPERATOR_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_ADMIN_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_PROXY_AUTH_TOKEN'
+require_text "$COMPOSE_README" 'NIXSTASIS_E2E_RUNNER_ID'
+require_text "$COMPOSE_README" 'NIXSTASIS_E2E_RUNNER_TOKEN'
 require_text "$COMPOSE_README" 'NIXSTASIS_SESSION_COOKIE_SECURE'
 require_text "$COMPOSE_README" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$COMPOSE_README" 'NIXSTASIS_SSH_FRP_HOST'
@@ -273,6 +314,8 @@ require_text "$SERVER_README" 'CLIENT_SECRET'
 require_text "$SERVER_README" 'TENANT_ID'
 require_text "$SERVER_README" 'JWT_KEY'
 require_text "$SERVER_README" 'NIXSTASIS_PROXY_AUTH_TOKEN'
+require_text "$SERVER_README" 'NIXSTASIS_E2E_RUNNER_ID'
+require_text "$SERVER_README" 'NIXSTASIS_E2E_RUNNER_TOKEN'
 require_text "$SERVER_README" 'FRPS_BIND_PORT'
 require_text "$SERVER_README" 'FRPS_HTTP_PORT'
 require_text "$SERVER_README" 'FRPS_DASHBOARD_PORT'

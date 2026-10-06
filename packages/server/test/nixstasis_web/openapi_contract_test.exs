@@ -34,9 +34,9 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert registration_operation["operationId"] == "register_runtime_device"
     assert list_operation["security"] == [%{"bearerAuth" => []}]
     assert registration_operation["security"] == []
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "type"]) == "apiKey"
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "in"]) == "query"
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "name"]) == "api_key"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "type"]) == "http"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "scheme"]) == "bearer"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "bearerFormat"]) == "Device token"
   end
 
   test "generated OpenAPI includes heartbeat action fields and its 200 status" do
@@ -50,7 +50,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert heartbeat["operationId"] == "heartbeat"
-    assert heartbeat["security"] == [%{"deviceApiKey" => []}]
+    assert heartbeat["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(heartbeat["responses"], "200")
     refute Map.has_key?(heartbeat["responses"], "201")
 
@@ -102,7 +102,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert command_results["operationId"] == "acknowledge_command_results"
-    assert command_results["security"] == [%{"deviceApiKey" => []}]
+    assert command_results["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(command_results["responses"], "202")
     refute Map.has_key?(command_results["responses"], "201")
 
@@ -119,7 +119,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
 
     assert Map.has_key?(results_properties, "results")
     assert payload["operationId"] == "fetch_command_payload"
-    assert payload["security"] == [%{"deviceApiKey" => []}]
+    assert payload["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(payload["responses"], "200")
   end
 

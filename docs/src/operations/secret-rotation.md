@@ -54,6 +54,26 @@ Phoenix secret.
 4. Confirm a direct request to the loopback Phoenix port with only a forged
    `X-Token-User-Roles` header is denied.
 
+## Managed-Device Runtime Tokens
+
+Managed-device runtime tokens are stored only as hashes on the server and as the
+clear token in the device identity file. Runtime requests carry the token only in
+`Authorization: Bearer <device-token>`; query-string device credentials are
+rejected.
+
+If a token may have been retained in historical request URLs, rotate it by
+re-registering that device with proof of the current token. Stop the poller while
+rotating so the old in-memory credential is not reused:
+
+```sh
+sudo systemctl stop nixstasis-poll
+sudo -u nixstasis /usr/bin/nixstasis register
+sudo systemctl start nixstasis-poll
+```
+
+After rotation, verify the device resumes heartbeats and review or purge retained
+proxy/APM/support artifacts according to their retention policy.
+
 ## FRPS Secrets
 
 FRPS device credentials are signed from `SECRET_KEY_BASE` and expire quickly.

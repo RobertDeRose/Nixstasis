@@ -2,7 +2,10 @@ openapi: 3.0.3
 info:
   title: Nixstasis E2E API
   version: 1.0.0
-  description: Bespoke Phoenix controller API for client-driven end-to-end test runs. Retained as controller-backed because these routes are gated harness workflow endpoints with protocol validation, environment locks, seed execution, typed errors, result ingestion, log retrieval, and retention semantics.
+  description: Bespoke Phoenix controller API for client-driven end-to-end test runs. Retained as controller-backed because these routes are gated harness workflow endpoints with dedicated runner authentication, owner-scoped runs, protocol validation, environment locks, seed execution, typed errors, result ingestion, log retrieval, and retention semantics.
+security:
+  - E2ERunnerBearer: []
+    E2ERunnerID: []
 paths:
   /e2e/suites:
     get:
@@ -30,7 +33,16 @@ paths:
   /e2e/runs:
     get:
       summary: List E2E runs
-      description: Retained as a controller route because run listing is part of the gated E2E harness API and shares protocol lifecycle semantics with run creation.
+      description: Lists only runs owned by the authenticated E2E runner. Results are bounded to at most 100 most-recent runs.
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
       responses:
         "200":
           description: Run list
@@ -250,6 +262,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/TypedErrorResponse"
 components:
+  securitySchemes:
+    E2ERunnerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque runner token
+      description: Dedicated E2E runner token. Browser/AuthCrunch sessions do not satisfy this credential.
+    E2ERunnerID:
+      type: apiKey
+      in: header
+      name: X-E2E-Runner-ID
+      description: Stable E2E runner principal identifier bound to created runs.
   schemas:
     E2ERunCreateRequest:
       type: object
