@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,88 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 )
+
+func TestDoJSONBoundsResponseBody(t *testing.T) {
+	t.Parallel()
+
+	const prefix = `{"padding":"`
+	const suffix = `"}`
+	paddingAtLimit := maxAPIResponseBytes - len(prefix) - len(suffix)
+
+	tests := []struct {
+		name    string
+		size    int
+		wantErr bool
+	}{
+		{name: "at limit", size: paddingAtLimit},
+		{name: "over limit", size: paddingAtLimit + 1, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := prefix + strings.Repeat("x", tt.size) + suffix
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(body))
+			}))
+			defer server.Close()
+
+			client := NewClient(config.APIConfig{})
+			var response struct {
+				Padding string `json:"padding"`
+			}
+			err := client.doJSON(context.Background(), http.MethodGet, server.URL, nil, &response, http.StatusOK)
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "API response body exceeded 1048576-byte limit") {
+					t.Fatalf("expected response-size error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("doJSON failed: %v", err)
+			}
+			if len(response.Padding) != tt.size {
+				t.Fatalf("padding length = %d, want %d", len(response.Padding), tt.size)
+			}
+		})
+	}
+}
+
+func TestDoJSONAllowsEmptyResponseBody(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "empty"},
+		{name: "JSON whitespace", body: " \t\r\n"},
+		{name: "truncated object", body: `{`, wantErr: true},
+		{name: "truncated value", body: `{"value":`, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+
+			client := NewClient(config.APIConfig{})
+			var response struct {
+				Value string `json:"value"`
+			}
+			err := client.doJSON(context.Background(), http.MethodGet, server.URL, nil, &response, http.StatusOK)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("doJSON error = %v, want error = %v", err, test.wantErr)
+			}
+		})
+	}
+}
 
 func TestPollUsesHeartbeatContract(t *testing.T) {
 	t.Parallel()

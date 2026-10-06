@@ -265,8 +265,9 @@ sequenceDiagram
 9. Browser joins topic `terminal:<device_id>` with the terminal session ref.
 10. `TerminalChannel.join/3` resolves the session ref, verifies device binding,
     and starts `Nixstasis.Devices.SshClient` targeting `nixstasis-support`.
-11. `SshClient` writes private key to a temp file and opens an `ssh` Port using
-    `ncat` as HTTP proxy to the FRP TCP mux endpoint.
+11. `SshClient` creates a mode-`0700` per-session temporary directory, writes
+    the private key and pinned known-hosts data there as mode-`0600` files, and
+    opens an `ssh` Port using `ncat` as HTTP proxy to the FRP TCP mux endpoint.
 12. Device-side sshd invokes `AuthorizedKeysCommand` with `%u %t %k`; the
     root-owned helper uses the fixed `/run/nixstasis/ssh-authority.sock`, queries
     the client IPC server, and prints the authorized key on an exact match.

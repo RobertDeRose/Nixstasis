@@ -101,6 +101,9 @@
 - `pub_and_get` MQTT allowlists may contain `+` and `#` filters, but scripts must
   supply concrete publish and reply topic names. Script-supplied topics containing
   MQTT wildcard characters are rejected before broker interaction.
+- `pub_and_get` accepts at most 1 MiB per MQTT reply. The size ceiling is checked
+  before JSON accept-criteria decoding or conversion to a Starlark string; an oversized
+  reply fails the current call with a normal runtime error.
 - When a persisted server command policy exists, it overrides locally configured `runtime.exec_commands`; local config is fallback only before the first successful server policy write.
 - Catalog-backed command policies use the same persisted `apply_command_policy` payload as manual policies: a version, revision, and command-name to absolute-path map.
 - Package names, catalog IDs, and command inventory evidence are not runtime authority. They are server-side compatibility inputs only and do not expand `exec_cmd` permissions unless the server later delivers an absolute-path policy.

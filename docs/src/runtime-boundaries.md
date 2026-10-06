@@ -118,7 +118,9 @@ Traceable references:
 - The shipped command map excludes generic `cat`. File-backed diagnostics use the separate
   `read_file` capability. It accepts only
   exact locally configured `runtime.read_files` paths, caps each read at 64 KiB,
-  and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`.
+  and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`. The Linux
+  client opens the authorized canonical target using descriptor-relative no-follow
+  traversal so path components cannot be swapped to symlinks after authorization.
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:
@@ -138,7 +140,10 @@ Traceable references:
   membership in the operator's device scope before Caddy proxies to the FRPS
   HTTP vhost port.
 - Caddy proxies `frp-admin.{$BASE_DOMAIN}` to the FRPS dashboard port.
-- Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
+- Server-side SSH terminal sessions keep their private key and pinned
+  known-hosts data inside a mode-`0700` per-session temporary directory, with
+  each file mode `0600`, then use `ssh` with an `ncat` HTTP proxy command
+  pointed at the configured FRP host and TCP mux port.
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH
   process boundaries with `localhost` as the base domain and Caddy internal/local
   certificates for TLS.

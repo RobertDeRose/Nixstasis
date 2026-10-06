@@ -1019,6 +1019,8 @@ Traceable references:
 ## Error Handling Patterns
 
 - Go transport treats any unexpected status as `API returned non-success status: <status>`.
+- Go transport limits JSON response bodies to 1 MiB before decoding and returns
+  a transport error when that receive budget is exceeded.
 - Go transport allows empty response bodies when a response body target was provided and EOF is returned.
 - Runtime device API requests without an `Authorization` bearer token return HTTP `401` with the legacy code `missing_api_key`.
 - Runtime device API requests with an invalid bearer token return HTTP `401` with the legacy code `invalid_api_key`; an `api_key` query parameter alone is treated as missing authentication.

@@ -22,6 +22,8 @@ import (
 // ErrDevicePendingApproval indicates registration succeeded but no runtime token has been issued yet.
 var ErrDevicePendingApproval = errors.New("device pending approval")
 
+const maxAPIResponseBytes = 1 << 20
+
 // Client handles API requests.
 type Client struct {
 	baseURL    string
@@ -93,11 +95,19 @@ func (c *Client) doJSONWithBearer(ctx context.Context, method, endpoint, bearerT
 		return nil
 	}
 
-	if err := json.UnmarshalRead(resp.Body, respBody); err != nil {
-		if errors.Is(err, io.EOF) {
-			// Empty body is allowed; caller can inspect zero-value respBody
-			return nil
-		}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseBytes+1))
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if len(data) > maxAPIResponseBytes {
+		return fmt.Errorf("API response body exceeded %d-byte limit", maxAPIResponseBytes)
+	}
+	// Empty bodies are valid; distinguish them from truncated JSON before decoding.
+	if len(bytes.Trim(data, " \t\r\n")) == 0 {
+		return nil
+	}
+
+	if err := json.UnmarshalRead(bytes.NewReader(data), respBody); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 

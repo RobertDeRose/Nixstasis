@@ -57,6 +57,8 @@ runtime:
       - ["-B1", "/"]
     /usr/bin/stat:
       - ["-f", "-c", "%T", "/"]
+  # Exact file paths only. The Linux client rejects symlink substitutions that
+  # occur after an allowlisted path has been authorized.
   read_files: []
   # Allowlist entries may use MQTT wildcards, but scripts must request
   # concrete publish and reply topic names without + or #.

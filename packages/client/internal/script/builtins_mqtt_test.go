@@ -99,11 +99,75 @@ func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 		t.Fatalf("parseAcceptCriteria failed: %v", err)
 	}
 
-	if responseMatchesAccept([]byte(`{"status":"pending","count":2}`), criteria) {
+	matches, err := responseMatchesAccept([]byte(`{"status":"pending","count":2}`), criteria)
+	if err != nil {
+		t.Fatalf("responseMatchesAccept returned error: %v", err)
+	}
+	if matches {
 		t.Fatalf("expected non-matching response to be ignored")
 	}
-	if !responseMatchesAccept([]byte(`{"status":"ok","count":2,"secret":"still-returned"}`), criteria) {
+
+	matches, err = responseMatchesAccept([]byte(`{"status":"ok","count":2,"secret":"still-returned"}`), criteria)
+	if err != nil {
+		t.Fatalf("responseMatchesAccept returned error: %v", err)
+	}
+	if !matches {
 		t.Fatalf("expected matching response to be accepted")
+	}
+}
+
+func TestResponseMatchesAcceptIgnoresMalformedReplies(t *testing.T) {
+	for _, payload := range []string{`{`, `not JSON`, `["ok"]`, `{"status":"ok","broken":}`} {
+		t.Run(payload, func(t *testing.T) {
+			matches, err := responseMatchesAccept([]byte(payload), map[string]any{"status": "ok"})
+			if err != nil || matches {
+				t.Fatalf("malformed reply should be ignored, got matches=%v, err=%v", matches, err)
+			}
+		})
+	}
+}
+
+func TestResponseMatchesAcceptBoundsReplyPayload(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		size    int
+		wantErr bool
+	}{
+		{name: "at limit", size: maxMQTTReplyBytes},
+		{name: "over limit", size: maxMQTTReplyBytes + 1, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			matches, err := responseMatchesAccept([]byte(strings.Repeat("x", test.size)), nil)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "mqtt reply payload exceeded 1048576-byte limit") {
+					t.Fatalf("expected MQTT reply size error, got %v", err)
+				}
+				if matches {
+					t.Fatal("oversized MQTT reply unexpectedly matched")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected MQTT reply size error: %v", err)
+			}
+			if !matches {
+				t.Fatal("reply at size limit unexpectedly rejected")
+			}
+		})
+	}
+}
+
+func TestResponseMatchesAcceptRejectsOversizedJSONBeforeDecode(t *testing.T) {
+	payload := append([]byte(`{"status":"ok","padding":"`), []byte(strings.Repeat("x", maxMQTTReplyBytes))...)
+	payload = append(payload, []byte(`"}`)...)
+
+	matches, err := responseMatchesAccept(payload, map[string]any{"status": "ok"})
+	if err == nil || !strings.Contains(err.Error(), "mqtt reply payload exceeded 1048576-byte limit") {
+		t.Fatalf("expected MQTT reply size error, got %v", err)
+	}
+	if matches {
+		t.Fatal("oversized JSON MQTT reply unexpectedly matched")
 	}
 }
 
