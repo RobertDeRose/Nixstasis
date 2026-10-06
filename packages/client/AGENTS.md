@@ -65,8 +65,11 @@ import (
 type Config struct {
     Name    string    `json:"name"`
     Timeout int       `json:"timeout"`
-    Created time.Time `json:"created,format:DateOnly"`
-    Extra   map[string]any `json:",unknown"` // Capture unknown fields
+    Created time.Time `json:"created"`
+}
+
+type Envelope struct {
+    Config `json:",embed"`
 }
 
 var buf bytes.Buffer
@@ -76,6 +79,11 @@ if err := json.MarshalWrite(&buf, config); err != nil {
 
 // Pretty printing with indent
 data, err := json.Marshal(config, jsontext.WithIndent("  "))
+
+// Reject unknown object members while unmarshaling.
+if err := json.UnmarshalRead(bytes.NewReader(data), &config, json.RejectUnknownMembers(true)); err != nil {
+    return err
+}
 ```
 
 **Benefits:**
@@ -83,9 +91,8 @@ data, err := json.Marshal(config, jsontext.WithIndent("  "))
 - Faster decoding performance
 - Better control over marshaling/unmarshaling
 - Streaming support via `MarshalWrite` and `UnmarshalRead`
-- Unknown field handling with `,unknown` tag
-- Field inlining with `,inline` tag
-- Custom date formatting
+- Reject unknown members with `json.RejectUnknownMembers(true)`
+- Field embedding with the `,embed` tag
 
 #### 3. Testing Concurrent Code with `testing/synctest`
 

@@ -60,8 +60,10 @@ func runRegister(cfg *config.Config) error {
 	client := transport.NewClient(cfg.API)
 
 	// 3. Load any proof from an interrupted enrollment or an existing runtime identity.
-	identityStore := identity.NewStore(config.IdentityPath())
-	registrationStore := identity.NewStore(config.RegistrationPath())
+	identityPath := config.IdentityPath()
+	registrationPath := config.RegistrationPath()
+	identityStore := identity.NewStore(identityPath)
+	registrationStore := identity.NewStore(registrationPath)
 	registrationProof := loadRegistrationProof(identityStore, registrationStore)
 
 	// 4. Register with Retries (T015)
@@ -105,11 +107,20 @@ func runRegister(cfg *config.Config) error {
 	slog.Info("Registration successful", "uuid", credentials.UUID, "token_issued", credentials.Token != "")
 
 	// 5. Save runtime credentials and discard the one-time enrollment proof.
-	if err := identityStore.Save(identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}); err != nil {
-		return fmt.Errorf("failed to save credentials: %w", err)
+	runtimeCredentials := identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}
+	if err := identityStore.Save(runtimeCredentials); err != nil {
+		// The server has already consumed the enrollment proof. Preserve the
+		// runtime token in the retry store so a later run can exchange it for a
+		// fresh token instead of retrying the stale proof.
+		if recoveryErr := registrationStore.Save(runtimeCredentials); recoveryErr != nil {
+			return fmt.Errorf("failed to save credentials and preserve retry credentials: %w", errors.Join(err, recoveryErr))
+		}
+		return fmt.Errorf("failed to save credentials: %w (runtime credentials preserved for retry)", err)
 	}
-	if err := registrationStore.Remove(); err != nil {
-		return fmt.Errorf("failed to remove registration proof: %w", err)
+	if registrationPath != identityPath {
+		if err := registrationStore.Remove(); err != nil {
+			return fmt.Errorf("failed to remove registration proof: %w", err)
+		}
 	}
 
 	slog.Info("Credentials persisted successfully")
