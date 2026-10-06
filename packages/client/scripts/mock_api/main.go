@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -218,7 +219,7 @@ func (s *server) handlePoll(w http.ResponseWriter, r *http.Request, id string) {
 	state.pendingCommands = nil
 	s.mu.Unlock()
 
-	log.Printf("poll: device=%s commands=%d", id, len(commands)) // #nosec G706 -- this test server logs controlled request identifiers.
+	log.Printf("poll: device=%s commands=%d", strconv.Quote(id), len(commands))
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
@@ -251,7 +252,7 @@ func (s *server) handleCommandResults(w http.ResponseWriter, r *http.Request, id
 	state.lastCmdResults = req.Results
 	s.mu.Unlock()
 
-	log.Printf("command_results: device=%s results=%d", id, len(req.Results)) // #nosec G706 -- this test server logs controlled request identifiers.
+	log.Printf("command_results: device=%s results=%d", strconv.Quote(id), len(req.Results))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -291,7 +292,7 @@ func (s *server) handleQueueCommands(w http.ResponseWriter, r *http.Request, id 
 	state.pendingCommands = append(state.pendingCommands, commands...)
 	s.mu.Unlock()
 
-	log.Printf("queued commands: device=%s count=%d", id, len(commands)) // #nosec G706 -- this test server logs controlled request identifiers.
+	log.Printf("queued commands: device=%s count=%d", strconv.Quote(id), len(commands))
 	writeJSON(w, http.StatusAccepted, map[string]any{"queued": len(commands)})
 }
 
