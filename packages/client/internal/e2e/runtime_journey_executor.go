@@ -859,11 +859,23 @@ func executeScriptsForRuntime(
 		Timeout:   5 * time.Second,
 		WarnAfter: 3 * time.Second,
 		ExecCommandAllowlist: map[string]string{
-			"cat":   "/bin/cat",
 			"df":    "/bin/df",
 			"nproc": "/usr/bin/nproc",
 			"stat":  "/usr/bin/stat",
 			"uname": "/usr/bin/uname",
+		},
+		ExecArgumentAllowlist: map[string][][]string{
+			"/bin/df":        {{"-B1", "/"}},
+			"/usr/bin/stat":  {{"-f", "-c", "%T", "/"}},
+			"/usr/bin/uname": {{"-srmo"}},
+		},
+		ReadFileAllowlist: []string{
+			"/proc/1/comm",
+			"/proc/loadavg",
+			"/proc/meminfo",
+			"/proc/net/route",
+			"/proc/stat",
+			"/proc/uptime",
 		},
 	})
 

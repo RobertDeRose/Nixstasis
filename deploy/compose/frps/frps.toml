@@ -1,7 +1,13 @@
 bindPort = "__FRPS_BIND_PORT__"
 
 auth.method = "token"
-auth.token = "__FRPS_AUTH_TOKEN__"
+auth.token = "nixstasis-frp-plugin-gated"
+
+[[httpPlugins]]
+name = "nixstasis-device-authorization"
+addr = "nixstasis:4000"
+path = "/internal/frp/authorize"
+ops = ["Login", "NewProxy"]
 
 webServer.port = "__FRPS_DASHBOARD_PORT__"
 webServer.user = "__FRPS_DASHBOARD_USER__"

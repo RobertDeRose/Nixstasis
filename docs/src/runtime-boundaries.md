@@ -110,7 +110,12 @@ Traceable references:
 - Script execution runs with Starlark builtins that can interact with MQTT.
 - OS command execution through `exec_cmd` is deny-by-default and only available
   when the client runtime configuration maps a requested command name to an
-  absolute allowlisted executable path.
+  absolute allowlisted executable path. Non-empty argument vectors must also match
+  an exact client-local `runtime.exec_command_args` entry for that executable path; server policy cannot expand it.
+- The shipped command map excludes generic `cat`. File-backed diagnostics use the separate
+  `read_file` capability. It accepts only
+  exact locally configured `runtime.read_files` paths, caps each read at 64 KiB,
+  and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`.
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:

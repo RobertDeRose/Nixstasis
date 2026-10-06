@@ -6,7 +6,8 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   AuthCrunch operator claims. The generated `/api/json` surface is an
   operator/developer resource API and must fail closed outside local dev/test
   fallback. Verified operator requests also receive an Ash actor so device-backed
-  resource reads can enforce row scope in the data layer.
+  reads can enforce row scope and alert-rule actions can enforce view/manage
+  capabilities in the resource layer.
   """
 
   import Plug.Conn
@@ -82,6 +83,10 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     if method in ["GET", "HEAD", "OPTIONS"], do: {:device, :view}, else: {:device, :manage_all}
   end
 
+  defp policy_for(%{path_info: ["api", "json", "alert_rules" | _], method: method}) do
+    if method in ["GET", "HEAD", "OPTIONS"], do: {:alert, :view}, else: {:alert, :manage}
+  end
+
   defp policy_for(%{path_info: ["api", "json", "system_settings" | _]}), do: {:role, "nixstasis/admin"}
 
   defp policy_for(%{path_info: ["api", "json", "builder_contract" | _]}), do: {:report, :view}
@@ -101,14 +106,18 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   end
 
   defp operator_actor(context) when is_map(context) do
-    permissions = Map.get(context, "device_permissions", %{})
+    device_permissions = Map.get(context, "device_permissions", %{})
+    alert_permissions = Map.get(context, "alert_permissions", %{})
 
-    with {:ok, authorized_device_ids} <- validated_device_scope(Permissions.authorized_device_ids(permissions)) do
+    with {:ok, authorized_device_ids} <-
+           validated_device_scope(Permissions.authorized_device_ids(device_permissions)) do
       {:ok,
        %{
-         can_view_device_data: Permissions.can_view_device_details?(permissions),
+         can_view_device_data: Permissions.can_view_device_details?(device_permissions),
          unscoped_device_access: is_nil(authorized_device_ids),
-         authorized_device_ids: authorized_device_ids || []
+         authorized_device_ids: authorized_device_ids || [],
+         can_view_alert_rules: alert_permissions["can_view"] == true,
+         can_manage_alert_rules: alert_permissions["can_manage"] == true
        }}
     end
   end
@@ -146,6 +155,14 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
 
   defp permitted?(context, {:device, :manage_all}) do
     context |> Map.get("device_permissions") |> Permissions.can_manage_all_devices?()
+  end
+
+  defp permitted?(context, {:alert, :view}) do
+    get_in(context, ["alert_permissions", "can_view"]) == true
+  end
+
+  defp permitted?(context, {:alert, :manage}) do
+    get_in(context, ["alert_permissions", "can_manage"]) == true
   end
 
   defp permitted?(context, {:report, :view}) do

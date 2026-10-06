@@ -11,6 +11,18 @@ defmodule NixstasisWeb.PermissionsTest do
     refute Permissions.can_manage_settings?(%{})
   end
 
+  test "alert permissions separate read access from rule management" do
+    viewer = %{"alert_permissions" => %{"can_view" => true, "can_manage" => false}}
+    operator = %{"alert_permissions" => %{"can_view" => true, "can_manage" => true}}
+
+    assert Permissions.can_view_alerts?(viewer)
+    refute Permissions.can_manage_alert_rules?(viewer)
+    assert Permissions.can_view_alerts?(operator)
+    assert Permissions.can_manage_alert_rules?(operator)
+    refute Permissions.can_view_alerts?(%{})
+    refute Permissions.can_manage_alert_rules?(%{})
+  end
+
   test "script permissions can be scoped to allowed scripts" do
     session = %{
       "script_permissions" => %{

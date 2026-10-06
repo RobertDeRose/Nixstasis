@@ -13,6 +13,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+    assert get_session(conn, "alert_permissions") == %{"can_view" => true, "can_manage" => true}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => true}
   end
 
@@ -27,6 +28,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
     assert get_session(conn, "device_permissions") == existing_device_permissions
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+    assert get_session(conn, "alert_permissions") == %{"can_view" => true, "can_manage" => true}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => true}
   end
 
@@ -45,6 +47,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
+    assert get_session(conn, "alert_permissions") == %{"can_view" => false, "can_manage" => false}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
@@ -65,6 +68,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => false}
+    assert get_session(conn, "alert_permissions") == %{"can_view" => true, "can_manage" => false}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context")["email"] == "viewer@example.com"
   end
@@ -82,6 +86,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
              "can_remote_access" => false
            }
 
+    assert get_session(conn, "alert_permissions") == %{"can_view" => false, "can_manage" => false}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
@@ -101,6 +106,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
+    assert get_session(conn, "alert_permissions") == %{"can_view" => false, "can_manage" => false}
     assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end

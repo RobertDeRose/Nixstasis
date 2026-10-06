@@ -144,8 +144,9 @@
   devices, pending commands, telemetry events, and alerts are policy-filtered by the
   actor's trusted device scope before rows are returned. An omitted device-scope claim
   means unscoped fleet access for a role that can view devices; an explicit empty scope
-  returns no device-backed rows, and malformed device IDs fail closed. Internal domain
-  calls that do not supply an operator actor retain their existing behavior.
+  returns no device-backed rows, and malformed device IDs fail closed. Alert-rule reads
+  and mutations are separately policy-gated by the actor's alert view/manage capability.
+  Internal domain calls that do not supply an operator actor retain their existing behavior.
 - Resource route groups:
   - `/api/json/devices`
   - `/api/json/pending_commands`

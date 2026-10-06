@@ -182,7 +182,7 @@ func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) 
 	}
 }
 
-func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) {
+func TestRuntimeFRPConfigDerivesDeviceIdentityAndPreservesOtherConfiguredValues(t *testing.T) {
 	base := config.FRPConfig{
 		AuthToken:     "local-token",
 		Name:          "configured-name",
@@ -196,8 +196,9 @@ func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) 
 
 	got := runtimeFRPConfig(base, "11111111-2222-3333-4444-555555555555")
 
-	if got.Name != "configured-name" {
-		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
+	wantName := identity.GenerateDeviceName("11111111-2222-3333-4444-555555555555")
+	if got.Name != wantName {
+		t.Fatalf("runtimeFRPConfig() name = %q, want device-bound %q", got.Name, wantName)
 	}
 	if got.AuthToken != "" {
 		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
@@ -442,29 +443,20 @@ func TestPollOnceKeepsActiveFRPWhenTokenPresent(t *testing.T) {
 	}
 }
 
-func TestPollOnceRestartsActiveFRPWhenTokenChanges(t *testing.T) {
+func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token"}}
 
 	runtimeCfg := script.RuntimeConfig{}
-	state := &remoteAccessPollState{tokenHash: tokenHash("old-token")}
+	state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1"}
 
 	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
-	if frpManager.stopCalls != 1 {
-		t.Fatalf("expected one stop call, got %d", frpManager.stopCalls)
-	}
-	if frpManager.startCalls != 1 {
-		t.Fatalf("expected one start call, got %d", frpManager.startCalls)
-	}
-	if frpManager.startedConfig.AuthToken != "new-token" {
-		t.Fatalf("started auth token = %q", frpManager.startedConfig.AuthToken)
-	}
-	if state.tokenHash != tokenHash("new-token") {
-		t.Fatalf("expected active token hash to be updated")
+	if frpManager.stopCalls != 0 || frpManager.startCalls != 0 {
+		t.Fatalf("short-lived credential rotation must not churn an active FRP session: start=%d stop=%d", frpManager.startCalls, frpManager.stopCalls)
 	}
 }
 

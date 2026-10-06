@@ -5,8 +5,8 @@ defmodule NixstasisWeb.Permissions do
   Device functions (`can_view_device_details?/1,2`, `can_remote_access_device?/1,2`)
   accept a pre-extracted permissions map (from `device_permissions/1`).
 
-  Report functions (`can_view_reports?/1`, `can_manage_reports?/1`) accept the raw
-  session map and extract report permissions internally.
+  Report and alert functions accept the raw session map and extract their
+  capability maps internally.
   """
 
   alias Nixstasis.Devices.Device
@@ -14,6 +14,7 @@ defmodule NixstasisWeb.Permissions do
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
+  def alert_permissions(session), do: permission_map(session, "alert_permissions")
   def settings_permissions(session), do: permission_map(session, "settings_permissions")
   def script_permissions(session), do: permission_map(session, "script_permissions")
   def command_policy_permissions(session), do: permission_map(session, "command_policy_permissions")
@@ -109,6 +110,12 @@ defmodule NixstasisWeb.Permissions do
 
   def can_manage_reports?(session) when is_map(session), do: report_permissions(session)["can_manage"] == true
   def can_manage_reports?(_session), do: false
+
+  def can_view_alerts?(session) when is_map(session), do: alert_permissions(session)["can_view"] == true
+  def can_view_alerts?(_session), do: false
+
+  def can_manage_alert_rules?(session) when is_map(session), do: alert_permissions(session)["can_manage"] == true
+  def can_manage_alert_rules?(_session), do: false
 
   def can_manage_settings?(session) when is_map(session), do: settings_permissions(session)["can_manage"] == true
   def can_manage_settings?(_session), do: false

@@ -68,6 +68,14 @@ nixstasis.{$BASE_DOMAIN} {
     on_demand
   }
 
+  @frp_internal {
+    path /internal/frp/*
+  }
+
+  handle @frp_internal {
+    respond "Not Found" 404
+  }
+
   @device_registration {
     method POST
     path /api/v1/devices/register
