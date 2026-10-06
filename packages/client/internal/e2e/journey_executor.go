@@ -1028,7 +1028,7 @@ func generateMac() string {
 	if _, err := rand.Read(b); err != nil {
 		now := time.Now().UnixNano()
 		for i := range b {
-			b[i] = byte(now >> (i * 8))
+			b[i] = byte(now >> (i * 8)) // #nosec G115 -- extracting individual bytes is intentional.
 		}
 	}
 	b[0] = (b[0] | 2) & 0xfe
