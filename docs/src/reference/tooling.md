@@ -46,10 +46,11 @@ Changelog-visible `feat`, `fix`, `perf`, and `refactor` commits require a semant
 Conventional Commit syntax, grammar, a 72-character subject, 100-character body lines, and canonical optional `Beads:`
 footers. Harper uses its full native rule set after filtering Git comments/diffs, canonical release subjects, and a
 canonical `Beads:` footer. It strips the Conventional Commit prefix from the subject
-before checking the summary and body; the other commit validators still inspect
-the unfiltered message. Internal build, chore, CI,
-documentation, release, style, and test commits are omitted from `cog changelog`. Breaking changes render as plain
-Markdown.
+before checking the summary and body. The Beads, length, and scope checks skip Git
+comments and stop before scissors or diff sections. The formatting check normalizes
+whitespace before running commitlint; its typo check also filters Git comment lines.
+Internal build, chore, CI, documentation, release, style, and test commits are omitted
+from `cog changelog`. Breaking changes render as plain Markdown.
 
 The generated `cog.toml` initially accepts any syntactically valid scope. To constrain scopes, add a `scopes = ["..."]`
 allowlist, document each stable subsystem in README when present or on this page otherwise, and update `AGENTS.md` so
