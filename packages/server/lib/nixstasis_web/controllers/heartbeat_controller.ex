@@ -3,13 +3,25 @@ defmodule NixstasisWeb.HeartbeatController do
 
   alias Nixstasis.Devices
   alias Nixstasis.Monitoring
+  alias NixstasisWeb.Plugs.RateLimiter
 
   def create(conn, %{"device_id" => device_id} = params) do
     with {:ok, device} <- fetch_device(device_id),
-         :ok <- authenticate(conn, device) do
+         :ok <- authenticate(conn, device),
+         :ok <- RateLimiter.check_authenticated_device(device, :heartbeat) do
       case Monitoring.heartbeat(device, params) do
         {:ok, updated_device, commands} ->
           render(conn, :show, commands: commands, device: updated_device)
+
+        {:error, {:telemetry_limits, _message}} ->
+          conn
+          |> put_status(413)
+          |> json(%{
+            error: %{
+              code: "telemetry_limits_exceeded",
+              message: "Telemetry exceeds the accepted persistence limits"
+            }
+          })
 
         {:error, _reason} ->
           conn
@@ -21,6 +33,7 @@ defmodule NixstasisWeb.HeartbeatController do
       {:error, :missing_token} -> error(conn, :unauthorized, "missing_api_key", "API key is required")
       {:error, :invalid_token} -> error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
       {:error, :device_not_approved} -> error(conn, :forbidden, "device_not_approved", "Device is not approved")
+      :limited -> RateLimiter.reject(conn)
     end
   end
 

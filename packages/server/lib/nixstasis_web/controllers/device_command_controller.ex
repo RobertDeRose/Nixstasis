@@ -4,10 +4,12 @@ defmodule NixstasisWeb.DeviceCommandController do
   alias Nixstasis.CommandAllowlists
   alias Nixstasis.Devices
   alias Nixstasis.Scripts
+  alias NixstasisWeb.Plugs.RateLimiter
 
   def command_results(conn, %{"device_id" => device_id, "results" => results}) when is_list(results) do
     with {:ok, device} <- fetch_device(device_id),
-         :ok <- authenticate(conn, device) do
+         :ok <- authenticate(conn, device),
+         :ok <- RateLimiter.check_authenticated_device(device, :command_results) do
       Scripts.ingest_command_results(device, results)
       CommandAllowlists.ingest_command_results(device, results)
 
@@ -25,6 +27,7 @@ defmodule NixstasisWeb.DeviceCommandController do
       {:error, :missing_token} -> error(conn, :unauthorized, "missing_api_key", "API key is required")
       {:error, :invalid_token} -> error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
       {:error, :device_not_approved} -> error(conn, :forbidden, "device_not_approved", "Device is not approved")
+      :limited -> RateLimiter.reject(conn)
     end
   end
 
@@ -36,7 +39,8 @@ defmodule NixstasisWeb.DeviceCommandController do
 
   def command_payload(conn, %{"device_id" => device_id, "ref" => ref}) do
     with {:ok, device} <- fetch_device(device_id),
-         :ok <- authenticate(conn, device) do
+         :ok <- authenticate(conn, device),
+         :ok <- RateLimiter.check_authenticated_device(device, :command_payload) do
       case Devices.get_command_payload(device, ref) do
         {:ok, payload} -> json(conn, payload)
         {:error, :not_found} -> error(conn, :not_found, "payload_not_found", "Command payload not found")
@@ -46,6 +50,7 @@ defmodule NixstasisWeb.DeviceCommandController do
       {:error, :missing_token} -> error(conn, :unauthorized, "missing_api_key", "API key is required")
       {:error, :invalid_token} -> error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
       {:error, :device_not_approved} -> error(conn, :forbidden, "device_not_approved", "Device is not approved")
+      :limited -> RateLimiter.reject(conn)
     end
   end
 

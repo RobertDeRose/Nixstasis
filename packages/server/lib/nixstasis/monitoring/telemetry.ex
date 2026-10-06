@@ -60,18 +60,6 @@ defmodule Nixstasis.Monitoring.Telemetry do
     end
   end
 
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      accept [:device_id, :payload, :timestamp]
-    end
-
-    update :update do
-      accept [:payload, :timestamp]
-    end
-  end
-
   attributes do
     uuid_primary_key :id
 

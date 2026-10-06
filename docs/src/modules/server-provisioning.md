@@ -62,8 +62,11 @@ API base and the job identifier must be a bounded URL-safe segment.
 The server polls `GET /api/jobs/<job_id>` until a terminal state or the bounded
 five-minute default deadline. Documented states are `submitted`, `running`,
 `succeeded`, and `failed`; `current_step`, `events`, `error`, `result`, and
-`rollback_status` are retained when present. The accepted response and each
-job payload are bounded to 1 MiB before durable persistence. `result.reapply:
+`rollback_status` are retained when present. Submit, error, and polling response
+bodies have a 1 MiB receive budget enforced while Req streams the body. The
+transport is halted as soon as the budget is crossed, before JSON decoding,
+error formatting, or durable persistence. The accepted response and each job
+payload remain bounded to the same 1 MiB limit after decoding. `result.reapply:
 true` is not a valid initial bootstrap success. `result.warnings` and legacy
 `result.forwarding_url` are diagnostic; the forwarding URL is never followed.
 
@@ -79,9 +82,10 @@ true` is not a valid initial bootstrap success. `result.warnings` and legacy
 
 Only HTTP `409` responses are retried, with at most two bounded retries and
 linear backoff. A `202` is never submitted again. An ambiguous upload transport
-error or 5xx becomes `indeterminate`; the server does not risk creating a
-duplicate AtomixOS job. Polling is read-only and bounded by the action deadline;
-a polling `404` is a failure, not a reason to upload again.
+error, 5xx, or oversized `202`/5xx response becomes `indeterminate`; the server
+does not risk creating a duplicate AtomixOS job. An oversized definitive 4xx
+response fails without decoding its body. Polling is read-only and bounded by
+the action deadline; a polling `404` is a failure, not a reason to upload again.
 
 Delivery records are keyed by device, artifact SHA-256, and bootstrap-attempt
 identity. Re-entering an active attempt polls its known job. A terminal result

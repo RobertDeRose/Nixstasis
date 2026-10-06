@@ -15,6 +15,7 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   alias Nixstasis.Devices
   alias NixstasisWeb.OperatorContext
   alias NixstasisWeb.Permissions
+  alias NixstasisWeb.Plugs.RateLimiter
 
   @behaviour Plug
 
@@ -197,9 +198,16 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   defp authenticate_device_runtime(conn, device, token) do
     case Devices.authenticate_device(device, token) do
       :ok ->
-        conn
-        |> Ash.PlugHelpers.set_actor(device)
-        |> Ash.PlugHelpers.set_context(%{device: device})
+        case device_runtime_rate_action(conn) do
+          nil ->
+            put_device_runtime_actor(conn, device)
+
+          action ->
+            case RateLimiter.check_authenticated_device(device, action) do
+              :ok -> put_device_runtime_actor(conn, device)
+              :limited -> runtime_error(conn, :too_many_requests, "rate_limited", "Rate limit exceeded")
+            end
+        end
 
       {:error, :device_not_approved} ->
         runtime_error(conn, :forbidden, "device_not_approved", "Device is not approved")
@@ -211,6 +219,32 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
         runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
     end
   end
+
+  defp put_device_runtime_actor(conn, device) do
+    conn
+    |> Ash.PlugHelpers.set_actor(device)
+    |> Ash.PlugHelpers.set_context(%{device: device})
+  end
+
+  defp device_runtime_rate_action(%{
+         method: "POST",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "heartbeat"]
+       }),
+       do: :heartbeat
+
+  defp device_runtime_rate_action(%{
+         method: "POST",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "command_results"]
+       }),
+       do: :command_results
+
+  defp device_runtime_rate_action(%{
+         method: "GET",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "command_payloads", _ref]
+       }),
+       do: :command_payload
+
+  defp device_runtime_rate_action(_conn), do: nil
 
   defp runtime_error(conn, status, code, detail) do
     conn

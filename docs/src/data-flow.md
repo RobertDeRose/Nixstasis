@@ -90,9 +90,9 @@ sequenceDiagram
 7. Client executes latest script versions and collects script reports/errors.
 8. Client reads current FRP status.
 9. Client optionally collects bounded command/package inventory evidence from the previous server probe.
-10. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry, connection status, and optional top-level `command_inventory`.
+10. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry, connection status, the local sshd public host key, and optional top-level `command_inventory`.
 11. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
-12. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, persists telemetry, persists inventory snapshots outside telemetry, evaluates rules, and pops pending commands.
+12. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, enrolls or compares the SSH host key without placing it in telemetry, persists telemetry and inventory snapshots, evaluates rules, and pops pending commands. A changed host key is held pending and blocks terminal SSH until an operator explicitly trusts it.
 13. Server returns optional `remote_access_token`, optional command list, and a server-owned `command_inventory_probe` for the next heartbeat.
 14. Client caches the probe for the next heartbeat; reported inventory remains untrusted evidence and never authorizes client commands directly.
 15. Client hydrates deferred command payloads, executes commands, and posts command results.

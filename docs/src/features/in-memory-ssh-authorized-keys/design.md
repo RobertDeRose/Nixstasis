@@ -265,6 +265,12 @@ Behavior:
 - Change the server-side SSH client destination user from `nixstasis` to
   `nixstasis-support` so it matches the sshd `Match User` block and dynamic
   payload `target_user`.
+- Authenticate the device SSH server independently of FRP route identity. Devices
+  report their sshd public host key on authenticated heartbeats; the first key is
+  enrolled and each terminal session receives a private temporary `known_hosts`
+  file with strict host-key checking enabled. Changed keys are held pending and
+  require an explicit operator trust action that records the actor, trust time,
+  and previous fingerprint before terminal access resumes.
 - Queue terminal authorization commands with public key, target user, TTL, and
   session metadata.
 - There is no capability gate. Every authenticated device is dynamic-capable for

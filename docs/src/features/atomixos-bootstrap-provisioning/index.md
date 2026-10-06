@@ -39,9 +39,11 @@ local Host rewrite.
 
 ## Operational Impact
 
-Artifacts are limited to 32 MiB and tracked by lower-case SHA-256. Accepted
-and polled JSON payloads are bounded to 1 MiB before durable persistence. The
-default job-poll deadline is five minutes, request timeout is 30 seconds, and only HTTP
+Artifacts are limited to 32 MiB and tracked by lower-case SHA-256. Submission,
+error, and polling response bodies are streamed through a 1 MiB receive budget
+before decoding, and accepted/polled JSON payloads remain bounded to 1 MiB
+before durable persistence. The default job-poll deadline is five minutes,
+request timeout is 30 seconds, and only HTTP
 409 submission conflicts receive two bounded retries. Ambiguous uploads become
 indeterminate and retain access until explicit withdrawal or lease expiry.
 `ATOMIXOS_PROVISIONING_BASE_URL` can override the derived per-device FRP base;

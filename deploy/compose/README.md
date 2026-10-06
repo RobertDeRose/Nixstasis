@@ -131,6 +131,9 @@ targeting the compose `postgres` host.
   `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
   unless that internal proxy credential matches, so direct loopback or Compose
   peers cannot manufacture an AuthCrunch identity from claim headers alone.
+- Caddy also overwrites `X-Nixstasis-Client-IP` with the peer address it observes.
+  Phoenix uses that value for pre-authentication rate limiting only when the same
+  proxy credential validates; direct callers are limited by their socket peer.
 - Phoenix runs on `PORT=4000` internally.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in

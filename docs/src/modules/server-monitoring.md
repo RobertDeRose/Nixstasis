@@ -54,7 +54,15 @@
 ## Client-Server Interaction Details
 
 - Heartbeat controller passes client telemetry and connection status into `Monitoring.heartbeat/2`.
-- `Monitoring.heartbeat/2` updates device `last_seen_at`, persists telemetry, evaluates rules, and returns queued commands to the client.
+- `Monitoring.heartbeat/2` validates normalized telemetry before any heartbeat side
+  effect, then updates device `last_seen_at`, persists telemetry, evaluates rules,
+  and returns queued commands to the client.
+- Persisted telemetry is capped at 65,536 encoded bytes, nesting depth 8, 512
+  total keys, 128 keys per object, 128 bytes per key, 256 items per array, and
+  16,384 bytes per string. The same limits are enforced by the Ash telemetry
+  resource so direct internal writes cannot bypass them. Rejected telemetry does
+  not update last-seen state, enroll SSH keys, persist command inventory,
+  resolve/evaluate alerts, or dequeue commands.
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
 - Offline timing is runtime-configured through settings instead of hard-coded in
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and

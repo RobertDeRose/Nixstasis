@@ -33,7 +33,7 @@ defmodule Nixstasis.Provisioning do
   @default_retry_backoff_ms 250
   @default_request_timeout_ms 30_000
   @default_conflict_retries 2
-  @max_job_payload_size 1 * 1024 * 1024
+  @max_job_payload_size HTTPClient.max_response_size()
   @provisioning_timeout_ms @default_readiness_timeout_ms + @default_poll_timeout_ms
   @server_call_timeout_ms @provisioning_timeout_ms + @default_request_timeout_ms + 10_000
   @active_states [:submitting, :submitted, :running]
@@ -339,6 +339,22 @@ defmodule Nixstasis.Provisioning do
           {:error, reason} ->
             finish_indeterminate(state, delivery, actor_id, "invalid accepted response: #{inspect(reason)}")
         end
+
+      {:error, {:response_too_large, status, max_bytes}} when status == 202 or status >= 500 ->
+        finish_indeterminate(
+          state,
+          delivery,
+          actor_id,
+          "ambiguous AtomixOS HTTP #{status}: response exceeded #{max_bytes}-byte receive limit"
+        )
+
+      {:error, {:response_too_large, status, max_bytes}} ->
+        finish_failed(
+          state,
+          delivery,
+          actor_id,
+          "AtomixOS HTTP #{status} response exceeded #{max_bytes}-byte receive limit"
+        )
 
       {:error, {:http, 409, message}} ->
         finish_failed(state, delivery, actor_id, "AtomixOS rejected the submission: #{message}")

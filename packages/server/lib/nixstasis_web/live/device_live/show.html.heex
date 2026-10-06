@@ -172,6 +172,41 @@
         </section>
 
         <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
+          <div
+            :if={is_binary(@device.ssh_host_key_pending) and String.trim(@device.ssh_host_key_pending) != ""}
+            id="ssh-host-key-change-warning"
+            class="alert alert-warning mb-4"
+          >
+            <div class="min-w-0">
+              <div class="font-semibold">SSH host identity changed</div>
+              <p class="text-sm">
+                Remote terminal access is blocked until the new host key is explicitly trusted.
+              </p>
+              <p class="mt-2 font-mono text-xs break-all">
+                Current: {Devices.ssh_host_key_fingerprint(@device.ssh_host_key) || "unavailable"}
+              </p>
+              <p class="font-mono text-xs break-all">
+                Pending: {Devices.ssh_host_key_fingerprint(@device.ssh_host_key_pending) || "unavailable"}
+              </p>
+            </div>
+            <button
+              :if={@can_remote_access_device?}
+              id="trust-pending-ssh-host-key"
+              class="btn btn-warning btn-sm"
+              phx-click="trust_pending_ssh_host_key"
+            >
+              Trust new host key
+            </button>
+          </div>
+
+          <div
+            :if={not (is_binary(@device.ssh_host_key) and String.trim(@device.ssh_host_key) != "")}
+            id="ssh-host-key-enrollment-warning"
+            class="alert alert-info mb-4"
+          >
+            Waiting for this device to enroll its SSH host identity through an authenticated heartbeat.
+          </div>
+
           <%= if @ssh_session_started or @terminal_closed? do %>
             <div
               id="tab-terminal-wrapper"

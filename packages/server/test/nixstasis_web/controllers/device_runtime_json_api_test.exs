@@ -7,8 +7,10 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
   alias Nixstasis.Scripts
   alias NixstasisWeb.Plugs.JsonApiPermissions
+  alias NixstasisWeb.RateLimiterStore
 
   setup do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
@@ -233,6 +235,35 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert device_id == approved.id
   end
 
+  test "generated heartbeat rejects over-limit telemetry before persistence", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    limits = TelemetryLimits.limits()
+    last_seen_at = approved.last_seen_at
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+        "data" => %{
+          "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
+        }
+      })
+
+    assert conn.status == 400
+    assert Devices.get_device!(approved.id).last_seen_at == last_seen_at
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^approved.id)
+      |> Ash.read!(domain: Domain)
+
+    assert telemetry == []
+  end
+
   test "generated heartbeat ignores malformed inventory while delivering commands", %{
     conn: conn,
     approved: approved,
@@ -262,10 +293,12 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     token: token
   } do
     previous = Application.get_env(:nixstasis, :rate_limit)
-    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1)
-    :ets.delete_all_objects(:nixstasis_rate_limiter)
+    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1, preauth_limit: 100)
+    RateLimiterStore.clear()
 
     on_exit(fn ->
+      RateLimiterStore.clear()
+
       if previous do
         Application.put_env(:nixstasis, :rate_limit, previous)
       else
@@ -284,7 +317,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     assert response = request.(conn)
     assert response.status == 200
-    assert %{"error" => %{"code" => "rate_limited"}} = json_response(request.(conn), 429)
+    assert %{"errors" => [%{"code" => "rate_limited"}]} = json_response(request.(conn), 429)
   end
 
   test "generated command results preserves acknowledgement and replay behavior", %{

@@ -18,6 +18,7 @@ SERVER_README="$ROOT_DIR/packages/server/README.md"
 SERVER_ENTRYPOINT="$ROOT_DIR/packages/server/bin/server"
 SERVER_MIGRATE="$ROOT_DIR/packages/server/bin/migrate"
 SERVER_DB_WAIT="$ROOT_DIR/packages/server/bin/wait-for-postgres"
+SERVER_SSH_CLIENT="$ROOT_DIR/packages/server/lib/nixstasis/devices/ssh_client.ex"
 CLIENT_README="$ROOT_DIR/packages/client/README.md"
 CLIENT_DOCKERFILE="$ROOT_DIR/packages/client/Dockerfile"
 CLIENT_POSTINSTALL="$ROOT_DIR/packages/client/build/debian/postinstall.sh"
@@ -148,6 +149,7 @@ require_text "$CADDYFILE" 'auth\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'nixstasis\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'reverse_proxy nixstasis:\{\$PORT\}'
 require_text "$CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
+require_text "$CADDYFILE" 'header_up X-Nixstasis-Client-IP \{http\.request\.remote\.host\}'
 require_text "$CADDYFILE" 'path /api/v1/devices/register'
 require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
 require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
@@ -230,6 +232,7 @@ require_text "$COMPOSE_README" 'wait for the `DATABASE_URL` host and'
 
 require_text "$DEV_CADDYFILE" 'reverse_proxy nixstasis:\{\$PORT\}'
 require_text "$DEV_CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
+require_text "$DEV_CADDYFILE" 'header_up X-Nixstasis-Client-IP \{http\.request\.remote\.host\}'
 require_text "$DEV_CADDYFILE" 'reverse_proxy frps:\{\$FRPS_HTTP_PORT\}'
 require_text "$DEV_CADDYFILE" 'tls internal'
 reject_text "$DEV_CADDYFILE" 'security \{'
@@ -293,11 +296,17 @@ require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pcp-metrics'
 require_literal "$DEV_LAB_SCRIPT" '[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]])'
 require_text "$LAPTOP_CADDYFILE" 'Content-Security-Policy.*frame-ancestors .self. https://nixstasis\.\{\$BASE_DOMAIN\}'
 require_text "$LAPTOP_CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
+require_text "$LAPTOP_CADDYFILE" 'header_up X-Nixstasis-Client-IP \{http\.request\.remote\.host\}'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_FRP_HTTP_LOCAL_ADDR'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$CLIENT_DOCKERFILE" 'container-entrypoint'
 require_text "$CLIENT_DOCKERFILE" 'pcp-metrics\.sh'
 require_text "$SERVER_DOCKERFILE" 'COPY client/scripts/e2e/journeys priv/e2e/journeys'
+require_literal "$SERVER_SSH_CLIENT" 'StrictHostKeyChecking=yes'
+require_literal "$SERVER_SSH_CLIENT" 'UserKnownHostsFile=#{known_hosts_path}'
+require_literal "$SERVER_SSH_CLIENT" 'GlobalKnownHostsFile=/dev/null'
+reject_text "$SERVER_SSH_CLIENT" 'StrictHostKeyChecking=no'
+reject_text "$SERVER_SSH_CLIENT" 'UserKnownHostsFile=/dev/null'
 require_text "$SERVER_RUNTIME" 'Application\.app_dir\(:nixstasis, "priv"\)'
 require_text "$SERVER_RUNTIME" ':e2e_journey_dir'
 require_text "$CLIENT_DOCKERFILE" 'openssl'
