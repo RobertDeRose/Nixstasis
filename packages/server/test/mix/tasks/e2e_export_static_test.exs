@@ -194,6 +194,101 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
     refute Enum.any?(manifest["runs"], &(&1["full_commit_sha"] == "eeeeeeeeeeeeeee5"))
   end
 
+  test "renders untrusted static export values only through text-safe DOM sinks", %{
+    reports_dir: reports_dir,
+    logs_dir: logs_dir,
+    pages_dir: pages_dir
+  } do
+    ref_name = ~s(feature-<img src=x onerror="globalThis.__xss_ref=1">)
+    title = ~s(E2E </h1><script>globalThis.__xss_title=1</script>)
+    run_id = ~s(run-<img src=x onerror="globalThis.__xss_run=1">)
+    run_status = ~s(<script>globalThis.__xss_status=1</script>)
+    journey_id = ~s(journey-<svg onload="globalThis.__xss_journey=1">)
+    journey_status = ~s(<b onclick="globalThis.__xss_journey_status=1">failed</b>)
+    duration = ~s(<img src=x onerror="globalThis.__xss_duration=1">)
+    error = ~s(<img src=x onerror="globalThis.__xss_error=1">)
+
+    report = %{
+      "RunID" => run_id,
+      "Status" => run_status,
+      "Journeys" => [
+        %{
+          "JourneyID" => journey_id,
+          "Status" => journey_status,
+          "Error" => error,
+          "DurationMs" => duration
+        }
+      ]
+    }
+
+    File.write!(Path.join(reports_dir, "malicious.json"), Jason.encode!(report))
+
+    run_task([
+      "--reports-dir",
+      reports_dir,
+      "--logs-dir",
+      logs_dir,
+      "--pages-dir",
+      pages_dir,
+      "--title",
+      title,
+      "--ref-name",
+      ref_name,
+      "--ref-type",
+      "branch",
+      "--full-sha",
+      "abcdef1234567890",
+      "--timestamp",
+      "2026-02-14T10:00:00Z"
+    ])
+
+    manifest = pages_dir |> Path.join("runs.json") |> File.read!() |> Jason.decode!()
+    [entry] = manifest["runs"]
+    assert entry["ref_name"] == ref_name
+
+    run_dir = Path.join(pages_dir, String.trim_trailing(entry["run_path"], "/"))
+    run_data = run_dir |> Path.join("run.json") |> File.read!() |> Jason.decode!()
+    [exported_report] = run_data["reports"]
+    [exported_journey] = exported_report["Journeys"]
+
+    assert run_data["ref_name"] == ref_name
+    assert exported_report["RunID"] == run_id
+    assert exported_report["Status"] == run_status
+    assert exported_journey["JourneyID"] == journey_id
+    assert exported_journey["Status"] == journey_status
+    assert exported_journey["DurationMs"] == duration
+    assert exported_journey["Error"] == error
+
+    index_html = File.read!(Path.join(pages_dir, "index.html"))
+    run_html = File.read!(Path.join(run_dir, "index.html"))
+    escaped_title = title |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+
+    assert index_html =~ "<title>#{escaped_title}</title>"
+    assert index_html =~ "<h1>#{escaped_title}</h1>"
+    refute index_html =~ title
+
+    for html <- [index_html, run_html], sink <- ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"] do
+      refute html =~ sink
+    end
+
+    assert index_html =~ "heading.textContent = name"
+    assert index_html =~ ~s'link.textContent = String(run.short_commit_sha || "")'
+    assert index_html =~ ~s'appendTextCell(row, run.full_commit_sha)'
+
+    assert run_html =~
+             ~s'reportHeading.textContent = `Run ${String(report.RunID || "unknown")} (${String(report.Status || "unknown")})`'
+
+    assert run_html =~ ~s'appendTextCell(row, "td", journey.JourneyID || "")'
+    assert run_html =~ ~s'appendTextCell(row, "td", journey.Status || "")'
+    assert run_html =~ ~s'appendTextCell(row, "td", journey.DurationMs ?? "")'
+    assert run_html =~ ~s'appendTextCell(row, "td", journey.Error || "")'
+
+    for payload <- [ref_name, run_id, run_status, journey_id, journey_status, duration, error] do
+      refute index_html =~ payload
+      refute run_html =~ payload
+    end
+  end
+
   defp run_task(args) do
     Mix.Task.reenable(@task)
     ExportStatic.run(args)

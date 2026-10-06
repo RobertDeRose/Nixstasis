@@ -88,6 +88,15 @@
 - Script execution is bounded: executions have a five-second timeout and emit a
   slow-script warning after three seconds. The command handler applies the same five-second
   bound to server-issued `run_script` commands.
+- Native Starlark-to-Go result conversion is also bounded independently of interpreter
+  execution: cyclic list/dict graphs are rejected, nesting is limited to 64 levels,
+  conversions are limited to 10,000 values/keys, individual strings and keys are limited
+  to 256 KiB, and the approximate converted output is limited to 1 MiB. Conversion checks
+  the execution context while traversing. The same converter is used for normal script
+  results and `pub_and_get` accept criteria.
+- `pub_and_get` MQTT allowlists may contain `+` and `#` filters, but scripts must
+  supply concrete publish and reply topic names. Script-supplied topics containing
+  MQTT wildcard characters are rejected before broker interaction.
 - When a persisted server command policy exists, it overrides locally configured `runtime.exec_commands`; local config is fallback only before the first successful server policy write.
 - Catalog-backed command policies use the same persisted `apply_command_policy` payload as manual policies: a version, revision, and command-name to absolute-path map.
 - Package names, catalog IDs, and command inventory evidence are not runtime authority. They are server-side compatibility inputs only and do not expand `exec_cmd` permissions unless the server later delivers an absolute-path policy.

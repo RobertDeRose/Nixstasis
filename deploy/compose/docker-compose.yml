@@ -113,7 +113,6 @@ services:
       FRPS_HTTP_PORT: ${FRPS_HTTP_PORT}
     ports:
       - "${BIND_HOST:-0.0.0.0}:${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"
-      - "${BIND_HOST:-0.0.0.0}:${FRPS_TCPMUX_PORT}:${FRPS_TCPMUX_PORT}"
     volumes:
       - ./frps/frps.toml:/etc/frp/frps.toml.template:ro
     restart: unless-stopped

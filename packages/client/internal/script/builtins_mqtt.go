@@ -52,7 +52,7 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 	if !topicAllowed(replyTopic, r.config.MQTTSubscribeTopics) {
 		return nil, fmt.Errorf("subscribe topic is not allowed: %s", replyTopic)
 	}
-	acceptCriteria, err := parseAcceptCriteria(accept)
+	acceptCriteria, err := parseAcceptCriteria(ctx, accept)
 	if err != nil {
 		return nil, err
 	}
@@ -113,25 +113,23 @@ func runtimeContext(thread *starlark.Thread) context.Context {
 	return ctx
 }
 
-func parseAcceptCriteria(accept *starlark.Dict) (map[string]any, error) {
+func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string]any, error) {
 	if accept == nil {
 		return nil, nil
 	}
-	criteria := make(map[string]any, accept.Len())
-	for _, item := range accept.Items() {
-		field, ok := item[0].(starlark.String)
-		if !ok {
-			return nil, fmt.Errorf("accept keys must be strings")
-		}
-		name := string(field)
+
+	converted, err := starlarkValueToGo(ctx, accept)
+	if err != nil {
+		return nil, fmt.Errorf("accept criteria: %w", err)
+	}
+	criteria, ok := converted.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("accept criteria must be a dict")
+	}
+	for name := range criteria {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, ".[]") {
 			return nil, fmt.Errorf("accept keys must be non-empty top-level JSON field names")
 		}
-		value, err := starlarkValueToGo(item[1])
-		if err != nil {
-			return nil, fmt.Errorf("accept value for %s: %w", name, err)
-		}
-		criteria[name] = value
 	}
 	return criteria, nil
 }
@@ -186,7 +184,7 @@ func topicAllowed(topic string, patterns []string) bool {
 }
 
 func mqttTopicMatch(pattern, topic string) bool {
-	if pattern == "" || topic == "" {
+	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
 	}
 	patternParts := strings.Split(pattern, "/")
@@ -203,6 +201,10 @@ func mqttTopicMatch(pattern, topic string) bool {
 		}
 	}
 	return len(patternParts) == len(topicParts)
+}
+
+func mqttTopicNameIsConcrete(topic string) bool {
+	return topic != "" && !strings.ContainsAny(topic, "+#")
 }
 
 func (r *Runtime) connectMQTT() (mqtt.Client, error) {

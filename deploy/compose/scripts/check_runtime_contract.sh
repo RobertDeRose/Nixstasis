@@ -88,6 +88,21 @@ require_compose_service_env() {
     fail "missing $env_name environment wiring for compose service $service"
 }
 
+reject_compose_service_published_port() {
+  service="$1"
+  port_name="$2"
+
+  awk -v service="$service" -v port_name="$port_name" '
+    $0 ~ "^  " service ":$" { in_service = 1; next }
+    in_service && /^  [[:alnum:]_-]+:$/ { in_service = 0; in_ports = 0 }
+    in_service && /^    ports:$/ { in_ports = 1; next }
+    in_ports && /^    [[:alnum:]_-]+:/ { in_ports = 0 }
+    in_ports && index($0, "${" port_name "}") { found = 1 }
+    END { exit found ? 1 : 0 }
+  ' "$ROOT_DIR/deploy/compose/docker-compose.yml" ||
+    fail "$port_name must not be host-published by compose service $service"
+}
+
 require_compose_build_arg() {
   service="$1"
   arg_name="$2"
@@ -230,6 +245,7 @@ require_text "$SERVER_RUNTIME" 'NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK'
 require_text "$ROOT_DIR/packages/server/config/prod.exs" 'NIXSTASIS_SESSION_COOKIE_SECURE'
 require_text "$ROOT_DIR/packages/server/Dockerfile" 'ARG NIXSTASIS_SESSION_COOKIE_SECURE=true'
 require_compose_service_env nixstasis FRPS_TCPMUX_PORT
+reject_compose_service_published_port frps FRPS_TCPMUX_PORT
 require_compose_service_env nixstasis NIXSTASIS_SSH_FRP_HOST
 require_compose_service_env nixstasis NIXSTASIS_PROXY_AUTH_TOKEN
 require_compose_service_env nixstasis NIXSTASIS_E2E_RUNNER_ID

@@ -294,48 +294,94 @@ defmodule Mix.Tasks.E2e.ExportStatic do
       </div>
       <script src="#{root_prefix}assets/e2e_log_viewer/viewer.js"></script>
       <script>
+        function appendMeta(container, label, value) {
+          const paragraph = document.createElement("p")
+          const strong = document.createElement("strong")
+          strong.textContent = `${label}:`
+          paragraph.appendChild(strong)
+          paragraph.appendChild(document.createTextNode(` ${String(value ?? "")}`))
+          container.appendChild(paragraph)
+        }
+
+        function appendTextCell(row, tagName, value) {
+          const cell = document.createElement(tagName)
+          cell.textContent = String(value ?? "")
+          row.appendChild(cell)
+          return cell
+        }
+
+        function buildResultsTable() {
+          const table = document.createElement("table")
+          const thead = document.createElement("thead")
+          const headerRow = document.createElement("tr")
+          for (const heading of ["Journey", "Status", "Duration (ms)", "Error"]) {
+            appendTextCell(headerRow, "th", heading)
+          }
+          thead.appendChild(headerRow)
+
+          const tbody = document.createElement("tbody")
+          table.appendChild(thead)
+          table.appendChild(tbody)
+          return { table, tbody }
+        }
+
         async function loadRun() {
           const payload = await fetch("./run.json", { cache: "no-store" }).then((r) => r.json())
-          document.getElementById("run-title").textContent = `E2E Run: ${payload.ref_name} @ ${payload.full_sha.slice(0, 7)}`
-          document.getElementById("run-meta").innerHTML = `
-            <p><strong>Ref:</strong> ${payload.ref_type}:${payload.ref_name}</p>
-            <p><strong>Commit:</strong> ${payload.full_sha}</p>
-            <p><strong>Generated:</strong> ${payload.timestamp}</p>
-          `
+          const shortSha = String(payload.full_sha || "").slice(0, 7)
+          document.getElementById("run-title").textContent = `E2E Run: ${String(payload.ref_name || "")} @ ${shortSha}`
+
+          const meta = document.getElementById("run-meta")
+          meta.replaceChildren()
+          appendMeta(meta, "Ref", `${String(payload.ref_type || "")}:${String(payload.ref_name || "")}`)
+          appendMeta(meta, "Commit", payload.full_sha)
+          appendMeta(meta, "Generated", payload.timestamp)
 
           const root = document.getElementById("run-results")
-          root.innerHTML = ""
+          root.replaceChildren()
 
-          for (const report of payload.reports) {
+          for (const report of payload.reports || []) {
             const reportCard = document.createElement("div")
             reportCard.className = "card"
-            reportCard.innerHTML = `<h3>Run ${report.RunID || "unknown"} (${report.Status || "unknown"})</h3>`
 
-            const table = document.createElement("table")
-            table.innerHTML = "<thead><tr><th>Journey</th><th>Status</th><th>Duration (ms)</th><th>Error</th></tr></thead><tbody></tbody>"
-            const tbody = table.querySelector("tbody")
+            const reportHeading = document.createElement("h3")
+            reportHeading.textContent = `Run ${String(report.RunID || "unknown")} (${String(report.Status || "unknown")})`
+            reportCard.appendChild(reportHeading)
+
+            const { table, tbody } = buildResultsTable()
 
             for (const journey of report.Journeys || []) {
               const row = document.createElement("tr")
-              row.innerHTML = `<td>${journey.JourneyID || ""}</td><td>${journey.Status || ""}</td><td>${journey.DurationMs ?? ""}</td><td>${journey.Error || ""}</td>`
+              appendTextCell(row, "td", journey.JourneyID || "")
+              appendTextCell(row, "td", journey.Status || "")
+              appendTextCell(row, "td", journey.DurationMs ?? "")
+              appendTextCell(row, "td", journey.Error || "")
               tbody.appendChild(row)
 
               const logRow = document.createElement("tr")
               const cell = document.createElement("td")
               cell.colSpan = 4
+
               const details = document.createElement("details")
               details.className = "journey-log"
-              details.innerHTML = `<summary>Journey Log</summary><div class="journey-log-viewer"></div>`
+              const summary = document.createElement("summary")
+              summary.textContent = "Journey Log"
+              const logViewer = document.createElement("div")
+              logViewer.className = "journey-log-viewer"
+              details.appendChild(summary)
+              details.appendChild(logViewer)
               cell.appendChild(details)
               logRow.appendChild(cell)
               tbody.appendChild(logRow)
 
               try {
                 const logPayload = await fetch(journey.log_payload, { cache: "no-store" }).then((r) => r.json())
-                const container = details.querySelector(".journey-log-viewer")
-                window.NixstasisE2ELogViewer.render(container, logPayload)
+                window.NixstasisE2ELogViewer.render(logViewer, logPayload)
               } catch (_err) {
-                details.querySelector(".journey-log-viewer").innerHTML = "<div class='text-danger'>Log unavailable</div>"
+                logViewer.replaceChildren()
+                const unavailable = document.createElement("div")
+                unavailable.className = "text-danger"
+                unavailable.textContent = "Log unavailable"
+                logViewer.appendChild(unavailable)
               }
             }
 
@@ -402,13 +448,18 @@ defmodule Mix.Tasks.E2e.ExportStatic do
   end
 
   defp write_root_index(path, title) do
+    escaped_title =
+      title
+      |> Phoenix.HTML.html_escape()
+      |> Phoenix.HTML.safe_to_string()
+
     html = """
     <!doctype html>
     <html lang="en">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>#{title}</title>
+      <title>#{escaped_title}</title>
       <style>
         body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 1.5rem; background: #f5f7fb; color: #1f2937; }
         .card { background: #fff; border: 1px solid #d6deeb; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
@@ -418,7 +469,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
       </style>
     </head>
     <body>
-      <h1>#{title}</h1>
+      <h1>#{escaped_title}</h1>
       <div class="card">
         <div class="row-controls">
           <label>Ref Type
@@ -447,6 +498,45 @@ defmodule Mix.Tasks.E2e.ExportStatic do
           })
         }
 
+        function appendTextCell(row, value) {
+          const cell = document.createElement("td")
+          cell.textContent = String(value ?? "")
+          row.appendChild(cell)
+          return cell
+        }
+
+        function buildRunsTable(runs) {
+          const table = document.createElement("table")
+          const thead = document.createElement("thead")
+          const headerRow = document.createElement("tr")
+          for (const heading of ["Run", "Type", "Timestamp", "Release", "Commit"]) {
+            const cell = document.createElement("th")
+            cell.textContent = heading
+            headerRow.appendChild(cell)
+          }
+          thead.appendChild(headerRow)
+
+          const tbody = document.createElement("tbody")
+          for (const run of runs) {
+            const row = document.createElement("tr")
+            const linkCell = document.createElement("td")
+            const link = document.createElement("a")
+            link.href = String(run.run_path || "")
+            link.textContent = String(run.short_commit_sha || "")
+            linkCell.appendChild(link)
+            row.appendChild(linkCell)
+            appendTextCell(row, run.ref_type)
+            appendTextCell(row, run.timestamp)
+            appendTextCell(row, run.is_release ? "yes" : "no")
+            appendTextCell(row, run.full_commit_sha)
+            tbody.appendChild(row)
+          }
+
+          table.appendChild(thead)
+          table.appendChild(tbody)
+          return table
+        }
+
         function render(runs) {
           const refType = refTypeSelect.value
           const refName = refNameSelect.value
@@ -458,38 +548,33 @@ defmodule Mix.Tasks.E2e.ExportStatic do
 
           const grouped = {}
           for (const run of sortRuns(filtered)) {
-            if (!grouped[run.ref_name]) grouped[run.ref_name] = []
-            grouped[run.ref_name].push(run)
+            const name = String(run.ref_name || "")
+            if (!grouped[name]) grouped[name] = []
+            grouped[name].push(run)
           }
 
-          const sections = Object.keys(grouped).sort().map((name) => {
-            const rows = grouped[name].map((run) => `
-              <tr>
-                <td><a href="${run.run_path}">${run.short_commit_sha}</a></td>
-                <td>${run.ref_type}</td>
-                <td>${run.timestamp}</td>
-                <td>${run.is_release ? "yes" : "no"}</td>
-                <td>${run.full_commit_sha}</td>
-              </tr>
-            `).join("")
+          root.replaceChildren()
+          const names = Object.keys(grouped).sort()
+          if (names.length === 0) {
+            const empty = document.createElement("p")
+            empty.textContent = "No runs available."
+            root.appendChild(empty)
+            return
+          }
 
-            return `
-              <h3>${name}</h3>
-              <table>
-                <thead><tr><th>Run</th><th>Type</th><th>Timestamp</th><th>Release</th><th>Commit</th></tr></thead>
-                <tbody>${rows}</tbody>
-              </table>
-            `
-          }).join("")
-
-          root.innerHTML = sections || "<p>No runs available.</p>"
+          for (const name of names) {
+            const heading = document.createElement("h3")
+            heading.textContent = name
+            root.appendChild(heading)
+            root.appendChild(buildRunsTable(grouped[name]))
+          }
         }
 
         fetch("./runs.json", { cache: "no-store" })
           .then((r) => r.json())
           .then((manifest) => {
             const runs = manifest.runs || []
-            const names = [...new Set(runs.map((run) => run.ref_name))].sort()
+            const names = [...new Set(runs.map((run) => String(run.ref_name || "")))].sort()
             for (const name of names) {
               const opt = document.createElement("option")
               opt.value = name
@@ -501,7 +586,10 @@ defmodule Mix.Tasks.E2e.ExportStatic do
             render(runs)
           })
           .catch(() => {
-            root.innerHTML = "<p>Failed to load runs manifest.</p>"
+            root.replaceChildren()
+            const error = document.createElement("p")
+            error.textContent = "Failed to load runs manifest."
+            root.appendChild(error)
           })
       </script>
     </body>
