@@ -109,6 +109,10 @@ type result struct {
 
 // Execute runs the provided script body and returns the output dict as a Go map.
 func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[string]any, error) {
+	if len(body) > maxStarySourceBytes {
+		return nil, starySourceTooLargeError(len(body))
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, r.config.Timeout)
 	defer cancel()
 
@@ -307,10 +311,9 @@ func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[st
 		if err != nil {
 			return nil, err
 		}
-		return res, nil
-	default:
-		return nil, fmt.Errorf("unsupported starlark type: %s", value.Type())
+		res[keyString] = val
 	}
+	return res, nil
 }
 
 func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, depth int) ([]any, error) {

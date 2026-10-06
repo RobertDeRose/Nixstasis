@@ -49,7 +49,7 @@ restarts before proceeding with application-level checks.
 
 - Confirm the `frps` service starts with numeric FRP ports and required token and
   dashboard credentials.
-- Confirm `frp-admin.<base-domain>` is reachable only through Caddy auth.
+- Confirm `frp-admin.<base-domain>` is reachable only through Caddy auth by a `nixstasis/admin` user; viewer/operator sessions must be denied before FRPS dashboard authentication.
 - Confirm a managed client can establish FRPC connectivity when remote access is
   requested.
 

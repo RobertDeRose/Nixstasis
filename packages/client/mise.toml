@@ -7,7 +7,7 @@ go = "1.26.2"
 "go:golang.org/x/tools/cmd/goimports" = "v0.40.0"
 "go:github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt" = "v2.5.0"
 "go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "v2.8.0"
-"go:github.com/goreleaser/goreleaser/v2" = "v2.15.4"
+goreleaser = "2.18.2"
 
 [env]
 GOEXPERIMENT = "jsonv2"

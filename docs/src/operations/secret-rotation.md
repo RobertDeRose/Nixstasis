@@ -83,8 +83,8 @@ and re-open only the remote-access sessions that are still required. Existing
 signed login credentials then fail verification after their short validity window.
 
 `FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are FRPS dashboard
-credentials consumed by `frps`. Caddy protects the dashboard route with
-AuthCrunch and proxies it to FRPS.
+credentials consumed by `frps`. Caddy protects the dashboard route with an
+admin-only AuthCrunch policy (`nixstasis/admin`) and proxies it to FRPS.
 
 1. Update dashboard credentials in `.env`.
 2. Restart `frps`.

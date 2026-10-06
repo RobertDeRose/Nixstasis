@@ -88,7 +88,7 @@ same Nixstasis role contract.
   internal Phoenix FRP access endpoint before routing to the FRPS HTTP vhost
   port. Phoenix requires remote-access capability and authorizes the device ID
   encoded in the requested FRP hostname against the operator's device scope.
-- FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
+- FRPS dashboard traffic is routed through `frp-admin.<base-domain>` and uses a dedicated AuthCrunch policy that permits only the normalized `nixstasis/admin` role before FRPS performs its own dashboard authentication.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
 
 Traceable references:

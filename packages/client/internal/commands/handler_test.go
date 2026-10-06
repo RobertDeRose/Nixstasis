@@ -68,6 +68,29 @@ func TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported(t *testing.T) 
 	}
 }
 
+func TestGivenOversizedServerScriptPayload_WhenExecuteBatch_ThenRejectsBeforeParsing(t *testing.T) {
+	handler := NewHandler(t.TempDir())
+	base := "---\nname: oversized\nversion: \"1\"\nschema:\n  type: object\n---\n\ndef main():\n    return {}\n#"
+	content := base + strings.Repeat("x", (1<<20)+1-len(base))
+
+	for _, commandType := range []string{"install_script", "run_script"} {
+		t.Run(commandType, func(t *testing.T) {
+			result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-" + commandType,
+				Type:      commandType,
+				Payload:   &transport.CommandPayload{Data: content},
+			}})[0]
+
+			if result.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected oversized %s payload to fail, got status=%s", commandType, result.Status)
+			}
+			if !strings.Contains(result.Error, "stary source exceeds maximum size") {
+				t.Fatalf("expected source-size error, got %q", result.Error)
+			}
+		})
+	}
+}
+
 func TestGivenValidRunScriptPayload_WhenExecuteBatch_ThenReturnsStructuredResult(t *testing.T) {
 	handler := NewHandler("")
 	content := strings.TrimSpace(`---

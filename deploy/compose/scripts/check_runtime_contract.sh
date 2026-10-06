@@ -62,6 +62,27 @@ reject_text() {
   fi
 }
 
+require_frp_admin_gate() {
+  file="$1"
+
+  awk '
+    /authorization policy frp_admin_policy \{/ { in_policy = 1; next }
+    in_policy && /allow roles nixstasis\/admin/ { admin_role = 1 }
+    in_policy && /allow groups/ { policy_groups = 1 }
+    in_policy && /^    }$/ { in_policy = 0 }
+
+    /^frp-admin\.\{\$BASE_DOMAIN\} \{/ { in_admin = 1; next }
+    in_admin && /authorize with frp_admin_policy/ { authorized = NR }
+    in_admin && /authorize with entra_policy/ { broad_policy = 1 }
+    in_admin && /reverse_proxy frps:\{\$FRPS_DASHBOARD_PORT\}/ {
+      if (!admin_role || policy_groups || broad_policy || !authorized || authorized > NR) exit 1
+      found = 1
+      exit 0
+    }
+    END { if (!found) exit 1 }
+  ' "$file" || fail "FRPS dashboard must require the admin-only AuthCrunch policy before proxying"
+}
+
 require_wildcard_remote_access_gate() {
   file="$1"
 
@@ -202,6 +223,10 @@ require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_paylo
 require_text "$CADDYFILE" 'path /e2e/\*'
 require_text "$CADDYFILE" 'handle \{'
 require_text "$CADDYFILE" 'frp-admin\.\{\$BASE_DOMAIN\}'
+require_literal "$CADDYFILE" 'authorization policy frp_admin_policy {'
+require_literal "$CADDYFILE" 'allow roles nixstasis/admin'
+require_frp_admin_gate "$CADDYFILE"
+require_frp_admin_gate "$LAPTOP_CADDYFILE"
 require_text "$CADDYFILE" 'allow roles \{\$AUTHORIZED_ROLES\}'
 require_text "$CADDYFILE" 'allow groups \{\$AUTHORIZED_GROUPS\}'
 require_text "$CADDYFILE" 'match groups \{\$NIXSTASIS_VIEWER_GROUPS\}'
