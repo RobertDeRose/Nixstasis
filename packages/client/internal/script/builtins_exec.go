@@ -2,6 +2,7 @@
 package script
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -9,11 +10,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"go.starlark.net/starlark"
 )
 
 const (
+	maxExecOutputBytes = 1 << 20
+
 	defaultExecPath   = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 	defaultExecHome   = "/"
 	defaultExecLang   = "C.UTF-8"
@@ -99,7 +103,14 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 		setExecUser(cmd, r.config.ExecUser)
 	}
 
-	output, err := cmd.CombinedOutput()
+	output := newLimitedExecOutput(maxExecOutputBytes, cancel)
+	cmd.Stdout = output
+	cmd.Stderr = output
+
+	err = cmd.Run()
+	if output.Exceeded() {
+		return nil, fmt.Errorf("command output exceeded %d-byte limit", maxExecOutputBytes)
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return nil, fmt.Errorf("command timed out after %s", r.config.Timeout)
 	}
@@ -107,7 +118,59 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 		return nil, fmt.Errorf("command failed: %w", err)
 	}
 
-	return starlark.String(strings.TrimSpace(string(output))), nil
+	return starlark.String(strings.TrimSpace(output.String())), nil
+}
+
+type limitedExecOutput struct {
+	mu       sync.Mutex
+	buffer   bytes.Buffer
+	limit    int
+	exceeded bool
+	cancel   context.CancelFunc
+}
+
+func newLimitedExecOutput(limit int, cancel context.CancelFunc) *limitedExecOutput {
+	return &limitedExecOutput{limit: limit, cancel: cancel}
+}
+
+func (w *limitedExecOutput) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.exceeded {
+		return len(p), nil
+	}
+
+	remaining := w.limit - w.buffer.Len()
+	if len(p) <= remaining {
+		_, _ = w.buffer.Write(p)
+		return len(p), nil
+	}
+
+	if remaining > 0 {
+		_, _ = w.buffer.Write(p[:remaining])
+	}
+	w.exceeded = true
+	if w.cancel != nil {
+		w.cancel()
+	}
+
+	// Report the full write as consumed after canceling the command so os/exec
+	// does not retain or surface an unrelated short-write error. Additional
+	// output is discarded while the process exits.
+	return len(p), nil
+}
+
+func (w *limitedExecOutput) Exceeded() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.exceeded
+}
+
+func (w *limitedExecOutput) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buffer.String()
 }
 
 func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {

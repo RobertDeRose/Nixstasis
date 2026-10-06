@@ -74,6 +74,9 @@ Traceable references:
 - Scripts must define a callable `main()`.
 - `main()` output is converted from Starlark values to Go values and must be a dictionary when non-null.
 - Runtime execution is bounded by `RuntimeConfig.Timeout`; timeout cancels the Starlark thread.
+- Each runtime thread also has a fixed 1,000,000-step Starlark computation budget. Exceeding it
+  cancels evaluation and returns a normal execution-limit error. This deterministic guard bounds
+  interpreter work but does not claim a per-thread heap quota.
 
 Traceable references:
 
@@ -129,7 +132,11 @@ Traceable references:
 
 - FRPC runs on managed devices and connects to FRPS.
 - FRPS exposes tunnel transport ports from the Compose deployment.
-- Caddy proxies wildcard `*.{$BASE_DOMAIN}` traffic to FRPS HTTP vhost port.
+- Caddy authenticates wildcard `*.{$BASE_DOMAIN}` traffic with AuthCrunch, then
+  forward-authorizes it through Phoenix `/internal/frp/access`. Phoenix maps the
+  FRP hostname to its device UUID and requires both remote-access capability and
+  membership in the operator's device scope before Caddy proxies to the FRPS
+  HTTP vhost port.
 - Caddy proxies `frp-admin.{$BASE_DOMAIN}` to the FRPS dashboard port.
 - Server-side SSH terminal sessions use `ssh` with an `ncat` HTTP proxy command pointed at the configured FRP host and TCP mux port.
 - Development laptop mode uses the same Caddy, Phoenix, FRPS, FRPC, and SSH

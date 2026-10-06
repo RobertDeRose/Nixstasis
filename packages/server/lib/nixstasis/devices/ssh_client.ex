@@ -7,6 +7,8 @@ defmodule Nixstasis.Devices.SshClient do
 
   alias Nixstasis.Devices.SshHostKey
 
+  @max_terminal_dimension 1_000
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
@@ -115,7 +117,9 @@ defmodule Nixstasis.Devices.SshClient do
          device_id: device_id,
          executables: executables,
          tty_path: tty_path,
-         size: {columns, rows}
+         size: {columns, rows},
+         resize_task: nil,
+         pending_resize: nil
        }}
     else
       {:error, :invalid_ssh_host_key} -> {:stop, %{reason: :invalid_host_key}}
@@ -137,12 +141,38 @@ defmodule Nixstasis.Devices.SshClient do
       is_nil(columns) or is_nil(rows) ->
         {:noreply, state}
 
-      state[:size] == {columns, rows} ->
-        {:noreply, state}
+      state.size == {columns, rows} ->
+        {:noreply, %{state | pending_resize: nil}}
+
+      state.resize_task ->
+        {:noreply, %{state | pending_resize: {columns, rows}}}
 
       true ->
-        resize_remote_tty(state, columns, rows)
-        {:noreply, %{state | size: {columns, rows}}}
+        {:noreply, start_resize_task(state, columns, rows)}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {:DOWN, ref, :process, pid, reason},
+        %{resize_task: {pid, ref}} = state
+      ) do
+    if reason not in [:normal, :shutdown] do
+      Logger.warning("Terminal resize worker exited unexpectedly: #{inspect(reason)}")
+    end
+
+    state = %{state | resize_task: nil}
+
+    case state.pending_resize do
+      nil ->
+        {:noreply, state}
+
+      size when size == state.size ->
+        {:noreply, %{state | pending_resize: nil}}
+
+      {columns, rows} ->
+        state = %{state | pending_resize: nil}
+        {:noreply, start_resize_task(state, columns, rows)}
     end
   end
 
@@ -161,6 +191,8 @@ defmodule Nixstasis.Devices.SshClient do
 
   @impl true
   def terminate(_reason, state) do
+    stop_resize_task(state[:resize_task])
+
     if state[:key_path] do
       File.rm(state.key_path)
     end
@@ -229,21 +261,38 @@ defmodule Nixstasis.Devices.SshClient do
       "[ -n \"$tty_path\" ] && stty rows #{rows} cols #{columns} < \"$tty_path\" > \"$tty_path\"'"
   end
 
-  defp resize_remote_tty(state, columns, rows) do
-    Task.start(fn ->
-      args =
-        ssh_args(
-          state.device_id,
-          state.key_path,
-          state.known_hosts_path,
-          state.executables,
-          remote_resize_command(state.tty_path, columns, rows)
-        )
+  defp start_resize_task(state, columns, rows) do
+    {pid, ref} =
+      spawn_monitor(fn ->
+        resize_remote_tty(state, columns, rows)
+      end)
 
-      System.cmd(state.executables.env, ["TERM=#{terminal_type()}", state.executables.ssh | args],
-        stderr_to_stdout: true
+    %{state | resize_task: {pid, ref}, size: {columns, rows}}
+  end
+
+  defp resize_remote_tty(state, columns, rows) do
+    args =
+      ssh_args(
+        state.device_id,
+        state.key_path,
+        state.known_hosts_path,
+        state.executables,
+        remote_resize_command(state.tty_path, columns, rows)
       )
-    end)
+
+    System.cmd(state.executables.env, ["TERM=#{terminal_type()}", state.executables.ssh | args], stderr_to_stdout: true)
+
+    :ok
+  end
+
+  defp stop_resize_task(nil), do: :ok
+
+  defp stop_resize_task({pid, ref}) do
+    Process.demonitor(ref, [:flush])
+
+    if Process.alive?(pid) do
+      Process.exit(pid, :kill)
+    end
 
     :ok
   end
@@ -253,11 +302,13 @@ defmodule Nixstasis.Devices.SshClient do
     "/tmp/nixstasis-terminal-#{id}.tty"
   end
 
-  defp sane_dimension(value, _default) when is_integer(value) and value > 0, do: value
+  defp sane_dimension(value, _default)
+       when is_integer(value) and value > 0 and value <= @max_terminal_dimension,
+       do: value
 
   defp sane_dimension(value, default) when is_binary(value) do
     case Integer.parse(value) do
-      {integer, ""} when integer > 0 -> integer
+      {integer, ""} when integer > 0 and integer <= @max_terminal_dimension -> integer
       _ -> default
     end
   end

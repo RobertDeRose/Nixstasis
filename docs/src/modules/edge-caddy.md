@@ -84,7 +84,10 @@ same Nixstasis role contract.
 - Device protocol HTTPS traffic on `nixstasis.<base-domain>` bypasses AuthCrunch
   only for registration, heartbeat, command result, and command payload routes;
   Phoenix enforces the device credential contract for those runtime calls.
-- Wildcard device traffic is routed to FRPS HTTP vhost port.
+- Wildcard device traffic is authenticated by AuthCrunch, then Caddy calls the
+  internal Phoenix FRP access endpoint before routing to the FRPS HTTP vhost
+  port. Phoenix requires remote-access capability and authorizes the device ID
+  encoded in the requested FRP hostname against the operator's device scope.
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
 

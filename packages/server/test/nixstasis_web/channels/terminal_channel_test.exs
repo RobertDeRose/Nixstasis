@@ -499,7 +499,24 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
   test "forwards terminal resize events to ssh client", %{socket: socket} do
     push(socket, "resize", %{"columns" => 120, "rows" => 40})
-    assert_receive {:fake_ssh_resize, 120, 40}
+    assert_receive {:fake_ssh_resize, 120, 40}, 200
+  end
+
+  test "coalesces terminal resize bursts to the newest dimensions", %{socket: socket} do
+    push(socket, "resize", %{"columns" => 120, "rows" => 40})
+    push(socket, "resize", %{"columns" => 121, "rows" => 41})
+    push(socket, "resize", %{"columns" => 122, "rows" => 42})
+
+    assert_receive {:fake_ssh_resize, 122, 42}, 200
+    refute_receive {:fake_ssh_resize, _, _}, 100
+  end
+
+  test "rejects terminal resize dimensions above the supported bound", %{socket: socket} do
+    push(socket, "resize", %{"columns" => 1_001, "rows" => 40})
+    push(socket, "resize", %{"columns" => 120, "rows" => 1_001})
+    push(socket, "resize", %{"columns" => "1001", "rows" => "40"})
+
+    refute_receive {:fake_ssh_resize, _, _}, 100
   end
 
   test "disconnects on max duration", %{socket: socket} do

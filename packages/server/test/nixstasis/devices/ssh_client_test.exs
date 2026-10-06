@@ -181,6 +181,11 @@ defmodule Nixstasis.Devices.SshClientTest do
 
     assert_receive {:ssh_output, "ready\n"}, 1_000
 
+    initial_commands = File.read!(log_path)
+    SshClient.resize(pid, 1_001, 48)
+    _ = :sys.get_state(pid)
+    assert File.read!(log_path) == initial_commands
+
     SshClient.resize(pid, 120, 48)
     _ = :sys.get_state(pid)
 
@@ -197,6 +202,95 @@ defmodule Nixstasis.Devices.SshClientTest do
     assert commands =~ "exec \"${SHELL:-/bin/sh}\" -l"
     assert commands =~ "tty_path=$(cat /tmp/nixstasis-terminal-"
     assert commands =~ "stty rows 48 cols 120 < \"$tty_path\" > \"$tty_path\""
+
+    GenServer.stop(pid)
+  end
+
+  test "coalesces resize bursts and runs only one resize subprocess at a time" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-resize-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+
+    env_path = Path.join(temp_dir, "env")
+    log_path = Path.join(temp_dir, "resize.log")
+    lock_path = Path.join(temp_dir, "resize.lock")
+
+    File.write!(env_path, """
+    #!/bin/sh
+    case "$*" in
+      *'tty_path=$(cat'*)
+        if mkdir '#{lock_path}' 2>/dev/null; then
+          printf 'resize-start %s\n' "$*" >> '#{log_path}'
+          sleep 0.2
+          printf 'resize-end %s\n' "$*" >> '#{log_path}'
+          rmdir '#{lock_path}'
+        else
+          printf 'resize-overlap %s\n' "$*" >> '#{log_path}'
+        fi
+        exit 0
+        ;;
+      *)
+        printf 'ready\n'
+        sleep 30
+        ;;
+    esac
+    """)
+
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color"
+    )
+
+    {:ok, pid} =
+      SshClient.start_link(
+        device_id: "11111111-2222-3333-4444-555555555555",
+        private_key: "test-only-sensitive-key-material",
+        host_key: @host_key,
+        channel_pid: self(),
+        columns: 100,
+        rows: 40,
+        ssh_executable: "sh",
+        proxy_executable: "sh",
+        env_executable: env_path
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    SshClient.resize(pid, 121, 41)
+
+    for columns <- 122..160 do
+      SshClient.resize(pid, columns, 41)
+    end
+
+    _ = :sys.get_state(pid)
+
+    log =
+      eventually_read!(
+        log_path,
+        fn value ->
+          String.contains?(value, "resize-end") and String.contains?(value, "cols 160")
+        end,
+        200
+      )
+
+    refute log =~ "resize-overlap"
+    assert length(Regex.scan(~r/^resize-start /m, log)) == 2
+    assert log =~ "stty rows 41 cols 121"
+    assert log =~ "stty rows 41 cols 160"
 
     GenServer.stop(pid)
   end

@@ -194,6 +194,66 @@ def main():
 	}
 }
 
+func TestExecCmdRejectsOversizedCombinedOutput(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "large-output")
+	script := `#!/bin/sh
+set -eu
+dd if=/dev/zero bs=524289 count=1 2>/dev/null
+dd if=/dev/zero bs=524289 count=1 1>&2 2>/dev/null
+`
+	if err := os.WriteFile(cmdPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout: 5 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"large-output": cmdPath,
+		},
+	})
+
+	_, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="large-output")}
+`)
+	if err == nil || !strings.Contains(err.Error(), "command output exceeded 1048576-byte limit") {
+		t.Fatalf("expected bounded output error, got %v", err)
+	}
+}
+
+func TestLimitedExecOutputCapsStoredBytesAndCancels(t *testing.T) {
+	canceled := make(chan struct{}, 1)
+	output := newLimitedExecOutput(4, func() {
+		select {
+		case canceled <- struct{}{}:
+		default:
+		}
+	})
+
+	if n, err := output.Write([]byte("abcdef")); err != nil || n != 6 {
+		t.Fatalf("unexpected bounded write result n=%d err=%v", n, err)
+	}
+	if !output.Exceeded() {
+		t.Fatal("expected output limit to be marked exceeded")
+	}
+	if got := output.String(); got != "abcd" {
+		t.Fatalf("expected stored output to remain capped, got %q", got)
+	}
+	select {
+	case <-canceled:
+	default:
+		t.Fatal("expected output overflow to cancel the command context")
+	}
+
+	if n, err := output.Write([]byte("more")); err != nil || n != 4 {
+		t.Fatalf("unexpected post-limit write result n=%d err=%v", n, err)
+	}
+	if got := output.String(); got != "abcd" {
+		t.Fatalf("expected post-limit output to be discarded, got %q", got)
+	}
+}
+
 func TestExecCmdRequiresCapability(t *testing.T) {
 	runtime := NewRuntime(RuntimeConfig{Timeout: 5 * time.Second})
 	_, err := runtime.Execute(context.Background(), "test.star", `

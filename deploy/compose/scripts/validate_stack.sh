@@ -107,19 +107,23 @@ reject_caddy_text() {
   fi
 }
 
-require_wildcard_authorize_before_proxy() {
+require_wildcard_remote_access_gate() {
+  file="$1"
+
   awk '
-    /^\*\.\{\$BASE_DOMAIN\} \{/ { in_wildcard = 1; authorized = 0; saw_wildcard = 1; next }
-    in_wildcard && /^}/ {
-      if (!authorized) {
-        exit 1
-      }
-      in_wildcard = 0
+    /^\*\.\{\$BASE_DOMAIN\} \{/ { in_wildcard = 1; next }
+    in_wildcard && /authorize with entra_policy/ { authorized = NR }
+    in_wildcard && /forward_auth nixstasis:\{\$PORT\}/ { forwarded = NR }
+    in_wildcard && /uri \/internal\/frp\/access/ { access_uri = 1 }
+    in_wildcard && /header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}/ { proxy_token = 1 }
+    in_wildcard && /header_up X-Nixstasis-Requested-Host \{host\}/ { requested_host = 1 }
+    in_wildcard && /reverse_proxy frps:\{\$FRPS_HTTP_PORT\}/ {
+      if (!authorized || !forwarded || !access_uri || !proxy_token || !requested_host || authorized > forwarded || forwarded > NR) exit 1
+      found = 1
+      exit 0
     }
-    in_wildcard && /authorize with entra_policy/ { authorized = 1 }
-    in_wildcard && /reverse_proxy frps:\{\$FRPS_HTTP_PORT\}/ && !authorized { exit 1 }
-    END { if (!saw_wildcard) exit 1 }
-  ' "$CADDYFILE" || fail "wildcard FRP host must authorize with entra_policy before proxying"
+    END { if (!found) exit 1 }
+  ' "$file" || fail "wildcard FRP host must enforce AuthCrunch and Phoenix device-scope authorization before proxying"
 }
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -161,7 +165,8 @@ require_caddy_text 'match groups \{\$NIXSTASIS_ADMIN_GROUPS\}'
 require_caddy_text 'action add role nixstasis/admin'
 reject_caddy_text 'allow roles \*'
 reject_caddy_text 'allow groups \*'
-require_wildcard_authorize_before_proxy
+require_caddy_text 'order authorize before forward_auth'
+require_wildcard_remote_access_gate "$CADDYFILE"
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build >/dev/null
 

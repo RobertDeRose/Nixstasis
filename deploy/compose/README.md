@@ -180,7 +180,10 @@ targeting the compose `postgres` host.
   on-demand TLS so local HTTPS is deterministic without public ACME or OIDC.
 - Reserved hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
   `frp-admin.<base-domain>`.
-- Wildcard device hosts require `authorize with entra_policy` before proxying.
+- Wildcard device hosts require `authorize with entra_policy` and a Phoenix
+  `/internal/frp/access` forward-auth check before proxying. Phoenix derives the
+  owning device ID from the FRP hostname, requires `can_remote_access`, and
+  applies the authenticated operator's canonical device scope.
 - AuthCrunch policy must allow roles `${AUTHORIZED_ROLES}` and groups `${AUTHORIZED_GROUPS}`.
 - Caddy transforms provider-specific OIDC groups into provider-generic
   Nixstasis roles with `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`,

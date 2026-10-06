@@ -85,9 +85,13 @@
 - `.stary` scripts contain YAML front matter plus a Starlark body. Validation
   compiles front matter schemas before installed scripts can contribute
   telemetry.
-- Script execution is bounded: executions have a five-second timeout and emit a
-  slow-script warning after three seconds. The command handler applies the same five-second
-  bound to server-issued `run_script` commands.
+- Script execution is bounded by two independent interpreter guards: executions have a five-second
+  wall-clock timeout and each Starlark thread has a deterministic 1,000,000 computation-step ceiling.
+  Hitting the step ceiling returns a normal execution error. Scripts also emit a slow-script warning
+  after three seconds, and the command handler applies the same runtime to server-issued `run_script`
+  commands. The step budget limits interpreter work but is not a per-thread heap quota; Starlark does
+  not provide in-process memory accounting, so builtins and native result conversion retain their own
+  explicit size limits.
 - Native Starlark-to-Go result conversion is also bounded independently of interpreter
   execution: cyclic list/dict graphs are rejected, nesting is limited to 64 levels,
   conversions are limited to 10,000 values/keys, individual strings and keys are limited

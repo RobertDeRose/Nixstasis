@@ -104,7 +104,10 @@
   FRP plugin endpoint using short-lived, signed device credentials. There is no
   deployment-wide FRPS client secret distributed to devices.
 - `FRPS_HTTP_PORT`: internal FRPS HTTP virtual host port used by Caddy wildcard
-  proxying; it is not published directly on the host.
+  proxying; it is not published directly on the host. AuthCrunch authentication
+  is followed by Phoenix `/internal/frp/access` authorization, which requires
+  remote-access capability and enforces the operator's device scope for the
+  requested device hostname before Caddy reaches FRPS.
 - `FRPS_DASHBOARD_PORT`: FRPS dashboard port used behind authenticated Caddy
   ingress.
 - `FRPS_DASHBOARD_USER`: FRPS dashboard username.

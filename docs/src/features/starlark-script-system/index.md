@@ -17,7 +17,8 @@ reporting.
 ## User-Facing Behavior
 
 Integrators can select scripts by path or unique name, validate output locally, inspect field-level schema errors, and
-use the same runtime during polling. Duplicate names require explicit paths and runaway work is cancelled.
+use the same runtime during polling. Duplicate names require explicit paths and runaway work is cancelled by both
+wall-clock and deterministic interpreter-step limits.
 
 ## Design Integration
 
@@ -26,8 +27,8 @@ only bounded builtins. `exec_cmd` remains deny-by-default and consumes the activ
 
 ## Operational Impact
 
-Timeouts, schema validation, sanitized command environments, capability checks, and deterministic command correlation
-limit extension failures and host-command exposure.
+Wall-clock timeouts, a fixed Starlark computation-step ceiling, schema validation, sanitized command environments,
+capability checks, and deterministic command correlation limit extension failures and host-command exposure.
 
 ## Reference and Contracts
 

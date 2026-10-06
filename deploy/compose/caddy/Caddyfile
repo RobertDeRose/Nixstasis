@@ -10,6 +10,7 @@
   }
 
   order authenticate before respond
+  order authorize before forward_auth
   order authorize before reverse_proxy
 
   security {
@@ -162,6 +163,12 @@ frp-admin.{$BASE_DOMAIN} {
   }
 
   authorize with entra_policy
+  forward_auth nixstasis:{$PORT} {
+    uri /internal/frp/access
+    header_up Accept application/json
+    header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+    header_up X-Nixstasis-Requested-Host {host}
+  }
   header -X-Frame-Options
   reverse_proxy frps:{$FRPS_HTTP_PORT}
 }
