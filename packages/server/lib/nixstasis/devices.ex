@@ -160,11 +160,13 @@ defmodule Nixstasis.Devices do
   the existing device token slot while approval is pending. Re-registration of
   an existing MAC requires proof of possession of that token (or the current
   runtime token after enrollment has completed).
+
+  Returns `{:ok, device, registration_token}` on success. The plaintext token is
+  returned only when newly issued; authenticated re-registration returns `nil`
+  in the token slot.
   """
   def register_public_device(attrs) do
-    with {:ok, device, _registration_token} <- register_public_device_with_proof(attrs) do
-      {:ok, device}
-    end
+    register_public_device_with_proof(attrs)
   end
 
   def register_device(attrs) do

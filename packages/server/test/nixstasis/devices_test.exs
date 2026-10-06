@@ -407,6 +407,38 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.authenticate_device(approved, "token") == {:error, :missing_token}
     end
 
+    test "register_public_device/1 returns a proof usable for re-registration" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A0",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      pending =
+        device_fixture(%{mac_address: attrs["mac_address"], product_name: attrs["product_name"]})
+
+      assert {:ok, device, registration_token} = Devices.register_public_device(attrs)
+      assert device.id == pending.id
+      assert is_binary(registration_token) and registration_token != ""
+      assert device.api_token_hash != registration_token
+      assert Devices.get_device!(device.id).api_token_hash == device.api_token_hash
+
+      assert {:error, :forbidden} = Devices.register_public_device(attrs)
+
+      assert {:error, :forbidden} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", "invalid-token"))
+
+      assert {:ok, registered_again, nil} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", registration_token))
+
+      assert registered_again.id == device.id
+      assert registered_again.api_token_hash == device.api_token_hash
+    end
+
     test "register_public_device/1 rejects missing schema" do
       assert {:error, %Ash.Error.Invalid{} = error} =
                Devices.register_public_device(%{
