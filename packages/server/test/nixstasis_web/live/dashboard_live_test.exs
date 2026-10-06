@@ -3,6 +3,7 @@ defmodule NixstasisWeb.DashboardLiveTest do
   import Phoenix.LiveViewTest
 
   alias Nixstasis.Devices
+  alias Nixstasis.Domain
 
   describe "Dashboard" do
     test "renders dashboard with stats", %{conn: conn} do
@@ -52,6 +53,100 @@ defmodule NixstasisWeb.DashboardLiveTest do
       send(view.pid, :debounced_refresh)
 
       assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-value", "1")
+    end
+
+    test "scopes aggregate counts to the viewer's authorized devices", %{conn: conn} do
+      {:ok, authorized_device} =
+        Devices.register_device(%{
+          mac_address: "AA:BB:CC:DD:EF:01",
+          product_name: "dashboard-scope",
+          last_seen_at: DateTime.utc_now(),
+          approval_status: :pending
+        })
+
+      {:ok, other_online_device} =
+        Devices.register_device(%{
+          mac_address: "AA:BB:CC:DD:EF:02",
+          product_name: "dashboard-scope",
+          last_seen_at: DateTime.utc_now(),
+          approval_status: :pending
+        })
+
+      {:ok, other_offline_device} =
+        Devices.register_device(%{
+          mac_address: "AA:BB:CC:DD:EF:03",
+          product_name: "dashboard-scope",
+          last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute),
+          approval_status: :approved
+        })
+
+      {:ok, _authorized_alert} =
+        Domain.create_alert(%{
+          device_id: authorized_device.id,
+          type: :offline,
+          status: :active,
+          message: "authorized dashboard alert"
+        })
+
+      {:ok, other_alert} =
+        Domain.create_alert(%{
+          device_id: other_online_device.id,
+          type: :offline,
+          status: :active,
+          message: "out-of-scope dashboard alert"
+        })
+
+      assert other_offline_device.id != authorized_device.id
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => false,
+          "can_remote_access" => false,
+          "device_ids" => [authorized_device.id]
+        })
+
+      {:ok, view, _html} = live(conn, "/")
+
+      assert has_element?(view, "a[href='/devices'] .stat-value", "1")
+      assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-value", "1")
+      assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-desc", "Offline: 0")
+      assert has_element?(view, "a[href='/devices?approval_status=pending'] .stat-value", "1")
+      assert has_element?(view, "a[href='/alerts?status=active'] .stat-value", "1")
+
+      send(view.pid, {:device_registered, other_online_device})
+      send(view.pid, {:alert_created, other_alert})
+
+      assert has_element?(view, "a[href='/devices'] .stat-value", "1")
+      assert has_element?(view, "a[href='/alerts?status=active'] .stat-value", "1")
+    end
+
+    test "fails dashboard aggregates closed when device scope is invalid", %{conn: conn} do
+      {:ok, _device} =
+        Devices.register_device(%{
+          mac_address: "AA:BB:CC:DD:EF:04",
+          product_name: "dashboard-scope",
+          last_seen_at: DateTime.utc_now()
+        })
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> put_session("device_permissions", %{
+          "can_view" => true,
+          "can_manage" => false,
+          "can_remote_access" => false,
+          "device_ids" => ["not-a-uuid"]
+        })
+
+      {:ok, view, _html} = live(conn, "/")
+
+      assert has_element?(view, "a[href='/devices'] .stat-value", "0")
+      assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-value", "0")
+      assert has_element?(view, "a[href='/devices?approval_status=pending'] .stat-value", "0")
+      assert has_element?(view, "a[href='/alerts?status=active'] .stat-value", "0")
     end
 
     test "renders navigation links", %{conn: conn} do

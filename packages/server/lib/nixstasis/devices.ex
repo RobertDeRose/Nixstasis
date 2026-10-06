@@ -130,40 +130,42 @@ defmodule Nixstasis.Devices do
   @default_pending_command_limit 50
 
   @doc """
-  Counts all devices.
+  Counts all devices visible to the optional Ash actor.
   """
-  def count_all do
+  def count_all(opts \\ []) do
     Device
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
-  Counts devices by online/offline status.
+  Counts devices by online/offline status within the optional Ash actor scope.
   Online is defined as seen within the last 5 minutes.
   """
-  def count_by_status(:online) do
+  def count_by_status(status, opts \\ [])
+
+  def count_by_status(:online, opts) do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
     |> Ash.Query.filter(last_seen_at >= ^threshold)
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
-  def count_by_status(:offline) do
+  def count_by_status(:offline, opts) do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
     |> Ash.Query.filter(last_seen_at < ^threshold or is_nil(last_seen_at))
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
-  Counts devices pending approval.
+  Counts devices pending approval within the optional Ash actor scope.
   """
-  def count_pending_approvals do
+  def count_pending_approvals(opts \\ []) do
     Device
     |> Ash.Query.filter(approval_status == :pending)
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
@@ -554,6 +556,7 @@ defmodule Nixstasis.Devices do
     * `:filter` - A map of filters (e.g., `%{approval_status: :pending}`).
     * `:search` - A search string for product_name, mac_address, account_number, or ipv4_address.
     * `:authorized_device_ids` - An optional device-ID scope applied in the query.
+    * `:actor` - Optional Ash actor used to enforce resource read policies.
     * `:limit` - Optional SQL row limit.
     * `:select` - Optional list of fields to select for narrow projections.
     * `:load_device_groups?` - Whether to preload group summaries. Defaults to `false`.
@@ -564,6 +567,7 @@ defmodule Nixstasis.Devices do
     filter = Keyword.get(opts, :filter, %{})
     search = Keyword.get(opts, :search)
     authorized_device_ids = Keyword.get(opts, :authorized_device_ids)
+    actor = Keyword.get(opts, :actor)
     load_device_groups? = Keyword.get(opts, :load_device_groups?, false)
     limit = Keyword.get(opts, :limit)
     select = Keyword.get(opts, :select)
@@ -586,7 +590,7 @@ defmodule Nixstasis.Devices do
     |> maybe_limit(limit)
     |> maybe_select(select)
     |> maybe_load_device_groups(load_device_groups?)
-    |> Ash.read!(domain: Domain)
+    |> read_devices(actor)
   end
 
   @doc """
@@ -595,7 +599,7 @@ defmodule Nixstasis.Devices do
   The action keeps filter normalization and the compatibility response fields in
   the Devices context so generated and `/api/v1` transports use the same boundary.
   """
-  def runtime_list(params \\ %{}) when is_map(params) do
+  def runtime_list(params \\ %{}, opts \\ []) when is_map(params) and is_list(opts) do
     filter = %{
       approval_status: runtime_param(params, :approval_status),
       connectivity_status: runtime_param(params, :connectivity_status),
@@ -606,7 +610,11 @@ defmodule Nixstasis.Devices do
 
     %{
       data:
-        list_devices(filter: filter)
+        list_devices(
+          filter: filter,
+          actor: Keyword.get(opts, :actor),
+          authorized_device_ids: Keyword.get(opts, :authorized_device_ids)
+        )
         |> Enum.map(&runtime_list_device_data/1),
       meta: %{active_filters: runtime_active_filters(params)}
     }
@@ -829,6 +837,9 @@ defmodule Nixstasis.Devices do
 
   defp normalize_runtime_atom(nil), do: nil
   defp normalize_runtime_atom(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp read_devices(query, nil), do: Ash.read!(query, domain: Domain)
+  defp read_devices(query, actor), do: Ash.read!(query, domain: Domain, actor: actor)
 
   defp maybe_select(query, nil), do: query
   defp maybe_select(query, fields) when is_list(fields), do: Ash.Query.select(query, fields)

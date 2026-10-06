@@ -180,7 +180,8 @@ runtime actions are now available in the additive generated route family. The
 canonical contract for new integrations is:
 
 - `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
-  boundary and the device list filters, including `ipv4_address` and
+  boundary, propagates the trusted operator device scope into the Ash device read,
+  and preserves the device list filters, including `ipv4_address` and
   `connectivity_status`.
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device bearer token.

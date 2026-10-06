@@ -63,6 +63,13 @@
   resource so direct internal writes cannot bypass them. Rejected telemetry does
   not update last-seen state, enroll SSH keys, persist command inventory,
   resolve/evaluate alerts, or dequeue commands.
+- The `/alerts` active-alert LiveView reads alerts with the verified device-data
+  actor from the browser session. Ash applies the same authorized-device scope as
+  other device-backed reads, so scoped viewers cannot see alert messages, device
+  identifiers, or MAC addresses for devices outside their grant; invalid or
+  missing device-data scope fails closed to an empty active-alert list. Alert
+  rules remain global and are governed separately by alert view/manage
+  capabilities.
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
 - Offline timing is runtime-configured through settings instead of hard-coded in
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and

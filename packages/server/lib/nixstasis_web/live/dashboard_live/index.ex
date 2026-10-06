@@ -4,15 +4,23 @@ defmodule NixstasisWeb.DashboardLive.Index do
   require Logger
 
   alias Nixstasis.Dashboard
+  alias NixstasisWeb.Permissions
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "alerts")
     end
 
-    {:ok, assign(socket, stats: Dashboard.get_vital_stats(), loading: false)}
+    device_data_actor = device_data_actor(session)
+
+    {:ok,
+     assign(socket,
+       stats: Dashboard.get_vital_stats(device_data_actor),
+       device_data_actor: device_data_actor,
+       loading: false
+     )}
   end
 
   @refresh_debounce_ms 5_000
@@ -31,18 +39,18 @@ defmodule NixstasisWeb.DashboardLive.Index do
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
-    {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+    {:noreply, refresh_stats(socket)}
   end
 
   def handle_info({:alert_created, _alert}, socket) do
-    {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+    {:noreply, refresh_stats(socket)}
   end
 
   def handle_info(:debounced_refresh, socket) do
     {:noreply,
      socket
      |> assign(:refresh_timer, nil)
-     |> assign(:stats, Dashboard.get_vital_stats())}
+     |> refresh_stats()}
   end
 
   def handle_info(message, socket) do
@@ -58,6 +66,17 @@ defmodule NixstasisWeb.DashboardLive.Index do
     else
       timer = Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
       assign(socket, :refresh_timer, timer)
+    end
+  end
+
+  defp refresh_stats(socket) do
+    assign(socket, :stats, Dashboard.get_vital_stats(socket.assigns.device_data_actor))
+  end
+
+  defp device_data_actor(session) do
+    case Permissions.device_data_actor(session) do
+      {:ok, actor} -> actor
+      {:error, _reason} -> nil
     end
   end
 

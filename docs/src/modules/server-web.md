@@ -140,7 +140,8 @@ Legacy `/api/v1` compatibility routes and bespoke controller routes:
 - `GET /api/v1/builder-schemas`
 - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
 - `POST /api/v1/builder-configurations/validate`
-- `GET /api/v1/devices`
+- `GET /api/v1/devices` (verified operator device-view permission with trusted
+  device-row scope)
 - `POST /api/v1/devices/register`
 - `POST /api/v1/devices/:device_id/heartbeat`
 - `POST /api/v1/devices/:device_id/command_results`

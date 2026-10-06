@@ -34,11 +34,16 @@
   - `X-Token-User-Email`
   - `X-Token-User-Name`
   - `X-Token-User-Roles`
+  - `X-Token-Device-Ids` (custom injection from the authenticated `device_ids` claim)
 
 `inject headers with claims` is the source for the default `X-Token-*` claim
-headers. Phoenix treats those headers as trusted only behind the supported Caddy
-deployment path; Caddy still enforces `authorize with entra_policy` before
-proxying protected browser hosts.
+headers. Device scope is deliberately narrower: `X-Token-Device-Ids` is the only
+supported scope header and is injected explicitly from the authenticated
+`device_ids` claim. The production and laptop proxies drop the legacy
+`X-Token-Device-Id` and `X-Token-Allowed-Device-Ids` aliases before forwarding,
+and Phoenix ignores those aliases. Phoenix treats forwarded claims as trusted
+only behind the supported Caddy deployment path; Caddy still enforces
+`authorize with entra_policy` before proxying protected browser hosts.
 
 Every Caddy-to-Phoenix proxy block also overwrites `X-Nixstasis-Client-IP` with
 the socket peer address observed by Caddy. Phoenix consumes that value only when

@@ -105,6 +105,49 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert Devices.authenticate_device(updated, registration_token) == {:error, :invalid_token}
   end
 
+  test "GET /api/v1/devices requires operator identity and enforces device scope", %{conn: conn} do
+    previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
+    Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
+
+    on_exit(fn ->
+      Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous)
+    end)
+
+    {:ok, allowed} =
+      Devices.create_device(%{
+        mac_address: "10:00:00:00:00:01",
+        product_name: "allowed-runtime-list"
+      })
+
+    {:ok, denied} =
+      Devices.create_device(%{
+        mac_address: "10:00:00:00:00:02",
+        product_name: "denied-runtime-list"
+      })
+
+    assert conn |> get(~p"/api/v1/devices") |> response(403)
+
+    body =
+      build_conn()
+      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_req_header("x-token-device-ids", allowed.id)
+      |> put_trusted_proxy_auth()
+      |> get(~p"/api/v1/devices")
+      |> json_response(200)
+
+    assert Enum.map(body["data"], & &1["id"]) == [allowed.id]
+    refute Enum.any?(body["data"], &(&1["id"] == denied.id))
+
+    malformed_conn =
+      build_conn()
+      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_req_header("x-token-device-ids", "not-a-uuid")
+      |> put_trusted_proxy_auth()
+      |> get(~p"/api/v1/devices")
+
+    assert response(malformed_conn, 403)
+  end
+
   test "GET /api/v1/devices filters by product/account/approval status", %{conn: conn} do
     {:ok, _} =
       Devices.create_device(%{

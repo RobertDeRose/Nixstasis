@@ -6,9 +6,10 @@ info:
 paths:
   /api/v1/devices:
     get:
-      security: []
+      security:
+        - operatorBearer: []
       summary: List devices with optional filters
-      description: Current compatibility controller contract. The additive generated list action is the canonical Ash contract; preserve device list filters and compatibility semantics, including ipv4_address, in both references.
+      description: Current compatibility controller contract. Requires verified operator device-view permission and applies the trusted operator device scope in the Ash device read. The additive generated list action is the canonical Ash contract; preserve device list filters and compatibility semantics, including ipv4_address, in both references.
       parameters:
         - in: query
           name: product

@@ -155,7 +155,10 @@ Traceable references:
   before those requests reach Phoenix. Caddy maps provider-specific OIDC groups
   into provider-generic `nixstasis/*` roles, then Phoenix maps trusted
   `X-Token-*` role claim headers into UI permission maps and JSON:API route
-  permissions. Caddy also overwrites `X-Nixstasis-Client-IP` with the network peer
+  permissions. Device scope is accepted only from the canonical
+  `X-Token-Device-Ids` header that AuthCrunch injects from authenticated
+  `device_ids`; legacy scope aliases are stripped/ignored. Caddy also overwrites
+  `X-Nixstasis-Client-IP` with the network peer
   it observes so Phoenix can key pre-authentication limits by origin plus route.
   Neither forwarded identity nor the client-origin header is trusted without the
   Caddy-to-Phoenix proxy credential.

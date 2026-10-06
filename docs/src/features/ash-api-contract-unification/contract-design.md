@@ -155,13 +155,13 @@ The canonical generated target is an additive Ash JSON:API route family under
 `/api/json/device_runtime/devices`. It is intentionally separate from the
 operator CRUD family at `/api/json/devices`:
 
-| Generated route                                                           | Ash/domain boundary                                                                                                 | Authentication                                                                          |
-|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
-| `GET /api/json/device_runtime/devices`                                    | `:list_runtime_devices`, which adapts `Devices.list_devices/1` and returns normalized active-filter metadata.       | Operator bearer/device-view permission; this is not a device-runtime credential operation. |
-| `POST /api/json/device_runtime/devices/register`                          | `:register_runtime_device`, which calls `Device.register` through public normalization and approved-token issuance. | No application device credential; deployment-edge protection remains separate.                    |
-| `POST /api/json/device_runtime/devices/{device_id}/heartbeat`             | `:heartbeat`, delegating to `Monitoring.heartbeat/2`.                                                               | `deviceBearer` HTTP bearer security.                                                          |
-| `POST /api/json/device_runtime/devices/{device_id}/command_results`       | `:acknowledge_command_results`, with `Scripts` and `CommandAllowlists` ingestion.                                   | `deviceBearer` HTTP bearer security.                                                          |
-| `GET /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}` | `:fetch_command_payload`, backed by `Devices.get_command_payload/2`.                                                | `deviceBearer` HTTP bearer security.                                                          |
+| Generated route                                                           | Ash/domain boundary                                                                                                                           | Authentication                                                                                                           |
+|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `GET /api/json/device_runtime/devices`                                    | `:list_runtime_devices`, which propagates the verified Ash actor into `Devices.list_devices/1` and returns normalized active-filter metadata. | Operator bearer/device-view permission plus trusted device-row scope; this is not a device-runtime credential operation. |
+| `POST /api/json/device_runtime/devices/register`                          | `:register_runtime_device`, which calls `Device.register` through public normalization and approved-token issuance.                           | No application device credential; deployment-edge protection remains separate.                                           |
+| `POST /api/json/device_runtime/devices/{device_id}/heartbeat`             | `:heartbeat`, delegating to `Monitoring.heartbeat/2`.                                                                                         | `deviceBearer` HTTP bearer security.                                                                                     |
+| `POST /api/json/device_runtime/devices/{device_id}/command_results`       | `:acknowledge_command_results`, with `Scripts` and `CommandAllowlists` ingestion.                                                             | `deviceBearer` HTTP bearer security.                                                                                     |
+| `GET /api/json/device_runtime/devices/{device_id}/command_payloads/{ref}` | `:fetch_command_payload`, backed by `Devices.get_command_payload/2`.                                                                          | `deviceBearer` HTTP bearer security.                                                                                     |
 
 The generated family uses the Ash JSON:API media type and an explicit OpenAPI
 schema for each action. POST action inputs are JSON:API `data` objects; the
@@ -226,10 +226,11 @@ surface.
 The following behavior is the baseline that every generated action and wrapper
 must preserve at the domain/side-effect level:
 
-- **List — `GET /api/v1/devices`:** the current `:api` pipeline has no
-  application-level authentication (deployment-edge protection is separate) and
-  uses the 120/60-second limit. `Devices.list_devices/1` applies exact product,
-  account, approval, connectivity, and `ipv4_address` filters. Connectivity is
+- **List — `GET /api/v1/devices`:** the compatibility controller requires a
+  verified operator context with device-view permission and carries its trusted
+  device scope into the Ash device read. It uses the 120/60-second limit.
+  `Devices.list_devices/1` applies exact product, account, approval, connectivity,
+  and `ipv4_address` filters in addition to the authorized-device scope. Connectivity is
   online when `last_seen_at` is within five minutes and offline when it is older
   or nil. Success is `200` with `{"data": [...], "meta": {"active_filters": ...}}`;
   filter values are normalized before being echoed. The route has no mutation

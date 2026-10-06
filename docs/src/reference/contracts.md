@@ -207,10 +207,13 @@ locked `nixstasis-ssh-authority` account to run the helper.
 - The generated `/api/json` resource surface is protected as an
   operator/developer API. It is separate from the Go client `/api/v1/devices`
   runtime protocol and must not use device API tokens as operator credentials.
-- Optional scoped device claims (`X-Token-Device-Id`, `X-Token-Device-Ids`, or
-  `X-Token-Allowed-Device-Ids`) limit JSON:API device mutations to the listed
-  IDs. Unscoped device creation and collection-level command/telemetry writes
-  require unscoped device manage permission.
+- Optional device scope uses one canonical forwarded claim:
+  `X-Token-Device-Ids`, injected by AuthCrunch from the authenticated
+  `device_ids` token claim. Legacy `X-Token-Device-Id` and
+  `X-Token-Allowed-Device-Ids` aliases are not authorization inputs. The scope
+  limits JSON:API device mutations to the listed IDs. Unscoped device creation
+  and collection-level command/telemetry writes require unscoped device manage
+  permission.
 
 ## Generated OpenAPI
 
