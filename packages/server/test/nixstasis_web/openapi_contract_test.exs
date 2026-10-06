@@ -128,7 +128,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
 
     expected = [
       {"/api/json/device_runtime/devices", "get", ~w(403 429)},
-      {"/api/json/device_runtime/devices/register", "post", ~w(400 429)},
+      {"/api/json/device_runtime/devices/register", "post", ~w(400 403 429)},
       {"/api/json/device_runtime/devices/{device_id}/heartbeat", "post", ~w(400 401 403 404 429)},
       {"/api/json/device_runtime/devices/{device_id}/command_results", "post", ~w(400 401 403 404 429)},
       {"/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}", "get", ~w(401 403 404 429)}

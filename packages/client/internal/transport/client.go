@@ -114,8 +114,8 @@ type DeviceCredentials struct {
 
 // RegisterDevice registers the device with the Nixstasis API.
 // It returns the assigned UUID or an error.
-func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity) (string, error) {
-	credentials, err := c.RegisterDeviceCredentials(ctx, id)
+func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity, registrationTokens ...string) (string, error) {
+	credentials, err := c.RegisterDeviceCredentials(ctx, id, registrationTokens...)
 	if err != nil && !errors.Is(err, ErrDevicePendingApproval) {
 		return "", err
 	}
@@ -123,18 +123,23 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 }
 
 // RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
+// Callers must persist the proof (first token) before initial registration and
+// the proposed replacement (second token) before an approved exchange.
 func (c *Client) RegisterDeviceCredentials(
 	ctx context.Context,
 	id identity.DeviceIdentity,
-	registrationToken ...string,
+	registrationTokens ...string,
 ) (DeviceCredentials, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
 	reqBody := map[string]any{
 		"mac_address": id.MACAddress,
 	}
 
-	if len(registrationToken) > 0 && registrationToken[0] != "" {
-		reqBody["registration_token"] = registrationToken[0]
+	if len(registrationTokens) > 0 && registrationTokens[0] != "" {
+		reqBody["registration_token"] = registrationTokens[0]
+	}
+	if len(registrationTokens) > 1 && registrationTokens[1] != "" {
+		reqBody["replacement_token"] = registrationTokens[1]
 	}
 
 	if id.Name != "" {

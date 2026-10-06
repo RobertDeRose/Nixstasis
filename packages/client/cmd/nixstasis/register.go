@@ -64,7 +64,10 @@ func runRegister(cfg *config.Config) error {
 	registrationPath := config.RegistrationPath()
 	identityStore := identity.NewStore(identityPath)
 	registrationStore := identity.NewStore(registrationPath)
-	registrationProof := loadRegistrationProof(identityStore, registrationStore)
+	enrollment, err := prepareRegistration(identityStore, registrationStore)
+	if err != nil {
+		return err
+	}
 
 	// 4. Register with Retries (T015)
 	var credentials transport.DeviceCredentials
@@ -73,7 +76,7 @@ func runRegister(cfg *config.Config) error {
 	maxDelay := 30 * time.Second
 
 	for i := range maxRetries {
-		credentials, err = client.RegisterDeviceCredentials(context.Background(), id, registrationProof)
+		credentials, err = client.RegisterDeviceCredentials(context.Background(), id, enrollment.Token, enrollment.ReplacementToken)
 		if err == nil {
 			break
 		}
@@ -82,11 +85,9 @@ func runRegister(cfg *config.Config) error {
 		if errors.Is(err, transport.ErrDevicePendingApproval) {
 			message = "Registration pending approval"
 			if credentials.RegistrationToken != "" {
-				registrationProof = credentials.RegistrationToken
-				if saveErr := registrationStore.Save(identity.Credentials{
-					UUID:  credentials.UUID,
-					Token: registrationProof,
-				}); saveErr != nil {
+				enrollment.Token = credentials.RegistrationToken
+				enrollment.UUID = credentials.UUID
+				if saveErr := registrationStore.SaveEnrollment(enrollment); saveErr != nil {
 					return fmt.Errorf("failed to persist registration proof: %w", saveErr)
 				}
 			}
@@ -112,7 +113,9 @@ func runRegister(cfg *config.Config) error {
 		// The server has already consumed the enrollment proof. Preserve the
 		// runtime token in the retry store so a later run can exchange it for a
 		// fresh token instead of retrying the stale proof.
-		if recoveryErr := registrationStore.Save(runtimeCredentials); recoveryErr != nil {
+		if recoveryErr := registrationStore.SaveEnrollment(identity.Enrollment{
+			UUID: credentials.UUID, Token: credentials.Token,
+		}); recoveryErr != nil {
 			return fmt.Errorf("failed to save credentials and preserve retry credentials: %w", errors.Join(err, recoveryErr))
 		}
 		return fmt.Errorf("failed to save credentials: %w (runtime credentials preserved for retry)", err)
@@ -127,11 +130,29 @@ func runRegister(cfg *config.Config) error {
 	return nil
 }
 
-func loadRegistrationProof(stores ...*identity.Store) string {
-	for _, store := range stores {
-		if credentials, err := store.Load(); err == nil && credentials.Token != "" {
-			return credentials.Token
-		}
+func prepareRegistration(identityStore, registrationStore *identity.Store) (identity.Enrollment, error) {
+	// Recovery state supersedes a readable but invalidated runtime identity.
+	enrollment, err := registrationStore.LoadEnrollment()
+	if err != nil && !errors.Is(err, identity.ErrNoIdentity) {
+		return identity.Enrollment{}, fmt.Errorf("failed to load registration state: %w", err)
 	}
-	return ""
+	if errors.Is(err, identity.ErrNoIdentity) {
+		credentials, loadErr := identityStore.Load()
+		if loadErr != nil && !errors.Is(loadErr, identity.ErrNoIdentity) {
+			return identity.Enrollment{}, fmt.Errorf("failed to load runtime credentials: %w", loadErr)
+		}
+		enrollment = identity.Enrollment{UUID: credentials.UUID, Token: credentials.Token}
+	}
+	if enrollment.Token == "" {
+		enrollment.Token = identity.NewToken()
+	}
+	if enrollment.ReplacementToken == "" {
+		enrollment.ReplacementToken = identity.NewToken()
+	}
+	// Neither a lost response nor a process restart can discard the credentials
+	// the server is about to commit.
+	if err := registrationStore.SaveEnrollment(enrollment); err != nil {
+		return identity.Enrollment{}, fmt.Errorf("failed to prepare registration credentials: %w", err)
+	}
+	return enrollment, nil
 }

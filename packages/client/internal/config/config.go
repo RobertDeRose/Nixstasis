@@ -161,7 +161,7 @@ func IdentityPath() string {
 	return filepath.Join(defaultConfigRoot, "id")
 }
 
-// RegistrationPath returns the owner-only state used while device approval is pending.
+// RegistrationPath returns the owner-only enrollment and credential-recovery state.
 func RegistrationPath() string {
 	if path := os.Getenv("NIXSTASIS_REGISTRATION_PATH"); path != "" {
 		return path

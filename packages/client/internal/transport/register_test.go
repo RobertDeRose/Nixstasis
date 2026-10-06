@@ -110,7 +110,7 @@ func TestRegisterDevice(t *testing.T) {
 			}
 			client := NewClient(cfg)
 
-			deviceID, err := client.RegisterDevice(context.Background(), tt.device)
+			deviceID, err := client.RegisterDevice(context.Background(), tt.device, identity.NewToken(), identity.NewToken())
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("RegisterDevice() error = %v, expectErr %v", err, tt.expectErr)
@@ -140,10 +140,13 @@ func TestRegisterDeviceCredentialsUsesEnrollmentProof(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		if got, _ := payload["registration_token"].(string); got != registrationToken {
+			t.Fatalf("registration_token = %q, want %q", got, registrationToken)
+		}
+		if got, _ := payload["replacement_token"].(string); got != runtimeToken {
+			t.Fatalf("replacement_token = %q, want %q", got, runtimeToken)
+		}
 		if requestCount == 1 {
-			if _, ok := payload["registration_token"]; ok {
-				t.Fatal("initial registration unexpectedly sent a registration token")
-			}
 			respBytes, _ := json.Marshal(map[string]any{
 				"data": map[string]string{
 					"id":                 deviceID,
@@ -170,7 +173,7 @@ func TestRegisterDeviceCredentialsUsesEnrollmentProof(t *testing.T) {
 	client := NewClient(config.APIConfig{URL: server.URL})
 	device := identity.DeviceIdentity{MACAddress: "00:11:22:33:44:55", Name: "atom-001122334455"}
 
-	pending, err := client.RegisterDeviceCredentials(context.Background(), device)
+	pending, err := client.RegisterDeviceCredentials(context.Background(), device, registrationToken, runtimeToken)
 	if !errors.Is(err, ErrDevicePendingApproval) {
 		t.Fatalf("first registration error = %v, want ErrDevicePendingApproval", err)
 	}
@@ -178,7 +181,7 @@ func TestRegisterDeviceCredentialsUsesEnrollmentProof(t *testing.T) {
 		t.Fatalf("pending credentials = %+v", pending)
 	}
 
-	credentials, err := client.RegisterDeviceCredentials(context.Background(), device, pending.RegistrationToken)
+	credentials, err := client.RegisterDeviceCredentials(context.Background(), device, pending.RegistrationToken, runtimeToken)
 	if err != nil {
 		t.Fatalf("approved registration error = %v", err)
 	}

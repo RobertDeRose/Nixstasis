@@ -33,7 +33,7 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: mac,
 		Name:       productName,
-	})
+	}, identity.NewToken())
 	if err != nil && !errors.Is(err, transport.ErrDevicePendingApproval) {
 		return stepOutcome{}, err
 	}
@@ -165,7 +165,7 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: state.DeviceMac,
 		Name:       state.ProductName,
-	}, state.RegistrationToken)
+	}, state.RegistrationToken, identity.NewToken())
 	if err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeHTTPRequestFailed,

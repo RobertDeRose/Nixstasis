@@ -235,13 +235,17 @@ must preserve at the domain/side-effect level:
   pipeline has no device API-key requirement and uses the 120/60-second limit.
   `schema_definition` is copied to `schema`; `schema` is the legacy alias; public
   registration requires a schema with `product`; and `ipv4_address` may be taken
-  from either the direct field or `metadata.ip_address`. The Ash upsert is by MAC
-  and preserves `id` and `approval_status` during persistence. An approved
-  re-registration then rotates the token hash and returns the new `api_token`; a
-  pending device receives no token. Success is `201` with `data` containing the
-  device fields and the token only when the resulting device is approved. Invalid
-  or missing schema and Ash validation failures are `422` errors; the route also
-  returns `429` when its 120/60-second limit is exceeded.
+  from either the direct field or `metadata.ip_address`. Registration is keyed by
+  MAC and preserves operator-owned approval and remote-access settings. Following
+  the October 2026 security reconciliation, initial registration requires a
+  client-prepared `registration_token` persisted before sending; only its hash is
+  stored. Approved exchanges require that proof (or the current runtime token)
+  and a distinct, pre-saved `replacement_token`. Verification, attribute updates,
+  and hash rotation share a transaction. Identical committed retries return the
+  replacement as `api_token` without mutation; superseded proofs cannot exchange
+  again. Pending devices have no runtime API token. Success remains `201`.
+  Invalid schema or required new credentials are `422`, invalid proof is `403`,
+  and exceeding the 120/60-second limit is `429`.
 - **Heartbeat — `POST /api/v1/devices/:device_id/heartbeat`:** the controller
   fetches the device before authenticating `api_key`; approved devices require a
   secure token match. The route is limited to 30/60 seconds per device. A

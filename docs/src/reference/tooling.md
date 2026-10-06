@@ -45,7 +45,9 @@ selects the newest stable tag; unstable selects the source default-branch HEAD. 
 Changelog-visible `feat`, `fix`, `perf`, and `refactor` commits require a semantic scope. The commit hook also checks
 Conventional Commit syntax, grammar, a 72-character subject, 100-character body lines, and canonical optional `Beads:`
 footers. Harper uses its full native rule set after filtering Git comments/diffs, canonical release subjects, and a
-canonical `Beads:` footer; the other commit validators still inspect the unfiltered message. Internal build, chore, CI,
+canonical `Beads:` footer. It strips the Conventional Commit prefix from the subject
+before checking the summary and body; the other commit validators still inspect
+the unfiltered message. Internal build, chore, CI,
 documentation, release, style, and test commits are omitted from `cog changelog`. Breaking changes render as plain
 Markdown.
 
@@ -67,8 +69,11 @@ configured.
 | `docs:deployment:enable` | Configure Pages and enable its repository gate through external `gh`. |
 | `docs:serve`             | Serve mdBook on port 3000 by default or a supplied port.              |
 
-The committed lock targets `linux-x64`, `linux-arm64`, `macos-x64`, and `macos-arm64`. Windows is not part of this
-POSIX-shell task contract.
+Linux is the supported runtime, release, and packaging-validation platform.
+The committed tooling lock also includes `macos-x64` and `macos-arm64` alongside
+`linux-x64` and `linux-arm64`; those tool downloads do not establish macOS product
+or packaging support. From `packages/client`, `mise run test:packaging` requires
+Linux and GNU `stat`. macOS and Windows compatibility is not part of that contract.
 
 The mise environment routes hooks through mise with `HK_MISE=1` and sets `GIT_CONFIG_PARAMETERS="'merge.ff=only'"`, so
 Git rejects merges that require a merge commit.

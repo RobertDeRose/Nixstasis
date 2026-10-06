@@ -380,6 +380,7 @@ defmodule Nixstasis.DevicesTest do
       attrs = %{
         "mac_address" => "89:89:89:89:89:89",
         "product_name" => "public-device",
+        "registration_token" => String.duplicate("p", 43),
         "schema" => %{
           "product" => "public-device",
           "type" => "object",

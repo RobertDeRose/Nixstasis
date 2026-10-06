@@ -17,6 +17,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/identity"
 )
 
 const (
@@ -325,11 +327,13 @@ func (e *journeyExecutor) registerDevice(ctx context.Context, state *journeyStat
 	mac := generateMac()
 	account := generateAccountNumber()
 	productName := "E2E Device"
+	registrationToken := identity.NewToken()
 
 	payload := map[string]any{
-		"mac_address":    mac,
-		"product_name":   productName,
-		"account_number": account,
+		"mac_address":        mac,
+		"product_name":       productName,
+		"account_number":     account,
+		"registration_token": registrationToken,
 		"schema_definition": map[string]any{
 			"product":    productName,
 			"type":       "object",
@@ -373,6 +377,7 @@ func (e *journeyExecutor) registerDevice(ctx context.Context, state *journeyStat
 
 	state.DeviceID = response.Data.ID
 	state.DeviceMac = mac
+	state.RegistrationToken = registrationToken
 
 	return responseOutcome(responseTypeJSON, status, respBody, map[string]any{"device_id": response.Data.ID}), nil
 }

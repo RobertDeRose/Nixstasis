@@ -118,7 +118,7 @@ defmodule NixstasisWeb.AshJsonApiRouter do
       |> put_operation_error_responses(
         "/api/json/device_runtime/devices/register",
         :post,
-        [400, 429]
+        [400, 403, 429]
       )
       |> put_operation_error_responses(
         "/api/json/device_runtime/devices/{device_id}/heartbeat",

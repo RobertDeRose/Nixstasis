@@ -3,6 +3,10 @@
 The Nixstasis client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
 now provides embedded Starlark scripting for telemetry, durable identity, and FRP tunnel control.
 
+The supported client runtime and release targets are Linux only. Native service,
+SSH packaging, and release-artifact validation require a Linux host. macOS and
+Windows are not supported runtime or packaging platforms.
+
 ## Features
 
 - **Auto-Registration**: Registers with the Nixstasis server on first boot and persists a device UUID.
@@ -33,6 +37,11 @@ mise run test:coverage # Print coverage summary from coverage.out
 ```
 
 ## Usage
+
+Registration persists a random enrollment proof and proposed runtime token before
+contacting the server. Keep `/etc/nixstasis/registration` until registration has
+saved `/etc/nixstasis/id` successfully: this owner-only state lets lost responses,
+service restarts, and failed identity saves recover without losing credentials.
 
 ```bash
 bin/nixstasis register
@@ -111,6 +120,7 @@ Runtime suite journeys:
 
 On non-Linux hosts, `scripts/e2e/run` automatically runs runtime E2E in an ephemeral Ubuntu container using Apple
 Container first, then Docker, then Podman. The script rewrites the API host for the selected runtime automatically.
+This executes Linux coverage and does not establish native support for the host platform.
 
 ## Configuration
 
