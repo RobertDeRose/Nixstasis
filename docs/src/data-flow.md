@@ -33,7 +33,7 @@ sequenceDiagram
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
 3. Client sends `POST /api/v1/devices/register` with `mac_address`, product/schema data, and optional metadata.
-4. A new or legacy pending device without an enrollment proof receives a random `registration_token`; only its hash is stored server-side. The client persists the plaintext proof at `config.RegistrationPath()` with owner-only permissions.
+4. A new or legacy pending device without an enrollment proof receives a random `registration_token`; only its hash is stored server-side. Issuance atomically claims the pending device's empty token-hash slot. Concurrent requests that lose the claim are forbidden and receive no proof; they cannot overwrite the winning hash or update the legacy pending device's attributes. The client persists the plaintext proof at `config.RegistrationPath()` with owner-only permissions.
 5. Re-registration of an existing enrolled MAC is denied before any record mutation unless the request supplies the matching `registration_token` or the current runtime API token. Public registration never changes `remote_access_requested`.
 6. Approval preserves the enrollment-proof hash, but the `registration:` marker prevents that proof from authenticating heartbeat or other runtime endpoints.
 7. After approval, the client exchanges the registration proof through the registration endpoint. Phoenix rotates the stored hash to a newly generated runtime `api_token`, so the enrollment proof immediately becomes invalid.

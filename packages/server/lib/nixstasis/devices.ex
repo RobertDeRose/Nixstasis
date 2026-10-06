@@ -157,8 +157,10 @@ defmodule Nixstasis.Devices do
   Registers a device through the public enrollment boundary.
 
   A new device receives a one-time registration token whose hash is stored in
-  the existing device token slot while approval is pending. Re-registration of
-  an existing MAC requires proof of possession of that token (or the current
+  the existing device token slot while approval is pending. Only the request
+  that atomically claims an empty pending slot receives the token; losing
+  requests are forbidden. Re-registration of an existing MAC requires proof
+  of possession of that token (or the current
   runtime token after enrollment has completed).
 
   Returns `{:ok, device, registration_token}` on success. The plaintext token is
@@ -255,7 +257,7 @@ defmodule Nixstasis.Devices do
     registration_token = generate_device_token()
 
     with {:ok, device} <- Domain.create_device(safe_attrs),
-         {:ok, secured_device} <- update_device_token_hash(device.id, hash_registration_token(registration_token)) do
+         {:ok, secured_device} <- claim_registration_token_hash(device.id, hash_registration_token(registration_token)) do
       broadcast_device(:device_registered, secured_device)
       {:ok, secured_device, registration_token}
     end
@@ -268,10 +270,26 @@ defmodule Nixstasis.Devices do
        ) do
     registration_token = generate_device_token()
 
-    with {:ok, updated} <- Domain.update_device(device, safe_attrs),
-         {:ok, secured_device} <- update_device_token_hash(updated.id, hash_registration_token(registration_token)) do
-      broadcast_device(:device_registered, secured_device)
-      {:ok, secured_device, registration_token}
+    result =
+      Repo.transaction(fn ->
+        with {:ok, secured_device} <-
+               claim_registration_token_hash(device.id, hash_registration_token(registration_token)),
+             {:ok, updated, notifications} <-
+               Domain.update_device(secured_device, safe_attrs, return_notifications?: true) do
+          {updated, notifications}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    case result do
+      {:ok, {secured_device, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        broadcast_device(:device_registered, secured_device)
+        {:ok, secured_device, registration_token}
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -2016,6 +2034,22 @@ defmodule Nixstasis.Devices do
     32
     |> :crypto.strong_rand_bytes()
     |> Base.url_encode64(padding: false)
+  end
+
+  defp claim_registration_token_hash(device_id, token_hash) do
+    {count, _} =
+      Repo.update_all(
+        from(device in Device,
+          where: device.id == ^device_id and device.approval_status == :pending and is_nil(device.api_token_hash)
+        ),
+        set: [api_token_hash: token_hash]
+      )
+
+    if count == 1 do
+      get_device(device_id)
+    else
+      {:error, :forbidden}
+    end
   end
 
   defp update_device_token_hash(device_id, token_hash) do
