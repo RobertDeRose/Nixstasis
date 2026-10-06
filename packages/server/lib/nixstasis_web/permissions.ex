@@ -14,6 +14,7 @@ defmodule NixstasisWeb.Permissions do
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
+  def settings_permissions(session), do: permission_map(session, "settings_permissions")
   def script_permissions(session), do: permission_map(session, "script_permissions")
   def command_policy_permissions(session), do: permission_map(session, "command_policy_permissions")
 
@@ -91,11 +92,26 @@ defmodule NixstasisWeb.Permissions do
 
   def authorized_device_ids(_permissions), do: nil
 
+  def authorized_report_device_ids(session) when is_map(session) do
+    permissions = device_permissions(session)
+
+    if can_view_device_details?(permissions) do
+      authorized_device_ids(permissions)
+    else
+      MapSet.new()
+    end
+  end
+
+  def authorized_report_device_ids(_session), do: MapSet.new()
+
   def can_view_reports?(session) when is_map(session), do: report_permissions(session)["can_view"] == true
   def can_view_reports?(_session), do: false
 
   def can_manage_reports?(session) when is_map(session), do: report_permissions(session)["can_manage"] == true
   def can_manage_reports?(_session), do: false
+
+  def can_manage_settings?(session) when is_map(session), do: settings_permissions(session)["can_manage"] == true
+  def can_manage_settings?(_session), do: false
 
   def can_view_scripts?(session) when is_map(session), do: script_permissions(session)["can_view"] == true
   def can_view_scripts?(_session), do: false

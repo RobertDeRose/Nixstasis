@@ -120,9 +120,11 @@ defmodule Nixstasis.Reporting do
     QueryBuilder.fields_for_report(report.config)
   end
 
-  def run_custom_report(%CustomReport{} = report, opts \\ %{}) do
+  def run_custom_report(%CustomReport{} = report, opts, authorized_device_ids) when is_map(opts) do
+    scoped_opts = Map.put(opts, "authorized_device_ids", authorized_device_ids)
+
     report.config
-    |> QueryBuilder.build(opts)
+    |> QueryBuilder.build(scoped_opts)
     |> Repo.all()
   end
 

@@ -10,7 +10,6 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.OfflineChecker
   alias Nixstasis.Settings
-  alias Nixstasis.TestSupport.WebhookCapturePlug
 
   setup :set_swoosh_global
 
@@ -84,14 +83,12 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   test "alert creation sends configured webhook notifications" do
-    port = free_port()
-
-    start_supervised!({Bandit, plug: {WebhookCapturePlug, test_pid: self()}, port: port})
+    capture_webhook_notifications()
 
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => nil,
-               "webhook_url" => "http://127.0.0.1:#{port}/alerts"
+               "webhook_url" => "https://hooks.example.test/alerts"
              })
 
     {:ok, device} = Devices.register_device(%{mac_address: "68:68:68:68:68:68", product_name: "P5"})
@@ -106,8 +103,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
 
     assert result.status == :success
 
-    assert_receive {:webhook_request, "POST", "/alerts", body}, 1_000
-    assert body =~ "offline"
+    assert_receive {:webhook_notification, "https://hooks.example.test/alerts", alert}, 1_000
+    assert alert.type == :offline
   end
 
   test "notification delivery failures do not break alert creation paths" do
@@ -133,14 +130,12 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   test "rule-triggered alerts send configured email and webhook notifications" do
-    port = free_port()
-
-    start_supervised!({Bandit, plug: {WebhookCapturePlug, test_pid: self()}, port: port})
+    capture_webhook_notifications()
 
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => "alerts@example.com",
-               "webhook_url" => "http://127.0.0.1:#{port}/alerts"
+               "webhook_url" => "https://hooks.example.test/alerts"
              })
 
     {:ok, _rule} =
@@ -172,8 +167,8 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
     assert_receive {:email, email}, 1_000
     assert [{_, "alerts@example.com"}] = email.to
 
-    assert_receive {:webhook_request, "POST", "/alerts", body}, 1_000
-    assert body =~ "threshold"
+    assert_receive {:webhook_notification, "https://hooks.example.test/alerts", alert}, 1_000
+    assert alert.type == :threshold
   end
 
   test "rule-triggered notification failures do not block alert creation" do
@@ -229,10 +224,24 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
     def send_alert_webhook(_url, _alert), do: :ok
   end
 
-  defp free_port do
-    {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
-    {:ok, port} = :inet.port(socket)
-    :ok = :gen_tcp.close(socket)
-    port
+  defp capture_webhook_notifications do
+    previous_pid = Application.get_env(:nixstasis, :webhook_test_pid)
+    Application.put_env(:nixstasis, :webhook_test_pid, self())
+    stub_webhook_notifier(__MODULE__.CaptureWebhookNotifier)
+
+    on_exit(fn ->
+      if is_nil(previous_pid) do
+        Application.delete_env(:nixstasis, :webhook_test_pid)
+      else
+        Application.put_env(:nixstasis, :webhook_test_pid, previous_pid)
+      end
+    end)
+  end
+
+  defmodule CaptureWebhookNotifier do
+    def send_alert_webhook(url, alert) do
+      send(Application.fetch_env!(:nixstasis, :webhook_test_pid), {:webhook_notification, url, alert})
+      :ok
+    end
   end
 end

@@ -14,7 +14,7 @@ defmodule Nixstasis.Domain do
   alias Nixstasis.Repo
 
   json_api do
-    authorize? false
+    authorize? true
     prefix "/api/json"
 
     routes do

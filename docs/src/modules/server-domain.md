@@ -139,7 +139,13 @@
 
 ## Client-Server Interaction Details
 
-- Ash JSON:API routes are exposed under `/api/json`.
+- Ash JSON:API routes are exposed under `/api/json` with Ash authorization enabled.
+- `JsonApiPermissions` supplies verified operator requests with an Ash actor. Reads of
+  devices, pending commands, telemetry events, and alerts are policy-filtered by the
+  actor's trusted device scope before rows are returned. An omitted device-scope claim
+  means unscoped fleet access for a role that can view devices; an explicit empty scope
+  returns no device-backed rows, and malformed device IDs fail closed. Internal domain
+  calls that do not supply an operator actor retain their existing behavior.
 - Resource route groups:
   - `/api/json/devices`
   - `/api/json/pending_commands`

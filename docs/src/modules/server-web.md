@@ -107,6 +107,13 @@ Other generated resource routes:
 - `/api/json/custom_reports`
 - `/api/json/system_settings`
 
+For the device-backed resource routes (`devices`, `pending_commands`, `alerts`,
+and `telemetry_events`), `JsonApiPermissions` validates the forwarded device
+scope and installs it as the Ash actor. Resource read policies apply that scope
+to collection and member queries. Explicit empty scope is deny-all and malformed
+device IDs are rejected; only an omitted scope claim represents fleet-wide read
+access for an otherwise authorized operator.
+
 The six `script_*` persistence resources remain Ash-owned for the Stary
 workbench, but they are intentionally not generic JSON:API routes. The current
 LiveView calls `Nixstasis.Domain` directly; exposing generic CRUD would bypass
@@ -138,7 +145,8 @@ Legacy `/api/v1` compatibility routes and bespoke controller routes:
 - `POST /api/v1/devices/:device_id/heartbeat`
 - `POST /api/v1/devices/:device_id/command_results`
 - `GET /api/v1/devices/:device_id/command_payloads/:ref`
-- `GET /api/v1/reports/:id/results`
+- `GET /api/v1/reports/:id/results` (verified operator report-view permission;
+  telemetry rows are constrained to the operator device scope)
 - `GET /api/v1/check_domain`
 
 The `/api/v1/builder-*` routes are compatibility wrappers around Ash-backed
@@ -213,8 +221,10 @@ remains a Caddy-only ingress workflow boundary.
 - The generated `/api/json` resource surface is an operator/developer API, not
   the device runtime protocol. Viewer roles may read resource data, operator
   roles may manage device/report/alert resources according to capability maps,
-  and admin is required for system settings. Scoped device claims such as
-  `X-Token-Device-Ids` restrict JSON:API device mutations to those IDs.
+  and admin is required for system settings. The `/settings` LiveView uses the
+  same admin-only boundary and rechecks the capability on state-changing
+  events. Scoped device claims such as `X-Token-Device-Ids` restrict JSON:API
+  device mutations to those IDs.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.

@@ -7,7 +7,7 @@ paths:
   /api/v1/reports/{id}/results:
     get:
       summary: Fetch custom report result rows
-      description: Runs a custom report and returns its selected fields plus result rows. This remains a bespoke result-shaping endpoint for now because it executes report query construction rather than simple CustomReport CRUD.
+      description: Runs a custom report for a verified operator with report-view permission and returns its selected fields plus result rows. Telemetry rows are constrained to the operator's authorized device IDs before report filtering, sorting, and pagination. This remains a bespoke result-shaping endpoint for now because it executes report query construction rather than simple CustomReport CRUD.
       parameters:
         - in: path
           name: id
@@ -37,5 +37,9 @@ paths:
                         items:
                           type: object
                           additionalProperties: true
+        "401":
+          description: Verified operator authentication is required
+        "403":
+          description: The authenticated operator cannot view reports
         "404":
           description: Report not found or report result unavailable

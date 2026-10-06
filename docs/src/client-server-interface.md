@@ -915,7 +915,10 @@ Traceable references:
 
 ## Report And Alert API Examples
 
-Custom report result preview response:
+Custom report result preview requires a verified operator with report-view permission.
+For telemetry-backed reports, the server applies the operator's authorized device
+IDs in SQL before report filters, sorting, and pagination. An explicitly unscoped
+operator retains fleet-wide report access.
 
 ```json
 {
@@ -932,7 +935,9 @@ Custom report result preview response:
 }
 ```
 
-Missing report response uses HTTP `404` with an empty body.
+Requests without verified operator authentication return HTTP `401`; operators
+without report-view permission return `403`. Missing reports return `404`. These
+responses use empty bodies on this compatibility endpoint.
 
 Alert-rule HTTP contracts are generated with the Ash JSON:API OpenAPI document,
 not retained as bespoke `/api/v1` examples. Use

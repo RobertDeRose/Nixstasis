@@ -142,6 +142,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> recycle()
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_trusted_proxy_auth()
              |> get("/api/json/builder_contract/schema_references")
              |> json_response(200)
            )
@@ -151,6 +152,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> recycle()
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_trusted_proxy_auth()
              |> get("/api/json/builder_contract/schemas/jsonapi-v1/versions/v1/options")
              |> json_response(200)
 
@@ -160,6 +162,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("content-type", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_trusted_proxy_auth()
              |> post("/api/json/builder_contract/builder_configurations/validate", validation_params)
              |> json_response(201)
   end
@@ -181,6 +184,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> recycle()
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_trusted_proxy_auth()
       |> get("/api/json/alert_rules")
 
     assert %{"data" => []} = json_response(conn, 200)
@@ -210,6 +214,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("content-type", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_trusted_proxy_auth()
              |> post("/api/json/alert_rules", params)
              |> json_response(403)
 
@@ -219,6 +224,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> put_trusted_proxy_auth()
       |> post("/api/json/alert_rules", params)
 
     assert %{"data" => %{"type" => "alert_rule"}} = json_response(conn, 201)
@@ -248,6 +254,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("content-type", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_trusted_proxy_auth()
              |> put_req_header("x-token-device-ids", allowed.id)
              |> post("/api/json/devices", params)
              |> json_response(403)
@@ -258,6 +265,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> put_trusted_proxy_auth()
       |> post("/api/json/devices", params)
 
     assert %{"data" => %{"type" => "device"}} = json_response(conn, 201)
@@ -288,6 +296,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("content-type", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_trusted_proxy_auth()
              |> put_req_header("x-token-device-ids", allowed.id)
              |> patch("/api/json/devices/#{blocked.id}", params)
              |> json_response(403)
@@ -300,6 +309,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/operator")
+      |> put_trusted_proxy_auth()
       |> put_req_header("x-token-device-ids", allowed.id)
       |> patch("/api/json/devices/#{allowed.id}", params)
 
@@ -317,6 +327,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
              conn
              |> put_req_header("accept", "application/vnd.api+json")
              |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_trusted_proxy_auth()
              |> get("/api/json/system_settings")
              |> json_response(403)
 
@@ -325,6 +336,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
       |> recycle()
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/admin")
+      |> put_trusted_proxy_auth()
       |> get("/api/json/system_settings")
 
     assert %{"data" => []} = json_response(conn, 200)

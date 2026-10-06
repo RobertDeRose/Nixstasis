@@ -33,6 +33,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         fields = Reporting.report_fields(report)
         field_type_by_column = build_field_type_map(report, fields)
         preference_scope = Reporting.preference_scope(session)
+        authorized_device_ids = Permissions.authorized_report_device_ids(session)
         filter_column = first_field_key(fields)
         filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
 
@@ -45,6 +46,7 @@ defmodule NixstasisWeb.ReportLive.Show do
          |> assign(:field_type_by_column, field_type_by_column)
          |> assign(:results, [])
          |> assign(:preference_scope, preference_scope)
+         |> assign(:authorized_device_ids, authorized_device_ids)
          |> assign(:preferences_enabled?, preference_scope != nil)
          |> assign(:preferences_reset?, false)
          |> assign(:sort_by, "")
@@ -76,13 +78,17 @@ defmodule NixstasisWeb.ReportLive.Show do
       filters = to_filters(view_state)
 
       results =
-        Reporting.run_custom_report(socket.assigns.report, %{
-          "sort_by" => view_state["sort_by"],
-          "sort_dir" => view_state["sort_dir"],
-          "filters" => filters,
-          "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
-          "limit" => 250
-        })
+        Reporting.run_custom_report(
+          socket.assigns.report,
+          %{
+            "sort_by" => view_state["sort_by"],
+            "sort_dir" => view_state["sort_dir"],
+            "filters" => filters,
+            "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
+            "limit" => 250
+          },
+          socket.assigns.authorized_device_ids
+        )
 
       Reporting.save_view_preferences(
         socket.assigns.preference_scope,

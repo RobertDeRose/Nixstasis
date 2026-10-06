@@ -13,6 +13,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => true}
   end
 
   test "local development defaults add missing permission maps without expanding existing ones", %{conn: conn} do
@@ -26,6 +27,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
     assert get_session(conn, "device_permissions") == existing_device_permissions
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => true}
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => true}
   end
 
   test "fails closed when fallback is disabled and AuthCrunch headers are absent", %{conn: conn} do
@@ -43,6 +45,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
 
@@ -51,6 +54,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
       conn
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
       |> put_req_header("x-token-user-email", "viewer@example.com")
+      |> put_trusted_proxy_auth()
       |> init_test_session(%{})
       |> DevicePermissions.call([])
 
@@ -61,13 +65,32 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => true, "can_manage" => false}
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context")["email"] == "viewer@example.com"
+  end
+
+  test "fails closed for forged AuthCrunch claims without proxy authentication", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("x-token-user-roles", "nixstasis/admin")
+      |> init_test_session(%{})
+      |> DevicePermissions.call([])
+
+    assert get_session(conn, "device_permissions") == %{
+             "can_view" => false,
+             "can_manage" => false,
+             "can_remote_access" => false
+           }
+
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
+    assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
 
   test "fails closed when production AuthCrunch claims are malformed", %{conn: conn} do
     conn =
       conn
       |> put_req_header("x-token-user-email", "viewer@example.com")
+      |> put_trusted_proxy_auth()
       |> init_test_session(%{})
       |> DevicePermissions.call([])
 
@@ -78,6 +101,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissionsTest do
            }
 
     assert get_session(conn, "report_permissions") == %{"can_view" => false, "can_manage" => false}
+    assert get_session(conn, "settings_permissions") == %{"can_manage" => false}
     assert get_session(conn, "operator_context") == %{"authcrunch_claim_error" => true}
   end
 end

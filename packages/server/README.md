@@ -100,8 +100,10 @@ your local database before continuing.
 - Canonical runtime inputs for supported deployments:
   `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, `PORT`, `BASE_DOMAIN`,
   `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`, `JWT_KEY`,
-  `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`, `FRPS_HTTP_PORT`,
+  `NIXSTASIS_PROXY_AUTH_TOKEN`, `FRPS_BIND_PORT`, `FRPS_AUTH_TOKEN`, `FRPS_HTTP_PORT`,
   `FRPS_DASHBOARD_PORT`, `FRPS_TCPMUX_PORT`, and `NIXSTASIS_SSH_FRP_HOST`
+- `NIXSTASIS_PROXY_AUTH_TOKEN` is a 32-byte-or-longer random secret shared only
+  by Caddy and Phoenix; it authenticates the source of forwarded AuthCrunch claims.
 - Canonical internal Phoenix port: `4000`
 - Canonical TLS approval path: `GET /api/v1/check_domain`
 - Reserved public hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
