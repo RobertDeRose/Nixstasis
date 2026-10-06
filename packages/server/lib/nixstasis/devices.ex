@@ -241,8 +241,17 @@ defmodule Nixstasis.Devices do
 
   defp public_registration_device(attrs) do
     case registration_mac(attrs) do
-      nil -> {:ok, nil}
-      mac -> Domain.get_device_by_mac(mac)
+      nil ->
+        {:ok, nil}
+
+      mac ->
+        case Domain.get_device_by_mac(mac) do
+          {:ok, device} -> {:ok, device}
+          {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{}]}} -> {:ok, nil}
+          {:error, %Ash.Error.Query.NotFound{}} -> {:ok, nil}
+          {:error, :not_found} -> {:ok, nil}
+          error -> error
+        end
     end
   end
 

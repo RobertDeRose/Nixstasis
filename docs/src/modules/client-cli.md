@@ -108,9 +108,9 @@ files are placed and how host-level service management is handled.
   nix build .#packages.aarch64-linux.client
   ```
 
-- The flake package builds the Go client with `GOEXPERIMENT=jsonv2`, vendors Go
-  modules using a fixed-output hash, and wraps `nixstasis` so default FRPC paths
-  point into the Nix store.
+- The flake package builds the Go client with Go 1.27's standard JSON v2
+  packages, vendors Go modules using a fixed-output hash, and wraps `nixstasis`
+  so default FRPC paths point into the Nix store.
 - The flake package places `nixstasis` under `$out/bin/nixstasis`, links bundled
   `frpc` at `$out/libexec/nixstasis/frpc`, and installs templates under
   `$out/share/nixstasis/`.

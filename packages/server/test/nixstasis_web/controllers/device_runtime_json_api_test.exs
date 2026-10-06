@@ -114,6 +114,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       "data" => %{
         "mac_address" => approved.mac_address,
         "product_name" => approved.product_name,
+        "registration_token" => old_token,
         "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
       }
     }

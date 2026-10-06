@@ -13,15 +13,6 @@ requested_journeys=""
 source_api_url=""
 forwarded_args=()
 
-effective_goexperiment="${GOEXPERIMENT:-}"
-if [[ "${effective_goexperiment}" != *"jsonv2"* ]]; then
-  if [[ -n "${effective_goexperiment}" ]]; then
-    effective_goexperiment="${effective_goexperiment},jsonv2"
-  else
-    effective_goexperiment="jsonv2"
-  fi
-fi
-
 while (($#)); do
   case "$1" in
     --suite)
@@ -89,7 +80,7 @@ elif [[ "${requested_journeys}" == *"runtime_linux_telemetry"* ]] || [[ "${reque
 fi
 
 if [[ "${host_os}" == "linux" || "${needs_linux_runtime}" != "true" ]]; then
-  GOEXPERIMENT="${effective_goexperiment}" go run ./scripts/e2e "${forwarded_args[@]}"
+  go run ./scripts/e2e "${forwarded_args[@]}"
   exit 0
 fi
 
@@ -123,7 +114,7 @@ container_api_url="${container_api_url/host.container.internal/${container_host_
 container_api_url="${container_api_url/host.docker.internal/${container_host_alias}}"
 forwarded_args+=(--api-url "${container_api_url}")
 
-image_tag="docker.io/library/golang:1.26-trixie"
+image_tag="docker.io/library/golang:1.27.1-trixie"
 container_go_bin="/usr/local/go/bin/go"
 runtime_args=(run --rm)
 default_cache_root="${TMPDIR:-/tmp}/nixstasis-e2e-go-cache"
@@ -140,7 +131,6 @@ if [[ "${container_runtime}" == "docker" ]]; then
 fi
 
 "${container_runtime}" "${runtime_args[@]}" \
-  -e GOEXPERIMENT="${effective_goexperiment}" \
   -e GOCACHE="${container_gocache}" \
   -e GOMODCACHE="${container_gomodcache}" \
   -v "${host_gocache}:${container_gocache}" \

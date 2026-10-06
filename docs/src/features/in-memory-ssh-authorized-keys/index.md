@@ -97,7 +97,7 @@ Additional implementation evidence:
 
 - Focused server authorization, device, channel, LiveView, and cleanup tests:
   114 and 27 tests, 0 failures respectively.
-- Client `GOEXPERIMENT=jsonv2 go test ./...`: passed; Linux real-sshd coverage is
+- Client `go test ./...`: passed; Linux real-sshd coverage is
   skipped on macOS.
 - `golangci-lint`: 0 issues; native packaging, GoReleaser snapshot/installer,
   Compose runtime-contract, shell syntax, and `node --check` checks passed.

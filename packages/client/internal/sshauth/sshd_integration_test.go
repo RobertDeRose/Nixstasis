@@ -69,7 +69,6 @@ func TestRealSSHDIntegration(t *testing.T) {
 	repoRoot := repoRootFromTest(t)
 	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", binPath, "./cmd/nixstasis")
 	buildCmd.Dir = repoRoot
-	buildCmd.Env = append(os.Environ(), "GOEXPERIMENT=jsonv2")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build failed: %v\n%s", err, out)
 	}

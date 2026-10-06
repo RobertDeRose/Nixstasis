@@ -1,6 +1,6 @@
 module github.com/RobertDeRose/Nixstasis/packages/client
 
-go 1.26
+go 1.27
 
 require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
