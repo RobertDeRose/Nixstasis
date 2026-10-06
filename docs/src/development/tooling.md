@@ -20,19 +20,28 @@ mise run docs:serve
 Use `/update-project` for the recorded template channel, or `/update-project --stable` / `--unstable` to change it. The
 update always records the exact resolved template commit.
 
-`check` is read-only. `fix` changes the working tree. The server warning-as-error compile step uses
+`check` is read-only: module tidiness uses `go mod tidy -diff`, and unused server dependencies use
+`mix deps.unlock --check-unused`. `fix` applies those repairs to the working tree. The server warning-as-error compile step uses
 `--no-optional-deps`; the optional LiveDebugger dependency is compiled only when explicitly enabled as documented in
 `packages/server/README.md`. Contextlint checks links, anchors, and image targets across README and `docs/**/*.md`. The
 pre-commit hook may fix files while safely stashing unrelated unstaged work. The commit-message
 hook enforces Conventional Commits, required scopes for changelog-visible changes, grammar, 72/100-character line
 limits, and canonical optional `Beads:` footers. Harper applies its full native rule set to human-authored text after
-filtering Git comments/diffs, canonical release subjects, and the canonical machine-readable footer. Run `cog changelog`
+filtering Git comments/diffs, canonical release subjects, and the canonical machine-readable footer.
+The lint input removes the Conventional Commit prefix and capitalizes the summary's first character; the stored commit
+message stays unchanged. Run `cog changelog`
 to preview the concise user-facing changelog. The hk policy uses native built-in steps whenever their behavior matches;
-hk's file locking coordinates independent steps. No dependency chain serializes unrelated checks. Go projects retain
-two output-sensitive edges: `gofumpt` follows `goimports`, then fix-only module tidy observes the final imports.
+hk's file locking coordinates independent steps. No dependency chain serializes unrelated checks.
 
-No recognized language profile is active; only the universal tooling baseline
-runs.
+The server explicitly includes the pure-Elixir `simple_sat` solver for Ash policy verification. Telemetry updates run
+non-atomically so the payload-limit validation executes before persistence.
+
+Documentation tooling pins mdBook to the version used by the released `mdbook-mermaid` fork; upgrade those tools
+together. Rumdl owns nested-list indentation checks because mdbook-lint loses nesting context after comments and wrapped
+list items. The `devlop` npm package name is an intentional spelling in generated tool locks and must not be corrected
+by the typo fixer.
+
+The root hk configuration runs Go and server checks for matching files alongside the universal tooling checks.
 
 ## Feature validation: command catalog policies
 

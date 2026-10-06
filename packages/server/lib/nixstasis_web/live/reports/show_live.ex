@@ -366,7 +366,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         </div>
       </div>
 
-      <form phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
+      <form id="report-result-filters" phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
         <select name="filter[column]" class="ui-select-sm-plain" value={@filter_column}>
           <option :for={field <- @fields} value={field_key(field)} selected={@filter_column == field_key(field)}>
             {field_key(field)}

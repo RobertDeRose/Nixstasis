@@ -5,6 +5,8 @@
 # already covered by other linters (rumdl handles general markdown).
 # Disable noisy / false-positive rules globally
 disabled-rules = [
+  # Nested list context is lost after comments/wrapped lines; rumdl checks indentation.
+  "MD007",
   # Line length -- prose lines >80 chars are normal; rumdl handles this if needed
   "MD013",
   # Inline HTML -- we use <img> for centered logo, <br> occasionally
@@ -32,7 +34,3 @@ disabled-rules = [
   # Future tense -- too pedantic for technical docs
   "CONTENT011",
 ]
-
-# Rule-specific configuration
-[MD007]
-indent = 2

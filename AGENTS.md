@@ -86,7 +86,6 @@ Reference:
 Run before selecting work:
 
 ```bash
-bd prime
 bd ready --type epic --label workflow:feature --json --limit 0
 bd ready --json
 ```

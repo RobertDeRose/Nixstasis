@@ -49,12 +49,13 @@ defmodule NixstasisWeb.TLSControllerTest do
   end
 
   test "approves device hosts only when remote access is requested", %{conn: conn} do
-    {:ok, _device} =
+    {:ok, device} =
       Devices.register_device(%{
         mac_address: "AA:BB:CC:DD:EE:FF",
-        product_name: "P1",
-        remote_access_requested: true
+        product_name: "P1"
       })
+
+    assert {:ok, _device} = Devices.set_remote_access(device, true)
 
     conn = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
 

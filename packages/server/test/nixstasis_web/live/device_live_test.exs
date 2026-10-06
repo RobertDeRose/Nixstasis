@@ -1614,8 +1614,6 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp eventually_rendered?(_view, _text, 0), do: false
 
-  defp eventually_cleared?(view, attempts \\ 20)
-
   defp eventually_cleared?(view, attempts) when attempts > 0 do
     if render(view) =~ "Device created successfully" do
       Process.sleep(5)

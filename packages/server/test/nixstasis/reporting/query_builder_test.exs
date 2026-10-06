@@ -37,6 +37,7 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
 
     run =
       Repo.insert!(%Run{
+        runner_id: "test-runner",
         suite_id: "full",
         journey_ids: ["auth", "logout"],
         environment_label: "local",
