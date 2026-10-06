@@ -81,12 +81,7 @@ mise.local.toml
 .env.local
 .env.*.local
 .rumdl_cache/
-
-
-
-
-
-
+.beads*
 
 # Local editor and OS files
 .DS_Store
