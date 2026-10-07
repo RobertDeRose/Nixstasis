@@ -6,7 +6,11 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 if [[ -n "${SSL_CERT_FILE:-}" ]]; then
   [[ -f "${SSL_CERT_FILE}" ]] || { echo "SSL_CERT_FILE must name a CA certificate file" >&2; exit 1; }
-  export SSL_CERT_FILE="$(cd "$(dirname "${SSL_CERT_FILE}")" && pwd)/$(basename "${SSL_CERT_FILE}")"
+  cert_dir="$(cd -- "$(dirname -- "${SSL_CERT_FILE}")" && pwd)" || {
+    echo "failed to resolve SSL_CERT_FILE directory" >&2
+    exit 1
+  }
+  export SSL_CERT_FILE="${cert_dir}/$(basename -- "${SSL_CERT_FILE}")"
 fi
 
 cd "${ROOT_DIR}"
