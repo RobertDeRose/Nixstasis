@@ -14,6 +14,71 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
+func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
+	if _, err := identity.GetPrimaryMAC(); err != nil {
+		t.Skipf("registration requires a network interface with a MAC address: %v", err)
+	}
+
+	const uuid = "550e8400-e29b-41d4-a716-446655440000"
+	for _, sharedPath := range []bool{false, true} {
+		name := "separate paths"
+		if sharedPath {
+			name = "shared path"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			identityPath := filepath.Join(dir, "id")
+			registrationPath := filepath.Join(dir, "registration")
+			if sharedPath {
+				registrationPath = identityPath
+			}
+			t.Setenv("NIXSTASIS_IDENTITY_PATH", identityPath)
+			t.Setenv("NIXSTASIS_REGISTRATION_PATH", registrationPath)
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				if err := json.UnmarshalRead(r.Body, &body); err != nil {
+					t.Error(err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				token, ok := body["replacement_token"].(string)
+				if !ok || token == "" {
+					t.Error("missing prepared runtime token")
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				payload := map[string]string{"id": uuid, "api_token": token}
+				w.WriteHeader(http.StatusCreated)
+				if err := json.MarshalWrite(w, map[string]any{"data": payload}); err != nil {
+					t.Error(err)
+				}
+			}))
+			defer server.Close()
+			client, err := transport.NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err := runRegisterWithClient(client); err != nil {
+				t.Fatal(err)
+			}
+			credentials, err := identity.NewStore(identityPath).Load()
+			if err != nil {
+				t.Fatalf("runtime identity was removed: %v", err)
+			}
+			if credentials.UUID != uuid || len(credentials.Token) != 43 {
+				t.Fatal("runtime credentials were not persisted")
+			}
+			if !sharedPath {
+				if _, err := os.Stat(registrationPath); !os.IsNotExist(err) {
+					t.Fatalf("registration proof was not removed: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestPrepareRegistrationPrefersRecoveryCredentials(t *testing.T) {
 	const uuid = "550e8400-e29b-41d4-a716-446655440000"
 	dir := t.TempDir()

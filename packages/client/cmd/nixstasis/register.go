@@ -130,9 +130,6 @@ func runRegisterWithClient(client *transport.Client) error {
 			return fmt.Errorf("failed to remove registration proof: %w", err)
 		}
 	}
-	if err := registrationStore.Remove(); err != nil {
-		return fmt.Errorf("failed to remove registration proof: %w", err)
-	}
 
 	slog.Info("Credentials persisted successfully")
 	return nil
