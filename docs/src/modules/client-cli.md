@@ -45,6 +45,24 @@
   - `pollOnce`
   - `pollInterval`
 
+## API Transport Configuration
+
+- `api.url` / `NIXSTASIS_API_URL`: defaults to `https://localhost:4000`.
+  Use the server's HTTPS API hostname with a trusted certificate. Userinfo,
+  query strings, and fragments are not allowed in the configured base URL.
+- `api.allow_loopback_http` / `NIXSTASIS_API_ALLOW_LOOPBACK_HTTP`: defaults to
+  `false`. Explicitly enable it only for a local HTTP mock. It permits
+  `localhost` (dialed directly as `127.0.0.1`) or loopback IP addresses and
+  bypasses environment proxies. It does not permit LAN or Compose HTTP URLs.
+- HTTPS always verifies certificates and hostnames. Install a private CA's public
+  certificate in the OS trust store or supply a PEM CA bundle via Go's
+  `SSL_CERT_FILE`. Packaged systemd services need that certificate installed in
+  their OS trust store, or the variable explicitly set in a unit override.
+- API redirects are not followed, including same-origin redirects. Configure the
+  final API URL; neither registration bodies nor runtime credentials are
+  forwarded to a redirected URL. An invalid API URL fails before registration
+  sends any request.
+
 ## Installation Methods
 
 Nixstasis publishes the managed-device client through native Linux packages,
@@ -108,9 +126,9 @@ files are placed and how host-level service management is handled.
   nix build .#packages.aarch64-linux.client
   ```
 
-- The flake package builds the Go client with `GOEXPERIMENT=jsonv2`, vendors Go
-  modules using a fixed-output hash, and wraps `nixstasis` so default FRPC paths
-  point into the Nix store.
+- The flake package builds the Go client with Go 1.27's standard JSON v2
+  packages, vendors Go modules using a fixed-output hash, and wraps `nixstasis`
+  so default FRPC paths point into the Nix store.
 - The flake package places `nixstasis` under `$out/bin/nixstasis`, links bundled
   `frpc` at `$out/libexec/nixstasis/frpc`, and installs templates under
   `$out/share/nixstasis/`.

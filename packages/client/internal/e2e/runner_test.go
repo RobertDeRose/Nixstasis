@@ -247,7 +247,7 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	executor := newJourneyExecutor(Config{APIURL: server.URL}, newJourneyLog("runtime_transport_negative", runLogContext{}))
+	executor := newJourneyExecutor(Config{APIURL: server.URL, AllowLoopbackHTTP: true}, newJourneyLog("runtime_transport_negative", runLogContext{}))
 	state := &journeyState{DeviceID: "device-1", DeviceMac: "00:11:22:33:44:55", ProductName: "runtime-product"}
 
 	if _, err := executor.runtimeApproveDevice(context.Background(), state, "device_approved"); err != nil {

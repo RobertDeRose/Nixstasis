@@ -7670,9 +7670,21 @@ paths:
                           x-struct:
                           x-validate:
                         - type: 'null'
+                    registration_token:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
                     remote_access_requested:
                       anyOf:
                         - type: boolean
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    replacement_token:
+                      anyOf:
+                        - type: string
                           x-struct:
                           x-validate:
                         - type: 'null'
@@ -7756,6 +7768,12 @@ paths:
                             x-struct:
                             x-validate:
                           - type: 'null'
+                      registration_token:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_profile:
                         type: string
                         x-struct:
@@ -7786,6 +7804,17 @@ paths:
                 x-validate:
           description: Success
         '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
           content:
             application/vnd.api+json:
               schema:

@@ -6,6 +6,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:FF",
       "product_name" => "prod_123",
+      "registration_token" => String.duplicate("p", 43),
       "schema" => %{
         "product" => "prod_123",
         "type" => "object",
@@ -23,6 +24,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     initial_params = %{
       "mac_address" => "AA:BB:CC:DD:EE:E0",
       "product_name" => "initial-client",
+      "registration_token" => String.duplicate("p", 43),
       "schema" => %{
         "product" => "initial-client",
         "type" => "object",
@@ -58,7 +60,8 @@ defmodule NixstasisWeb.DeviceControllerTest do
           "properties" => %{}
         }
     }
-    attack_params = Map.put(attack_params, "remote_access_requested", true)
+
+    attack_params = attack_params |> Map.delete("registration_token") |> Map.put("remote_access_requested", true)
 
     attack_conn =
       conn
@@ -75,6 +78,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     approved_params =
       initial_params
       |> Map.put("registration_token", registration_token)
+      |> Map.put("replacement_token", String.duplicate("r", 43))
       |> Map.put("product_name", "updated-client")
       |> Map.put("schema", %{
         "product" => "updated-client",
@@ -103,6 +107,9 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert updated.remote_access_requested == false
     assert Devices.authenticate_device(updated, api_token) == :ok
     assert Devices.authenticate_device(updated, registration_token) == {:error, :invalid_token}
+
+    retry_conn = approved_conn |> recycle() |> post(~p"/api/v1/devices/register", approved_params)
+    assert json_response(retry_conn, 201)["data"]["api_token"] == api_token
   end
 
   test "GET /api/v1/devices filters by product/account/approval status", %{conn: conn} do

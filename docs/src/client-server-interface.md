@@ -198,10 +198,32 @@ into generic CRUD. Heartbeat remains limited to 30 requests per device per
 ### Device Registration
 
 Device registration is the credential issuance boundary. The request identifies
-the host by MAC address and product metadata; the server may create a pending
-device record or update an existing record for the same MAC address. Approved
-devices receive a persistent API token in the response. Pending devices do not
-receive a token until an operator approves them.
+the host by MAC address and product metadata. Before the first request, the client
+generates and durably saves a `registration_token`: 32 cryptographically random
+bytes encoded as 43 unpadded base64url characters. The server atomically creates
+a pending record and stores only the proof's hash. Pending devices receive no
+runtime API token, and their enrollment proof cannot authenticate runtime routes.
+
+Subsequent registration of the same MAC requires the saved proof (or the current
+runtime token) in `registration_token`. For an approved device, the client must
+also generate and save a distinct `replacement_token` in the same format before
+sending the request. The server verifies the current proof, updates device-owned
+attributes, and replaces the credential hash in one transaction. The response's
+`api_token` is that client-prepared replacement. A superseded proof cannot perform
+another exchange.
+
+Keep both secrets unchanged across retries and restarts. If an exchange response
+is lost after commit, resending the committed replacement returns the same
+`api_token` without reapplying attributes or rotating credentials. Possession of
+the replacement is required; the old proof alone is insufficient. After another
+successful rotation, the previous replacement is no longer accepted.
+
+Both `/api/v1` and the generated JSON:API registration route use this contract.
+Integrations must supply the initial proof and approved replacement. Omitting or
+malforming a required new credential returns `422` on `/api/v1` or `400` on the
+generated JSON:API route; an incorrect or stale proof returns `403` on either.
+Public registration ignores operator-owned
+`approval_status`, `remote_access_requested`, and `remote_access_profile`.
 
 Request:
 
@@ -209,6 +231,7 @@ Request:
 {
   "mac_address": "00:11:22:33:44:55",
   "product_name": "atom-001122334455",
+  "registration_token": "Q7d9f2k4n8s1v3x5z0a6c9e2g4i7m1o3r5t8u0w6y9A",
   "schema_definition": {
     "product": "atom-001122334455",
     "version": "v1",
@@ -238,7 +261,25 @@ Pending approval response:
 {
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "approval_status": "pending"
+    "approval_status": "pending",
+    "registration_token": "Q7d9f2k4n8s1v3x5z0a6c9e2g4i7m1o3r5t8u0w6y9A"
+  }
+}
+```
+
+After approval, repeat the request with the saved `registration_token` and a
+durably prepared `replacement_token`. These illustrative values must be replaced
+with cryptographically random credentials in real requests.
+
+```json
+{
+  "mac_address": "00:11:22:33:44:55",
+  "registration_token": "Q7d9f2k4n8s1v3x5z0a6c9e2g4i7m1o3r5t8u0w6y9A",
+  "replacement_token": "B8e0g3l5p9t2w4y6a1c7d0f3h5j8n2q4s6v9x1z7A0C",
+  "schema_definition": {
+    "product": "atom-001122334455",
+    "type": "object",
+    "properties": {}
   }
 }
 ```
@@ -250,7 +291,7 @@ Approved credential response:
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "approval_status": "approved",
-    "api_token": "opaque-device-runtime-token"
+    "api_token": "B8e0g3l5p9t2w4y6a1c7d0f3h5j8n2q4s6v9x1z7A0C"
   }
 }
 ```
@@ -1019,8 +1060,8 @@ Traceable references:
 - Device API is documented by this interface page and transport/controller tests.
 - E2E API run creation requires protocol version header `X-E2E-Protocol-Version`.
 - E2E JSONL logs use schema `e2e_log.v1` according to README.
-- Repository tooling currently installs Go `1.26.2` through `mise.toml`; the
-  client module target is `go 1.26` in `go.mod`.
+- Repository tooling currently installs Go `1.27.1` through `mise.toml`; the
+  client module target is `go 1.27` in `go.mod`.
 
 Traceable references:
 

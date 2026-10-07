@@ -421,8 +421,8 @@ socket permissions, account rules, or fail-closed behavior.
   no browser-terminal key is written to an `authorized_keys` file.
 - Host real-sshd integration where `AuthorizedKeysCommand` invokes the helper with
   `%u %t %k`, authenticates a short-lived key, and denies unknown/expired/
-  wrong-user/revoked keys. This Linux-only test is focused coverage and may skip
-  on macOS when the platform OpenSSH `safe_path` rule rejects the helper path.
+  wrong-user/revoked keys. This focused coverage and the native packaging checks
+  require Linux; macOS is outside the supported runtime and packaging contract.
 - Compose dev-lab/browser smoke that launches the actual deployed terminal,
   verifies `whoami` returns `nixstasis-support`, runs a safe diagnostic, closes
   the session, and verifies later expiry/revocation denial. The wrapper must not

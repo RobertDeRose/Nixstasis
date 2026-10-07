@@ -15,16 +15,17 @@ sequenceDiagram
 
     Operator->>Client: nixstasis register
     Client->>Client: Detect MAC/IP and product metadata
-    Client->>Phoenix: POST /api/v1/devices/register
+    Client->>Pending: Save random proof + proposed runtime token
+    Client->>Phoenix: POST /api/v1/devices/register + saved proof
     Phoenix->>Devices: register_runtime_device(params)
     Devices->>Domain: create pending device
-    Devices-->>Phoenix: device + one-time registration token
+    Devices-->>Phoenix: device + accepted registration token
     Phoenix-->>Client: 201 data.id + registration_token
-    Client->>Pending: Save UUID + registration proof
+    Client->>Pending: Save UUID with prepared credentials
     Operator->>Phoenix: Approve pending device
-    Client->>Phoenix: POST register + registration_token
-    Phoenix->>Devices: Verify proof before mutation
-    Devices-->>Phoenix: Rotate proof to runtime api_token
+    Client->>Phoenix: POST register + proof + replacement_token
+    Phoenix->>Devices: Atomic proof verification, update, and exchange
+    Devices-->>Phoenix: Commit replacement hash or recover matching retry
     Phoenix-->>Client: 201 data.id + api_token
     Client->>Identity: Save UUID + runtime token
     Client->>Pending: Remove registration proof
@@ -32,12 +33,12 @@ sequenceDiagram
 
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
-3. Client sends `POST /api/v1/devices/register` with `mac_address`, product/schema data, and optional metadata.
-4. A new or legacy pending device without an enrollment proof receives a random `registration_token`; only its hash is stored server-side. The client persists the plaintext proof at `config.RegistrationPath()` with owner-only permissions.
-5. Re-registration of an existing enrolled MAC is denied before any record mutation unless the request supplies the matching `registration_token` or the current runtime API token. Public registration never changes `remote_access_requested`.
+3. Before sending a request, the client saves a random `registration_token` and distinct proposed `replacement_token` at `config.RegistrationPath()` with owner-only permissions. Recovery state takes precedence over an existing identity file. The request includes the saved credentials, `mac_address`, product/schema data, and optional metadata.
+4. A new or legacy pending device without an enrollment proof accepts the client-prepared `registration_token`; only its hash is stored server-side. Device creation or attribute updates and the empty-slot claim share a transaction. Concurrent requests with different proofs cannot overwrite the winning hash. The winning proof remains available locally even if the response is lost.
+5. Re-registration of an existing enrolled MAC is denied before any record mutation unless the request supplies the matching proof or current runtime API token. Public registration allowlists device-owned attributes and never changes `approval_status`, `remote_access_requested`, or `remote_access_profile`.
 6. Approval preserves the enrollment-proof hash, but the `registration:` marker prevents that proof from authenticating heartbeat or other runtime endpoints.
-7. After approval, the client exchanges the registration proof through the registration endpoint. Phoenix rotates the stored hash to a newly generated runtime `api_token`, so the enrollment proof immediately becomes invalid.
-8. Client stores UUID and runtime token at `config.IdentityPath()` and removes the temporary registration state.
+7. After approval, the client exchanges the proof for its saved `replacement_token`. Proof verification, a conditional hash update, and attribute updates share a transaction. The old proof becomes invalid. Identical retries carrying the committed replacement recover the same runtime token without further mutation; competing exchanges with different replacements are forbidden.
+8. Client stores UUID and runtime token at `config.IdentityPath()` and removes the temporary registration state. Failed identity saves retain runtime credentials in the recovery store, so a stale identity cannot shadow them. Lost responses and restarts reuse the prepared secrets.
 
 Traceable references:
 

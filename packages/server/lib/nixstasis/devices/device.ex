@@ -226,10 +226,17 @@ defmodule Nixstasis.Devices.Device do
       argument :schema, :map
       argument :metadata, :map
       argument :remote_access_requested, :boolean
-      argument :registration_token, :string
+      argument :registration_token, :string, sensitive?: true
+      argument :replacement_token, :string, sensitive?: true
 
       run fn input, _context ->
-        Devices.register_runtime_device(input.arguments)
+        case Devices.register_runtime_device(input.arguments) do
+          {:error, :forbidden} ->
+            {:error, Ash.Error.Forbidden.Policy.exception(custom_message: "invalid registration proof")}
+
+          result ->
+            result
+        end
       end
     end
 

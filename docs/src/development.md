@@ -3,6 +3,10 @@
 Development documentation covers workflows that exist to build, validate, or
 exercise Nixstasis locally. These docs are not production operating procedures.
 
+Linux is the supported runtime, release, and packaging-validation platform.
+Running developer tools on another host does not establish native support for
+that platform. Native client packaging checks must run on Linux.
+
 ## Local Stack
 
 - [Compose Dev Harness](features/compose-dev-harness/index.md) describes the

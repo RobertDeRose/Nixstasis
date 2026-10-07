@@ -34,7 +34,8 @@ type Config struct {
 
 // APIConfig holds configuration for the Nixstasis API.
 type APIConfig struct {
-	URL string `mapstructure:"url"`
+	URL               string `mapstructure:"url"`
+	AllowLoopbackHTTP bool   `mapstructure:"allow_loopback_http"`
 }
 
 // PollConfig holds configuration for the polling loop.
@@ -84,7 +85,8 @@ func setDefaults() *viper.Viper {
 	v := viper.New()
 
 	// Defaults
-	v.SetDefault("api.url", "http://localhost:4000")
+	v.SetDefault("api.url", "https://localhost:4000")
+	v.SetDefault("api.allow_loopback_http", false)
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
@@ -161,7 +163,7 @@ func IdentityPath() string {
 	return filepath.Join(defaultConfigRoot, "id")
 }
 
-// RegistrationPath returns the owner-only state used while device approval is pending.
+// RegistrationPath returns the owner-only enrollment and credential-recovery state.
 func RegistrationPath() string {
 	if path := os.Getenv("NIXSTASIS_REGISTRATION_PATH"); path != "" {
 		return path

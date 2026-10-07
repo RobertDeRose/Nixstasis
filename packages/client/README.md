@@ -3,6 +3,10 @@
 The Nixstasis client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
 now provides embedded Starlark scripting for telemetry, durable identity, and FRP tunnel control.
 
+The supported client runtime and release targets are Linux only. Native service,
+SSH packaging, and release-artifact validation require a Linux host. macOS and
+Windows are not supported runtime or packaging platforms.
+
 ## Features
 
 - **Auto-Registration**: Registers with the Nixstasis server on first boot and persists a device UUID.
@@ -20,7 +24,7 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+
 - mise
 
 ### Commands
@@ -33,6 +37,11 @@ mise run test:coverage # Print coverage summary from coverage.out
 ```
 
 ## Usage
+
+Registration persists a random enrollment proof and proposed runtime token before
+contacting the server. Keep `/etc/nixstasis/registration` until registration has
+saved `/etc/nixstasis/id` successfully: this owner-only state lets lost responses,
+service restarts, and failed identity saves recover without losing credentials.
 
 ```bash
 bin/nixstasis register
@@ -111,6 +120,7 @@ Runtime suite journeys:
 
 On non-Linux hosts, `scripts/e2e/run` automatically runs runtime E2E in an ephemeral Ubuntu container using Apple
 Container first, then Docker, then Podman. The script rewrites the API host for the selected runtime automatically.
+This executes Linux coverage and does not establish native support for the host platform.
 
 ## Configuration
 
@@ -130,14 +140,26 @@ scripts:
   dir: "/usr/libexec/nixstasis/scripts"
 ```
 
+The API URL defaults to `https://localhost:4000`. HTTPS certificate and hostname
+verification are mandatory; API redirects are not followed. Install private CA
+certificates in the client's OS trust store, or set Go's `SSL_CERT_FILE` to a
+trusted PEM CA bundle. Do not disable certificate verification.
+
+For a local HTTP mock only, set `api.url: http://127.0.0.1:4000` and
+`api.allow_loopback_http: true` (environment: `NIXSTASIS_API_ALLOW_LOOPBACK_HTTP=true`).
+This option defaults to false and accepts only `localhost` or loopback IP
+addresses, never LAN addresses or Compose service names. HTTP connections bypass
+proxies; `localhost` connects directly to `127.0.0.1` without DNS resolution.
+
 For Compose dev-harness remote-access validation, use `mise run deploy:dev -- up`
 from the repository root. It starts the full
 stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
 with `--clients N`. The container image entrypoint writes
 `/etc/nixstasis/config.yaml` from Compose-provided environment before systemd
-starts, so the packaged systemd units can use the local Compose server and FRPS
-service names without changing the native package defaults. The image also keeps
+starts. Clients use Caddy's HTTPS API hostname and the internal FRPS service
+name. The dev task installs only Caddy's public local CA certificate into client
+trust stores and restarts registration; Caddy's private CA keys are not shared. The image also keeps
 `systemd-user-sessions.service` in `multi-user.target` so systemd removes
 `/run/nologin` and SSH remote-access sessions can authenticate as the dedicated
 `nixstasis-support` account.

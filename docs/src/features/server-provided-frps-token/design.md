@@ -150,8 +150,7 @@ Remote access token rendering cases:
   from the secret token passed through systemd credentials.
 - Docs and module pages no longer describe `remote_access_requested` as the
   heartbeat response trigger after implementation.
-- Existing client tests continue to pass with `GOEXPERIMENT=jsonv2 go test -race
-  ./...`.
+- Existing client tests continue to pass with `go test -race ./...`.
 - Server precommit checks pass with `mix precommit`.
 
 ## Reconciliation Bookends

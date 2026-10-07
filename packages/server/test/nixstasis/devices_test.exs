@@ -380,6 +380,7 @@ defmodule Nixstasis.DevicesTest do
       attrs = %{
         "mac_address" => "89:89:89:89:89:89",
         "product_name" => "public-device",
+        "registration_token" => String.duplicate("p", 43),
         "schema" => %{
           "product" => "public-device",
           "type" => "object",
@@ -437,6 +438,85 @@ defmodule Nixstasis.DevicesTest do
 
       assert registered_again.id == device.id
       assert registered_again.api_token_hash == device.api_token_hash
+    end
+
+    test "register_public_device/1 rejects a stale empty-slot claim without overwriting the winner" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A6",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        },
+        "metadata" => %{"request" => "winner"}
+      }
+
+      pending = device_fixture(%{mac_address: attrs["mac_address"]})
+      assert is_nil(pending.api_token_hash)
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+      handler_id = "registration-claim-#{System.unique_integer([:positive])}"
+      test_pid = self()
+
+      # Complete the competing request after the loser has read the empty slot,
+      # but before it resumes with that stale device snapshot.
+      :ok =
+        :telemetry.attach(
+          handler_id,
+          [:nixstasis, :repo, :query],
+          fn _event, _measurements, metadata, _config ->
+            if self() == test_pid and metadata.source == "devices" and
+                 String.starts_with?(metadata.query, "SELECT") do
+              :telemetry.detach(handler_id)
+              send(test_pid, {:winning_registration, Devices.register_public_device(attrs)})
+            end
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      assert {:error, :forbidden} =
+               Devices.register_public_device(Map.put(attrs, "metadata", %{"request" => "loser"}))
+
+      assert_receive {:winning_registration, {:ok, winner, proof}}
+      assert winner.id == pending.id
+      assert is_binary(proof) and proof != ""
+      persisted = Devices.get_device!(pending.id)
+      assert persisted.api_token_hash == winner.api_token_hash
+      assert persisted.metadata == %{"request" => "winner"}
+      assert_receive {:device_registered, %{id: id}}
+      assert id == pending.id
+      refute_receive {:device_registered, _}
+
+      assert {:ok, registered_again, nil} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", proof))
+
+      assert registered_again.api_token_hash == winner.api_token_hash
+    end
+
+    test "register_public_device/1 rolls back the token claim when the attribute update fails" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A7",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      pending = device_fixture(%{mac_address: attrs["mac_address"]})
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Devices.register_public_device(Map.put(attrs, "last_seen_at", "invalid"))
+
+      assert is_nil(Devices.get_device!(pending.id).api_token_hash)
+      refute_receive {:device_registered, _}
+      assert {:ok, registered, proof} = Devices.register_public_device(attrs)
+      assert registered.id == pending.id
+      assert is_binary(proof) and proof != ""
     end
 
     test "register_public_device/1 rejects missing schema" do

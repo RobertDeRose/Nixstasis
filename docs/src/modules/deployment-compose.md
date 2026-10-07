@@ -113,9 +113,14 @@
 - `NIXSTASIS_SSH_FRP_HOST`: hostname the Phoenix server uses for outbound SSH
   terminal connections to FRPS TCP mux. Compose sets this to the internal
   `frps` service name; external deployments should use the reachable FRPS host.
-- `NIXSTASIS_API_URL`: optional client simulator API URL. Local development
-  defaults it to the Compose-internal Phoenix service so systemd-managed client
-  services can register before any public DNS is available.
+- `NIXSTASIS_API_URL`: optional client simulator API URL. Defaults to
+  `https://nixstasis.${BASE_DOMAIN}` through Caddy; a Compose network alias makes
+  that hostname reachable without public DNS. Clients verify certificates and
+  hostnames and never follow API redirects. The dev task copies only Caddy's
+  public local CA certificate into each client's OS trust store, then restarts
+  registration. Private CA keys remain with Caddy. Other deployments using a
+  private CA must install its public certificate in client trust stores.
+  Non-loopback HTTP (including the internal Phoenix service) is rejected.
 - `NIXSTASIS_FRP_HTTP_LOCAL_ADDR`: optional client simulator FRPC local HTTPS
   target. Local development defaults it to `127.0.0.1:443`.
 - `NIXSTASIS_SIMULATOR_HTTP_ENABLED`: enables the client simulator's local HTTPS
@@ -174,7 +179,8 @@
   Phoenix accepts `X-Token-*` claims only with the Caddy-to-Phoenix proxy token.
 - External managed devices point at the public Caddy host. The local Compose
   client simulator writes `/etc/nixstasis/config.yaml` from Compose environment
-  before systemd starts and uses the Compose-internal Phoenix and FRPS services.
+  before systemd starts and uses Caddy's HTTPS API hostname and the internal
+  FRPS service.
 - Bundled PostgreSQL starts automatically; production can override `DATABASE_URL`
   to point at an external managed database.
 - The bundled PostgreSQL volume mounts at `/var/lib/postgresql` for compatibility

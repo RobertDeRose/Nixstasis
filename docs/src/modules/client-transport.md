@@ -23,6 +23,7 @@
 
 - Types:
   - `Client`
+  - `DeviceCredentials`
   - `PollRequest`
   - `CommandInventoryProbe`
   - `CommandProbe`
@@ -42,6 +43,7 @@
 - Functions and methods:
   - `NewClient`
   - `(*Client).RegisterDevice`
+  - `(*Client).RegisterDeviceCredentials`
   - `(*Client).Poll`
   - `(*Client).PollWithInventory`
   - `(*Client).SendCommandResults`
@@ -64,11 +66,14 @@
 
 ## Client-Server Interaction Details
 
-- `RegisterDevice`:
+- `RegisterDeviceCredentials` (and the UUID-only `RegisterDevice` wrapper):
   - `POST {baseURL}/api/v1/devices/register`
-  - Sends `mac_address`, optional `product_name`, and optional `metadata`.
+  - Sends `mac_address`, product/schema data, optional `metadata`, and the
+    caller's durably saved `registration_token` and proposed `replacement_token`.
   - Expects `201` and response `data.id`.
-  - Approved devices receive `data.api_token`; pending devices omit it until approval.
+  - Pending devices return an enrollment proof, omit `data.api_token`, and yield
+    `ErrDevicePendingApproval`. Approved exchange returns the proposed runtime
+    token as `data.api_token`; identical committed retries do not rotate it again.
   - Re-registering the same MAC address updates the existing device record rather
     than creating a duplicate identity.
 - `Poll`:

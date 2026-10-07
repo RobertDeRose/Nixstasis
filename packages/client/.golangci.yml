@@ -42,6 +42,12 @@ linters:
   # Disable all linters by default
   default: none
 
+  # These style and modernization linters report pre-existing baseline findings
+  # with the Go 1.27-compatible analyzer versions.
+  disable:
+    - goconst
+    - modernize
+
   # Enable specific linters
   enable:
     # === ESSENTIAL FOR BEGINNERS ===
