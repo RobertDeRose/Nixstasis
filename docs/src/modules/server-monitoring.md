@@ -66,7 +66,8 @@
 - Webhook destinations must use HTTPS. Phoenix resolves them before each
   delivery, rejects loopback/private/link-local/reserved answers, pins the
   request to a validated public address while retaining the original hostname
-  for TLS verification, and does not follow redirects.
+  for TLS verification and the HTTP Host header (including non-default ports),
+  and does not follow redirects.
 
 ### Alert rule modal contract
 

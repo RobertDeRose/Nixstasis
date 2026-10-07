@@ -18,6 +18,7 @@ defmodule Nixstasis.Notifications.Webhook do
   def send_alert_webhook(url, alert) do
     with {:ok, target} <- validate_url(url) do
       Req.post(target.request_url,
+        headers: [{"host", target.host_header}],
         connect_options: connect_options(target),
         redirect: false,
         retry: false,
@@ -48,6 +49,7 @@ defmodule Nixstasis.Notifications.Webhook do
       {:ok,
        %{
          hostname: uri.host,
+         host_header: host_header(uri),
          address: address,
          request_url: pinned_url(uri, address)
        }}
@@ -147,6 +149,11 @@ defmodule Nixstasis.Notifications.Webhook do
   end
 
   defp public_address?(_address), do: false
+
+  defp host_header(uri) do
+    host = if String.contains?(uri.host, ":"), do: "[#{uri.host}]", else: uri.host
+    if uri.port in [nil, 443], do: host, else: "#{host}:#{uri.port}"
+  end
 
   defp pinned_url(uri, address) do
     %{uri | host: address |> :inet.ntoa() |> List.to_string()}
