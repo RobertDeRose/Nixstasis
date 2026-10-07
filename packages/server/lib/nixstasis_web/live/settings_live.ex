@@ -33,6 +33,7 @@ defmodule NixstasisWeb.SettingsLive do
     end
   end
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="ui-page-shell-narrow">
@@ -65,7 +66,7 @@ defmodule NixstasisWeb.SettingsLive do
         <div>
           <h3 class="text-lg font-medium">Monitoring</h3>
           <.simple_form id="monitoring-settings-form" for={@form} phx-submit="save_monitoring">
-            <.input field={@form[:minutes]} type="number" label="Offline Detection Window (minutes)" />
+            <.input field={@form[:minutes]} type="number" min="1" step="1" label="Offline Detection Window (minutes)" />
             <:actions>
               <.button>Save Monitoring Settings</.button>
             </:actions>
@@ -118,14 +119,18 @@ defmodule NixstasisWeb.SettingsLive do
   def handle_event("save_monitoring", %{"minutes" => minutes}, socket) do
     if can_manage?(socket) do
       case Settings.put_offline_window(socket.assigns.settings_permissions, minutes) do
-        {:ok, _setting} ->
+        {:ok, setting} ->
           {:noreply,
            socket
+           |> clear_flash(:error)
            |> put_flash(:info, "Monitoring settings updated")
-           |> assign(:offline_window, minutes)}
+           |> assign(:offline_window, setting.value["minutes"])}
 
         {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Unable to update monitoring settings")}
+          {:noreply,
+           socket
+           |> clear_flash(:info)
+           |> put_flash(:error, "Unable to update monitoring settings")}
       end
     else
       unauthorized(socket)

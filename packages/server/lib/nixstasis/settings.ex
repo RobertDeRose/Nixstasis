@@ -32,7 +32,10 @@ defmodule Nixstasis.Settings do
   end
 
   def put_offline_window(%{"can_manage" => true}, minutes) do
-    put_setting("offline_window", %{"minutes" => minutes})
+    case parse_positive_integer(minutes, nil) do
+      nil -> {:error, :invalid_offline_window}
+      minutes -> put_setting("offline_window", %{"minutes" => minutes})
+    end
   end
 
   def put_offline_window(_permissions, _minutes), do: {:error, :forbidden}

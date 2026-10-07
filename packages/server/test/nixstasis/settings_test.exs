@@ -29,6 +29,37 @@ defmodule Nixstasis.SettingsTest do
     end
   end
 
+  describe "put_offline_window/2" do
+    test "normalizes positive integers and trimmed integer strings" do
+      for {input, expected} <- [{1, 1}, {15, 15}, {"20", 20}, {" 30 ", 30}] do
+        assert {:ok, setting} = Settings.put_offline_window(%{"can_manage" => true}, input)
+        assert setting.value == %{"minutes" => expected}
+        assert Settings.get_offline_window() == expected
+      end
+    end
+
+    test "rejects invalid minutes without creating a setting" do
+      for input <- [0, -5, 1.5, "0", "-5", "1.5", "", " ", "15minutes", nil, true, %{}, []] do
+        assert {:error, :invalid_offline_window} =
+                 Settings.put_offline_window(%{"can_manage" => true}, input)
+
+        assert Settings.get_setting("offline_window") == nil
+      end
+    end
+
+    test "invalid minutes leave the previously saved window unchanged" do
+      assert {:ok, _setting} = Settings.put_offline_window(%{"can_manage" => true}, 25)
+
+      for input <- ["0", "-5", "1.5", "not-a-number"] do
+        assert {:error, :invalid_offline_window} =
+                 Settings.put_offline_window(%{"can_manage" => true}, input)
+
+        assert Settings.get_setting("offline_window") == %{"minutes" => 25}
+        assert Settings.get_offline_window() == 25
+      end
+    end
+  end
+
   describe "operator-managed settings" do
     test "rejects settings mutations without admin settings permission" do
       assert {:error, :forbidden} = Settings.put_offline_window(%{"can_manage" => false}, 20)

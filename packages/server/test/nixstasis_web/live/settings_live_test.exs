@@ -23,6 +23,51 @@ defmodule NixstasisWeb.SettingsLiveTest do
     assert message =~ "Not authorized"
   end
 
+  test "admin monitoring updates persist normalized minutes across reloads", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/settings")
+
+    render_submit(element(view, "#monitoring-settings-form"), %{"minutes" => "25"})
+
+    assert has_element?(view, "#flash-info", "Monitoring settings updated")
+    assert Settings.get_setting("offline_window") == %{"minutes" => 25}
+
+    {:ok, reloaded, _html} = live(conn, ~p"/settings")
+    assert has_element?(reloaded, "#monitoring-settings-form input[name=minutes][value='25']")
+  end
+
+  test "monitoring feedback reflects the latest save attempt", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/settings")
+
+    render_submit(element(view, "#monitoring-settings-form"), %{"minutes" => "25"})
+    assert has_element?(view, "#flash-info", "Monitoring settings updated")
+
+    render_submit(element(view, "#monitoring-settings-form"), %{"minutes" => "0"})
+    assert has_element?(view, "#flash-error", "Unable to update monitoring settings")
+    refute has_element?(view, "#flash-info", "Monitoring settings updated")
+    assert Settings.get_offline_window() == 25
+
+    render_submit(element(view, "#monitoring-settings-form"), %{"minutes" => "30"})
+    assert has_element?(view, "#flash-info", "Monitoring settings updated")
+    refute has_element?(view, "#flash-error", "Unable to update monitoring settings")
+    assert Settings.get_offline_window() == 30
+  end
+
+  for minutes <- ["0", "-5", "1.5", ""] do
+    test "invalid monitoring minutes #{inspect(minutes)} do not overwrite settings or report success", %{conn: conn} do
+      assert {:ok, _setting} = Settings.put_offline_window(%{"can_manage" => true}, 25)
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      render_submit(element(view, "#monitoring-settings-form"), %{"minutes" => unquote(minutes)})
+
+      assert has_element?(view, "#flash-error", "Unable to update monitoring settings")
+      refute has_element?(view, "#flash-info", "Monitoring settings updated")
+      assert Settings.get_offline_window() == 25
+
+      {:ok, reloaded, _html} = live(conn, ~p"/settings")
+      assert has_element?(reloaded, "#monitoring-settings-form input[name=minutes][value='25']")
+    end
+  end
+
   test "stored webhook secrets are not rendered", %{conn: conn} do
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{

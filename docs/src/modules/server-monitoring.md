@@ -58,7 +58,10 @@
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
 - Offline timing is runtime-configured through settings instead of hard-coded in
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and
-  offline-check sequence.
+  offline-check sequence. Admin monitoring writes accept only positive whole
+  minutes (including trimmed integer strings), store an integer, and reject
+  invalid values without changing the saved window or reporting success. The
+  default is 10 minutes; legacy invalid stored values still use that fallback.
 - System monitoring and notification settings are admin-only in the LiveView,
   matching the generated JSON:API system-settings boundary. Stored webhook URLs
   are never rendered back into the form; leaving the replacement field blank
