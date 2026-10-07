@@ -124,10 +124,16 @@ trust_client_caddy_ca() {
 
   # Transfer only the public certificate; never mount Caddy's private CA keys.
   ca_dir=$(mktemp -d)
-  if ! compose cp caddy:/data/caddy/pki/authorities/local/root.crt "$ca_dir/root.crt"; then
-    rm -rf "$ca_dir"
-    fail "failed to read Caddy's public dev CA certificate"
-  fi
+  attempt=1
+  max_attempts=10
+  while ! compose cp caddy:/data/caddy/pki/authorities/local/root.crt "$ca_dir/root.crt"; do
+    if [ "$attempt" -ge "$max_attempts" ]; then
+      rm -rf "$ca_dir"
+      fail "failed to read Caddy's public dev CA certificate after $max_attempts attempts"
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+  done
   for container_id in $(compose ps -q client); do
     if ! docker cp "$ca_dir/root.crt" "$container_id:/usr/local/share/ca-certificates/nixstasis-caddy.crt" ||
       ! docker exec "$container_id" update-ca-certificates; then
