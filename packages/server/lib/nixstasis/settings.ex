@@ -60,12 +60,12 @@ defmodule Nixstasis.Settings do
 
   defp next_webhook_url(existing, params) do
     current = Map.get(existing, "webhook_url")
-    candidate = normalize_optional_string(Map.get(params, "webhook_url"))
+    candidate = Map.get(params, "webhook_url")
 
     cond do
+      not (is_nil(candidate) or is_binary(candidate)) -> candidate
       truthy?(Map.get(params, "clear_webhook_url")) -> nil
-      is_nil(candidate) -> current
-      true -> candidate
+      true -> normalize_optional_string(candidate) || current
     end
   end
 

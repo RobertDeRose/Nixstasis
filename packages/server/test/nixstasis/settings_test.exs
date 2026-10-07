@@ -99,6 +99,65 @@ defmodule Nixstasis.SettingsTest do
       assert Settings.get_setting("notifications") == nil
     end
 
+    test "rejects non-string webhook inputs without creating notifications settings" do
+      for input <- [123, 1.5, true, false, [], ["https://example.com"], %{}],
+          clear <- ["false", "true"] do
+        assert {:error, %Ash.Error.Invalid{} = error} =
+                 Settings.put_notifications_config(%{"can_manage" => true}, %{
+                   "email" => "alerts@example.com",
+                   "webhook_url" => input,
+                   "clear_webhook_url" => clear
+                 })
+
+        assert Exception.message(error) =~ "webhook URL must be a string"
+        assert Settings.get_setting("notifications") == nil
+      end
+    end
+
+    test "non-string webhook inputs leave the stored webhook and email unchanged" do
+      stored = %{
+        "email" => "old@example.com",
+        "webhook_url" => "https://hooks.example.invalid/alert?token=stored-secret"
+      }
+
+      Repo.insert!(%SystemSetting{key: "notifications", value: stored})
+
+      for input <- [123, 1.5, true, false, [], ["https://example.com"], %{}],
+          clear <- ["false", "true"] do
+        assert {:error, %Ash.Error.Invalid{} = error} =
+                 Settings.put_notifications_config(%{"can_manage" => true}, %{
+                   "email" => "new@example.com",
+                   "webhook_url" => input,
+                   "clear_webhook_url" => clear
+                 })
+
+        assert Exception.message(error) =~ "webhook URL must be a string"
+        assert Settings.get_notifications_config() == stored
+      end
+    end
+
+    test "missing, nil and whitespace webhook inputs preserve the stored destination" do
+      stored_url = "https://hooks.example.invalid/alert?token=stored-secret"
+
+      Repo.insert!(%SystemSetting{
+        key: "notifications",
+        value: %{"email" => "old@example.com", "webhook_url" => stored_url}
+      })
+
+      for params <- [%{}, %{"webhook_url" => nil}, %{"webhook_url" => "  "}] do
+        assert {:ok, _setting} =
+                 Settings.put_notifications_config(
+                   %{"can_manage" => true},
+                   Map.put(params, "email", "new@example.com")
+                 )
+
+        assert Settings.get_notifications_config() == %{
+                 "email" => "new@example.com",
+                 "webhook_url" => stored_url
+               }
+      end
+    end
+
     test "blank webhook input preserves the masked stored destination and explicit clear removes it" do
       stored_url = "https://hooks.example.invalid/alert?token=stored-secret"
 

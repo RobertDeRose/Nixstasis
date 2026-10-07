@@ -71,6 +71,8 @@
   preserves the current destination and removal is explicit. JSON:API PATCH
   replaces the value map; a null or blank `webhook_url` clears the destination.
   New or changed webhook URLs are validated before saving through either surface.
+  Non-string, non-null webhook input is rejected without changing notification
+  settings, including when the context write also requests explicit removal.
   Unchanged legacy destinations can be preserved without resolving them at save
   time; they still undergo the delivery-time checks below.
 - Webhook destinations must use HTTPS. Phoenix resolves them before each
