@@ -254,15 +254,26 @@ Run the static runtime checks from the repository root:
 deploy/compose/scripts/check_runtime_contract.sh
 ```
 
-To include executable production/laptop claim-boundary checks, export the pinned
-Caddy binary with Docker Buildx, then run with Python 3 and `CADDY_BIN`:
+For executable production/laptop claim-boundary checks on macOS or Linux, use
+Docker and the repository-built Caddy image in a disposable Compose container:
 
 ```sh
-docker buildx build --target proxy-test-binary \
-  --output type=local,dest=/tmp/nixstasis-caddy-proxy-tests packages/caddy
-CADDY_BIN=/tmp/nixstasis-caddy-proxy-tests/caddy \
-  deploy/compose/scripts/check_runtime_contract.sh
+mise run deploy:dev -- build caddy
+mise run deploy:dev -- run --rm --no-deps \
+  --entrypoint /bin/sh \
+  --volume "$PWD:/workspace:ro" \
+  --workdir /workspace \
+  caddy -c 'apk add --no-cache python3 &&
+    CADDY_BIN=/usr/bin/caddy \
+    sh deploy/compose/scripts/check_runtime_contract.sh'
 ```
+
+The development stack already runs Caddy in a container. These checks use a
+separate one-off container, not the live Caddy process, and install Python only
+inside that disposable container. No host Caddy or Python installation is needed.
+The full stack need not be running, and no service ports are published. Package
+installation requires network access. Buildx exports a Linux binary; do not run
+that exported binary directly on macOS. The existing Linux CI workflow is unchanged.
 
 The Caddy image workflow requires these behavior checks before publishing. They
 use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are

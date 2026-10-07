@@ -265,14 +265,37 @@ stdout. Use
 
 ## Contract Validation
 
+Run the static runtime checks from the repository root:
+
 ```sh
 deploy/compose/scripts/check_runtime_contract.sh
+```
 
-# Include real Caddy/AuthCrunch proxy claim checks (Docker Buildx + Python 3):
-docker buildx build --target proxy-test-binary \
-  --output type=local,dest=/tmp/nixstasis-caddy-proxy-tests packages/caddy
-CADDY_BIN=/tmp/nixstasis-caddy-proxy-tests/caddy \
-  deploy/compose/scripts/check_runtime_contract.sh
+For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
+use Docker and the repository-built Caddy image in a disposable Compose container:
+
+```sh
+mise run deploy:dev -- build caddy
+mise run deploy:dev -- run --rm --no-deps \
+  --entrypoint /bin/sh \
+  --volume "$PWD:/workspace:ro" \
+  --workdir /workspace \
+  caddy -c 'apk add --no-cache python3 &&
+    CADDY_BIN=/usr/bin/caddy \
+    sh deploy/compose/scripts/check_runtime_contract.sh'
+```
+
+The development stack already runs Caddy in a container. This check uses a separate
+one-off container, not the live Caddy process. Python is installed only in that
+disposable container; no host Caddy or Python installation is required. The check
+starts its own Caddy processes and echo upstream on container-local loopback ports.
+It does not require the full stack to be running or publish service ports. Package
+installation requires network access. Do not execute the exported Linux Buildx
+binary directly on macOS; the existing Linux CI workflow is unchanged.
+
+Validate production deployment inputs separately:
+
+```sh
 deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 

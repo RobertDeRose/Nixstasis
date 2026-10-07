@@ -201,9 +201,9 @@ locked `nixstasis-ssh-authority` account to run the helper.
   `NIXSTASIS_ADMIN_GROUPS` into provider-generic roles before Phoenix sees the
   request.
 - `nixstasis/viewer` grants read-only device and report access.
-  `nixstasis/operator` grants remote device access and report management.
-  `nixstasis/admin` currently grants the same implemented permissions as
-  `operator` and is reserved for privileged settings surfaces.
+  `nixstasis/operator` grants remote device access and report management, but cannot
+  manage global system settings. `nixstasis/admin` grants those capabilities plus
+  global system-settings management.
 - Missing, malformed, or unknown production role claims fail closed. Direct local
   Phoenix requests without `X-Token-*` claim headers keep development-only
   permissive defaults only in dev and test.
