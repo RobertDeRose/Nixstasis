@@ -90,7 +90,9 @@
 - `NIXSTASIS_PROXY_AUTH_TOKEN`: dedicated 32-byte-or-longer random secret shared
   only by Caddy and Phoenix. Caddy overwrites `X-Nixstasis-Proxy-Token` on
   proxied Phoenix requests; Phoenix requires the matching value before trusting
-  any AuthCrunch `X-Token-*` operator claims.
+  any AuthCrunch `X-Token-*` operator claims. Production and laptop Nixstasis
+  hosts strip client-supplied `X-Token-*` headers before authorization; verified
+  AuthCrunch claims are injected afterwards and retained on operator requests.
 - `AUTHORIZED_ROLES`: normalized Caddy/AuthCrunch roles allowed at the edge.
   Production should include `nixstasis/viewer`, `nixstasis/operator`, and
   `nixstasis/admin` as needed.
@@ -243,6 +245,28 @@
   at `GET /api/v1/check_domain` for on-demand TLS approval.
 - Environment variables are passed to containers via explicit `environment:`
   blocks in the compose file; `--env-file` handles compose-time interpolation.
+
+## Contract Validation
+
+Run the static runtime checks from the repository root:
+
+```sh
+deploy/compose/scripts/check_runtime_contract.sh
+```
+
+To include executable production/laptop claim-boundary checks, export the pinned
+Caddy binary with Docker Buildx, then run with Python 3 and `CADDY_BIN`:
+
+```sh
+docker buildx build --target proxy-test-binary \
+  --output type=local,dest=/tmp/nixstasis-caddy-proxy-tests packages/caddy
+CADDY_BIN=/tmp/nixstasis-caddy-proxy-tests/caddy \
+  deploy/compose/scripts/check_runtime_contract.sh
+```
+
+The Caddy image workflow requires these behavior checks before publishing. They
+use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
+outside their scope. Without `CADDY_BIN`, only the existing static checks run.
 
 Traceable references:
 

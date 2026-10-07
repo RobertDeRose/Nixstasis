@@ -68,6 +68,9 @@ nixstasis.{$BASE_DOMAIN} {
     on_demand
   }
 
+  # Remove client claims before AuthCrunch injects verified operator claims.
+  request_header -X-Token-*
+
   @device_registration {
     method POST
     path /api/v1/devices/register

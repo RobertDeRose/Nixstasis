@@ -135,6 +135,10 @@ targeting the compose `postgres` host.
 ## Runtime Contract
 
 - Public ingress terminates at Caddy.
+- Production and laptop Nixstasis hosts remove client-supplied `X-Token-*`
+  headers at request entry, before AuthCrunch authorization injects verified
+  claims. Device runtime requests reach Phoenix without operator claims;
+  authorized operator requests retain only claims injected by AuthCrunch.
 - Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
   `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
   unless that internal proxy credential matches, so direct loopback or Compose
@@ -263,6 +267,12 @@ stdout. Use
 
 ```sh
 deploy/compose/scripts/check_runtime_contract.sh
+
+# Include real Caddy/AuthCrunch proxy claim checks (Docker Buildx + Python 3):
+docker buildx build --target proxy-test-binary \
+  --output type=local,dest=/tmp/nixstasis-caddy-proxy-tests packages/caddy
+CADDY_BIN=/tmp/nixstasis-caddy-proxy-tests/caddy \
+  deploy/compose/scripts/check_runtime_contract.sh
 deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 

@@ -190,6 +190,9 @@ locked `nixstasis-ssh-authority` account to run the helper.
 
 - Caddy/AuthCrunch is the production browser authentication and authorization
   edge. Protected production hosts keep `authorize with entra_policy`.
+- Production and laptop Nixstasis hosts remove client-supplied `X-Token-*`
+  headers before AuthCrunch authorization. Device runtime paths carry no operator
+  claims; operator paths retain the verified claims injected after sanitation.
 - Phoenix consumes trusted forwarded headers only after Caddy admits the browser
   request: `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
   `X-Token-User-Roles`.
