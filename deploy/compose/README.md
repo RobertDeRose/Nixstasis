@@ -41,7 +41,15 @@ mise run deploy:dev -- up --clients 2
 
 `up` is the dev-lab bootstrap command: it starts Postgres, runs migrations,
 starts the full stack, scales client containers, and pre-approves the running
-client simulators. Seed deterministic schema-builder fixtures into the running
+client simulators. Clients use `https://nixstasis.${BASE_DOMAIN}` through a
+Compose alias for Caddy instead of plaintext Phoenix. During dev bootstrap,
+only Caddy's public local CA certificate is copied into each client's OS trust
+store before registration is restarted; private CA keys are never shared.
+HTTPS certificate/hostname verification stays enabled and client API redirects
+are rejected. With other private CAs, install the public CA certificate in the
+client trust store before enrollment.
+
+Seed deterministic schema-builder fixtures into the running
 Compose database with:
 
 ```sh

@@ -85,6 +85,7 @@ local harper_commit_message = (Builtins.harper_commit_message) {
       /^diff --git / { exit }
       /^#/ { next }
       NR == 1 && /^release: v[0-9]+\.[0-9]+\.[0-9]+$/ { next }
+      NR == 1 { sub(/^[a-z]+(\([^)]*\))?!?: /, "") }
       /^Beads: [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*(, [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*)*$/ { next }
       { print }
     ' {{commit_msg_file}} | harper-cli lint --quiet --no-color --user-dict-path .config/harper-dictionary.txt
@@ -161,13 +162,13 @@ local linters = new Mapping<String, Step> {
     prefix = "mise x --"
     dir = "packages/client"
     check_diff = #"""
-      sh -o errexit -o nounset -o pipefail -c '
+      bash -o errexit -o nounset -o pipefail -c '
         gofumpt -l . | (! grep .)
         goimports -l -local github.com/RobertDeRose/Nixstasis/packages/client . | (! grep .)
       '
       """#
     fix = #"""
-      sh -o errexit -o nounset -o pipefail -c '
+      bash -o errexit -o nounset -o pipefail -c '
         gofumpt -l -w .
         goimports -w -local github.com/RobertDeRose/Nixstasis/packages/client .
       '

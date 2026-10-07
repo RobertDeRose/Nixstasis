@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
@@ -30,14 +33,59 @@ type Client struct {
 	apiKey     string
 }
 
-// NewClient creates a new Client instance.
-func NewClient(cfg config.APIConfig) *Client {
-	return &Client{
-		baseURL: cfg.URL,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+// NewClient rejects insecure API URLs before any credentials can be sent.
+// HTTP is permitted only for explicitly enabled loopback development.
+func NewClient(cfg config.APIConfig) (*Client, error) {
+	u, err := url.Parse(cfg.URL)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return nil, errors.New("API URL must be an absolute HTTPS URL without userinfo, query, or fragment")
 	}
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, errors.New("default HTTP transport must support secure API connections")
+	}
+	transport := defaultTransport.Clone()
+	switch u.Scheme {
+	case "https":
+		// Use normal certificate and hostname verification, including system CAs.
+	case "http":
+		host := strings.ToLower(u.Hostname())
+		ip, parseErr := netip.ParseAddr(host)
+		if !cfg.AllowLoopbackHTTP || (host != "localhost" && (parseErr != nil || !ip.IsLoopback())) {
+			return nil, errors.New("API requires HTTPS; HTTP is allowed only for loopback with api.allow_loopback_http enabled")
+		}
+		// Bypass environment proxies and DNS so the exception cannot send
+		// plaintext credentials outside loopback, even for localhost.
+		transport.Proxy = nil
+		transport.DialContext = dialLoopback
+	default:
+		return nil, errors.New("API URL requires the HTTPS scheme")
+	}
+	return &Client{
+		baseURL: strings.TrimRight(cfg.URL, "/"),
+		httpClient: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: transport,
+			// A redirect must never forward a registration body or runtime token.
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
+		},
+	}, nil
+}
+
+func dialLoopback(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(host, "localhost") {
+		host = "127.0.0.1"
+	}
+	ip, err := netip.ParseAddr(host)
+	if err != nil || !ip.IsLoopback() {
+		return nil, errors.New("HTTP API connection must stay on loopback")
+	}
+	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
 }
 
 // SetAPIKey configures the per-device API key used for runtime endpoints.
@@ -67,6 +115,11 @@ func (c *Client) doJSON(ctx context.Context, method, endpoint string, reqBody, r
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		// url.Error includes the URL, which may contain the runtime API key.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			err = urlErr.Err
+		}
 		return fmt.Errorf("request failed: %w", err)
 	}
 	defer func() {
@@ -105,16 +158,17 @@ func (c *Client) deviceURL(path string) string {
 	return u.String()
 }
 
-// DeviceCredentials are issued once the server has approved a device.
+// DeviceCredentials carries pending enrollment proof or approved runtime credentials.
 type DeviceCredentials struct {
-	UUID  string
-	Token string
+	UUID              string
+	Token             string
+	RegistrationToken string
 }
 
 // RegisterDevice registers the device with the Nixstasis API.
 // It returns the assigned UUID or an error.
-func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity) (string, error) {
-	credentials, err := c.RegisterDeviceCredentials(ctx, id)
+func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity, registrationTokens ...string) (string, error) {
+	credentials, err := c.RegisterDeviceCredentials(ctx, id, registrationTokens...)
 	if err != nil && !errors.Is(err, ErrDevicePendingApproval) {
 		return "", err
 	}
@@ -122,10 +176,23 @@ func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity)
 }
 
 // RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
-func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.DeviceIdentity) (DeviceCredentials, error) {
+// Callers must persist the proof (first token) before initial registration and
+// the proposed replacement (second token) before an approved exchange.
+func (c *Client) RegisterDeviceCredentials(
+	ctx context.Context,
+	id identity.DeviceIdentity,
+	registrationTokens ...string,
+) (DeviceCredentials, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/devices/register", c.baseURL)
 	reqBody := map[string]any{
 		"mac_address": id.MACAddress,
+	}
+
+	if len(registrationTokens) > 0 && registrationTokens[0] != "" {
+		reqBody["registration_token"] = registrationTokens[0]
+	}
+	if len(registrationTokens) > 1 && registrationTokens[1] != "" {
+		reqBody["replacement_token"] = registrationTokens[1]
 	}
 
 	if id.Name != "" {
@@ -146,8 +213,9 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 
 	var response struct {
 		Data struct {
-			ID       string `json:"id"`
-			APIToken string `json:"api_token"`
+			ID                string `json:"id"`
+			APIToken          string `json:"api_token"`
+			RegistrationToken string `json:"registration_token"`
 		} `json:"data"`
 	}
 	if err := c.doJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusCreated); err != nil {
@@ -158,7 +226,10 @@ func (c *Client) RegisterDeviceCredentials(ctx context.Context, id identity.Devi
 		return DeviceCredentials{}, fmt.Errorf("API returned empty device id")
 	}
 	if response.Data.APIToken == "" {
-		return DeviceCredentials{UUID: response.Data.ID}, ErrDevicePendingApproval
+		return DeviceCredentials{
+			UUID:              response.Data.ID,
+			RegistrationToken: response.Data.RegistrationToken,
+		}, ErrDevicePendingApproval
 	}
 
 	return DeviceCredentials{UUID: response.Data.ID, Token: response.Data.APIToken}, nil

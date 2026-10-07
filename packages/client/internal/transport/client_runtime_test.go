@@ -41,7 +41,10 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resp, err := client.Poll(
 		context.Background(),
@@ -106,7 +109,10 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp, err := client.PollWithInventory(context.Background(), deviceID, telemetry.Payload{}, frp.ConnectionStatus{}, &CommandInventoryEvidence{
 		SchemaVersion:       1,
 		ProbeCatalogVersion: "catalog-v1",
@@ -148,7 +154,10 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := client.SendCommandResults(context.Background(), deviceID, []CommandResult{{CommandID: "c1", Status: CommandStatusOK}}); err != nil {
 		t.Fatalf("SendCommandResults failed: %v", err)

@@ -46,7 +46,13 @@ Performance gate:
 
 If the host is not Linux, `scripts/e2e/run` automatically executes runtime E2E in an ephemeral Ubuntu container.
 It prefers Apple Container (`container`), then Docker, then Podman, and rewrites `--api-url` to the appropriate host
-alias so the containerized client reaches the host server.
+alias so the containerized harness reaches the host server. Runtime client
+journeys require HTTPS for any non-loopback URL: use a reachable HTTPS hostname
+with a trusted certificate when running in a container. The wrapper preserves
+HTTPS hostnames and forwards a supplied `SSL_CERT_FILE` PEM CA bundle read-only.
+The default HTTP example supports runtime journeys only when run directly on
+Linux against loopback; `api.allow_loopback_http: true` in the example config is
+not a bypass for container host aliases or LAN addresses.
 
 Local runtime `check_domain` validation expects a base domain that matches the server's dev/test config. The default
 local value is `devices.example.com`, so the runtime suite validates `auth.devices.example.com` unless you override
@@ -76,6 +82,11 @@ Use `--force` to overwrite existing scaffold files. Use `--dry-run` to preview g
 action token.
 
 ## Run All Server-Configured Suites
+
+The aggregate runner intentionally defaults to local loopback HTTP; the example
+config explicitly enables `api.allow_loopback_http` for this Linux development
+path. For containerized runtime journeys, supply a reachable HTTPS API URL
+instead, with a trusted CA as described above.
 
 ```bash
 scripts/e2e/run_all_suites \

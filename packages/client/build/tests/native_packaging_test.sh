@@ -68,9 +68,9 @@ require_literal "$DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh 
 require_literal "$DOCKERFILE" 'usermod --append --groups nixstasis-ssh nixstasis'
 
 [ -x "$HELPER" ] || fail "helper must be executable in source tree"
-[ "$(stat -f '%Lp' "$HELPER" 2>/dev/null || stat -c '%a' "$HELPER")" = 755 ] ||
+[ "$(stat -c '%a' "$HELPER")" = 755 ] ||
   fail "helper must be mode 0755 in source tree"
-[ "$(stat -f '%Lp' "$DROPIN" 2>/dev/null || stat -c '%a' "$DROPIN")" = 644 ] ||
+[ "$(stat -c '%a' "$DROPIN")" = 644 ] ||
   fail "sshd drop-in must be mode 0644 in source tree"
 
 echo "native packaging contract passed"

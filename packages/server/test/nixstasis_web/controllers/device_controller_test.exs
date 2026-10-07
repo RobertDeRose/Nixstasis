@@ -1,12 +1,12 @@
 defmodule NixstasisWeb.DeviceControllerTest do
   use NixstasisWeb.ConnCase
   alias Nixstasis.Devices
-  alias Nixstasis.Domain
 
   test "POST /api/v1/devices/register registers a new device", %{conn: conn} do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:FF",
       "product_name" => "prod_123",
+      "registration_token" => String.duplicate("p", 43),
       "schema" => %{
         "product" => "prod_123",
         "type" => "object",
@@ -20,42 +20,96 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert %{"id" => _id, "approval_status" => "pending"} = json_response(conn, 201)["data"]
   end
 
-  test "POST /api/v1/devices/register preserves an approved device id during re-registration", %{conn: conn} do
-    {:ok, device} =
-      Devices.create_device(%{
-        mac_address: "AA:BB:CC:DD:EE:E0",
-        product_name: "existing-client",
-        approval_status: :approved
-      })
-
-    {:ok, _event} =
-      Domain.create_telemetry_event(%{
-        device_id: device.id,
-        payload: %{},
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
-      })
-
-    params = %{
+  test "POST /api/v1/devices/register requires enrollment proof before approved re-registration", %{conn: conn} do
+    initial_params = %{
       "mac_address" => "AA:BB:CC:DD:EE:E0",
-      "product_name" => "updated-client",
+      "product_name" => "initial-client",
+      "registration_token" => String.duplicate("p", 43),
       "schema" => %{
-        "product" => "updated-client",
+        "product" => "initial-client",
         "type" => "object",
         "properties" => %{}
       }
     }
 
-    conn = post(conn, ~p"/api/v1/devices/register", params)
+    conn = post(conn, ~p"/api/v1/devices/register", initial_params)
 
     assert %{
              "id" => id,
-             "approval_status" => "approved",
-             "api_token" => token
+             "approval_status" => "pending",
+             "registration_token" => registration_token
            } = json_response(conn, 201)["data"]
 
-    assert id == device.id
-    assert is_binary(token)
-    assert token != ""
+    assert is_binary(registration_token)
+    refute Map.has_key?(json_response(conn, 201)["data"], "api_token")
+
+    pending = Devices.get_device!(id)
+    enrollment_hash = pending.api_token_hash
+    assert is_binary(enrollment_hash)
+
+    assert {:ok, approved} = Devices.approve_device(pending)
+    assert approved.api_token_hash == enrollment_hash
+    assert Devices.authenticate_device(approved, registration_token) == {:error, :invalid_token}
+
+    attack_params = %{
+      initial_params
+      | "product_name" => "attacker-controlled",
+        "schema" => %{
+          "product" => "attacker-controlled",
+          "type" => "object",
+          "properties" => %{}
+        }
+    }
+
+    attack_params = attack_params |> Map.delete("registration_token") |> Map.put("remote_access_requested", true)
+
+    attack_conn =
+      conn
+      |> recycle()
+      |> post(~p"/api/v1/devices/register", attack_params)
+
+    assert response(attack_conn, 403)
+
+    unchanged = Devices.get_device!(id)
+    assert unchanged.product_name == "initial-client"
+    assert unchanged.remote_access_requested == false
+    assert unchanged.api_token_hash == enrollment_hash
+
+    approved_params =
+      initial_params
+      |> Map.put("registration_token", registration_token)
+      |> Map.put("replacement_token", String.duplicate("r", 43))
+      |> Map.put("product_name", "updated-client")
+      |> Map.put("schema", %{
+        "product" => "updated-client",
+        "type" => "object",
+        "properties" => %{}
+      })
+      |> Map.put("remote_access_requested", true)
+
+    approved_conn =
+      attack_conn
+      |> recycle()
+      |> post(~p"/api/v1/devices/register", approved_params)
+
+    assert %{
+             "id" => ^id,
+             "approval_status" => "approved",
+             "api_token" => api_token
+           } = json_response(approved_conn, 201)["data"]
+
+    refute Map.has_key?(json_response(approved_conn, 201)["data"], "registration_token")
+    assert is_binary(api_token)
+    assert api_token != ""
+
+    updated = Devices.get_device!(id)
+    assert updated.product_name == "updated-client"
+    assert updated.remote_access_requested == false
+    assert Devices.authenticate_device(updated, api_token) == :ok
+    assert Devices.authenticate_device(updated, registration_token) == {:error, :invalid_token}
+
+    retry_conn = approved_conn |> recycle() |> post(~p"/api/v1/devices/register", approved_params)
+    assert json_response(retry_conn, 201)["data"]["api_token"] == api_token
   end
 
   test "GET /api/v1/devices filters by product/account/approval status", %{conn: conn} do

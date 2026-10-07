@@ -54,5 +54,5 @@ server-provided FRPS token flow. Durable client behavior is documented in
 
 - Unit tests for identity, config, transport, command handling, scripts, and FRP manager behavior.
 - Integration tests against mock server protocol responses.
-- `GOEXPERIMENT=jsonv2 go test ./...` in `packages/client`.
+- `go test ./...` in `packages/client`.
 - Release artifact validation for supported packaging outputs.

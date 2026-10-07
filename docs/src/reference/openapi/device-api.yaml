@@ -59,7 +59,7 @@ paths:
     post:
       security: []
       summary: Register a managed device
-      description: Registration is the credential issuance boundary. Public registration requires a schema payload. Approved devices receive an API token; pending devices do not. The additive generated registration action shares this behavior; compatibility tests preserve pending and approved token behavior.
+      description: Registration requires a product schema and a client-prepared proof saved before the initial request. Only hashes are stored server-side. Approved exchanges require a distinct, durably saved replacement_token and atomically verify proof, update device-owned attributes, and rotate the hash. Retrying with the committed replacement returns the same runtime token without further mutation. The old proof alone cannot exchange again. Operator-owned approval and remote-access settings are ignored.
       requestBody:
         required: true
         content:
@@ -97,6 +97,15 @@ paths:
                   type: string
                   format: ipv4
                   description: Optional direct IPv4 value; when absent, registration may use metadata.ip_address.
+                registration_token:
+                  type: string
+                  description: Required for initial registration and proof-bearing re-registration. Initially generate 32 cryptographically random bytes encoded as 43 unpadded base64url characters and persist them before sending. After enrollment, use the current runtime API token for a new credential rotation.
+                replacement_token:
+                  type: string
+                  minLength: 43
+                  maxLength: 43
+                  pattern: '^[A-Za-z0-9_-]{43}$'
+                  description: Required for an approved credential exchange. Generate a distinct random 32-byte base64url token and persist it before sending. Reuse it across retries; possession of the committed replacement recovers the same api_token until another rotation supersedes it.
               anyOf:
                 - required: [schema_definition]
                 - required: [schema]
@@ -139,9 +148,15 @@ paths:
                       api_token:
                         type: string
                         nullable: true
-                        description: Present only after server approval.
+                        description: The accepted client-prepared replacement, returned after an approved exchange or a retry bearing that committed replacement.
+                      registration_token:
+                        type: string
+                        nullable: true
+                        description: Echoes the client-prepared proof when a pending enrollment first claims the empty token slot. The client must already have saved it before sending.
+        "403":
+          description: Existing MAC requires a valid current proof or the committed replacement for retry recovery.
         "422":
-          description: Missing or invalid registration schema
+          description: Missing or invalid schema, initial proof, or required replacement credential
         "429":
           description: Registration rate limit exceeded
   /api/v1/devices/{id}/heartbeat:

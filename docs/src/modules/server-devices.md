@@ -109,7 +109,12 @@ metadata payloads.
   tests continue to cover authentication, pending/approved registration token
   behavior, heartbeat directives, command results, payloads, and status-code
   semantics.
-- `POST /api/v1/devices/register` calls `Devices.register_public_device/1`.
+- Both registration transports call `Devices.register_runtime_device/1`.
+  Initial enrollment claims a client-prepared proof hash; approved exchanges
+  atomically verify the current proof, update device-owned attributes, and store
+  the client-prepared replacement hash. Retries bearing the committed replacement
+  return the same runtime token without mutation. Registration cannot overwrite
+  operator-owned approval or remote-access settings.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested and the shared FRPS token exists, the response also carries the device's named, versioned `remote_access_profile` reference. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.

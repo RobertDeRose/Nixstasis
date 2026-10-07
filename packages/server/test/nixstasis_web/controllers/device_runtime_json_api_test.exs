@@ -81,11 +81,12 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)
   end
 
-  test "generated registration is public and returns pending devices without a token", %{conn: conn} do
+  test "generated registration is public and returns pending proof without a runtime token", %{conn: conn} do
     params = %{
       "data" => %{
         "mac_address" => "AA:BB:CC:DD:EE:03",
         "product_name" => "runtime-new",
+        "registration_token" => String.duplicate("p", 43),
         "schema_definition" => %{"product" => "runtime-new", "type" => "object", "properties" => %{}},
         "ipv4_address" => "192.0.2.12"
       }
@@ -114,6 +115,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       "data" => %{
         "mac_address" => approved.mac_address,
         "product_name" => approved.product_name,
+        "registration_token" => old_token,
+        "replacement_token" => String.duplicate("r", 43),
         "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
       }
     }
@@ -135,6 +138,47 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     {:ok, updated} = Devices.get_device(approved.id)
     assert {:error, :invalid_token} = Devices.authenticate_device(updated, old_token)
     assert :ok = Devices.authenticate_device(updated, new_token)
+
+    retry_conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/register", params)
+
+    assert json_response(retry_conn, 201)["data"]["api_token"] == new_token
+    assert :ok = Devices.authenticate_device(Devices.get_device!(approved.id), new_token)
+  end
+
+  test "generated registration rejects invalid proof and missing replacement before mutation", %{
+    conn: conn,
+    approved: approved,
+    token: old_token
+  } do
+    attrs = %{
+      "mac_address" => approved.mac_address,
+      "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}},
+      "registration_token" => old_token,
+      "replacement_token" => String.duplicate("r", 43),
+      "metadata" => %{"must_not" => "persist"}
+    }
+
+    for {params, status} <- [
+          {Map.put(attrs, "registration_token", "wrong-proof"), 403},
+          {Map.delete(attrs, "replacement_token"), 400}
+        ] do
+      result =
+        conn
+        |> recycle()
+        |> put_req_header("accept", "application/vnd.api+json")
+        |> put_req_header("content-type", "application/vnd.api+json")
+        |> post("/api/json/device_runtime/devices/register", %{"data" => params})
+
+      assert is_list(json_response(result, status)["errors"])
+      persisted = Devices.get_device!(approved.id)
+      assert persisted.metadata == approved.metadata
+      assert persisted.api_token_hash == approved.api_token_hash
+    end
   end
 
   test "generated heartbeat preserves telemetry, inventory, commands, probe, and remote access", %{

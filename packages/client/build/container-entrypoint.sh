@@ -55,7 +55,7 @@ write_compose_config() {
     return
   fi
 
-  api_url="${NIXSTASIS_API_URL:-http://localhost:4000}"
+  api_url="${NIXSTASIS_API_URL:-https://localhost:4000}"
   poll_interval="${NIXSTASIS_POLL_INTERVAL:-10s}"
   frp_server_addr="${NIXSTASIS_FRP_SERVER_ADDR:-nixstasis.example.com}"
   frp_server_port="${NIXSTASIS_FRP_SERVER_PORT:-7000}"

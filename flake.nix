@@ -56,7 +56,6 @@
           vendorHash = "sha256-YcSImzcTNhVLNq9vFnDA0PIgQJYZm+HqMxHGHqW3CH4=";
 
           env.CGO_ENABLED = "0";
-          env.GOEXPERIMENT = "jsonv2";
 
           subPackages = [ "cmd/nixstasis" ];
           ldflags = [

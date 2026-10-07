@@ -7,6 +7,7 @@ sequenceDiagram
     autonumber
     participant Operator
     participant Client as nixstasis client
+    participant Pending as registration state
     participant Identity as identity store
     participant Phoenix
     participant Devices as Devices context
@@ -14,30 +15,38 @@ sequenceDiagram
 
     Operator->>Client: nixstasis register
     Client->>Client: Detect MAC/IP and product metadata
-    Client->>Phoenix: POST /api/v1/devices/register
-    Phoenix->>Devices: register_device(params)
-    Devices->>Domain: register_device(params)
-    Domain-->>Devices: device record and approval state
-    Devices-->>Phoenix: registration result
-    Phoenix-->>Client: 201 data.id and optional api_token
-    Client->>Identity: Save UUID
+    Client->>Pending: Save random proof + proposed runtime token
+    Client->>Phoenix: POST /api/v1/devices/register + saved proof
+    Phoenix->>Devices: register_runtime_device(params)
+    Devices->>Domain: create pending device
+    Devices-->>Phoenix: device + accepted registration token
+    Phoenix-->>Client: 201 data.id + registration_token
+    Client->>Pending: Save UUID with prepared credentials
+    Operator->>Phoenix: Approve pending device
+    Client->>Phoenix: POST register + proof + replacement_token
+    Phoenix->>Devices: Atomic proof verification, update, and exchange
+    Devices-->>Phoenix: Commit replacement hash or recover matching retry
+    Phoenix-->>Client: 201 data.id + api_token
+    Client->>Identity: Save UUID + runtime token
+    Client->>Pending: Remove registration proof
 ```
 
 1. Operator or service invokes `nixstasis register`.
 2. Client detects primary MAC and IP through `internal/identity`.
-3. Client generates a device name from the MAC address.
-4. Client sends `POST /api/v1/devices/register` with `mac_address`, optional `product_name`, a required schema payload, and optional `metadata`.
-5. Phoenix `DeviceController.register/2` calls `Nixstasis.Devices.register_public_device/1`.
-6. `Devices.register_public_device/1` validates the supplied schema definition and calls `Nixstasis.Domain.register_device/1`.
-7. Server responds `201` with `data.id` and includes `data.api_token` when the device is approved.
-8. Client stores UUID through `identity.Store.SaveUUID` at `config.IdentityPath()` and uses the issued token for runtime API calls.
+3. Before sending a request, the client saves a random `registration_token` and distinct proposed `replacement_token` at `config.RegistrationPath()` with owner-only permissions. Recovery state takes precedence over an existing identity file. The request includes the saved credentials, `mac_address`, product/schema data, and optional metadata.
+4. A new or legacy pending device without an enrollment proof accepts the client-prepared `registration_token`; only its hash is stored server-side. Device creation or attribute updates and the empty-slot claim share a transaction. Concurrent requests with different proofs cannot overwrite the winning hash. The winning proof remains available locally even if the response is lost.
+5. Re-registration of an existing enrolled MAC is denied before any record mutation unless the request supplies the matching proof or current runtime API token. Public registration allowlists device-owned attributes and never changes `approval_status`, `remote_access_requested`, or `remote_access_profile`.
+6. Approval preserves the enrollment-proof hash, but the `registration:` marker prevents that proof from authenticating heartbeat or other runtime endpoints.
+7. After approval, the client exchanges the proof for its saved `replacement_token`. Proof verification, a conditional hash update, and attribute updates share a transaction. The old proof becomes invalid. Identical retries carrying the committed replacement recover the same runtime token without further mutation; competing exchanges with different replacements are forbidden.
+8. Client stores UUID and runtime token at `config.IdentityPath()` and removes the temporary registration state. Failed identity saves retain runtime credentials in the recovery store, so a stale identity cannot shadow them. Lost responses and restarts reuse the prepared secrets.
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/register.go:28-93`
-- `packages/client/internal/transport/client.go:84-121`
-- `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-37`
-- `packages/server/lib/nixstasis/devices.ex:51-83`
+- `packages/client/cmd/nixstasis/register.go`
+- `packages/client/internal/transport/client.go`
+- `packages/client/internal/identity/store.go`
+- `packages/server/lib/nixstasis_web/controllers/device_controller.ex`
+- `packages/server/lib/nixstasis/devices.ex`
 
 ## Polling and Telemetry
 

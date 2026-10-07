@@ -20,7 +20,8 @@ command-result acknowledgement, and deferred command-payload retrieval.
 The existing Go client remains on the compatible `/api/v1` transport. Generated
 routes share the same domain orchestration and preserve device authentication,
 status codes, response shapes, rate limits, telemetry, command delivery,
-replay, and payload behavior without requiring an unversioned client migration.
+replay, and payload behavior at original delivery. The October 2026 enrollment
+security reconciliation below adds credential requirements to both transports.
 
 ## User-Facing Behavior
 
@@ -57,8 +58,10 @@ Go client's boundary until a separately reviewed client migration.
 
 ## Operational Impact
 
-No deployment migration, client upgrade, or new configuration is required for
-the additive generated routes. Operators and integrators should use the
+The original additive generated routes required no deployment migration, client
+upgrade, or new configuration. The subsequent enrollment security reconciliation
+requires a coordinated client/server upgrade: clients must persist an initial
+proof and proposed replacement before registration requests. Operators and integrators should use the
 committed generated OpenAPI for new Ash consumers and retain the bespoke
 compatibility references when an existing client requires `/api/v1` envelopes
 or statuses.
@@ -185,3 +188,18 @@ implementation follow-up evidence are recorded in Beads and `/tmp` review
 artifacts. Close-out documentation and holistic delivery/drift reviews are
 recorded on `nixstasis-zf5.8` through `nixstasis-zf5.12`; delivery remains a
 separate explicit action.
+
+### October 2026 Enrollment Security Reconciliation
+
+Registration now uses client-prepared, durably saved credentials so lost responses
+and process restarts can recover. Approved exchanges verify proof, update only
+device-owned fields, and rotate the hash atomically. A retry bearing the committed
+replacement returns the same runtime token without mutation; a superseded proof
+cannot rotate again. Recovery files take precedence over stale runtime identities.
+
+The Go transport and both E2E registration callers, generated OpenAPI, bespoke
+device API reference, and reader-facing enrollment documentation use this contract.
+No database migration or plaintext server-side credential storage is required.
+Regression evidence is in `packages/server/test/nixstasis/devices/enrollment_test.exs`
+and `packages/client/cmd/nixstasis/register_test.go`, with retries also covered at
+both HTTP registration surfaces.

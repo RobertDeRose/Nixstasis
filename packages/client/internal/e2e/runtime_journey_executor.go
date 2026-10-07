@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -28,14 +29,18 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	account := generateAccountNumber()
 	productName := fmt.Sprintf("runtime-linux-e2e-%d", time.Now().UnixNano())
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
-	deviceID, err := apiClient.RegisterDevice(ctx, identity.DeviceIdentity{
-		MACAddress: mac,
-		Name:       productName,
-	})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
 	if err != nil {
 		return stepOutcome{}, err
 	}
+	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
+		MACAddress: mac,
+		Name:       productName,
+	}, identity.NewToken())
+	if err != nil && !errors.Is(err, transport.ErrDevicePendingApproval) {
+		return stepOutcome{}, err
+	}
+	deviceID := credentials.UUID
 
 	if deviceID == "" {
 		return stepOutcome{}, assertionFailure(
@@ -86,6 +91,7 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	state.DeviceID = deviceID
 	state.DeviceMac = mac
 	state.ProductName = productName
+	state.RegistrationToken = credentials.RegistrationToken
 
 	return stepOutcome{
 		ResponseType: responseTypeJSON,
@@ -158,11 +164,14 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 		return stepOutcome{}, err
 	}
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: state.DeviceMac,
 		Name:       state.ProductName,
-	})
+	}, state.RegistrationToken, identity.NewToken())
 	if err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeHTTPRequestFailed,
@@ -408,7 +417,10 @@ func (e *journeyExecutor) runtimePollWithScripts(ctx context.Context, state *jou
 
 	pollStart := time.Now()
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	apiClient.SetAPIKey(state.DeviceToken)
 	scripts, err := script.DiscoverScripts(scriptDir)
 	if err != nil {

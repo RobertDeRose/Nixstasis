@@ -97,10 +97,16 @@ The server treats managed devices as long-lived identities with dynamic
 telemetry payloads.
 
 - Registration is keyed by device identity such as MAC address and product
-  context; re-registration updates the existing device rather than creating a
-  duplicate identity.
+  context. A new/pending device accepts a client-prepared enrollment proof; subsequent
+  re-registration of that MAC must prove possession before the existing record is
+  updated.
 - Unknown or unapproved devices enter the pending-approval workflow and do not
-  receive runtime API credentials until approved.
+  receive runtime API credentials until an approved proof exchange rotates the
+  enrollment proof into the runtime token.
+- The client persists both proof and replacement token before the request. The
+  server atomically verifies, updates device-owned attributes, and exchanges the
+  credential hash. Possession of the committed replacement recovers a lost
+  response without reapplying updates; a superseded proof cannot exchange again.
 - Approved devices receive a persistent runtime API token used by heartbeat,
   command-result, and deferred command-payload endpoints.
 - Device telemetry is stored as dynamic JSON payloads so Stary/Starlark scripts

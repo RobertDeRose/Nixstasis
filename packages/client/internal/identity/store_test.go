@@ -53,3 +53,19 @@ func TestLoadUUIDNormalizesValidIdentity(t *testing.T) {
 		t.Fatalf("LoadUUID() = %q", uuid)
 	}
 }
+
+func TestStoreRemoveDeletesCredentials(t *testing.T) {
+	path := t.TempDir() + "/registration"
+	store := NewStore(path)
+	credentials := Credentials{UUID: "a0ebd0b2-63e6-4a74-8b8c-7084c18c45e8", Token: "proof"}
+
+	if err := store.Save(credentials); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if err := store.Remove(); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+	if _, err := store.Load(); !errors.Is(err, ErrNoIdentity) {
+		t.Fatalf("Load() after Remove() error = %v, want ErrNoIdentity", err)
+	}
+}
