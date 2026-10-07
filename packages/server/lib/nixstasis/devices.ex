@@ -555,7 +555,7 @@ defmodule Nixstasis.Devices do
     |> maybe_limit(limit)
     |> maybe_select(select)
     |> maybe_load_device_groups(load_device_groups?)
-    |> Ash.read!(domain: Domain)
+    |> Ash.read!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
@@ -563,8 +563,9 @@ defmodule Nixstasis.Devices do
 
   The action keeps filter normalization and the compatibility response fields in
   the Devices context so generated and `/api/v1` transports use the same boundary.
+  The optional trusted actor applies Device read policies to the nested query.
   """
-  def runtime_list(params \\ %{}) when is_map(params) do
+  def runtime_list(params \\ %{}, opts \\ []) when is_map(params) and is_list(opts) do
     filter = %{
       approval_status: runtime_param(params, :approval_status),
       connectivity_status: runtime_param(params, :connectivity_status),
@@ -575,7 +576,7 @@ defmodule Nixstasis.Devices do
 
     %{
       data:
-        list_devices(filter: filter)
+        list_devices(filter: filter, actor: Keyword.get(opts, :actor))
         |> Enum.map(&runtime_list_device_data/1),
       meta: %{active_filters: runtime_active_filters(params)}
     }

@@ -136,6 +136,7 @@
 - AshJsonApi
 - AshPhoenix
 - AshPostgres
+- SimpleSat, the pure-Elixir SAT solver required by Ash policy filtering.
 
 ## Client-Server Interaction Details
 
@@ -146,6 +147,11 @@
   means unscoped fleet access for a role that can view devices; an explicit empty scope
   returns no device-backed rows, and malformed device IDs fail closed. Internal domain
   calls that do not supply an operator actor retain their existing behavior.
+- The generated runtime device list forwards its trusted operator actor to the
+  nested Device read, enforcing the same policies as generic device reads.
+  Device-runtime heartbeat, result acknowledgement, and payload actions require
+  the authenticated device actor to match the requested device ID; operator
+  mutations retain the `JsonApiPermissions` capability and device-scope checks.
 - Resource route groups:
   - `/api/json/devices`
   - `/api/json/pending_commands`

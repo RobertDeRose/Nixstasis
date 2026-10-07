@@ -52,6 +52,7 @@ defmodule Nixstasis.MixProject do
       {:ash_json_api, "~> 1.0"},
       {:ash_phoenix, "~> 2.0"},
       {:ash, "~> 3.0"},
+      {:simple_sat, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:dns_cluster, "~> 0.2"},
       {:ecto_psql_extras, "~> 0.6"},

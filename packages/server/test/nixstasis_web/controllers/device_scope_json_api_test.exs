@@ -141,6 +141,25 @@ defmodule NixstasisWeb.DeviceScopeJSONAPITest do
     end
   end
 
+  test "generated runtime list applies the trusted actor to its nested device query", context do
+    path = "/api/json/device_runtime/devices"
+
+    body = scoped_get(context.conn, path, [context.device_a.id]) |> json_response(200)
+    assert Enum.map(body["data"], & &1["id"]) == [context.device_a.id]
+
+    body = context.conn |> recycle() |> scoped_get(path, []) |> json_response(200)
+    assert body["data"] == []
+
+    body =
+      context.conn
+      |> recycle()
+      |> scoped_get(path <> "?product=scope-b", [context.device_a.id])
+      |> json_response(200)
+
+    assert body["data"] == []
+    assert body["meta"]["active_filters"]["product"] == "scope-b"
+  end
+
   test "malformed device scope is rejected before querying device-backed resources", %{conn: conn} do
     conn =
       conn
