@@ -1,7 +1,9 @@
 defmodule Nixstasis.SettingsTest do
   use Nixstasis.DataCase
 
+  alias Nixstasis.Repo
   alias Nixstasis.Settings
+  alias Nixstasis.SystemSetting
 
   describe "get_offline_window/0" do
     test "returns a positive integer stored as a number" do
@@ -11,19 +13,19 @@ defmodule Nixstasis.SettingsTest do
     end
 
     test "returns a positive integer stored as a string" do
-      assert {:ok, _setting} = Settings.put_setting("offline_window", %{"minutes" => "20"})
+      Repo.insert!(%SystemSetting{key: "offline_window", value: %{"minutes" => "20"}})
 
       assert Settings.get_offline_window() == 20
     end
 
     test "falls back to default for invalid stored values" do
-      assert {:ok, _setting} = Settings.put_setting("offline_window", %{"minutes" => "not-a-number"})
+      Repo.insert!(%SystemSetting{key: "offline_window", value: %{"minutes" => "not-a-number"}})
 
       assert Settings.get_offline_window() == 10
     end
 
     test "falls back to default for non-positive stored values" do
-      assert {:ok, _setting} = Settings.put_setting("offline_window", %{"minutes" => 0})
+      Repo.insert!(%SystemSetting{key: "offline_window", value: %{"minutes" => 0}})
 
       assert Settings.get_offline_window() == 10
     end
@@ -40,7 +42,7 @@ defmodule Nixstasis.SettingsTest do
 
     test "rejects invalid minutes without creating a setting" do
       for input <- [0, -5, 1.5, "0", "-5", "1.5", "", " ", "15minutes", nil, true, %{}, []] do
-        assert {:error, :invalid_offline_window} =
+        assert {:error, %Ash.Error.Invalid{}} =
                  Settings.put_offline_window(%{"can_manage" => true}, input)
 
         assert Settings.get_setting("offline_window") == nil
@@ -51,13 +53,26 @@ defmodule Nixstasis.SettingsTest do
       assert {:ok, _setting} = Settings.put_offline_window(%{"can_manage" => true}, 25)
 
       for input <- ["0", "-5", "1.5", "not-a-number"] do
-        assert {:error, :invalid_offline_window} =
+        assert {:error, %Ash.Error.Invalid{}} =
                  Settings.put_offline_window(%{"can_manage" => true}, input)
 
         assert Settings.get_setting("offline_window") == %{"minutes" => 25}
         assert Settings.get_offline_window() == 25
       end
     end
+  end
+
+  test "raw context writes use resource validation and normalization" do
+    assert {:error, %Ash.Error.Invalid{}} = Settings.put_setting("offline_window", %{"minutes" => 0})
+    assert Settings.get_setting("offline_window") == nil
+
+    assert {:ok, setting} = Settings.put_setting("offline_window", %{"minutes" => " 15 "})
+    assert setting.value == %{"minutes" => 15}
+
+    assert {:error, %Ash.Error.Invalid{}} =
+             Settings.put_setting("notifications", %{"webhook_url" => "https://127.0.0.1/internal"})
+
+    assert Settings.get_setting("notifications") == nil
   end
 
   describe "operator-managed settings" do
@@ -75,7 +90,7 @@ defmodule Nixstasis.SettingsTest do
     end
 
     test "rejects private webhook destinations before saving" do
-      assert {:error, {:invalid_webhook_url, :non_public_address}} =
+      assert {:error, %Ash.Error.Invalid{}} =
                Settings.put_notifications_config(%{"can_manage" => true}, %{
                  "email" => "alerts@example.com",
                  "webhook_url" => "https://127.0.0.1/internal"
@@ -87,11 +102,10 @@ defmodule Nixstasis.SettingsTest do
     test "blank webhook input preserves the masked stored destination and explicit clear removes it" do
       stored_url = "https://hooks.example.invalid/alert?token=stored-secret"
 
-      assert {:ok, _setting} =
-               Settings.put_setting("notifications", %{
-                 "email" => "old@example.com",
-                 "webhook_url" => stored_url
-               })
+      Repo.insert!(%SystemSetting{
+        key: "notifications",
+        value: %{"email" => "old@example.com", "webhook_url" => stored_url}
+      })
 
       assert {:ok, _setting} =
                Settings.put_notifications_config(%{"can_manage" => true}, %{

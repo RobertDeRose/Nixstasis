@@ -62,10 +62,17 @@
   minutes (including trimmed integer strings), store an integer, and reject
   invalid values without changing the saved window or reporting success. The
   default is 10 minutes; legacy invalid stored values still use that fallback.
+  Validation and normalization run in `SystemSetting` create/update actions for
+  both context writes and JSON:API POST/PATCH; invalid API writes return `400`
+  validation errors without changing the saved value.
 - System monitoring and notification settings are admin-only in the LiveView,
   matching the generated JSON:API system-settings boundary. Stored webhook URLs
   are never rendered back into the form; leaving the replacement field blank
-  preserves the current destination and removal is explicit.
+  preserves the current destination and removal is explicit. JSON:API PATCH
+  replaces the value map; a null or blank `webhook_url` clears the destination.
+  New or changed webhook URLs are validated before saving through either surface.
+  Unchanged legacy destinations can be preserved without resolving them at save
+  time; they still undergo the delivery-time checks below.
 - Webhook destinations must use HTTPS. Phoenix resolves them before each
   delivery, rejects loopback/private/link-local/reserved answers, pins the
   request to a validated public address while retaining the original hostname

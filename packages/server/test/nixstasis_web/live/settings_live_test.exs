@@ -72,14 +72,14 @@ defmodule NixstasisWeb.SettingsLiveTest do
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => "alerts@example.com",
-               "webhook_url" => "https://hooks.example.invalid/alert?token=stored-secret"
+               "webhook_url" => "https://93.184.216.34/alert?token=stored-secret"
              })
 
     {:ok, _view, html} = live(conn, ~p"/settings")
 
     assert html =~ "A webhook is configured"
     refute html =~ "stored-secret"
-    refute html =~ "hooks.example.invalid"
+    refute html =~ "93.184.216.34"
   end
 
   test "private webhook destinations are rejected without replacing the stored value", %{conn: conn} do
@@ -99,7 +99,7 @@ defmodule NixstasisWeb.SettingsLiveTest do
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => "alerts@example.com",
-               "webhook_url" => "https://hooks.example.invalid/alert?token=stored-secret"
+               "webhook_url" => "https://93.184.216.34/alert?token=stored-secret"
              })
 
     {:ok, view, _html} = live(conn, ~p"/settings")

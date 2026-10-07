@@ -146,13 +146,15 @@ defmodule NixstasisWeb.SettingsLive do
 
           {:noreply,
            socket
+           |> clear_flash(:error)
            |> put_flash(:info, "Notification settings updated")
            |> assign(:webhook_configured, webhook_configured?(notifications))
            |> assign(:form, settings_form(socket.assigns.offline_window, notifications))}
 
-        {:error, {:invalid_webhook_url, _reason}} ->
+        {:error, %Ash.Error.Invalid{}} ->
           {:noreply,
            socket
+           |> clear_flash(:info)
            |> put_flash(:error, "Webhook URL must use HTTPS and resolve only to public network addresses")
            |> assign(
              :form,

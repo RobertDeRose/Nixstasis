@@ -54,7 +54,7 @@ defmodule NixstasisWeb.Permissions do
     permissions = device_permissions(session)
 
     with {:ok, actor_id} <- group_actor_id(session),
-         {:ok, authorized_device_ids} <- validate_group_device_scope(authorized_device_ids(permissions)) do
+         {:ok, authorized_device_ids} <- validate_device_scope(authorized_device_ids(permissions)) do
       {:ok,
        %GroupAuthorization{
          actor_id: actor_id,
@@ -170,9 +170,24 @@ defmodule NixstasisWeb.Permissions do
 
   def can_assign_command_policy_to_device?(_session, _device), do: false
 
-  defp validate_group_device_scope(nil), do: {:ok, nil}
+  @doc "Builds the device-read actor from trusted operator permissions."
+  def device_read_actor(session) do
+    permissions = device_permissions(session)
 
-  defp validate_group_device_scope(%MapSet{} = ids) do
+    with {:ok, device_ids} <- validate_device_scope(authorized_device_ids(permissions)) do
+      {:ok,
+       %{
+         can_view_device_data: can_view_device_details?(permissions),
+         unscoped_device_access: is_nil(device_ids),
+         authorized_device_ids: if(is_nil(device_ids), do: [], else: MapSet.to_list(device_ids))
+       }}
+    end
+  end
+
+  @doc "Normalizes a trusted UUID scope, preserving unscoped and explicit deny-all values."
+  def validate_device_scope(nil), do: {:ok, nil}
+
+  def validate_device_scope(%MapSet{} = ids) do
     Enum.reduce_while(ids, {:ok, MapSet.new()}, fn id, {:ok, valid_ids} ->
       case Ecto.UUID.cast(id) do
         {:ok, valid_id} -> {:cont, {:ok, MapSet.put(valid_ids, valid_id)}}
@@ -180,6 +195,8 @@ defmodule NixstasisWeb.Permissions do
       end
     end)
   end
+
+  def validate_device_scope(_scope), do: {:error, :invalid_device_scope}
 
   defp group_actor_id(session), do: actor_id(session)
 

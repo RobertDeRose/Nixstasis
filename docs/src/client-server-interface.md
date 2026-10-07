@@ -163,9 +163,13 @@ The Go client continues to use the `/api/v1` mapping above. All five device
 runtime actions are now available in the additive generated route family. The
 canonical contract for new integrations is:
 
-- `GET /api/json/device_runtime/devices` uses the operator bearer/device-view
-  boundary and the device list filters, including `ipv4_address` and
-  `connectivity_status`.
+- `GET /api/json/device_runtime/devices` and compatibility `GET /api/v1/devices`
+  require verified operator authentication and device-view permission. Both apply
+  the operator's device scope before list filters, including `ipv4_address` and
+  `connectivity_status`. An explicit empty scope returns no rows; an omitted scope
+  retains fleet access. The compatibility endpoint returns empty-body `401` for
+  missing/invalid authentication and `403` for missing permission or malformed
+  scope. The explicit local-development fallback remains supported.
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device API key.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated

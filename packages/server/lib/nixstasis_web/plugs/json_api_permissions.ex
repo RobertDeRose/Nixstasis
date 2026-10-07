@@ -41,7 +41,7 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     context = context_from_conn(conn)
 
     if permitted?(context, policy) do
-      case operator_actor(context) do
+      case Permissions.device_read_actor(context) do
         {:ok, actor} -> Ash.PlugHelpers.set_actor(conn, actor)
         {:error, :invalid_device_scope} -> forbidden(conn)
       end
@@ -99,36 +99,6 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
       :error -> nil
     end
   end
-
-  defp operator_actor(context) when is_map(context) do
-    permissions = Map.get(context, "device_permissions", %{})
-
-    with {:ok, authorized_device_ids} <- validated_device_scope(Permissions.authorized_device_ids(permissions)) do
-      {:ok,
-       %{
-         can_view_device_data: Permissions.can_view_device_details?(permissions),
-         unscoped_device_access: is_nil(authorized_device_ids),
-         authorized_device_ids: authorized_device_ids || []
-       }}
-    end
-  end
-
-  defp validated_device_scope(nil), do: {:ok, nil}
-
-  defp validated_device_scope(%MapSet{} = ids) do
-    Enum.reduce_while(ids, {:ok, []}, fn id, {:ok, valid_ids} ->
-      case Ecto.UUID.cast(id) do
-        {:ok, valid_id} -> {:cont, {:ok, [valid_id | valid_ids]}}
-        :error -> {:halt, {:error, :invalid_device_scope}}
-      end
-    end)
-    |> case do
-      {:ok, valid_ids} -> {:ok, Enum.reverse(valid_ids)}
-      error -> error
-    end
-  end
-
-  defp validated_device_scope(_ids), do: {:error, :invalid_device_scope}
 
   defp permitted?(nil, _policy), do: false
 

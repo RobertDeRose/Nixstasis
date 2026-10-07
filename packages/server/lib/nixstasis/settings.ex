@@ -32,10 +32,7 @@ defmodule Nixstasis.Settings do
   end
 
   def put_offline_window(%{"can_manage" => true}, minutes) do
-    case parse_positive_integer(minutes, nil) do
-      nil -> {:error, :invalid_offline_window}
-      minutes -> put_setting("offline_window", %{"minutes" => minutes})
-    end
+    put_setting("offline_window", %{"minutes" => minutes})
   end
 
   def put_offline_window(_permissions, _minutes), do: {:error, :forbidden}
@@ -43,12 +40,10 @@ defmodule Nixstasis.Settings do
   def put_notifications_config(%{"can_manage" => true}, params) when is_map(params) do
     existing = get_notifications_config()
 
-    with {:ok, webhook_url} <- next_webhook_url(existing, params) do
-      put_setting("notifications", %{
-        "email" => normalize_optional_string(Map.get(params, "email")),
-        "webhook_url" => webhook_url
-      })
-    end
+    put_setting("notifications", %{
+      "email" => normalize_optional_string(Map.get(params, "email")),
+      "webhook_url" => next_webhook_url(existing, params)
+    })
   end
 
   def put_notifications_config(_permissions, _params), do: {:error, :forbidden}
@@ -68,17 +63,52 @@ defmodule Nixstasis.Settings do
     candidate = normalize_optional_string(Map.get(params, "webhook_url"))
 
     cond do
-      truthy?(Map.get(params, "clear_webhook_url")) ->
-        {:ok, nil}
+      truthy?(Map.get(params, "clear_webhook_url")) -> nil
+      is_nil(candidate) -> current
+      true -> candidate
+    end
+  end
 
-      is_nil(candidate) ->
-        {:ok, current}
+  @doc false
+  def normalize_value(key, value, previous_value)
 
-      true ->
-        case Webhook.validate_url(candidate) do
-          {:ok, _target} -> {:ok, candidate}
-          {:error, reason} -> {:error, {:invalid_webhook_url, reason}}
-        end
+  def normalize_value("offline_window", value, _previous_value) when is_map(value) do
+    case parse_positive_integer(Map.get(value, "minutes"), nil) do
+      nil -> {:error, "minutes must be a positive whole number"}
+      minutes -> {:ok, Map.put(value, "minutes", minutes)}
+    end
+  end
+
+  def normalize_value("notifications", value, previous_value) when is_map(value) do
+    url = Map.get(value, "webhook_url")
+    previous_url = if is_map(previous_value), do: Map.get(previous_value, "webhook_url")
+
+    with {:ok, url} <- validate_webhook_url(url, previous_url) do
+      {:ok,
+       value
+       |> Map.put("email", normalize_optional_string(Map.get(value, "email")))
+       |> Map.put("webhook_url", url)}
+    end
+  end
+
+  def normalize_value(_key, value, _previous_value), do: {:ok, value}
+
+  defp validate_webhook_url(url, previous_url) when is_binary(url) do
+    url = normalize_optional_string(url)
+
+    cond do
+      is_nil(url) or url == previous_url -> {:ok, url}
+      true -> validate_new_webhook_url(url)
+    end
+  end
+
+  defp validate_webhook_url(nil, _previous_url), do: {:ok, nil}
+  defp validate_webhook_url(_url, _previous_url), do: {:error, "webhook URL must be a string"}
+
+  defp validate_new_webhook_url(url) do
+    case Webhook.validate_url(url) do
+      {:ok, _target} -> {:ok, url}
+      {:error, _reason} -> {:error, "webhook URL must use HTTPS and resolve only to public network addresses"}
     end
   end
 

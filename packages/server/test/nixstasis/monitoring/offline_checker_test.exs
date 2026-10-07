@@ -88,7 +88,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => nil,
-               "webhook_url" => "https://hooks.example.test/alerts"
+               "webhook_url" => "https://93.184.216.34/alerts"
              })
 
     {:ok, device} = Devices.register_device(%{mac_address: "68:68:68:68:68:68", product_name: "P5"})
@@ -103,7 +103,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
 
     assert result.status == :success
 
-    assert_receive {:webhook_notification, "https://hooks.example.test/alerts", alert}, 1_000
+    assert_receive {:webhook_notification, "https://93.184.216.34/alerts", alert}, 1_000
     assert alert.type == :offline
   end
 
@@ -112,7 +112,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
 
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
-               "webhook_url" => "http://127.0.0.1:1/alerts"
+               "webhook_url" => "https://93.184.216.34/alerts"
              })
 
     {:ok, device} = Devices.register_device(%{mac_address: "77:77:77:77:77:77", product_name: "P4"})
@@ -135,7 +135,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
                "email" => "alerts@example.com",
-               "webhook_url" => "https://hooks.example.test/alerts"
+               "webhook_url" => "https://93.184.216.34/alerts"
              })
 
     {:ok, _rule} =
@@ -167,7 +167,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
     assert_receive {:email, email}, 1_000
     assert [{_, "alerts@example.com"}] = email.to
 
-    assert_receive {:webhook_notification, "https://hooks.example.test/alerts", alert}, 1_000
+    assert_receive {:webhook_notification, "https://93.184.216.34/alerts", alert}, 1_000
     assert alert.type == :threshold
   end
 
@@ -176,7 +176,7 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
 
     assert {:ok, _setting} =
              Settings.put_setting("notifications", %{
-               "webhook_url" => "http://127.0.0.1:1/alerts"
+               "webhook_url" => "https://93.184.216.34/alerts"
              })
 
     {:ok, _rule} =

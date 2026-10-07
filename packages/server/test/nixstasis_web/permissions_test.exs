@@ -5,6 +5,15 @@ defmodule NixstasisWeb.PermissionsTest do
   alias Nixstasis.Devices.GroupAuthorization
   alias NixstasisWeb.Permissions
 
+  test "trusted device scope validation preserves access modes and rejects malformed IDs" do
+    id = Ecto.UUID.generate()
+    assert Permissions.validate_device_scope(nil) == {:ok, nil}
+    assert Permissions.validate_device_scope(MapSet.new()) == {:ok, MapSet.new()}
+    assert Permissions.validate_device_scope(MapSet.new([String.upcase(id)])) == {:ok, MapSet.new([id])}
+    assert Permissions.validate_device_scope(MapSet.new([id, "invalid"])) == {:error, :invalid_device_scope}
+    assert Permissions.validate_device_scope([id]) == {:error, :invalid_device_scope}
+  end
+
   test "settings permissions require explicit management capability" do
     assert Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => true}})
     refute Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => false}})
