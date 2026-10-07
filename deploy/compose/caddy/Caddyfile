@@ -90,24 +90,28 @@ nixstasis.{$BASE_DOMAIN} {
 
   handle @device_registration {
     reverse_proxy nixstasis:{$PORT} {
+      header_up -X-Token-*
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
     }
   }
 
   handle @device_heartbeat {
     reverse_proxy nixstasis:{$PORT} {
+      header_up -X-Token-*
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
     }
   }
 
   handle @device_command_results {
     reverse_proxy nixstasis:{$PORT} {
+      header_up -X-Token-*
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
     }
   }
 
   handle @device_command_payload {
     reverse_proxy nixstasis:{$PORT} {
+      header_up -X-Token-*
       header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
     }
   }
