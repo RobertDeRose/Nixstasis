@@ -6,6 +6,8 @@ info:
 paths:
   /api/v1/reports/{id}/results:
     get:
+      security:
+        - operatorBearer: []
       summary: Fetch custom report result rows
       description: Runs a custom report for a verified operator with report-view permission and returns its selected fields plus result rows. Telemetry rows are constrained to the operator's authorized device IDs before report filtering, sorting, and pagination. This remains a bespoke result-shaping endpoint for now because it executes report query construction rather than simple CustomReport CRUD.
       parameters:
@@ -43,3 +45,9 @@ paths:
           description: The authenticated operator cannot view reports
         "404":
           description: Report not found or report result unavailable
+components:
+  securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer
+      description: Trusted operator bearer claims admitted by the Caddy/AuthCrunch edge.
