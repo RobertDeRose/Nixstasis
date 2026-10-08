@@ -9,6 +9,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import queue
 import socket
 import subprocess
 import tempfile
@@ -57,9 +58,11 @@ class EchoHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Echo a GET or POST as JSON so tests can inspect Caddy's forwarding.
 
-        The do_POST alias uses this same handler; no application authentication
-        runs here, because the assertions exercise the proxy boundary itself.
+        Record each arrival so rejection tests can prove that Caddy never sent
+        the request upstream. The do_POST alias uses this same handler; no
+        application authentication runs here because this tests the proxy boundary.
         """
+        self.server.requests.put((self.command, self.path))
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         payload = json.dumps({
             "headers": {k.lower(): v for k, v in self.headers.items()},
@@ -173,17 +176,18 @@ class ProxyClaimsTest(unittest.TestCase):
         proxy assertion fails. Each scope mode is reported as a separate subtest.
         """
         with ThreadingHTTPServer(("127.0.0.1", 0), EchoHandler) as backend:
+            backend.requests = queue.SimpleQueue()
             thread = threading.Thread(target=backend.serve_forever, daemon=True)
             thread.start()
             try:
                 for scoped in [False, True]:
                     with self.subTest(config=name, scoped=scoped):
-                        self.check_proxy(name, backend.server_port, scoped)
+                        self.check_proxy(name, backend, scoped)
             finally:
                 backend.shutdown()
                 thread.join()
 
-    def check_proxy(self, name, backend_port, scoped):
+    def check_proxy(self, name, backend, scoped):
         """Run one adapted Caddy instance and exercise its trusted-claim boundary.
 
         Use temporary config/data directories and a free local port. Fail with
@@ -193,7 +197,7 @@ class ProxyClaimsTest(unittest.TestCase):
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
         config = local_config(self.caddy, ROOT / "deploy/compose/caddy" / name,
-                              backend_port, port, scoped)
+                              backend.server_port, port, scoped)
         with tempfile.TemporaryDirectory(prefix="nixstasis-proxy-claims-") as tmp:
             config_path = Path(tmp) / "caddy.json"
             config_path.write_text(json.dumps(config))
@@ -215,6 +219,7 @@ class ProxyClaimsTest(unittest.TestCase):
                         except OSError:
                             time.sleep(0.05)
                     self.exercise_requests(port, scoped)
+                    self.exercise_rejected_connections(port, backend)
                 finally:
                     process.terminate()
                     try:
@@ -223,12 +228,14 @@ class ProxyClaimsTest(unittest.TestCase):
                         process.kill()
                         process.wait()
 
-    def request(self, port, method, path, authenticated=False):
+    def request(self, port, method, path, authenticated=False, extra_headers=()):
         """Send forged claim headers and return the proxy's status and body bytes.
 
         authenticated adds a genuine signed viewer token alongside the forged
-        headers so tests can distinguish trusted claims from client input. Use
-        the fixed runtime body and always close the local HTTP connection.
+        headers so tests can distinguish trusted claims from client input.
+        extra_headers accepts ordered name/value pairs, including repeated fields
+        needed to test Connection nominations. Use the fixed runtime body and
+        always close the local HTTP connection.
         """
         headers = dict(FORGED_HEADERS)
         headers["Host"] = "nixstasis.proxy.test"
@@ -236,7 +243,13 @@ class ProxyClaimsTest(unittest.TestCase):
             headers["Authorization"] = f"Bearer {signed_token()}"
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         try:
-            connection.request(method, path, body="runtime-body", headers=headers)
+            # Emit separate fields so repeated Connection headers are tested too.
+            body = b"runtime-body"
+            connection.putrequest(method, path, skip_host=True)
+            for name, value in [*headers.items(), *extra_headers]:
+                connection.putheader(name, value)
+            connection.putheader("Content-Length", str(len(body)))
+            connection.endheaders(body)
             response = connection.getresponse()
             return response.status, response.read()
         finally:
@@ -280,6 +293,44 @@ class ProxyClaimsTest(unittest.TestCase):
             self.assertEqual(json.loads(body)["headers"]["x-nixstasis-proxy-token"], PROXY_TOKEN)
             status, _body = self.request(port, "GET", path)
             self.assertIn(status, [302, 303, 401, 403])
+
+        status, body = self.request(port, "GET", "/live/websocket", authenticated=True,
+                                    extra_headers=[("Connection", "keep-alive, Upgrade"),
+                                                   ("Upgrade", "websocket")])
+        self.assertEqual(status, 200, body)
+        headers = json.loads(body)["headers"]
+        self.assertEqual(headers["connection"].lower(), "upgrade")
+        self.assertEqual(headers["upgrade"], "websocket")
+        self.assertEqual(headers.get("x-token-device-ids"), DEVICE_ID if scoped else None)
+        self.assertEqual(headers["x-token-user-roles"], "nixstasis/viewer")
+        self.assertEqual(headers["x-nixstasis-proxy-token"], PROXY_TOKEN)
+
+    def exercise_rejected_connections(self, port, backend):
+        """Assert that trusted-header Connection nominations never reach the backend.
+
+        Cover authenticated and anonymous operator/runtime requests, mixed case,
+        comma-separated values, and repeated fields in either order. Each request
+        must return 400 without increasing the upstream arrival count.
+        """
+        for header in FORGED_HEADERS:
+            for values in [
+                [header],
+                [f"keep-alive, \t{header.swapcase()}\t, Upgrade"],
+                ["keep-alive", header],
+                [header, "keep-alive"],
+            ]:
+                for authenticated in [False, True]:
+                    for method, path in [("GET", "/api/json/devices"),
+                                         ("POST", "/api/v1/devices/register")]:
+                        with self.subTest(connection=values, authenticated=authenticated, path=path):
+                            before = backend.requests.qsize()
+                            status, body = self.request(
+                                port, method, path, authenticated=authenticated,
+                                extra_headers=[("Connection", value) for value in values],
+                            )
+                            self.assertEqual(status, 400, body)
+                            self.assertEqual(backend.requests.qsize(), before,
+                                             "Rejected request reached the upstream")
 
     def test_production(self):
         """Verify the production Caddyfile's scoped and unrestricted claim boundary."""

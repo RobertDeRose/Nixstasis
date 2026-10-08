@@ -139,6 +139,11 @@ targeting the compose `postgres` host.
   headers at request entry, before AuthCrunch authorization injects verified
   claims. Device runtime requests reach Phoenix without operator claims;
   authorized operator requests retain only claims injected by AuthCrunch.
+- Those hosts reject requests with `400` before authorization or proxying if any
+  `Connection` header names an `X-Token-*` header or `X-Nixstasis-Proxy-Token`.
+  Matching is case-insensitive across comma-separated and repeated fields, so
+  hop-by-hop cleanup cannot remove verified device scope. Ordinary WebSocket
+  upgrade requests remain supported.
 - Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
   `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
   unless that internal proxy credential matches, so direct loopback or Compose

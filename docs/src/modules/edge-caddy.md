@@ -43,6 +43,13 @@ that would also remove the legitimate injected claims. Phoenix additionally
 requires the matching Caddy-to-Phoenix proxy credential before trusting claims;
 Caddy still enforces `authorize with entra_policy` on protected browser routes.
 
+Before authorization or proxying, both configurations reject requests with `400`
+when any `Connection` header names an `X-Token-*` header or
+`X-Nixstasis-Proxy-Token`. Matching is case-insensitive and covers comma-separated
+and repeated header fields. This prevents hop-by-hop cleanup from deleting a
+verified device scope, which Phoenix would otherwise interpret as unscoped
+access. Ordinary `Connection: Upgrade` requests remain supported.
+
 Group-to-role mapping happens in Caddy/AuthCrunch, not Phoenix. The production
 environment provides provider-specific OIDC group values in
 `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and
@@ -79,8 +86,10 @@ same Nixstasis role contract.
 - The Caddy image workflow runs real signed-JWT proxy checks for both production
   and laptop configurations through `check_runtime_contract.sh` with `CADDY_BIN`.
   These use loopback HTTP and an echo upstream, checking device claim removal,
-  operator claim injection, optional scope injection, and proxy-token overwrite;
-  they do not exercise TLS or OIDC login. See the
+  operator claim injection, optional scope injection, proxy-token overwrite,
+  rejection of trusted-header `Connection` nominations before upstream access,
+  and preservation of WebSocket upgrade headers; they do not exercise TLS,
+  OIDC login, or a full WebSocket handshake. See the
   [Compose validation commands](deployment-compose.md#contract-validation).
 - Wildcard device traffic is routed to FRPS HTTP vhost port.
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.

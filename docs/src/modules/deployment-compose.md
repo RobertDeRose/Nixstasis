@@ -93,6 +93,9 @@
   any AuthCrunch `X-Token-*` operator claims. Production and laptop Nixstasis
   hosts strip client-supplied `X-Token-*` headers before authorization; verified
   AuthCrunch claims are injected afterwards and retained on operator requests.
+  Requests naming any `X-Token-*` header or `X-Nixstasis-Proxy-Token` in
+  `Connection` receive `400` before authorization or proxying, preventing
+  hop-by-hop removal of trusted scope. Ordinary WebSocket upgrades are unaffected.
 - `AUTHORIZED_ROLES`: normalized Caddy/AuthCrunch roles allowed at the edge.
   Production should include `nixstasis/viewer`, `nixstasis/operator`, and
   `nixstasis/admin` as needed.
