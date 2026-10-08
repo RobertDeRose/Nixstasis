@@ -74,7 +74,9 @@
   Non-string, non-null webhook input is rejected without changing notification
   settings, including when the context write also requests explicit removal.
   Unchanged legacy destinations can be preserved without resolving them at save
-  time; they still undergo the delivery-time checks below.
+  time; they still undergo the delivery-time checks below. Authorized notification
+  save failures clear earlier success feedback; later successful saves clear
+  earlier errors. Failed saves leave the stored destinations unchanged.
 - Webhook destinations must use HTTPS. Phoenix resolves them before each
   delivery and rejects loopback/private/link-local/reserved answers. Native IPv6
   destinations must be in global-unicast space (`2000::/3`), excluding documentation,

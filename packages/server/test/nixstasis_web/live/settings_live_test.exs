@@ -4,6 +4,7 @@ defmodule NixstasisWeb.SettingsLiveTest do
   import Phoenix.LiveViewTest
 
   alias Nixstasis.Settings
+  alias NixstasisWeb.SettingsLive
 
   setup %{conn: conn} do
     conn =
@@ -66,6 +67,36 @@ defmodule NixstasisWeb.SettingsLiveTest do
       {:ok, reloaded, _html} = live(conn, ~p"/settings")
       assert has_element?(reloaded, "#monitoring-settings-form input[name=minutes][value='25']")
     end
+  end
+
+  test "generic notification errors replace earlier success feedback" do
+    socket = %Phoenix.LiveView.Socket{
+      assigns: %{__changed__: %{}, flash: %{}},
+      private: %{live_temp: %{}}
+    }
+
+    {:ok, socket} = SettingsLive.mount(%{}, %{"settings_permissions" => %{"can_manage" => true}}, socket)
+    params = %{"email" => "alerts@example.com", "webhook_url" => "", "clear_webhook_url" => "false"}
+
+    {:noreply, socket} = SettingsLive.handle_event("save_notifications", params, socket)
+    assert socket.assigns.flash["info"] == "Notification settings updated"
+    saved = Settings.get_notifications_config()
+    form = socket.assigns.form
+
+    # Non-map input reaches the generic error branch without mocking the context
+    # or forcing a database outage. The management permission remains unchanged.
+    {:noreply, socket} = SettingsLive.handle_event("save_notifications", nil, socket)
+    assert socket.assigns.flash["error"] == "Unable to update notification settings"
+    refute Map.has_key?(socket.assigns.flash, "info")
+    assert socket.assigns.form == form
+    assert Settings.get_notifications_config() == saved
+
+    {:noreply, socket} =
+      SettingsLive.handle_event("save_notifications", Map.put(params, "email", "updated@example.com"), socket)
+
+    assert socket.assigns.flash["info"] == "Notification settings updated"
+    refute Map.has_key?(socket.assigns.flash, "error")
+    assert Settings.get_notifications_config()["email"] == "updated@example.com"
   end
 
   test "stored webhook secrets are not rendered", %{conn: conn} do

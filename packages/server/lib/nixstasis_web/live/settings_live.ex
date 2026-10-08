@@ -136,7 +136,9 @@ defmodule NixstasisWeb.SettingsLive do
   can preserve, replace, or explicitly clear a webhook; invalid replacements
   remain in the form for correction. Successful writes update assigns and show
   confirmation, while failures show an error without claiming a successful save.
-  Unauthorized events leave settings unchanged. Returns `{:noreply, socket}`.
+  For authorized saves, failures clear earlier success feedback and later
+  successes clear earlier errors. Unauthorized events leave settings unchanged.
+  Returns `{:noreply, socket}`.
   """
   @impl true
   def handle_event("save_monitoring", %{"minutes" => minutes}, socket) do
@@ -188,7 +190,10 @@ defmodule NixstasisWeb.SettingsLive do
            )}
 
         {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Unable to update notification settings")}
+          {:noreply,
+           socket
+           |> clear_flash(:info)
+           |> put_flash(:error, "Unable to update notification settings")}
       end
     else
       unauthorized(socket)
