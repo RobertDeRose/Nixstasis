@@ -185,6 +185,8 @@ defmodule NixstasisWeb.DeviceScopeJSONAPITest do
     assert ids == MapSet.new([context.device_a.id, context.device_b.id])
   end
 
+  # Issue a JSON:API GET as a proxy-authenticated viewer with exactly these
+  # device IDs. An empty list still sends a scope header to test deny-all access.
   defp scoped_get(conn, path, device_ids) do
     conn
     |> put_req_header("accept", "application/vnd.api+json")

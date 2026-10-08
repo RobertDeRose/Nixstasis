@@ -46,6 +46,15 @@ defmodule NixstasisWeb.OperatorContext do
     | @device_scope_headers
   ]
 
+  @doc """
+  Builds operator identity and permissions from a proxy-authenticated connection.
+
+  Forwarded claim headers are trusted only when the proxy credential matches the
+  configured secret and at least one role is recognized. Returns `{:ok, context}`
+  on success or `:error` for untrusted or unusable claims. Requests without claim
+  headers return `:local_development` only when the local fallback is enabled;
+  this function does not verify an end-user bearer token itself.
+  """
   def from_conn(conn) do
     headers = Map.new(conn.req_headers)
 
@@ -64,6 +73,8 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  # Convert already-authenticated headers into identity, role capabilities, and
+  # device scope. Unknown roles alone cannot grant access and return :error.
   defp from_trusted_headers(headers) when is_map(headers) do
     roles = headers |> Map.get("x-token-user-roles") |> normalize_claim_values()
 
@@ -89,6 +100,12 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  @doc """
+  Returns full permissions for the explicitly enabled local browser-auth fallback.
+
+  Callers must check that fallback mode is allowed before using this map. It has
+  no device restriction and is not a substitute for production authentication.
+  """
   def local_development_permissions do
     %{
       "device_permissions" => %{"can_view" => true, "can_manage" => true, "can_remote_access" => true},
@@ -99,6 +116,12 @@ defmodule NixstasisWeb.OperatorContext do
     }
   end
 
+  @doc """
+  Returns a permission map that denies every supported operation.
+
+  Use it when claims cannot be trusted so a browser session does not retain
+  capabilities from an earlier authenticated request.
+  """
   def fail_closed_permissions do
     %{
       "device_permissions" => %{"can_view" => false, "can_manage" => false, "can_remote_access" => false},
@@ -113,6 +136,8 @@ defmodule NixstasisWeb.OperatorContext do
     Enum.any?(@token_headers, &Map.has_key?(headers, &1))
   end
 
+  # Check both proxy credentials for minimum strength, then compare fixed-size
+  # SHA-256 digests in constant time. Missing or malformed credentials deny trust.
   defp trusted_proxy?(headers) do
     expected = Application.get_env(:nixstasis, :proxy_auth_token)
     provided = Map.get(headers, @proxy_auth_header)
@@ -126,6 +151,7 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  # Proxy credentials must be strings with at least 32 bytes before comparison.
   defp valid_proxy_token?(token), do: is_binary(token) and byte_size(token) >= 32
 
   defp local_development_fallback? do
@@ -149,6 +175,8 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  # Add a recognized role's capabilities to the accumulated permissions.
+  # Grants are combined across roles; settings management remains admin-only.
   defp merge_role_permissions(role, permissions) do
     role_permissions = Map.fetch!(@role_capabilities, role)
 
@@ -179,6 +207,8 @@ defmodule NixstasisWeb.OperatorContext do
 
   defp normalize_claim_values(_value), do: []
 
+  # Merge the supported device-scope headers. No header means unrestricted scope
+  # (nil); a present but empty header means an explicit empty scope, denying rows.
   defp device_scope_from_headers(headers) do
     if Enum.any?(@device_scope_headers, &Map.has_key?(headers, &1)) do
       @device_scope_headers
@@ -188,6 +218,8 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  # Attach explicit device IDs, including an empty list. An absent scope leaves
+  # role permissions unchanged rather than turning unrestricted access into denial.
   defp scope_device_permissions(permissions, nil), do: permissions
 
   defp scope_device_permissions(permissions, device_ids) do

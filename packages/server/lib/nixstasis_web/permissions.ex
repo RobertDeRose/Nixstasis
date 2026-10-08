@@ -14,6 +14,12 @@ defmodule NixstasisWeb.Permissions do
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
+
+  @doc """
+  Extracts settings permissions from a trusted session or operator context.
+
+  Missing or malformed permission data becomes an empty map, granting nothing.
+  """
   def settings_permissions(session), do: permission_map(session, "settings_permissions")
   def script_permissions(session), do: permission_map(session, "script_permissions")
   def command_policy_permissions(session), do: permission_map(session, "command_policy_permissions")
@@ -49,7 +55,14 @@ defmodule NixstasisWeb.Permissions do
 
   def can_create_devices?(permissions), do: can_manage_all_devices?(permissions)
 
-  @doc "Builds trusted authorization for device group context operations."
+  @doc """
+  Builds device-group authorization from a trusted operator session.
+
+  Combines the operator's audit identity, device-management capabilities, and
+  validated device scope into `{:ok, authorization}`. Missing identity or invalid
+  UUID scope returns an error; `nil` scope stays unrestricted and an empty scope
+  stays deny-all. This helper maps permissions rather than authenticating them.
+  """
   def device_group_authorization(session) when is_map(session) do
     permissions = device_permissions(session)
 
@@ -92,6 +105,14 @@ defmodule NixstasisWeb.Permissions do
 
   def authorized_device_ids(_permissions), do: nil
 
+  @doc """
+  Returns the device scope to apply before running a telemetry report.
+
+  An operator with device-view permission receives the session's device-ID set,
+  or `nil` for fleet-wide access when no scope was supplied. Missing permission,
+  malformed sessions, and explicitly empty scopes return an empty `MapSet`, so
+  report-view permission alone cannot reveal device telemetry.
+  """
   def authorized_report_device_ids(session) when is_map(session) do
     permissions = device_permissions(session)
 
@@ -110,6 +131,11 @@ defmodule NixstasisWeb.Permissions do
   def can_manage_reports?(session) when is_map(session), do: report_permissions(session)["can_manage"] == true
   def can_manage_reports?(_session), do: false
 
+  @doc """
+  Checks whether a trusted session explicitly allows global settings management.
+
+  Only a boolean `true` grants access; absent or malformed permissions deny it.
+  """
   def can_manage_settings?(session) when is_map(session), do: settings_permissions(session)["can_manage"] == true
   def can_manage_settings?(_session), do: false
 
@@ -170,7 +196,14 @@ defmodule NixstasisWeb.Permissions do
 
   def can_assign_command_policy_to_device?(_session, _device), do: false
 
-  @doc "Builds the device-read actor from trusted operator permissions."
+  @doc """
+  Builds the Ash read actor used to enforce device-backed resource policies.
+
+  Reads device-view permission and validates UUIDs from the trusted session.
+  Returns `{:ok, actor}` with separate view, unrestricted-access, and device-ID
+  fields, or `{:error, :invalid_device_scope}`. An empty scope is not equivalent
+  to an unrestricted one. Callers must authenticate the session first.
+  """
   def device_read_actor(session) do
     permissions = device_permissions(session)
 
@@ -184,7 +217,14 @@ defmodule NixstasisWeb.Permissions do
     end
   end
 
-  @doc "Normalizes a trusted UUID scope, preserving unscoped and explicit deny-all values."
+  @doc """
+  Validates and normalizes the UUIDs in a trusted device scope.
+
+  Returns `{:ok, nil}` for unrestricted access or `{:ok, normalized_set}` for a
+  `MapSet`, including an empty deny-all set. A malformed UUID or unsupported
+  scope type returns `{:error, :invalid_device_scope}` rather than dropping it
+  and accidentally widening access.
+  """
   def validate_device_scope(nil), do: {:ok, nil}
 
   def validate_device_scope(%MapSet{} = ids) do

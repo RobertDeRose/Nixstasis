@@ -221,9 +221,12 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   defmodule NoopWebhookNotifier do
+    @doc "Returns success without network delivery for tests that ignore notifications."
     def send_alert_webhook(_url, _alert), do: :ok
   end
 
+  # Route webhook notifications to this test process and restore its previous
+  # application configuration on exit, avoiding real network requests.
   defp capture_webhook_notifications do
     previous_pid = Application.get_env(:nixstasis, :webhook_test_pid)
     Application.put_env(:nixstasis, :webhook_test_pid, self())
@@ -239,6 +242,12 @@ defmodule Nixstasis.Monitoring.OfflineCheckerTest do
   end
 
   defmodule CaptureWebhookNotifier do
+    @doc """
+    Sends the destination and alert to the configured test process instead of HTTP.
+
+    Returns `:ok` so monitoring code observes a successful notification while
+    tests assert the message and confirm that the expected alert was dispatched.
+    """
     def send_alert_webhook(url, alert) do
       send(Application.fetch_env!(:nixstasis, :webhook_test_pid), {:webhook_notification, url, alert})
       :ok

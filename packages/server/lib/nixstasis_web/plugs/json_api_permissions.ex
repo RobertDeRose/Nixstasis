@@ -37,6 +37,9 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     end
   end
 
+  # Check the route's permission against verified operator context, then attach
+  # a validated Ash read actor. Missing grants or malformed scope return a halted
+  # forbidden connection instead of executing an unscoped resource query.
   defp authorize_operator(conn, policy) do
     context = context_from_conn(conn)
 
@@ -50,6 +53,9 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     end
   end
 
+  # Map route and method to their credential/permission boundary: public device
+  # registration, device-authenticated runtime operations, scoped operator reads,
+  # admin-only settings, or report view/manage permissions for remaining resources.
   defp policy_for(%{path_info: ["api", "json", "device_runtime", "devices", "register"], method: "POST"}),
     do: :device_runtime_registration
 

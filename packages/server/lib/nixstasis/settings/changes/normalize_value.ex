@@ -5,6 +5,14 @@ defmodule Nixstasis.Settings.Changes.NormalizeValue do
 
   alias Nixstasis.Settings
 
+  @doc """
+  Applies shared settings validation to an Ash create or update changeset.
+
+  Uses the setting key, proposed value, and previous stored value to normalize
+  valid input. Returns the changeset with the normalized value or a `:value`
+  error, preventing context and JSON:API writes from bypassing the same rules.
+  Options and context are unused; this callback does not authorize the caller.
+  """
   @impl true
   def change(changeset, _opts, _context) do
     key = Ash.Changeset.get_attribute(changeset, :key)

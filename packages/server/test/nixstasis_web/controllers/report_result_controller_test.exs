@@ -89,6 +89,8 @@ defmodule NixstasisWeb.ReportResultControllerTest do
     assert MapSet.new(Enum.map(rows, & &1["marker"])) == MapSet.new(["allowed", "other"])
   end
 
+  # Authenticate the test viewer through proxy headers without adding a device
+  # restriction; individual tests supply a scope when they need one.
   defp trusted_viewer(conn) do
     conn
     |> put_req_header("x-token-user-roles", "nixstasis/viewer")

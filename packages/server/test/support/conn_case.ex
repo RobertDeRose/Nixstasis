@@ -37,6 +37,13 @@ defmodule NixstasisWeb.ConnCase do
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
+  @doc """
+  Adds the configured test proxy credential to a connection's request headers.
+
+  This lets controller tests exercise trusted forwarded claims without running
+  Caddy. It does not add operator roles or device scope; tests set those headers
+  explicitly. Missing test proxy configuration raises instead of forging trust.
+  """
   def put_trusted_proxy_auth(conn) do
     token = Application.fetch_env!(:nixstasis, :proxy_auth_token)
     Plug.Conn.put_req_header(conn, "x-nixstasis-proxy-token", token)

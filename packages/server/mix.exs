@@ -39,6 +39,8 @@ defmodule Nixstasis.MixProject do
   # Specifies your project dependencies.
   #
   # Type `mix help deps` for examples and options.
+  # Declare build and runtime dependencies, including the SAT solver needed by
+  # Ash's policy authorizer to enforce the device and settings access rules.
   defp deps do
     [
       {:sourceror, "~> 1.8", only: [:dev, :test]},

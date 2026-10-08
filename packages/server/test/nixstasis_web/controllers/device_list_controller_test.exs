@@ -78,6 +78,8 @@ defmodule NixstasisWeb.DeviceListControllerTest do
     assert length(json_response(get(conn, "/api/v1/devices"), 200)["data"]) == 2
   end
 
+  # Add viewer claims and the test proxy credential; callers can add a device
+  # scope separately to exercise scoped versus unrestricted list behavior.
   defp viewer(conn) do
     conn
     |> put_req_header("x-token-user-roles", "nixstasis/viewer")

@@ -13,6 +13,14 @@ defmodule Nixstasis.Notifications.Webhook do
 
   @network_timeout_ms 5_000
 
+  @doc """
+  Sends an alert's ID, type, message, and timestamp to an HTTPS webhook.
+
+  A missing or empty URL disables delivery and returns `:ok`. Otherwise, the
+  destination is resolved and checked before the request, which is pinned to a
+  public address while retaining the hostname for TLS and HTTP. Redirects and
+  retries are disabled. Returns Req's response tuple or a validation error.
+  """
   def send_alert_webhook(url, _alert) when url in [nil, ""], do: :ok
 
   def send_alert_webhook(url, alert) do
@@ -34,10 +42,15 @@ defmodule Nixstasis.Notifications.Webhook do
   end
 
   @doc """
-  Validates and resolves a webhook destination.
+  Checks that a webhook URL uses HTTPS and resolves only to public addresses.
 
-  The two-argument form exists for deterministic tests; production callers use
-  the system resolver through `validate_url/1`.
+  Returns `{:ok, target}` with the original hostname and Host header, the chosen
+  IP address, and an IP-pinned request URL. Invalid URLs, unresolved hosts, or
+  any rejected DNS answer return `{:error, reason}` without sending a request.
+
+  The optional resolver receives a hostname and returns `{:ok, addresses}` or
+  `{:error, reason}`. It makes tests deterministic; normal callers use the system
+  resolver. Literal IP addresses are checked directly without a DNS lookup.
   """
   def validate_url(url, resolver \\ &resolve_host/1)
 
@@ -61,6 +74,8 @@ defmodule Nixstasis.Notifications.Webhook do
 
   def validate_url(_url, _resolver), do: {:error, :invalid_url}
 
+  # Trim and parse the URL, require an HTTPS hostname and valid port, and remove
+  # the fragment. Parsing failures become validation errors rather than exceptions.
   defp parse_https_url(url) do
     uri = url |> String.trim() |> URI.parse()
 
@@ -74,6 +89,8 @@ defmodule Nixstasis.Notifications.Webhook do
     ArgumentError -> {:error, :invalid_url}
   end
 
+  # Use a literal IPv4/IPv6 address directly; only hostnames need the supplied
+  # resolver. Both paths return the same address-list or error tuple.
   defp resolve_uri_host(%URI{host: host}, resolver) do
     case :inet.parse_address(String.to_charlist(host)) do
       {:ok, address} -> {:ok, [address]}
@@ -81,6 +98,8 @@ defmodule Nixstasis.Notifications.Webhook do
     end
   end
 
+  # Collect and deduplicate both IPv4 and IPv6 DNS answers. A failed lookup for
+  # one family is harmless if the other succeeds; no answers means a host error.
   defp resolve_host(host) do
     host = String.to_charlist(host)
 
@@ -100,12 +119,18 @@ defmodule Nixstasis.Notifications.Webhook do
     end
   end
 
+  # Reject the whole destination if any DNS answer is not public. Empty or
+  # malformed answer lists are unresolved hosts, never permission to connect.
   defp require_public_addresses(addresses) when is_list(addresses) and addresses != [] do
     if Enum.all?(addresses, &public_address?/1), do: :ok, else: {:error, :non_public_address}
   end
 
   defp require_public_addresses(_addresses), do: {:error, :unresolvable_host}
 
+  # Classify addresses for outbound HTTPS, not merely by whether they parse.
+  # Reject private, local, reserved, and special-purpose IPv4 ranges; mapped IPv6
+  # uses these same checks. Native IPv6 must be global unicast, excluding unsafe
+  # special-purpose prefixes, with narrow exceptions for routable public services.
   defp public_address?({a, b, c, _d}) do
     cond do
       a == 0 -> false
@@ -149,16 +174,22 @@ defmodule Nixstasis.Notifications.Webhook do
 
   defp public_address?(_address), do: false
 
+  # Preserve the URL's HTTP authority after IP pinning: bracket IPv6 hosts and
+  # include non-default ports, but omit the default HTTPS port.
   defp host_header(uri) do
     host = if String.contains?(uri.host, ":"), do: "[#{uri.host}]", else: uri.host
     if uri.port in [nil, 443], do: host, else: "#{host}:#{uri.port}"
   end
 
+  # Replace only the URL hostname with the validated IP address, retaining its
+  # path, query, credentials, and port so delivery cannot perform a new DNS lookup.
   defp pinned_url(uri, address) do
     %{uri | host: address |> :inet.ntoa() |> List.to_string()}
     |> URI.to_string()
   end
 
+  # Keep the original hostname for TLS SNI and certificate verification, limit
+  # connection time, and ask Mint to use IPv6 when the pinned address requires it.
   defp connect_options(%{hostname: hostname, address: address}) do
     options = [hostname: hostname, timeout: @network_timeout_ms]
 

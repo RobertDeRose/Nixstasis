@@ -4,6 +4,13 @@ defmodule NixstasisWeb.SettingsLive do
   alias Nixstasis.Settings
   alias NixstasisWeb.Permissions
 
+  @doc """
+  Opens global settings only for a session with settings-management permission.
+
+  Initializes safe form defaults before authorization, then loads monitoring and
+  notification settings for an authorized operator. The stored webhook URL is
+  never put into the form. Other operators receive an error and a redirect home.
+  """
   @impl true
   def mount(_params, session, socket) do
     permissions = Permissions.settings_permissions(session)
@@ -33,6 +40,13 @@ defmodule NixstasisWeb.SettingsLive do
     end
   end
 
+  @doc """
+  Renders the appearance, monitoring, and notification settings forms.
+
+  A configured webhook is represented only by a status message and a removal
+  control, not its secret-bearing URL. The replacement field starts blank so
+  submitting unrelated settings can preserve the existing destination.
+  """
   @impl true
   def render(assigns) do
     ~H"""
@@ -115,6 +129,15 @@ defmodule NixstasisWeb.SettingsLive do
     ]
   end
 
+  @doc """
+  Handles monitoring and notification saves after rechecking management permission.
+
+  Monitoring input uses shared positive-minute validation. Notification input
+  can preserve, replace, or explicitly clear a webhook; invalid replacements
+  remain in the form for correction. Successful writes update assigns and show
+  confirmation, while failures show an error without claiming a successful save.
+  Unauthorized events leave settings unchanged. Returns `{:noreply, socket}`.
+  """
   @impl true
   def handle_event("save_monitoring", %{"minutes" => minutes}, socket) do
     if can_manage?(socket) do
@@ -172,12 +195,16 @@ defmodule NixstasisWeb.SettingsLive do
     end
   end
 
+  # Check the mounted permission again for each save event, not just page access.
   defp can_manage?(socket), do: socket.assigns.settings_permissions["can_manage"] == true
 
+  # Reject a settings event with an error flash and no write or success message.
   defp unauthorized(socket) do
     {:noreply, put_flash(socket, :error, "Not authorized to manage system settings")}
   end
 
+  # Populate editable minutes and email, but never copy the stored webhook URL
+  # into browser HTML. Replacement and removal begin blank and false respectively.
   defp settings_form(window, notifications) do
     to_form(%{
       "minutes" => window,
@@ -187,6 +214,7 @@ defmodule NixstasisWeb.SettingsLive do
     })
   end
 
+  # Expose only whether a nonblank webhook is stored, not the URL or its tokens.
   defp webhook_configured?(notifications) do
     case Map.get(notifications, "webhook_url") do
       value when is_binary(value) -> String.trim(value) != ""

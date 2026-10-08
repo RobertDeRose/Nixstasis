@@ -105,6 +105,8 @@ defmodule NixstasisWeb.SystemSettingJSONAPITest do
     assert Settings.get_setting("offline_window") == nil
   end
 
+  # Set JSON:API negotiation headers and proxy-authenticated admin claims so
+  # settings tests reach resource validation rather than failing authentication.
   defp admin(conn) do
     conn
     |> put_req_header("accept", "application/vnd.api+json")
@@ -113,12 +115,16 @@ defmodule NixstasisWeb.SystemSettingJSONAPITest do
     |> put_trusted_proxy_auth()
   end
 
+  # Submit a settings create request using the generated JSON:API resource
+  # envelope. Return the connection so each test can assert status and persistence.
   defp create_setting(conn, key, value) do
     post(conn, "/api/json/system_settings", %{
       "data" => %{"type" => "system_setting", "attributes" => %{"key" => key, "value" => value}}
     })
   end
 
+  # Replace an existing setting's value through JSON:API PATCH while retaining
+  # its resource identity; return the response connection for assertions.
   defp update_setting(conn, id, value) do
     patch(conn, "/api/json/system_settings/#{id}", %{
       "data" => %{"type" => "system_setting", "id" => id, "attributes" => %{"value" => value}}

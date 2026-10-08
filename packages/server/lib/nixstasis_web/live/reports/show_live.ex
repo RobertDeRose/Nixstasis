@@ -20,6 +20,14 @@ defmodule NixstasisWeb.ReportLive.Show do
     {"is not", "is not"}
   ]
 
+  @doc """
+  Opens a report detail view using permissions from the trusted browser session.
+
+  Initializes fields, view preferences, and the operator's telemetry device
+  scope without loading result rows yet. Unauthorized operators are sent home;
+  internal E2E reports are redirected to the report list. Returns the mounted
+  socket for subsequent parameter-driven result loading.
+  """
   def mount(%{"id" => id}, session, socket) do
     if Permissions.can_view_reports?(session) do
       report = Reporting.get_custom_report!(id)
@@ -64,6 +72,14 @@ defmodule NixstasisWeb.ReportLive.Show do
     end
   end
 
+  @doc """
+  Loads the authorized report preview for the current filter and sort parameters.
+
+  Merges saved preferences with URL input, normalizes the view state, and runs
+  at most 250 result rows using the device scope saved at mount. Records valid
+  preferences and updates table assigns. Unauthorized sockets remain unchanged;
+  query and persistence failures are not hidden by this callback.
+  """
   def handle_params(params, _url, socket) do
     if authorized_socket?(socket) do
       merged_view_state =

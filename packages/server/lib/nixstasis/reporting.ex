@@ -120,6 +120,15 @@ defmodule Nixstasis.Reporting do
     QueryBuilder.fields_for_report(report.config)
   end
 
+  @doc """
+  Executes a custom report and returns its selected rows as maps.
+
+  `opts` controls result filtering, sorting, and pagination. The separately
+  supplied `authorized_device_ids` is the trusted telemetry boundary: `nil`
+  permits fleet-wide results, while an empty scope permits none. Caller options
+  cannot override it through either atom or string keys. Scope is applied in
+  SQL before other telemetry filters; database or query failures may raise.
+  """
   def run_custom_report(%CustomReport{} = report, opts, authorized_device_ids) when is_map(opts) do
     scoped_opts =
       opts
