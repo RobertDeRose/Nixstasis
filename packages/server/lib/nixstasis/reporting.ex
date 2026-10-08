@@ -121,7 +121,10 @@ defmodule Nixstasis.Reporting do
   end
 
   def run_custom_report(%CustomReport{} = report, opts, authorized_device_ids) when is_map(opts) do
-    scoped_opts = Map.put(opts, "authorized_device_ids", authorized_device_ids)
+    scoped_opts =
+      opts
+      |> Map.delete(:authorized_device_ids)
+      |> Map.put("authorized_device_ids", authorized_device_ids)
 
     report.config
     |> QueryBuilder.build(scoped_opts)

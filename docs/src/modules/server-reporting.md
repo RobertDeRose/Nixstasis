@@ -64,7 +64,9 @@
   rows, not simple `CustomReport` CRUD. The endpoint requires a verified operator
   context with report-view permission. Telemetry queries apply the operator's
   authorized device IDs in SQL before report filters, sorting, or pagination;
-  an explicitly unscoped operator retains fleet-wide report access.
+  an explicitly unscoped operator retains fleet-wide report access. Report
+  execution uses the separately supplied trusted scope; caller options cannot
+  override it through atom or string authorization keys.
 - The report detail LiveView applies the same SQL-level device scope so browser
   rendering and the bespoke result endpoint share the same telemetry boundary.
 - Report list/detail interaction requirements, including filtering, sorting,
