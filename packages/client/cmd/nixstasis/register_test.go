@@ -14,6 +14,10 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
+// TestSuccessfulRegistrationRetainsRuntimeCredentials verifies that enrollment
+// saves the exchanged device UUID and runtime token. A separate enrollment-proof
+// file is removed, but a shared proof/identity path must retain the new credentials.
+// The test uses a local server and skips hosts without a usable MAC address.
 func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
 	if _, err := identity.GetPrimaryMAC(); err != nil {
 		t.Skipf("registration requires a network interface with a MAC address: %v", err)
