@@ -52,7 +52,14 @@ FORGED_HEADERS = {
 
 
 class EchoHandler(BaseHTTPRequestHandler):
+    """Expose the headers, path, and body that actually reach the test upstream."""
+
     def do_GET(self):
+        """Echo a GET or POST as JSON so tests can inspect Caddy's forwarding.
+
+        The do_POST alias uses this same handler; no application authentication
+        runs here, because the assertions exercise the proxy boundary itself.
+        """
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         payload = json.dumps({
             "headers": {k.lower(): v for k, v in self.headers.items()},
@@ -68,11 +75,18 @@ class EchoHandler(BaseHTTPRequestHandler):
     do_POST = do_GET
 
     def log_message(self, *_args):
+        """Suppress default HTTP access logs to keep assertion failures readable."""
         pass
 
 
 def signed_token():
+    """Create a short-lived HS512 viewer JWT using the isolated test signing key.
+
+    Includes a fixed device ID so the same token exercises both unrestricted
+    forwarding and optional device-scope injection. This is not a production key.
+    """
     def encode(value):
+        """Return the unpadded base64url bytes required by JWT segments."""
         return base64.urlsafe_b64encode(value).rstrip(b"=")
 
     now = int(time.time())
@@ -93,6 +107,13 @@ def signed_token():
 
 
 def local_config(caddy, filename, backend_port, listen_port, scoped):
+    """Adapt a deployment Caddyfile into a loopback-only integration-test config.
+
+    Preserve its application handlers and authorization policies while replacing
+    listeners and upstreams and removing unused TLS/OIDC services. When scoped,
+    inject the signed token's device_ids claim using the documented option.
+    Return the JSON-compatible config; failed adaptation or host selection raises.
+    """
     adapted = subprocess.run(
         [caddy, "adapt", "--adapter", "caddyfile", "--config", str(filename)],
         env={**os.environ, **ENV}, capture_output=True, text=True, check=True,
@@ -123,6 +144,10 @@ def local_config(caddy, filename, backend_port, listen_port, scoped):
             })
 
     def redirect_upstreams(value):
+        """Recursively point every reverse proxy at the local echo backend.
+
+        Mutate only upstream addresses, leaving handler order and policy intact.
+        """
         if isinstance(value, dict):
             if value.get("handler") == "reverse_proxy":
                 value["upstreams"] = [{"dial": f"127.0.0.1:{backend_port}"}]
@@ -137,9 +162,16 @@ def local_config(caddy, filename, backend_port, listen_port, scoped):
 
 
 class ProxyClaimsTest(unittest.TestCase):
+    """Verify deployed claim sanitization with real Caddy and signed viewer JWTs."""
+
     caddy = "caddy"
 
     def check_config(self, name):
+        """Check one Caddyfile with and without optional device-scope injection.
+
+        Start an isolated echo backend and stop its serving thread even if a
+        proxy assertion fails. Each scope mode is reported as a separate subtest.
+        """
         with ThreadingHTTPServer(("127.0.0.1", 0), EchoHandler) as backend:
             thread = threading.Thread(target=backend.serve_forever, daemon=True)
             thread.start()
@@ -152,6 +184,11 @@ class ProxyClaimsTest(unittest.TestCase):
                 thread.join()
 
     def check_proxy(self, name, backend_port, scoped):
+        """Run one adapted Caddy instance and exercise its trusted-claim boundary.
+
+        Use temporary config/data directories and a free local port. Fail with
+        captured logs if startup exits or times out, and always reap the process.
+        """
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
@@ -187,6 +224,12 @@ class ProxyClaimsTest(unittest.TestCase):
                         process.wait()
 
     def request(self, port, method, path, authenticated=False):
+        """Send forged claim headers and return the proxy's status and body bytes.
+
+        authenticated adds a genuine signed viewer token alongside the forged
+        headers so tests can distinguish trusted claims from client input. Use
+        the fixed runtime body and always close the local HTTP connection.
+        """
         headers = dict(FORGED_HEADERS)
         headers["Host"] = "nixstasis.proxy.test"
         if authenticated:
@@ -200,6 +243,12 @@ class ProxyClaimsTest(unittest.TestCase):
             connection.close()
 
     def exercise_requests(self, port, scoped):
+        """Assert that runtime routes strip claims and operator routes rebuild them.
+
+        Runtime paths and bodies must survive proxying with only the proxy-owned
+        credential. Operator routes must forward the signed viewer identity, add
+        device scope only when configured, and reject requests without a token.
+        """
         for method, path in [
             ("POST", "/api/v1/devices/register"),
             ("POST", "/api/v1/devices/device-a/heartbeat?api_key=device-credential"),
@@ -233,9 +282,11 @@ class ProxyClaimsTest(unittest.TestCase):
             self.assertIn(status, [302, 303, 401, 403])
 
     def test_production(self):
+        """Verify the production Caddyfile's scoped and unrestricted claim boundary."""
         self.check_config("Caddyfile")
 
     def test_laptop(self):
+        """Verify the laptop Caddyfile uses the same trusted-claim boundary."""
         self.check_config("Caddyfile.laptop")
 
 

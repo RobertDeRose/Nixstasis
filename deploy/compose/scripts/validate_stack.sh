@@ -71,6 +71,8 @@ has_wildcard_token() {
   [ "$wildcard" = true ]
 }
 
+# Require the named deployment variable to meet the given character minimum.
+# Missing or short values stop validation with an error; used for the proxy secret.
 require_env_min_length() {
   name="$1"
   min_length="$2"
