@@ -44,7 +44,8 @@ saved `/etc/nixstasis/id` successfully: this owner-only state lets lost response
 service restarts, and failed identity saves recover without losing credentials.
 After success, the separate enrollment file is removed. If the identity and
 registration path overrides point to the same file, that file is retained with
-the runtime credentials.
+the runtime credentials, even when the paths use different spellings such as
+`/etc/nixstasis/./id` and `/etc/nixstasis/id`.
 
 ```bash
 bin/nixstasis register

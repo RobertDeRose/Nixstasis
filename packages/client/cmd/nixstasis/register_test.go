@@ -24,17 +24,17 @@ func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
 	}
 
 	const uuid = "550e8400-e29b-41d4-a716-446655440000"
-	for _, sharedPath := range []bool{false, true} {
-		name := "separate paths"
-		if sharedPath {
-			name = "shared path"
-		}
+	for _, name := range []string{"separate paths", "shared path", "lexical alias"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			identityPath := filepath.Join(dir, "id")
 			registrationPath := filepath.Join(dir, "registration")
-			if sharedPath {
+			switch name {
+			case "shared path":
 				registrationPath = identityPath
+			case "lexical alias":
+				// Keep the distinct spelling; filepath.Join would clean it.
+				registrationPath = dir + "/./id"
 			}
 			t.Setenv("NIXSTASIS_IDENTITY_PATH", identityPath)
 			t.Setenv("NIXSTASIS_REGISTRATION_PATH", registrationPath)
@@ -74,7 +74,7 @@ func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
 			if credentials.UUID != uuid || len(credentials.Token) != 43 {
 				t.Fatal("runtime credentials were not persisted")
 			}
-			if !sharedPath {
+			if name == "separate paths" {
 				if _, err := os.Stat(registrationPath); !os.IsNotExist(err) {
 					t.Fatalf("registration proof was not removed: %v", err)
 				}
