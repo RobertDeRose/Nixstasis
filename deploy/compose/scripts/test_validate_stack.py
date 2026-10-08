@@ -31,7 +31,7 @@ class StackValidationTest(unittest.TestCase):
                     result = subprocess.run(
                         ["sh", str(COMPOSE_DIR / "scripts/validate_stack.sh"), str(env_file)],
                         env={**os.environ, "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}"},
-                        capture_output=True, text=True, check=False,
+                        capture_output=True, text=True, check=False, timeout=30,
                     )
                     if length < 32:
                         self.assertNotEqual(result.returncode, 0)
