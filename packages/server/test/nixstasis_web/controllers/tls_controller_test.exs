@@ -60,9 +60,15 @@ defmodule NixstasisWeb.TLSControllerTest do
       })
 
     {:ok, _device} = Devices.set_remote_access(device, true)
-    conn = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
 
-    assert response(conn, 204) == ""
+    for suffix <- ["", "-provisioning"] do
+      domain = Nixstasis.Devices.FrpsToken.device_name(device.id) <> suffix <> ".devices.example.com"
+      response_conn = get(conn, ~p"/api/v1/check_domain?domain=#{domain}")
+      assert response(response_conn, 204) == ""
+    end
+
+    denied = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
+    assert response(denied, 401)
   end
 
   test "denies requested device hosts with missing or expired authorization", %{conn: conn} do
@@ -79,21 +85,23 @@ defmodule NixstasisWeb.TLSControllerTest do
           set: [remote_access_requested: true, remote_access_expires_at: expires_at]
         )
 
-      response_conn = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
+      domain = Nixstasis.Devices.FrpsToken.device_name(device.id) <> ".devices.example.com"
+      response_conn = get(conn, ~p"/api/v1/check_domain?domain=#{domain}")
 
       assert %{"error" => "The host is not permitted"} = json_response(response_conn, 401)
     end
   end
 
   test "denies unknown or inactive device hosts", %{conn: conn} do
-    {:ok, _device} =
+    {:ok, device} =
       Devices.register_device(%{
         mac_address: "11:22:33:44:55:66",
         product_name: "P1",
         remote_access_requested: false
       })
 
-    conn = get(conn, ~p"/api/v1/check_domain?domain=atom-112233445566.devices.example.com")
+    domain = Nixstasis.Devices.FrpsToken.device_name(device.id) <> ".devices.example.com"
+    conn = get(conn, ~p"/api/v1/check_domain?domain=#{domain}")
 
     assert %{"error" => "The host is not permitted"} = json_response(conn, 401)
   end

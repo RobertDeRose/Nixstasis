@@ -238,6 +238,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
 
     refute Map.has_key?(data, "remote_access_token")
     refute Map.has_key?(data, "remote_access_profile")
+    refute Map.has_key?(data, "remote_access_expires_at_ms")
     refute Map.has_key?(data, "remote_access_requested")
   end
 
@@ -258,9 +259,12 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
             %{
               "device_id" => device_id,
               "device_name" => device_name,
+              "expires_at_ms" => expires_at_ms,
               "profile" => "default"
             }} = FrpsToken.verify(remote_access_token)
 
+    assert data["remote_access_expires_at_ms"] == expires_at_ms
+    assert expires_at_ms == DateTime.to_unix(device.remote_access_expires_at, :millisecond)
     assert device_id == to_string(device.id)
     assert device_name == FrpsToken.device_name(device.id)
     refute remote_access_token == System.get_env("FRPS_AUTH_TOKEN")

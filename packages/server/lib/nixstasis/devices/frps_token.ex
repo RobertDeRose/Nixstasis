@@ -7,14 +7,30 @@ defmodule Nixstasis.Devices.FrpsToken do
   # Defense-in-depth outer bound; every token also carries the lease's absolute expiry.
   @max_age_seconds 3900
 
-  def for_heartbeat(%{id: device_id} = device) do
+  def for_heartbeat(device) do
+    case credential_for_heartbeat(device) do
+      nil -> nil
+      {token, _expires_at_ms} -> token
+    end
+  end
+
+  def credential_for_heartbeat(%{id: device_id} = device) do
     if Devices.remote_access_active?(device) do
-      Phoenix.Token.sign(NixstasisWeb.Endpoint, @salt, %{
-        "device_id" => to_string(device_id),
-        "device_name" => device_name(device_id),
-        "profile" => device.remote_access_profile || "default",
-        "expires_at_ms" => DateTime.to_unix(device.remote_access_expires_at, :millisecond)
-      })
+      expires_at_ms =
+        min(
+          DateTime.to_unix(device.remote_access_expires_at, :millisecond),
+          (System.system_time(:second) + @max_age_seconds) * 1000
+        )
+
+      token =
+        Phoenix.Token.sign(NixstasisWeb.Endpoint, @salt, %{
+          "device_id" => to_string(device_id),
+          "device_name" => device_name(device_id),
+          "profile" => device.remote_access_profile || "default",
+          "expires_at_ms" => expires_at_ms
+        })
+
+      {token, expires_at_ms}
     end
   end
 

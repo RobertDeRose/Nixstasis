@@ -53,7 +53,8 @@ AtomixOS owns TOML/archive validation and decompression limits.
 ## AtomixOS job contract
 
 The FRP API base is derived from the device identity as
-`https://atom-<normalized-mac>.<BASE_DOMAIN>`, or can be explicitly set with
+`https://atom-<normalized-device-uuid>-provisioning.<BASE_DOMAIN>`, matching the
+client-owned bootstrap route. It can be explicitly set with
 `ATOMIXOS_PROVISIONING_BASE_URL`. The server posts to `/api/config` and accepts
 HTTP `202` JSON containing `job_id`, a documented job `state`, and a relative
 `job_url` such as `/api/jobs/<job_id>`. The job URL must stay on the same FRP

@@ -280,10 +280,11 @@ type CommandResult struct {
 
 // PollResponse represents the response from the poll endpoint.
 type PollResponse struct {
-	RemoteAccessToken     string                        `json:"remote_access_token"`
-	RemoteAccessProfile   *config.RouteProfileSelection `json:"remote_access_profile,omitempty"`
-	Commands              []CommandRequest              `json:"commands,omitempty"`
-	CommandInventoryProbe *CommandInventoryProbe        `json:"command_inventory_probe,omitempty"`
+	RemoteAccessToken       string                        `json:"remote_access_token"`
+	RemoteAccessExpiresAtMS int64                         `json:"remote_access_expires_at_ms,omitempty"`
+	RemoteAccessProfile     *config.RouteProfileSelection `json:"remote_access_profile,omitempty"`
+	Commands                []CommandRequest              `json:"commands,omitempty"`
+	CommandInventoryProbe   *CommandInventoryProbe        `json:"command_inventory_probe,omitempty"`
 }
 
 // CommandInventoryProbe describes bounded server-owned inventory evidence to collect.

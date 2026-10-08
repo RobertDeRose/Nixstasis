@@ -401,6 +401,7 @@ Remote-access response:
 {
   "data": {
     "remote_access_token": "<signed-device-frp-credential>",
+    "remote_access_expires_at_ms": 1900000000000,
     "remote_access_profile": {
       "name": "default",
       "version": 1
@@ -409,6 +410,11 @@ Remote-access response:
   }
 }
 ```
+
+`remote_access_expires_at_ms` is the credential's absolute expiration as Unix
+milliseconds, bounded by both the persisted lease and the signing maximum age.
+The client refreshes near expiration rather than restarting for every signature
+change. FRPS rejects new operations after the persisted authorization is closed.
 
 `remote_access_profile` is an optional named, versioned reference resolved
 against the client configuration. It contains no FRPC TOML, plugin options, or
@@ -586,10 +592,10 @@ Allowed reserved host example:
 GET /api/v1/check_domain?domain=nixstasis.devices.example.com
 ```
 
-Allowed remote-access-requesting device host example:
+Allowed device host example (normalized UUID, with an unexpired authorization):
 
 ```http
-GET /api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com
+GET /api/v1/check_domain?domain=atom-11111111222233334444555555555555.devices.example.com
 ```
 
 Denied host response:

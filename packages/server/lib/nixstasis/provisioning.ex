@@ -113,13 +113,9 @@ defmodule Nixstasis.Provisioning do
         String.trim_trailing(base, "/")
 
       _ ->
-        normalized_mac =
-          device.mac_address
-          |> String.replace(~r/[^a-fA-F0-9]/, "")
-          |> String.downcase()
-
         base_domain = Application.get_env(:nixstasis, :base_domain, @default_base_domain)
-        "https://atom-#{normalized_mac}.#{String.trim(to_string(base_domain), ".")}"
+
+        "https://#{Nixstasis.Devices.FrpsToken.device_name(device.id)}-provisioning.#{String.trim(to_string(base_domain), ".")}"
     end
   end
 

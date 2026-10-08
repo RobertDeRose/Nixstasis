@@ -8298,6 +8298,12 @@ paths:
                         type: array
                         x-struct:
                         x-validate:
+                      remote_access_expires_at_ms:
+                        anyOf:
+                          - type: integer
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_profile:
                         anyOf:
                           - additionalProperties: false

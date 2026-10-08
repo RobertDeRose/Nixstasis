@@ -137,8 +137,10 @@ metadata payloads.
 - Device detail is reached through `/devices/:id`; opening remote-access tabs creates
   a bounded lease with a persisted absolute `remote_access_expires_at` and audit
   owner. Phoenix reconstructs unexpired lease timers after restart, clears stale
-  requested state fail-closed, and binds issued FRPS credentials to the same absolute
-  expiry. Authorized device updates may select a profile name,
+  requested state fail-closed, and bounds issued FRPS credentials by that absolute
+  expiry and the signing maximum age. Heartbeats advertise the effective credential
+  expiry as `remote_access_expires_at_ms`; FRPS checks persisted authorization before
+  permitting new logins or proxies. Authorized device updates may select a profile name,
   while route definitions and target capabilities remain client-owned.
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.

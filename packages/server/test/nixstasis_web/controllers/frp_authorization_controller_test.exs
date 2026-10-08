@@ -1,99 +1,119 @@
 defmodule NixstasisWeb.FrpAuthorizationControllerTest do
   use NixstasisWeb.ConnCase, async: true
 
+  import Ecto.Query
+
+  alias Nixstasis.Devices
+  alias Nixstasis.Devices.Device
+  alias Nixstasis.Repo
   alias Nixstasis.Devices.FrpsToken
+  alias Nixstasis.Domain
 
-  test "a device credential cannot log in as another device", %{conn: conn} do
-    device_a = Ecto.UUID.generate()
-    device_b = Ecto.UUID.generate()
-    token = credential(device_a)
-
-    conn =
-      post(conn, "/internal/frp/authorize?op=Login", %{
-        "content" => %{
-          "user" => FrpsToken.device_name(device_b),
-          "metas" => %{"nixstasis_token" => token}
-        }
+  setup do
+    {:ok, device} =
+      Devices.create_device(%{
+        mac_address: Nixstasis.Utilities.format_mac_address(Base.encode16(:crypto.strong_rand_bytes(6)))
       })
 
+    {:ok, device} = Devices.set_remote_access(device, true)
+    %{device: device, device_name: FrpsToken.device_name(device.id), token: FrpsToken.for_heartbeat(device)}
+  end
+
+  test "a device credential cannot log in as another device", %{token: token} do
+    conn = login(FrpsToken.device_name(Ecto.UUID.generate()), token)
     assert %{"reject" => true} = json_response(conn, 200)
   end
 
-  test "a device can register only HTTP proxies in its own subdomain namespace", %{conn: _conn} do
-    device_id = Ecto.UUID.generate()
-    device_name = FrpsToken.device_name(device_id)
-    token = credential(device_id)
-
-    allowed =
-      post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{
-        "content" => %{
-          "user" => %{"user" => device_name, "metas" => %{"nixstasis_token" => token}},
-          "proxy_name" => device_name <> "-console",
-          "proxy_type" => "http",
-          "subdomain" => device_name <> "-console",
-          "custom_domains" => []
-        }
-      })
-
-    assert %{"reject" => false, "unchange" => true} = json_response(allowed, 200)
-
-    other_device = FrpsToken.device_name(Ecto.UUID.generate())
-
-    rejected =
-      post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{
-        "content" => %{
-          "user" => %{"user" => device_name, "metas" => %{"nixstasis_token" => token}},
-          "proxy_name" => other_device,
-          "proxy_type" => "http",
-          "subdomain" => other_device,
-          "custom_domains" => []
-        }
-      })
-
-    assert %{"reject" => true} = json_response(rejected, 200)
+  test "Login and NewProxy reject credentials after authorization is closed", context do
+    assert %{"reject" => false} = json_response(login(context.device_name, context.token), 200)
+    {:ok, _device} = Devices.set_remote_access(context.device, false)
+    assert %{"reject" => true} = json_response(login(context.device_name, context.token), 200)
+    assert %{"reject" => true} = json_response(http_proxy(context, context.device_name), 200)
   end
 
-  test "tcpmux routes must use the device-owned proxy name as their only domain", %{conn: _conn} do
-    device_id = Ecto.UUID.generate()
-    device_name = FrpsToken.device_name(device_id)
-    token = credential(device_id)
-    proxy_name = device_name <> "-ssh"
+  test "Login and NewProxy reject expired persisted authorization", context do
+    Repo.update_all(from(d in Device, where: d.id == ^context.device.id),
+      set: [remote_access_expires_at: DateTime.add(DateTime.utc_now(), -1, :second)]
+    )
 
-    allowed =
-      post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{
-        "content" => %{
-          "user" => %{"user" => device_name, "metas" => %{"nixstasis_token" => token}},
-          "proxy_name" => proxy_name,
-          "proxy_type" => "tcpmux",
-          "multiplexer" => "httpconnect",
-          "custom_domains" => [proxy_name],
-          "subdomain" => ""
-        }
-      })
+    assert %{"reject" => true} = json_response(login(context.device_name, context.token), 200)
+    assert %{"reject" => true} = json_response(http_proxy(context, context.device_name), 200)
+  end
 
+  test "a long lease cannot advertise credential validity beyond the signing maximum age" do
+    now = System.system_time(:millisecond)
+
+    device = %{
+      id: Ecto.UUID.generate(),
+      remote_access_requested: true,
+      remote_access_expires_at: DateTime.add(DateTime.utc_now(), 7200, :second),
+      remote_access_profile: "default"
+    }
+
+    {token, expiry} = FrpsToken.credential_for_heartbeat(device)
+    assert {:ok, %{"expires_at_ms" => ^expiry}} = FrpsToken.verify(token)
+    assert expiry > now
+    assert expiry <= now + 3_900_000 + 1000
+  end
+
+  test "Login and NewProxy reject a deleted device", context do
+    :ok = Domain.destroy_device(context.device)
+    assert %{"reject" => true} = json_response(login(context.device_name, context.token), 200)
+    assert %{"reject" => true} = json_response(http_proxy(context, context.device_name), 200)
+  end
+
+  test "a device can register only HTTP proxies in its own subdomain namespace", context do
+    raw_name = context.device_name <> "-console"
+    assert %{"reject" => false, "unchange" => true} = json_response(http_proxy(context, raw_name), 200)
+    assert %{"reject" => true} = json_response(http_proxy(context, FrpsToken.device_name(Ecto.UUID.generate())), 200)
+  end
+
+  test "only the exact authenticated user prefix is accepted", context do
+    raw_name = context.device_name <> "-console"
+
+    for wire_name <- ["other." <> raw_name, context.device_name <> ".other." <> raw_name] do
+      assert %{"reject" => true} = json_response(http_proxy(context, raw_name, wire_name), 200)
+    end
+  end
+
+  test "tcpmux routes must use the raw device-owned name as their only domain", context do
+    raw_name = context.device_name <> "-ssh"
+
+    content = %{
+      "user" => %{"user" => context.device_name, "metas" => %{"nixstasis_token" => context.token}},
+      "proxy_name" => context.device_name <> "." <> raw_name,
+      "proxy_type" => "tcpmux",
+      "multiplexer" => "httpconnect",
+      "custom_domains" => [raw_name],
+      "subdomain" => ""
+    }
+
+    allowed = post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{"content" => content})
     assert %{"reject" => false} = json_response(allowed, 200)
 
     rejected =
       post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{
-        "content" => %{
-          "user" => %{"user" => device_name, "metas" => %{"nixstasis_token" => token}},
-          "proxy_name" => proxy_name,
-          "proxy_type" => "tcpmux",
-          "multiplexer" => "httpconnect",
-          "custom_domains" => [FrpsToken.device_name(Ecto.UUID.generate()) <> "-ssh"],
-          "subdomain" => ""
-        }
+        "content" => Map.put(content, "custom_domains", [FrpsToken.device_name(Ecto.UUID.generate()) <> "-ssh"])
       })
 
     assert %{"reject" => true} = json_response(rejected, 200)
   end
 
-  defp credential(device_id) do
-    FrpsToken.for_heartbeat(%{
-      id: device_id,
-      remote_access_requested: true,
-      remote_access_expires_at: DateTime.add(DateTime.utc_now(), 60, :second),
-      remote_access_profile: "default"
+  defp login(device_name, token) do
+    post(build_conn(), "/internal/frp/authorize?op=Login", %{
+      "content" => %{"user" => device_name, "metas" => %{"nixstasis_token" => token}}
+    })
+  end
+
+  defp http_proxy(context, raw_name, wire_name \\ nil) do
+    post(build_conn(), "/internal/frp/authorize?op=NewProxy", %{
+      "content" => %{
+        "user" => %{"user" => context.device_name, "metas" => %{"nixstasis_token" => context.token}},
+        "proxy_name" => wire_name || context.device_name <> "." <> raw_name,
+        "proxy_type" => "http",
+        "subdomain" => raw_name,
+        "custom_domains" => []
+      }
     })
   end
 end

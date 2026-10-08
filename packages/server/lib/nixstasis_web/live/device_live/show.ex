@@ -509,7 +509,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:return_to, return_to)
     |> assign(:page_title, page_title(device))
     |> assign(:device, device)
-    |> assign(:cockpit_url, cockpit_url(device.mac_address))
+    |> assign(:cockpit_url, cockpit_url(device.id))
     |> assign(:device_offline, not Devices.online?(device))
   end
 
@@ -581,12 +581,11 @@ defmodule NixstasisWeb.DeviceLive.Show do
     end
   end
 
-  defp cockpit_url(mac_address) do
-    normalized_mac =
-      mac_address
-      |> to_string()
-      |> String.downcase()
-      |> String.replace(":", "")
+  defp cockpit_url(device_id) do
+    normalized_device_id =
+      device_id
+      |> Nixstasis.Devices.FrpsToken.device_name()
+      |> String.replace_prefix("atom-", "")
 
     domain_suffix =
       Application.get_env(
@@ -597,7 +596,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
     domain_prefix = Application.get_env(:nixstasis, :cockpit_domain_prefix, "atom-")
 
-    "https://#{domain_prefix}#{normalized_mac}.#{domain_suffix}"
+    "https://#{domain_prefix}#{normalized_device_id}.#{domain_suffix}"
   end
 
   @impl true

@@ -1,6 +1,7 @@
 defmodule NixstasisWeb.FrpAuthorizationController do
   use NixstasisWeb, :controller
 
+  alias Nixstasis.Devices
   alias Nixstasis.Devices.FrpsToken
 
   def authorize(conn, %{"op" => "Login", "content" => content}) do
@@ -27,13 +28,20 @@ defmodule NixstasisWeb.FrpAuthorizationController do
   def authorize(conn, _params), do: reject(conn, "unsupported FRP operation")
 
   defp verify_metadata(metadata) when is_map(metadata) do
-    FrpsToken.verify(metadata["nixstasis_token"])
+    with {:ok, claims} <- FrpsToken.verify(metadata["nixstasis_token"]),
+         {:ok, device_id} <- Ecto.UUID.cast(claims["device_id"]),
+         {:ok, device} <- Devices.get_device(device_id),
+         true <- Devices.remote_access_active?(device) do
+      {:ok, claims}
+    else
+      _ -> {:error, :inactive_authorization}
+    end
   end
 
   defp verify_metadata(_metadata), do: {:error, :invalid}
 
   defp authorized_proxy?(device_name, content) when is_binary(device_name) do
-    proxy_name = content["proxy_name"]
+    proxy_name = strip_user_prefix(content["proxy_name"], device_name)
 
     owned_proxy_name?(device_name, proxy_name) and
       case content["proxy_type"] do
@@ -50,6 +58,9 @@ defmodule NixstasisWeb.FrpAuthorizationController do
   end
 
   defp authorized_proxy?(_device_name, _content), do: false
+
+  defp strip_user_prefix(name, user) when is_binary(name), do: String.replace_prefix(name, user <> ".", "")
+  defp strip_user_prefix(name, _user), do: name
 
   defp owned_proxy_name?(device_name, proxy_name) when is_binary(proxy_name) do
     proxy_name == device_name or String.starts_with?(proxy_name, device_name <> "-")

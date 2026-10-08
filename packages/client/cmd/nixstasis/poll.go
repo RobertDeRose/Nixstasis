@@ -232,6 +232,7 @@ type frpController interface {
 type remoteAccessPollState struct {
 	tokenHash             string
 	profileKey            string
+	expiresAtMS           int64
 	commandInventoryProbe *transport.CommandInventoryProbe
 }
 
@@ -317,7 +318,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 	currentFRPStatus := frpManager.GetStatus()
 
 	switch {
-	case resp.RemoteAccessToken != "":
+	case resp.RemoteAccessToken != "" && (resp.RemoteAccessExpiresAtMS == 0 || resp.RemoteAccessExpiresAtMS > time.Now().UnixMilli()):
 		remoteAccessTokenHash := tokenHash(resp.RemoteAccessToken)
 		profileKey, profileErr := remoteAccessProfileKey(cfg.FRP, resp.RemoteAccessProfile)
 		if profileErr != nil {
@@ -338,8 +339,8 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 		switch {
 		case !currentFRPStatus.Active:
 			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
-		case state != nil && state.profileKey != "" && state.profileKey != profileKey:
-			slog.Info("Server remote access profile changed, restarting FRP")
+		case state != nil && ((state.profileKey != "" && state.profileKey != profileKey) || credentialNeedsRefresh(state.expiresAtMS, resp.RemoteAccessExpiresAtMS)):
+			slog.Info("Server remote access profile or credential validity changed, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
@@ -353,6 +354,9 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 			} else {
 				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
 			}
+		}
+		if state != nil && state.tokenHash == remoteAccessTokenHash {
+			state.expiresAtMS = resp.RemoteAccessExpiresAtMS
 		}
 	default:
 		if currentFRPStatus.Active {
@@ -399,10 +403,20 @@ func remoteAccessProfileKey(frpConfig config.FRPConfig, selection *config.RouteP
 	return fmt.Sprintf("%s:%d", resolved.Name, resolved.Version), nil
 }
 
+// Renew before the stored credential expires, without churning on each newly signed heartbeat.
+func credentialNeedsRefresh(storedExpiry, nextExpiry int64) bool {
+	if nextExpiry <= 0 {
+		return false
+	}
+	return storedExpiry <= 0 || nextExpiry < storedExpiry ||
+		(storedExpiry <= time.Now().Add(30*time.Second).UnixMilli() && nextExpiry > storedExpiry)
+}
+
 func clearRemoteAccessState(state *remoteAccessPollState) {
 	if state != nil {
 		state.tokenHash = ""
 		state.profileKey = ""
+		state.expiresAtMS = 0
 	}
 }
 

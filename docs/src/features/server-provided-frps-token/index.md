@@ -54,8 +54,11 @@ credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoen
 
 Remote-access lease expiry is durable: Phoenix persists an absolute expiry and audit
 owner, restores only unexpired leases after restart, refuses to mint FRPS
-credentials after that persisted expiry, and embeds the same expiry in each signed
-FRPS credential.
+credentials after that persisted expiry, and caps each signed credential at the
+lease expiry or signing maximum age, whichever is earlier. Heartbeats advertise
+`remote_access_expires_at_ms` for client renewal without signature-only restart
+churn. FRPS checks current persisted authorization for new Login/NewProxy operations,
+so closing the lease blocks reuse of an outstanding credential.
 
 ### Rejected or Removed Scope
 

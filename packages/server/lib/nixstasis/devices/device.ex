@@ -93,6 +93,7 @@ defmodule Nixstasis.Devices.Device do
       constraints: [items: [fields: @heartbeat_command_fields]]
     ],
     remote_access_token: [type: :string],
+    remote_access_expires_at_ms: [type: :integer],
     remote_access_profile: [type: :map, constraints: [fields: @heartbeat_profile_fields]],
     command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
   ]

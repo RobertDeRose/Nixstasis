@@ -186,8 +186,9 @@ sequenceDiagram
    Phoenix persists the absolute expiry and initiating operator identity with the
    requested state so a restart cannot discard the original timeout.
 4. Next client heartbeat receives a non-empty `remote_access_token` only while the
-   persisted lease expiry remains in the future. The signed token carries that same
-   absolute expiry, plus an
+   persisted lease expiry remains in the future. The signed token is bounded by
+   that expiry and the signing maximum age; the heartbeat advertises its effective
+   expiration as `remote_access_expires_at_ms`, plus an
    optional named, versioned `remote_access_profile` reference.
 5. Client resolves the reference against its local typed profile definitions;
    token-only legacy responses select `default`, while invalid references fail

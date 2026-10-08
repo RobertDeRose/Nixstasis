@@ -460,6 +460,37 @@ func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
 	}
 }
 
+func TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		storedExpiry int64
+		newExpiry    int64
+		wantRestart  bool
+	}{
+		{"same validity", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(time.Hour).UnixMilli(), false},
+		{"extension while still valid", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(2 * time.Hour).UnixMilli(), false},
+		{"renew before expiry", time.Now().Add(10 * time.Second).UnixMilli(), time.Now().Add(time.Hour).UnixMilli(), true},
+		{"shortened validity", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(time.Minute).UnixMilli(), true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token", RemoteAccessExpiresAtMS: test.newExpiry}}
+			manager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
+			cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+			state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1", expiresAtMS: test.storedExpiry}
+			runtimeCfg := script.RuntimeConfig{}
+			if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+				t.Fatal(err)
+			}
+			if (manager.startCalls == 1 && manager.stopCalls == 1) != test.wantRestart {
+				t.Fatalf("restart = start:%d stop:%d, want %v", manager.startCalls, manager.stopCalls, test.wantRestart)
+			}
+			if test.wantRestart && state.expiresAtMS != test.newExpiry {
+				t.Fatalf("stored expiry = %d", state.expiresAtMS)
+			}
+		})
+	}
+}
+
 func TestPollOnceRestartsActiveFRPWhenTokenStateUnknown(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}

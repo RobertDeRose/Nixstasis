@@ -14,6 +14,14 @@ defmodule Nixstasis.ProvisioningTest do
     :ok
   end
 
+  test "generated provisioning URL matches the UUID-bound bootstrap proxy" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:09"})
+    host = Nixstasis.Devices.FrpsToken.device_name(device.id) <> "-provisioning"
+
+    assert URI.parse(Provisioning.route_url(device)).host ==
+             host <> "." <> Application.get_env(:nixstasis, :base_domain)
+  end
+
   test "delivers a raw config through the bootstrap route and withdraws access" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:01"})
     parent = self()
