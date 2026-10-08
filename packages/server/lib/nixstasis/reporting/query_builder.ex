@@ -32,7 +32,7 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   Configuration chooses the source, fields, schema, and saved filters; `opts`
   adds view filters, sorting, and pagination. For telemetry, a supplied trusted
   device scope is applied first: `nil` is unrestricted, empty or invalid scopes
-  return no rows, and invalid IDs within a list are ignored. Non-telemetry
+  return no rows, and any invalid ID rejects the entire scope. Non-telemetry
   sources do not use that scope. Use `Reporting.run_custom_report/3` when view
   options come from a caller so they cannot replace the trusted authorization.
   """
