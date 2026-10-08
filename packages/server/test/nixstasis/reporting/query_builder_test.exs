@@ -253,6 +253,57 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
       assert Enum.any?(results, fn row -> row["mem_pct"] == "47.2" or row["mem_pct"] == 47.2 end)
     end
 
+    test "applies an authorized device scope before telemetry report filters", %{device: device} do
+      {:ok, other_device} =
+        Devices.register_device(%{
+          "mac_address" => "AA:BB:CC:DD:EE:09",
+          "product_name" => "sensor-v1"
+        })
+
+      Repo.insert!(%Telemetry{
+        device_id: other_device.id,
+        payload: %{"temp" => 999},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      config = %{
+        source: "telemetry",
+        fields: [%{path: "temp", alias: "temp"}],
+        filters: []
+      }
+
+      scoped_results =
+        config
+        |> QueryBuilder.build(%{"authorized_device_ids" => MapSet.new([device.id])})
+        |> Repo.all()
+
+      assert Enum.sort(Enum.map(scoped_results, & &1["temp"])) == [25, 30]
+
+      empty_scope_results =
+        config
+        |> QueryBuilder.build(%{"authorized_device_ids" => MapSet.new()})
+        |> Repo.all()
+
+      assert empty_scope_results == []
+
+      invalid_scope_results =
+        config
+        |> QueryBuilder.build(%{"authorized_device_ids" => MapSet.new(["not-a-device-id"])})
+        |> Repo.all()
+
+      assert invalid_scope_results == []
+
+      for ids <- [[device.id, "not-a-device-id"], ["not-a-device-id", device.id]],
+          scope <- [ids, MapSet.new(ids)] do
+        mixed_scope_results =
+          config
+          |> QueryBuilder.build(%{"authorized_device_ids" => scope})
+          |> Repo.all()
+
+        assert mixed_scope_results == []
+      end
+    end
+
     test "supports e2e source with explicit fields", %{run: run} do
       config = %{
         source: "e2e",

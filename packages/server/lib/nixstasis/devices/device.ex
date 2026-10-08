@@ -9,6 +9,7 @@ defmodule Nixstasis.Devices.Device do
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
     domain: Nixstasis.Domain,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshJsonApi.Resource]
 
   alias Nixstasis.CommandAllowlists
@@ -209,8 +210,8 @@ defmodule Nixstasis.Devices.Device do
       argument :connectivity_status, :string
       argument :ipv4_address, :string
 
-      run fn input, _context ->
-        {:ok, Devices.runtime_list(input.arguments)}
+      run fn input, context ->
+        {:ok, Devices.runtime_list(input.arguments, actor: context.actor)}
       end
     end
 
@@ -318,6 +319,33 @@ defmodule Nixstasis.Devices.Device do
             {:error, Ash.Error.Query.NotFound.exception()}
         end
       end
+    end
+  end
+
+  policies do
+    bypass actor_absent() do
+      authorize_if always()
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(
+                     ^actor(:can_view_device_data) == true and
+                       (^actor(:unscoped_device_access) == true or id in ^actor(:authorized_device_ids))
+                   )
+    end
+
+    policy action(:list_runtime_devices) do
+      authorize_if actor_attribute_equals(:can_view_device_data, true)
+    end
+
+    policy action_type([:create, :update, :destroy]) do
+      # Operator mutations are admitted and scoped by JsonApiPermissions.
+      authorize_if actor_present()
+    end
+
+    policy action([:heartbeat, :acknowledge_command_results, :fetch_command_payload]) do
+      # JsonApiPermissions authenticates the device before installing its actor.
+      authorize_if expr(^actor(:id) == ^arg(:device_id))
     end
   end
 

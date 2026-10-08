@@ -43,6 +43,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_trusted_proxy_auth()
       |> get(
         "/api/json/device_runtime/devices?product=runtime-approved&account_number=12345&approval_status=approved&connectivity_status=online&ipv4_address=192.0.2.11"
       )
@@ -66,6 +67,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_trusted_proxy_auth()
       |> get("/api/json/device_runtime/devices?product=%20&approval_status=unknown&ipv4_address=%20")
 
     assert %{"data" => data, "meta" => %{"active_filters" => %{}}} = json_response(conn, 200)
@@ -76,6 +78,16 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn =
       conn
       |> put_req_header("accept", "application/vnd.api+json")
+      |> get("/api/json/device_runtime/devices")
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)
+  end
+
+  test "direct backend callers cannot forge an admin role header", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/admin")
       |> get("/api/json/device_runtime/devices")
 
     assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)

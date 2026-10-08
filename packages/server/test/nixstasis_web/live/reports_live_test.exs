@@ -1535,6 +1535,51 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert ["80"] == report_result_values(html)
   end
 
+  test "report detail limits telemetry rows to the session device scope", %{conn: conn, permissions: permissions} do
+    {:ok, allowed_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:95",
+        "product_name" => "report-live-scoped-results"
+      })
+
+    {:ok, other_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:96",
+        "product_name" => "report-live-scoped-results"
+      })
+
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.insert!(%Telemetry{device_id: allowed_device.id, payload: %{"temp" => 11}, timestamp: timestamp})
+    Repo.insert!(%Telemetry{device_id: other_device.id, payload: %{"temp" => 22}, timestamp: timestamp})
+
+    report =
+      report_fixture(%{
+        "name" => "Scoped Live Report",
+        "config" => %{
+          "source" => "telemetry",
+          "fields" => [%{"path" => "temp", "alias" => "temp"}],
+          "filters" => []
+        }
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_permissions", permissions)
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => [allowed_device.id]
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}")
+
+    assert "11" in report_result_values(html)
+    refute "22" in report_result_values(html)
+  end
+
   test "report detail limits database-backed result loading", %{conn: conn, permissions: permissions} do
     {:ok, device} =
       Devices.register_device(%{

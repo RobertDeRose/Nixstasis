@@ -94,7 +94,12 @@ mise run deploy:dev -- exec nixstasis /bin/bash
 
 ## Production
 
-1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, and the `NIXSTASIS_*_GROUPS` group-to-role mapping values.
+1. Copy `.env.example` to `.env` and fill every required value, including
+   `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, the
+   `NIXSTASIS_*_GROUPS` group-to-role mapping values, and a fresh
+   `NIXSTASIS_PROXY_AUTH_TOKEN` generated with `openssl rand -hex 32`.
+   Matching single or double quotes around this value do not count toward its
+   minimum length of 32 characters.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
@@ -123,6 +128,7 @@ targeting the compose `postgres` host.
 | `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                        |
 | `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
 | `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
+| `NIXSTASIS_PROXY_AUTH_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
 | `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
 | `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
 | `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
@@ -131,6 +137,19 @@ targeting the compose `postgres` host.
 ## Runtime Contract
 
 - Public ingress terminates at Caddy.
+- Production and laptop Nixstasis hosts remove client-supplied `X-Token-*`
+  headers at request entry, before AuthCrunch authorization injects verified
+  claims. Device runtime requests reach Phoenix without operator claims;
+  authorized operator requests retain only claims injected by AuthCrunch.
+- Those hosts reject requests with `400` before authorization or proxying if any
+  `Connection` header names an `X-Token-*` header or `X-Nixstasis-Proxy-Token`.
+  Matching is case-insensitive across comma-separated and repeated fields, so
+  hop-by-hop cleanup cannot remove verified device scope. Ordinary WebSocket
+  upgrade requests remain supported.
+- Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
+  `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
+  unless that internal proxy credential matches, so direct loopback or Compose
+  peers cannot manufacture an AuthCrunch identity from claim headers alone.
 - Phoenix runs on `PORT=4000` internally.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
@@ -174,9 +193,10 @@ targeting the compose `postgres` host.
   sync.
 - Caddy injects AuthCrunch claims for Phoenix browser UI permission mapping with
   `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
-  `X-Token-User-Roles`. Phoenix consumes only normalized `nixstasis/viewer`,
-  `nixstasis/operator`, and `nixstasis/admin` role values; missing or unknown
-  production role claims fail closed.
+  `X-Token-User-Roles`. Phoenix accepts those claims only when the request also
+  carries the valid Caddy-injected `X-Nixstasis-Proxy-Token`, then consumes only
+  normalized `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin`
+  role values. Missing, untrusted, or unknown production claims fail closed.
 - Migrations are explicit, not part of container startup.
 
 Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.
@@ -252,8 +272,37 @@ stdout. Use
 
 ## Contract Validation
 
+Run the static runtime checks from the repository root:
+
 ```sh
 deploy/compose/scripts/check_runtime_contract.sh
+```
+
+For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
+use Docker and the repository-built Caddy image in a disposable Compose container:
+
+```sh
+mise run deploy:dev -- build caddy
+mise run deploy:dev -- run --rm --no-deps \
+  --entrypoint /bin/sh \
+  --volume "$PWD:/workspace:ro" \
+  --workdir /workspace \
+  caddy -c 'apk add --no-cache python3 &&
+    CADDY_BIN=/usr/bin/caddy \
+    sh deploy/compose/scripts/check_runtime_contract.sh'
+```
+
+The development stack already runs Caddy in a container. This check uses a separate
+one-off container, not the live Caddy process. Python is installed only in that
+disposable container; no host Caddy or Python installation is required. The check
+starts its own Caddy processes and echo upstream on container-local loopback ports.
+It does not require the full stack to be running or publish service ports. Package
+installation requires network access. Do not execute the exported Linux Buildx
+binary directly on macOS; the existing Linux CI workflow is unchanged.
+
+Validate production deployment inputs separately:
+
+```sh
 deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 

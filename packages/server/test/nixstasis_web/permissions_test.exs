@@ -5,6 +5,21 @@ defmodule NixstasisWeb.PermissionsTest do
   alias Nixstasis.Devices.GroupAuthorization
   alias NixstasisWeb.Permissions
 
+  test "trusted device scope validation preserves access modes and rejects malformed IDs" do
+    id = Ecto.UUID.generate()
+    assert Permissions.validate_device_scope(nil) == {:ok, nil}
+    assert Permissions.validate_device_scope(MapSet.new()) == {:ok, MapSet.new()}
+    assert Permissions.validate_device_scope(MapSet.new([String.upcase(id)])) == {:ok, MapSet.new([id])}
+    assert Permissions.validate_device_scope(MapSet.new([id, "invalid"])) == {:error, :invalid_device_scope}
+    assert Permissions.validate_device_scope([id]) == {:error, :invalid_device_scope}
+  end
+
+  test "settings permissions require explicit management capability" do
+    assert Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => true}})
+    refute Permissions.can_manage_settings?(%{"settings_permissions" => %{"can_manage" => false}})
+    refute Permissions.can_manage_settings?(%{})
+  end
+
   test "script permissions can be scoped to allowed scripts" do
     session = %{
       "script_permissions" => %{
@@ -36,6 +51,26 @@ defmodule NixstasisWeb.PermissionsTest do
     on_exit(fn -> Application.put_env(:nixstasis, :local_browser_auth_fallback?, previous) end)
 
     assert {:error, :missing_actor} = Permissions.actor_id(%{})
+  end
+
+  test "report device scope requires device-view permission and preserves explicit scope" do
+    scoped_device_id = Ecto.UUID.generate()
+
+    assert Permissions.authorized_report_device_ids(%{
+             "report_permissions" => %{"can_view" => true},
+             "device_permissions" => %{"can_view" => true, "device_ids" => [scoped_device_id]}
+           }) == MapSet.new([scoped_device_id])
+
+    assert is_nil(
+             Permissions.authorized_report_device_ids(%{
+               "report_permissions" => %{"can_view" => true},
+               "device_permissions" => %{"can_view" => true}
+             })
+           )
+
+    assert Permissions.authorized_report_device_ids(%{
+             "report_permissions" => %{"can_view" => true}
+           }) == MapSet.new()
   end
 
   test "command policy permissions separate status, details, and management" do

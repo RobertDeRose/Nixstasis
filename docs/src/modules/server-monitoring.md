@@ -58,7 +58,40 @@
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
 - Offline timing is runtime-configured through settings instead of hard-coded in
   the module docs. See [Data Flow](../data-flow.md) for the heartbeat and
-  offline-check sequence.
+  offline-check sequence. Admin monitoring writes accept only positive whole
+  minutes (including trimmed integer strings), store an integer, and reject
+  invalid values without changing the saved window or reporting success. The
+  default is 10 minutes; legacy invalid stored values still use that fallback.
+  Validation and normalization run in `SystemSetting` create/update actions for
+  both context writes and JSON:API POST/PATCH; invalid API writes return `400`
+  validation errors without changing the saved value.
+- System monitoring and notification settings are admin-only in the LiveView,
+  matching the generated JSON:API system-settings boundary. Stored webhook URLs
+  are never rendered back into the form; leaving the replacement field blank
+  preserves the current destination and removal is explicit. JSON:API PATCH
+  replaces the value map; a null or blank `webhook_url` clears the destination.
+  New or changed webhook URLs are validated before saving through either surface.
+  Non-string, non-null webhook input is rejected without changing notification
+  settings, including when the context write also requests explicit removal.
+  Unchanged legacy destinations can be preserved without resolving them at save
+  time; they still undergo the delivery-time checks below. Authorized notification
+  save failures clear earlier success feedback; later successful saves clear
+  earlier errors. Failed saves leave the stored destinations unchanged.
+- Webhook destinations must use HTTPS. Phoenix resolves them before each
+  delivery and rejects loopback/private/link-local/reserved answers. Native IPv6
+  destinations must be in an IANA-allocated global-unicast range, excluding
+  documentation, 6to4, and protocol-assignment ranges; designated globally routable
+  protocol services remain allowed. Reserved space, including retired `3ffe::/16`
+  and unallocated portions of `2000::/3`, is rejected. The allocation table follows
+  the [IANA registry](https://www.iana.org/assignments/ipv6-unicast-address-assignments/)
+  dated 2025-10-10; maintainers must refresh the table and boundary tests when new
+  allocations are published. IPv4-mapped addresses use the IPv4 checks. Any rejected
+  DNS answer blocks delivery, even alongside public answers. Phoenix pins the
+  request to a validated public address while retaining the original hostname
+  for TLS verification and the HTTP Host header (including non-default ports),
+  and does not follow redirects. Each sequential IPv4/IPv6 DNS lookup has a
+  five-second timeout, so DNS resolution can take up to ten seconds. Literal IP
+  destinations bypass DNS; connection and response timeouts are separate.
 
 ### Alert rule modal contract
 

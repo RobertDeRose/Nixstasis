@@ -72,4 +72,5 @@ config :nixstasis, :telemetry_retention,
   check_interval_ms: 86_400_000
 
 config :nixstasis, :base_domain, "devices.example.com"
+config :nixstasis, :proxy_auth_token, "test-proxy-auth-token-0123456789abcdef0123456789abcdef"
 config :nixstasis, :local_browser_auth_fallback?, true

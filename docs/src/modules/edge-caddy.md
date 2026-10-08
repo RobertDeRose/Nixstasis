@@ -36,9 +36,19 @@
   - `X-Token-User-Roles`
 
 `inject headers with claims` is the source for the default `X-Token-*` claim
-headers. Phoenix treats those headers as trusted only behind the supported Caddy
-deployment path; Caddy still enforces `authorize with entra_policy` before
-proxying protected browser hosts.
+headers. Production and laptop Nixstasis hosts delete client-supplied
+`X-Token-*` headers at request entry, before AuthCrunch authorization injects
+verified claims. Do not delete these headers in the operator `reverse_proxy`:
+that would also remove the legitimate injected claims. Phoenix additionally
+requires the matching Caddy-to-Phoenix proxy credential before trusting claims;
+Caddy still enforces `authorize with entra_policy` on protected browser routes.
+
+Before authorization or proxying, both configurations reject requests with `400`
+when any `Connection` header names an `X-Token-*` header or
+`X-Nixstasis-Proxy-Token`. Matching is case-insensitive and covers comma-separated
+and repeated header fields. This prevents hop-by-hop cleanup from deleting a
+verified device scope, which Phoenix would otherwise interpret as unscoped
+access. Ordinary `Connection: Upgrade` requests remain supported.
 
 Group-to-role mapping happens in Caddy/AuthCrunch, not Phoenix. The production
 environment provides provider-specific OIDC group values in
@@ -71,8 +81,18 @@ same Nixstasis role contract.
   `dev.env` and relies on Phoenix's explicit local auth fallback instead of a
   live OIDC provider.
 - Device protocol HTTPS traffic on `nixstasis.<base-domain>` bypasses AuthCrunch
-  only for registration, heartbeat, command result, and command payload routes;
+  only for registration, heartbeat, command result, and command payload routes
+  under both `/api/v1/devices` and `/api/json/device_runtime/devices`;
   Phoenix enforces the device credential contract for those runtime calls.
+  Generated device listing remains operator-authenticated.
+- The Caddy image workflow runs real signed-JWT proxy checks for both production
+  and laptop configurations through `check_runtime_contract.sh` with `CADDY_BIN`.
+  These use loopback HTTP and an echo upstream, checking device claim removal,
+  operator claim injection, optional scope injection, proxy-token overwrite,
+  rejection of trusted-header `Connection` nominations before upstream access,
+  and preservation of WebSocket upgrade headers; they do not exercise TLS,
+  OIDC login, or a full WebSocket handshake. See the
+  [Compose validation commands](deployment-compose.md#contract-validation).
 - Wildcard device traffic is routed to FRPS HTTP vhost port.
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.

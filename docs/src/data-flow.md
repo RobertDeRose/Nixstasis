@@ -303,7 +303,7 @@ Observable event sets:
 - Device detail: change tab, retry session, start SSH session.
 - Alerts: validate/save rules, modal discard confirmation, rule deletion, sorting/filtering.
 - Reports: sort, filter, delete confirmation, report detail filters.
-- Settings: save monitoring and notification settings.
+- Settings (admin only): save monitoring and notification settings.
 
 Traceable references:
 

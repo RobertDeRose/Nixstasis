@@ -22,10 +22,13 @@ defmodule Nixstasis.SystemSetting do
 
     create :create do
       accept [:key, :value]
+      change Nixstasis.Settings.Changes.NormalizeValue
     end
 
     update :update do
+      require_atomic? false
       accept [:value]
+      change Nixstasis.Settings.Changes.NormalizeValue
     end
   end
 

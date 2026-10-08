@@ -52,6 +52,7 @@
   - `CLIENT_SECRET`
   - `TENANT_ID`
   - `JWT_KEY`
+  - `NIXSTASIS_PROXY_AUTH_TOKEN`
   - `AUTHORIZED_ROLES`
   - `AUTHORIZED_GROUPS`
   - `NIXSTASIS_VIEWER_GROUPS`
@@ -86,6 +87,15 @@
 - `CLIENT_SECRET`: Entra application secret consumed by Caddy auth.
 - `TENANT_ID`: Entra tenant identifier consumed by Caddy auth.
 - `JWT_KEY`: Caddy auth JWT signing key.
+- `NIXSTASIS_PROXY_AUTH_TOKEN`: dedicated 32-byte-or-longer random secret shared
+  only by Caddy and Phoenix. Caddy overwrites `X-Nixstasis-Proxy-Token` on
+  proxied Phoenix requests; Phoenix requires the matching value before trusting
+  any AuthCrunch `X-Token-*` operator claims. Production and laptop Nixstasis
+  hosts strip client-supplied `X-Token-*` headers before authorization; verified
+  AuthCrunch claims are injected afterwards and retained on operator requests.
+  Requests naming any `X-Token-*` header or `X-Nixstasis-Proxy-Token` in
+  `Connection` receive `400` before authorization or proxying, preventing
+  hop-by-hop removal of trusted scope. Ordinary WebSocket upgrades are unaffected.
 - `AUTHORIZED_ROLES`: normalized Caddy/AuthCrunch roles allowed at the edge.
   Production should include `nixstasis/viewer`, `nixstasis/operator`, and
   `nixstasis/admin` as needed.
@@ -170,6 +180,8 @@
 
 - Compose deployment exposes the Phoenix app only through Caddy for public HTTP
   ingress; the direct Phoenix host port remains loopback-bound for diagnostics.
+  Direct callers cannot authenticate by forging AuthCrunch headers because
+  Phoenix accepts `X-Token-*` claims only with the Caddy-to-Phoenix proxy token.
 - External managed devices point at the public Caddy host. The local Compose
   client simulator writes `/etc/nixstasis/config.yaml` from Compose environment
   before systemd starts and uses Caddy's HTTPS API hostname and the internal
@@ -236,6 +248,39 @@
   at `GET /api/v1/check_domain` for on-demand TLS approval.
 - Environment variables are passed to containers via explicit `environment:`
   blocks in the compose file; `--env-file` handles compose-time interpolation.
+
+## Contract Validation
+
+Run the static runtime checks from the repository root:
+
+```sh
+deploy/compose/scripts/check_runtime_contract.sh
+```
+
+For executable production/laptop claim-boundary checks on macOS or Linux, use
+Docker and the repository-built Caddy image in a disposable Compose container:
+
+```sh
+mise run deploy:dev -- build caddy
+mise run deploy:dev -- run --rm --no-deps \
+  --entrypoint /bin/sh \
+  --volume "$PWD:/workspace:ro" \
+  --workdir /workspace \
+  caddy -c 'apk add --no-cache python3 &&
+    CADDY_BIN=/usr/bin/caddy \
+    sh deploy/compose/scripts/check_runtime_contract.sh'
+```
+
+The development stack already runs Caddy in a container. These checks use a
+separate one-off container, not the live Caddy process, and install Python only
+inside that disposable container. No host Caddy or Python installation is needed.
+The full stack need not be running, and no service ports are published. Package
+installation requires network access. Buildx exports a Linux binary; do not run
+that exported binary directly on macOS. The existing Linux CI workflow is unchanged.
+
+The Caddy image workflow requires these behavior checks before publishing. They
+use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
+outside their scope. Without `CADDY_BIN`, only the existing static checks run.
 
 Traceable references:
 

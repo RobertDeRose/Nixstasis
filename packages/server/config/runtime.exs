@@ -56,6 +56,12 @@ if config_env() == :prod do
     end
 
   base_domain = Deployment.required_env!("BASE_DOMAIN")
+  proxy_auth_token = Deployment.required_env!("NIXSTASIS_PROXY_AUTH_TOKEN")
+
+  if byte_size(proxy_auth_token) < 32 do
+    raise ArgumentError, "NIXSTASIS_PROXY_AUTH_TOKEN must be at least 32 bytes"
+  end
+
   provisioning_base_url = Deployment.optional_env("ATOMIXOS_PROVISIONING_BASE_URL")
   ssh_client_frp_host = Deployment.optional_env("NIXSTASIS_SSH_FRP_HOST", "frps")
   ssh_client_frp_port = Deployment.optional_env("FRPS_TCPMUX_PORT", "2022")
@@ -94,6 +100,7 @@ if config_env() == :prod do
   config :nixstasis, :e2e_journey_dir, Path.join(e2e_priv_dir, "e2e/journeys")
   config :nixstasis, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
   config :nixstasis, :base_domain, base_domain
+  config :nixstasis, :proxy_auth_token, proxy_auth_token
   config :nixstasis, :provisioning_base_url, provisioning_base_url
   config :nixstasis, :ssh_client, frp_host: ssh_client_frp_host, frp_port: ssh_client_frp_port
   config :nixstasis, :e2e_enabled?, Deployment.enabled?("NIXSTASIS_E2E_ENABLED", false)

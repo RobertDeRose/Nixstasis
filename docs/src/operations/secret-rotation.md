@@ -34,12 +34,25 @@ signed Phoenix state such as sessions.
    denied.
 5. Validate Caddy transforms the new OIDC groups into the expected
    `nixstasis/*` roles and Phoenix receives those roles through AuthCrunch
-   `X-Token-*` claim headers. `nixstasis/viewer` is read-only, while
-   `nixstasis/operator` and `nixstasis/admin` can use implemented operational
-   controls.
+   `X-Token-*` claim headers. `nixstasis/viewer` is read-only,
+   `nixstasis/operator` can use implemented operational controls, and only
+   `nixstasis/admin` can change global system settings.
 
 Avoid wildcard role or group values. `validate_stack.sh` rejects wildcard
 authorization inputs.
+
+## Caddy-To-Phoenix Proxy Credential
+
+`NIXSTASIS_PROXY_AUTH_TOKEN` is consumed only by `caddy` and `nixstasis`. It
+authenticates the source of AuthCrunch `X-Token-*` claim headers. Generate it
+with `openssl rand -hex 32`; do not reuse `JWT_KEY`, `FRPS_AUTH_TOKEN`, or a
+Phoenix secret.
+
+1. Generate a fresh value and update `NIXSTASIS_PROXY_AUTH_TOKEN` in `.env`.
+2. Recreate `caddy` and `nixstasis` together so both sides use the same value.
+3. Validate browser login through Caddy.
+4. Confirm a direct request to the loopback Phoenix port with only a forged
+   `X-Token-User-Roles` header is denied.
 
 ## FRPS Secrets
 

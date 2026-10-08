@@ -5,6 +5,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
 COMPOSE_DIR="$ROOT_DIR/deploy/compose"
 ENV_EXAMPLE="$COMPOSE_DIR/.env.example"
+DEV_ENV="$COMPOSE_DIR/dev.env"
 CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile"
 DEV_CADDYFILE="$COMPOSE_DIR/caddy/Caddyfile.dev"
 FRPS_TOML="$COMPOSE_DIR/frps/frps.toml"
@@ -88,6 +89,7 @@ require_compose_service_env() {
 
 for file in \
   "$ENV_EXAMPLE" \
+  "$DEV_ENV" \
   "$CADDYFILE" \
   "$DEV_CADDYFILE" \
   "$FRPS_TOML" \
@@ -123,6 +125,8 @@ require_text "$ENV_EXAMPLE" '^CLIENT_ID='
 require_text "$ENV_EXAMPLE" '^CLIENT_SECRET='
 require_text "$ENV_EXAMPLE" '^TENANT_ID='
 require_text "$ENV_EXAMPLE" '^JWT_KEY='
+require_text "$ENV_EXAMPLE" '^NIXSTASIS_PROXY_AUTH_TOKEN='
+require_text "$DEV_ENV" '^NIXSTASIS_PROXY_AUTH_TOKEN=.{32,}$'
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_ROLES='
 require_text "$ENV_EXAMPLE" '^AUTHORIZED_GROUPS='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_VIEWER_GROUPS='
@@ -144,10 +148,11 @@ require_text "$CADDYFILE" 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_text "$CADDYFILE" 'auth\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'nixstasis\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'reverse_proxy nixstasis:\{\$PORT\}'
-require_text "$CADDYFILE" 'path /api/v1/devices/register'
-require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
-require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
-require_text "$CADDYFILE" 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
+require_text "$CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
+require_text "$CADDYFILE" 'path /api/v1/devices/register /api/json/device_runtime/devices/register'
+require_text "$CADDYFILE" 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/heartbeat\$'
+require_text "$CADDYFILE" 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/command_results\$'
+require_text "$CADDYFILE" 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
 require_text "$CADDYFILE" 'handle \{'
 require_text "$CADDYFILE" 'frp-admin\.\{\$BASE_DOMAIN\}'
 require_text "$CADDYFILE" 'allow roles \{\$AUTHORIZED_ROLES\}'
@@ -173,6 +178,8 @@ require_text "$SERVER_RUNTIME" 'required_env!\("DATABASE_URL"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("SECRET_KEY_BASE"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("PHX_HOST"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("BASE_DOMAIN"\)'
+require_text "$SERVER_RUNTIME" 'required_env!\("NIXSTASIS_PROXY_AUTH_TOKEN"\)'
+require_text "$SERVER_RUNTIME" ':proxy_auth_token'
 require_text "$SERVER_RUNTIME" 'optional_env\("NIXSTASIS_SSH_FRP_HOST", "frps"\)'
 require_text "$SERVER_RUNTIME" 'FRPS_TCPMUX_PORT'
 require_text "$SERVER_RUNTIME" ':ssh_client'
@@ -184,10 +191,12 @@ require_text "$ROOT_DIR/packages/server/Dockerfile" 'ARG NIXSTASIS_SESSION_COOKI
 require_compose_service_env nixstasis FRPS_AUTH_TOKEN
 require_compose_service_env nixstasis FRPS_TCPMUX_PORT
 require_compose_service_env nixstasis NIXSTASIS_SSH_FRP_HOST
+require_compose_service_env nixstasis NIXSTASIS_PROXY_AUTH_TOKEN
 require_compose_service_env frps FRPS_AUTH_TOKEN
 require_compose_service_env caddy NIXSTASIS_VIEWER_GROUPS
 require_compose_service_env caddy NIXSTASIS_OPERATOR_GROUPS
 require_compose_service_env caddy NIXSTASIS_ADMIN_GROUPS
+require_compose_service_env caddy NIXSTASIS_PROXY_AUTH_TOKEN
 
 require_text "$COMPOSE_README" 'DATABASE_URL'
 require_text "$COMPOSE_README" 'BASE_DOMAIN'
@@ -197,6 +206,7 @@ require_text "$COMPOSE_README" 'AUTHORIZED_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_VIEWER_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_OPERATOR_GROUPS'
 require_text "$COMPOSE_README" 'NIXSTASIS_ADMIN_GROUPS'
+require_text "$COMPOSE_README" 'NIXSTASIS_PROXY_AUTH_TOKEN'
 require_text "$COMPOSE_README" 'NIXSTASIS_SESSION_COOKIE_SECURE'
 require_text "$COMPOSE_README" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$COMPOSE_README" 'NIXSTASIS_SSH_FRP_HOST'
@@ -215,6 +225,7 @@ require_text "$COMPOSE_README" 'ghcr.io/<owner>/nixstasis-server@sha256:<digest>
 require_text "$COMPOSE_README" 'wait for the `DATABASE_URL` host and'
 
 require_text "$DEV_CADDYFILE" 'reverse_proxy nixstasis:\{\$PORT\}'
+require_text "$DEV_CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
 require_text "$DEV_CADDYFILE" 'reverse_proxy frps:\{\$FRPS_HTTP_PORT\}'
 require_text "$DEV_CADDYFILE" 'tls internal'
 reject_text "$DEV_CADDYFILE" 'security \{'
@@ -254,6 +265,7 @@ require_text "$SERVER_README" 'CLIENT_ID'
 require_text "$SERVER_README" 'CLIENT_SECRET'
 require_text "$SERVER_README" 'TENANT_ID'
 require_text "$SERVER_README" 'JWT_KEY'
+require_text "$SERVER_README" 'NIXSTASIS_PROXY_AUTH_TOKEN'
 require_text "$SERVER_README" 'FRPS_BIND_PORT'
 require_text "$SERVER_README" 'FRPS_AUTH_TOKEN'
 require_text "$SERVER_README" 'FRPS_HTTP_PORT'
@@ -277,6 +289,7 @@ require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pmlogger -L -P'
 require_text "$CLIENT_CONTAINER_ENTRYPOINT" 'pcp-metrics'
 require_literal "$DEV_LAB_SCRIPT" '[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]])'
 require_text "$LAPTOP_CADDYFILE" 'Content-Security-Policy.*frame-ancestors .self. https://nixstasis\.\{\$BASE_DOMAIN\}'
+require_text "$LAPTOP_CADDYFILE" 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_FRP_HTTP_LOCAL_ADDR'
 require_text "$ROOT_DIR/deploy/compose/docker-compose.yml" 'NIXSTASIS_SIMULATOR_HTTP_ENABLED'
 require_text "$CLIENT_DOCKERFILE" 'container-entrypoint'
@@ -362,6 +375,7 @@ require_text "$CONTRACT_DOC" 'CLIENT_ID'
 require_text "$CONTRACT_DOC" 'CLIENT_SECRET'
 require_text "$CONTRACT_DOC" 'TENANT_ID'
 require_text "$CONTRACT_DOC" 'JWT_KEY'
+require_text "$CONTRACT_DOC" 'NIXSTASIS_PROXY_AUTH_TOKEN'
 require_text "$CONTRACT_DOC" 'NIXSTASIS_VIEWER_GROUPS'
 require_text "$CONTRACT_DOC" 'NIXSTASIS_OPERATOR_GROUPS'
 require_text "$CONTRACT_DOC" 'NIXSTASIS_ADMIN_GROUPS'
@@ -376,5 +390,11 @@ require_text "$CONTRACT_DOC" 'Caddyfile\.dev'
 require_text "$CONTRACT_DOC" 'client-logs'
 require_text "$CONTRACT_DOC" 'down.*named volumes'
 require_text "$CONTRACT_DOC" 'check_domain'
+
+python3 "$COMPOSE_DIR/scripts/test_validate_stack.py"
+
+if [ -n "${CADDY_BIN:-}" ]; then
+  python3 "$COMPOSE_DIR/scripts/check_proxy_claims.py" --caddy "$CADDY_BIN"
+fi
 
 echo "runtime contract validation passed"

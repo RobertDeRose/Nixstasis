@@ -6,6 +6,7 @@ defmodule Nixstasis.Monitoring.Telemetry do
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
     domain: Nixstasis.Domain,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshJsonApi.Resource]
 
   postgres do
@@ -36,6 +37,23 @@ defmodule Nixstasis.Monitoring.Telemetry do
 
     update :update do
       accept [:payload, :timestamp]
+    end
+  end
+
+  policies do
+    bypass actor_absent() do
+      authorize_if always()
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(
+                     ^actor(:can_view_device_data) == true and
+                       (^actor(:unscoped_device_access) == true or device_id in ^actor(:authorized_device_ids))
+                   )
+    end
+
+    policy always() do
+      authorize_if actor_present()
     end
   end
 

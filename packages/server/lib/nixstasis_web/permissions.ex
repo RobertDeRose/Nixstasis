@@ -14,6 +14,13 @@ defmodule NixstasisWeb.Permissions do
 
   def device_permissions(session), do: permission_map(session, "device_permissions")
   def report_permissions(session), do: permission_map(session, "report_permissions")
+
+  @doc """
+  Extracts settings permissions from a trusted session or operator context.
+
+  Missing or malformed permission data becomes an empty map, granting nothing.
+  """
+  def settings_permissions(session), do: permission_map(session, "settings_permissions")
   def script_permissions(session), do: permission_map(session, "script_permissions")
   def command_policy_permissions(session), do: permission_map(session, "command_policy_permissions")
 
@@ -48,12 +55,19 @@ defmodule NixstasisWeb.Permissions do
 
   def can_create_devices?(permissions), do: can_manage_all_devices?(permissions)
 
-  @doc "Builds trusted authorization for device group context operations."
+  @doc """
+  Builds device-group authorization from a trusted operator session.
+
+  Combines the operator's audit identity, device-management capabilities, and
+  validated device scope into `{:ok, authorization}`. Missing identity or invalid
+  UUID scope returns an error; `nil` scope stays unrestricted and an empty scope
+  stays deny-all. This helper maps permissions rather than authenticating them.
+  """
   def device_group_authorization(session) when is_map(session) do
     permissions = device_permissions(session)
 
     with {:ok, actor_id} <- group_actor_id(session),
-         {:ok, authorized_device_ids} <- validate_group_device_scope(authorized_device_ids(permissions)) do
+         {:ok, authorized_device_ids} <- validate_device_scope(authorized_device_ids(permissions)) do
       {:ok,
        %GroupAuthorization{
          actor_id: actor_id,
@@ -91,11 +105,39 @@ defmodule NixstasisWeb.Permissions do
 
   def authorized_device_ids(_permissions), do: nil
 
+  @doc """
+  Returns the device scope to apply before running a telemetry report.
+
+  An operator with device-view permission receives the session's device-ID set,
+  or `nil` for fleet-wide access when no scope was supplied. Missing permission,
+  malformed sessions, and explicitly empty scopes return an empty `MapSet`, so
+  report-view permission alone cannot reveal device telemetry.
+  """
+  def authorized_report_device_ids(session) when is_map(session) do
+    permissions = device_permissions(session)
+
+    if can_view_device_details?(permissions) do
+      authorized_device_ids(permissions)
+    else
+      MapSet.new()
+    end
+  end
+
+  def authorized_report_device_ids(_session), do: MapSet.new()
+
   def can_view_reports?(session) when is_map(session), do: report_permissions(session)["can_view"] == true
   def can_view_reports?(_session), do: false
 
   def can_manage_reports?(session) when is_map(session), do: report_permissions(session)["can_manage"] == true
   def can_manage_reports?(_session), do: false
+
+  @doc """
+  Checks whether a trusted session explicitly allows global settings management.
+
+  Only a boolean `true` grants access; absent or malformed permissions deny it.
+  """
+  def can_manage_settings?(session) when is_map(session), do: settings_permissions(session)["can_manage"] == true
+  def can_manage_settings?(_session), do: false
 
   def can_view_scripts?(session) when is_map(session), do: script_permissions(session)["can_view"] == true
   def can_view_scripts?(_session), do: false
@@ -154,9 +196,38 @@ defmodule NixstasisWeb.Permissions do
 
   def can_assign_command_policy_to_device?(_session, _device), do: false
 
-  defp validate_group_device_scope(nil), do: {:ok, nil}
+  @doc """
+  Builds the Ash read actor used to enforce device-backed resource policies.
 
-  defp validate_group_device_scope(%MapSet{} = ids) do
+  Reads device-view permission and validates UUIDs from the trusted session.
+  Returns `{:ok, actor}` with separate view, unrestricted-access, and device-ID
+  fields, or `{:error, :invalid_device_scope}`. An empty scope is not equivalent
+  to an unrestricted one. Callers must authenticate the session first.
+  """
+  def device_read_actor(session) do
+    permissions = device_permissions(session)
+
+    with {:ok, device_ids} <- validate_device_scope(authorized_device_ids(permissions)) do
+      {:ok,
+       %{
+         can_view_device_data: can_view_device_details?(permissions),
+         unscoped_device_access: is_nil(device_ids),
+         authorized_device_ids: if(is_nil(device_ids), do: [], else: MapSet.to_list(device_ids))
+       }}
+    end
+  end
+
+  @doc """
+  Validates and normalizes the UUIDs in a trusted device scope.
+
+  Returns `{:ok, nil}` for unrestricted access or `{:ok, normalized_set}` for a
+  `MapSet`, including an empty deny-all set. A malformed UUID or unsupported
+  scope type returns `{:error, :invalid_device_scope}` rather than dropping it
+  and accidentally widening access.
+  """
+  def validate_device_scope(nil), do: {:ok, nil}
+
+  def validate_device_scope(%MapSet{} = ids) do
     Enum.reduce_while(ids, {:ok, MapSet.new()}, fn id, {:ok, valid_ids} ->
       case Ecto.UUID.cast(id) do
         {:ok, valid_id} -> {:cont, {:ok, MapSet.put(valid_ids, valid_id)}}
@@ -164,6 +235,8 @@ defmodule NixstasisWeb.Permissions do
       end
     end)
   end
+
+  def validate_device_scope(_scope), do: {:error, :invalid_device_scope}
 
   defp group_actor_id(session), do: actor_id(session)
 

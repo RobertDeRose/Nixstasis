@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -125,13 +126,36 @@ func runRegisterWithClient(client *transport.Client) error {
 		}
 		return fmt.Errorf("failed to save credentials: %w (runtime credentials preserved for retry)", err)
 	}
-	if registrationPath != identityPath {
-		if err := registrationStore.Remove(); err != nil {
-			return fmt.Errorf("failed to remove registration proof: %w", err)
-		}
+	if err := removeRegistrationProof(identityPath, registrationPath); err != nil {
+		return err
 	}
 
 	slog.Info("Credentials persisted successfully")
+	return nil
+}
+
+// removeRegistrationProof removes separate proof storage after the atomic
+// identity save, preserving any path that names the newly saved identity.
+func removeRegistrationProof(identityPath, registrationPath string) error {
+	if registrationPath == identityPath {
+		return nil
+	}
+	identityInfo, err := os.Stat(identityPath)
+	if err != nil {
+		return fmt.Errorf("failed to inspect saved identity: %w", err)
+	}
+	registrationInfo, err := os.Stat(registrationPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to inspect registration proof: %w", err)
+	}
+	if !os.SameFile(identityInfo, registrationInfo) {
+		if err := identity.NewStore(registrationPath).Remove(); err != nil {
+			return fmt.Errorf("failed to remove registration proof: %w", err)
+		}
+	}
 	return nil
 }
 

@@ -2,9 +2,10 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
   @moduledoc """
   Populates browser session permissions for LiveView authorization.
 
-  Production Caddy/AuthCrunch requests are mapped from trusted forwarded claims.
-  Requests without AuthCrunch claim headers keep permissive local-development
-  defaults.
+  Production Caddy/AuthCrunch requests are mapped from forwarded claims only
+  after the Caddy-to-Phoenix proxy credential validates. Requests without
+  AuthCrunch claim headers use permissive defaults only when the explicit
+  local-development fallback is enabled; otherwise their permissions are denied.
   """
 
   import Plug.Conn
@@ -15,6 +16,14 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
   @impl true
   def init(opts), do: opts
 
+  @doc """
+  Copies verified operator identity and permissions into the browser session.
+
+  Invalid authentication overwrites existing permissions with deny-all values
+  so stale grants cannot survive. The explicitly enabled local fallback preserves
+  existing permission maps or supplies development defaults. Returns the updated
+  connection; authorization of individual LiveView operations happens later.
+  """
   @impl true
   def call(conn, _opts) do
     case NixstasisWeb.OperatorContext.from_conn(conn) do
@@ -25,6 +34,7 @@ defmodule NixstasisWeb.Plugs.DevicePermissions do
           Map.drop(operator_context, [
             "device_permissions",
             "report_permissions",
+            "settings_permissions",
             "script_permissions",
             "command_policy_permissions"
           ])

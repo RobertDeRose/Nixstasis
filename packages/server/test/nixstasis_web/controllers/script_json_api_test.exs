@@ -28,6 +28,7 @@ defmodule NixstasisWeb.ScriptJSONAPITest do
                |> recycle()
                |> put_req_header("accept", "application/vnd.api+json")
                |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+               |> put_trusted_proxy_auth()
                |> get(path),
                404
              )

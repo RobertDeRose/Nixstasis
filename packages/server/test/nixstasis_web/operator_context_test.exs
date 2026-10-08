@@ -3,12 +3,17 @@ defmodule NixstasisWeb.OperatorContextTest do
 
   alias NixstasisWeb.OperatorContext
 
-  test "maps viewer role to read-only device and report permissions" do
-    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/viewer"})
+  test "maps viewer role from an authenticated proxy to read-only permissions", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
 
     assert context["roles"] == ["nixstasis/viewer"]
     assert context["device_permissions"] == %{"can_view" => true, "can_manage" => false, "can_remote_access" => false}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => false}
+    assert context["settings_permissions"] == %{"can_manage" => false}
 
     assert context["command_policy_permissions"] == %{
              "can_view_status" => true,
@@ -17,11 +22,16 @@ defmodule NixstasisWeb.OperatorContextTest do
            }
   end
 
-  test "maps operator role to remote access and report management" do
-    assert {:ok, context} = OperatorContext.from_headers(%{"x-token-user-roles" => "nixstasis/operator"})
+  test "maps operator role to remote access and report management", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
 
     assert context["device_permissions"] == %{"can_view" => true, "can_manage" => true, "can_remote_access" => true}
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
+    assert context["settings_permissions"] == %{"can_manage" => false}
 
     assert context["command_policy_permissions"] == %{
              "can_view_status" => true,
@@ -30,21 +40,24 @@ defmodule NixstasisWeb.OperatorContextTest do
            }
   end
 
-  test "normalizes space and comma separated role claims" do
+  test "normalizes space and comma separated role claims", %{conn: conn} do
     assert {:ok, context} =
-             OperatorContext.from_headers(%{
-               "x-token-user-roles" => "nixstasis/viewer nixstasis/OPERATOR,nixstasis/admin"
-             })
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer nixstasis/OPERATOR,nixstasis/admin")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
 
     assert context["roles"] == ["nixstasis/viewer", "nixstasis/operator", "nixstasis/admin"]
     assert context["device_permissions"]["can_remote_access"] == true
+    assert context["settings_permissions"] == %{"can_manage" => true}
   end
 
-  test "merges mixed roles with maximum privileges regardless of order" do
+  test "merges mixed roles with maximum privileges regardless of order", %{conn: conn} do
     assert {:ok, context} =
-             OperatorContext.from_headers(%{
-               "x-token-user-roles" => "nixstasis/operator nixstasis/viewer"
-             })
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/operator nixstasis/viewer")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
 
     assert context["device_permissions"] == %{
              "can_view" => true,
@@ -55,12 +68,13 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
   end
 
-  test "applies forwarded device scope claims to device permissions" do
+  test "applies forwarded device scope claims to device permissions", %{conn: conn} do
     assert {:ok, context} =
-             OperatorContext.from_headers(%{
-               "x-token-user-roles" => "nixstasis/operator",
-               "x-token-device-ids" => "device-a,device-b"
-             })
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/operator")
+             |> put_req_header("x-token-device-ids", "device-a,device-b")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
 
     assert context["device_permissions"] == %{
              "can_view" => true,
@@ -70,9 +84,45 @@ defmodule NixstasisWeb.OperatorContextTest do
            }
   end
 
-  test "fails closed for missing or unknown production roles" do
-    assert :error = OperatorContext.from_headers(%{"x-token-user-email" => "user@example.com"})
-    assert :error = OperatorContext.from_headers(%{"x-token-user-roles" => "guest"})
+  test "preserves an explicit empty device scope as deny-all", %{conn: conn} do
+    assert {:ok, context} =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+             |> put_req_header("x-token-device-ids", "")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
+
+    assert context["device_permissions"]["device_ids"] == []
+  end
+
+  test "rejects forged AuthCrunch claims without proxy authentication", %{conn: conn} do
+    assert :error =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/admin")
+             |> OperatorContext.from_conn()
+  end
+
+  test "rejects AuthCrunch claims with the wrong proxy credential", %{conn: conn} do
+    assert :error =
+             conn
+             |> put_req_header("x-token-user-roles", "nixstasis/admin")
+             |> put_req_header("x-nixstasis-proxy-token", String.duplicate("x", 32))
+             |> OperatorContext.from_conn()
+  end
+
+  test "fails closed for missing or unknown production roles", %{conn: conn} do
+    assert :error =
+             conn
+             |> put_req_header("x-token-user-email", "user@example.com")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
+
+    assert :error =
+             conn
+             |> recycle()
+             |> put_req_header("x-token-user-roles", "guest")
+             |> put_trusted_proxy_auth()
+             |> OperatorContext.from_conn()
   end
 
   test "detects local development requests when no AuthCrunch claim headers exist", %{conn: conn} do

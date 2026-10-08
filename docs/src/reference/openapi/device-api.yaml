@@ -2,13 +2,14 @@ openapi: 3.0.3
 info:
   title: Nixstasis Device API
   version: 1.0.0
-  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes have additive Ash-backed counterparts under /api/json/device_runtime/devices. The compatibility surface preserves Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration and list have no application device key. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
+  description: Compatibility API used by managed devices and Caddy TLS approval. Device runtime routes have additive Ash-backed counterparts under /api/json/device_runtime/devices. The compatibility surface preserves Go-client token, authentication, status-code, and response-shape behavior. The deviceApiKey query scheme applies to heartbeat and command operations; registration has no application device key, while list requires verified operator authentication and applies the operator device scope. The Caddy ask endpoint remains retained-controller because it is a Caddy-only ingress workflow, not a product data resource.
 paths:
   /api/v1/devices:
     get:
-      security: []
+      security:
+        - operatorBearer: []
       summary: List devices with optional filters
-      description: Current compatibility controller contract. The additive generated list action is the canonical Ash contract; preserve device list filters and compatibility semantics, including ipv4_address, in both references.
+      description: Requires verified operator claims supplied by Caddy/AuthCrunch with device-view permission. Device scope is applied before filtering; an omitted scope grants fleet access, an empty scope returns no rows, and malformed IDs are forbidden. Explicit local-development fallback remains available. The additive generated list action is the canonical Ash contract; device list filters and compatibility response shapes, including ipv4_address, are preserved.
       parameters:
         - in: query
           name: product
@@ -53,6 +54,10 @@ paths:
                       active_filters:
                         type: object
                         additionalProperties: true
+        "401":
+          description: Verified operator authentication is missing or invalid; empty response body.
+        "403":
+          description: Device-view permission is missing or the device scope is malformed; empty response body.
         "429":
           description: Device-list rate limit exceeded
   /api/v1/devices/register:

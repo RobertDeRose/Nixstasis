@@ -5,7 +5,8 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   Device runtime APIs live under `/api/v1` and use device credentials instead of
   AuthCrunch operator claims. The generated `/api/json` surface is an
   operator/developer resource API and must fail closed outside local dev/test
-  fallback.
+  fallback. Verified operator requests also receive an Ash actor so device-backed
+  resource reads can enforce row scope in the data layer.
   """
 
   import Plug.Conn
@@ -36,16 +37,25 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     end
   end
 
+  # Check the route's permission against verified operator context, then attach
+  # a validated Ash read actor. Missing grants or malformed scope return a halted
+  # forbidden connection instead of executing an unscoped resource query.
   defp authorize_operator(conn, policy) do
-    conn
-    |> context_from_conn()
-    |> permitted?(policy)
-    |> case do
-      true -> conn
-      false -> forbidden(conn)
+    context = context_from_conn(conn)
+
+    if permitted?(context, policy) do
+      case Permissions.device_read_actor(context) do
+        {:ok, actor} -> Ash.PlugHelpers.set_actor(conn, actor)
+        {:error, :invalid_device_scope} -> forbidden(conn)
+      end
+    else
+      forbidden(conn)
     end
   end
 
+  # Map route and method to their credential/permission boundary: public device
+  # registration, device-authenticated runtime operations, scoped operator reads,
+  # admin-only settings, or report view/manage permissions for remaining resources.
   defp policy_for(%{path_info: ["api", "json", "device_runtime", "devices", "register"], method: "POST"}),
     do: :device_runtime_registration
 
@@ -71,6 +81,10 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   end
 
   defp policy_for(%{path_info: ["api", "json", "telemetry_events" | _], method: method}) do
+    if method in ["GET", "HEAD", "OPTIONS"], do: {:device, :view}, else: {:device, :manage_all}
+  end
+
+  defp policy_for(%{path_info: ["api", "json", "alerts" | _], method: method}) do
     if method in ["GET", "HEAD", "OPTIONS"], do: {:device, :view}, else: {:device, :manage_all}
   end
 
