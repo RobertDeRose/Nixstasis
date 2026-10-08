@@ -1,7 +1,11 @@
 defmodule NixstasisWeb.TLSControllerTest do
   use NixstasisWeb.ConnCase, async: false
 
+  import Ecto.Query
+
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.Device
+  alias Nixstasis.Repo
 
   setup do
     original_base_domain = Application.get_env(:nixstasis, :base_domain)
@@ -48,17 +52,37 @@ defmodule NixstasisWeb.TLSControllerTest do
     assert response(conn, 204) == ""
   end
 
-  test "approves device hosts only when remote access is requested", %{conn: conn} do
-    {:ok, _device} =
+  test "approves device hosts only with unexpired remote access", %{conn: conn} do
+    {:ok, device} =
       Devices.register_device(%{
         mac_address: "AA:BB:CC:DD:EE:FF",
-        product_name: "P1",
-        remote_access_requested: true
+        product_name: "P1"
       })
 
+    {:ok, _device} = Devices.set_remote_access(device, true)
     conn = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
 
     assert response(conn, 204) == ""
+  end
+
+  test "denies requested device hosts with missing or expired authorization", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        mac_address: "AA:BB:CC:DD:EE:FF",
+        product_name: "P1"
+      })
+
+    for expires_at <- [nil, DateTime.add(DateTime.utc_now(), -1, :second)] do
+      {1, _} =
+        Repo.update_all(
+          from(current in Device, where: current.id == ^device.id),
+          set: [remote_access_requested: true, remote_access_expires_at: expires_at]
+        )
+
+      response_conn = get(conn, ~p"/api/v1/check_domain?domain=atom-aabbccddeeff.devices.example.com")
+
+      assert %{"error" => "The host is not permitted"} = json_response(response_conn, 401)
+    end
   end
 
   test "denies unknown or inactive device hosts", %{conn: conn} do

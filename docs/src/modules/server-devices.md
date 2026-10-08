@@ -116,9 +116,6 @@ metadata payloads.
   return the same runtime token without mutation. Registration cannot overwrite
   operator-owned approval or remote-access settings.
 - `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested, the response carries a short-lived signed FRPS credential bound to that device plus its named, versioned `remote_access_profile`. The generated heartbeat action shares this orchestration and returns the generated `200` contract.
-- Telemetry persistence limits are checked before heartbeat side effects. An
-  over-limit payload returns `413` through the compatibility controller and
-  `400` through the generated Ash argument-validation contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.

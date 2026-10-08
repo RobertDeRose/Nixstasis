@@ -96,6 +96,8 @@ same Nixstasis role contract.
 - Wildcard device traffic is routed to FRPS HTTP vhost port.
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
+  Device-host approval requires requested remote access with a persisted, unexpired
+  lease; a missing or expired lease is denied.
 
 Traceable references:
 

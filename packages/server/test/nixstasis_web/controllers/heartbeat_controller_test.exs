@@ -282,5 +282,4 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
 
     assert {:ok, %{"profile" => "bootstrap"}} = FrpsToken.verify(remote_access_token)
   end
-
 end

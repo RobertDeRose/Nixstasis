@@ -33,38 +33,6 @@ defmodule Nixstasis.Monitoring.Telemetry do
 
     create :create do
       accept [:device_id, :payload, :timestamp]
-      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}
-    end
-
-    update :update do
-      require_atomic? false
-      accept [:payload, :timestamp]
-      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}
-    end
-  end
-
-  policies do
-    bypass actor_absent() do
-      authorize_if always()
-    end
-
-    policy action_type(:read) do
-      authorize_if expr(
-                     ^actor(:can_view_device_data) == true and
-                       (^actor(:unscoped_device_access) == true or device_id in ^actor(:authorized_device_ids))
-                   )
-    end
-
-    policy always() do
-      authorize_if actor_present()
-    end
-  end
-
-  actions do
-    defaults [:read, :destroy]
-
-    create :create do
-      accept [:device_id, :payload, :timestamp]
     end
 
     update :update do
