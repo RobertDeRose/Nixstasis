@@ -13,6 +13,27 @@ defmodule Nixstasis.Notifications.Webhook do
 
   @network_timeout_ms 5_000
 
+  # IANA Global Unicast allocations (2025-10-10), excluding the protocol block
+  # handled below and 6to4. These inclusive first-32-bit intervals merge adjacent
+  # RIR allocations; all unlisted space is reserved for future allocation.
+  # https://www.iana.org/assignments/ipv6-unicast-address-assignments/
+  # Refresh this table and its boundary tests when IANA adds allocations.
+  @ipv6_global_allocations [
+    0x20010200..0x20010FFF,
+    0x20011200..0x20014DFF,
+    0x20015000..0x20015FFF,
+    0x20018000..0x2001BFFF,
+    0x20030000..0x20033FFF,
+    0x24000000..0x241FFFFF,
+    0x26000000..0x260FFFFF,
+    0x26100000..0x261001FF,
+    0x26200000..0x262001FF,
+    0x26300000..0x263FFFFF,
+    0x28000000..0x280FFFFF,
+    0x2A000000..0x2A1FFFFF,
+    0x2C000000..0x2C0FFFFF
+  ]
+
   @doc """
   Sends an alert's ID, type, message, and timestamp to an HTTPS webhook.
 
@@ -132,8 +153,8 @@ defmodule Nixstasis.Notifications.Webhook do
 
   # Classify addresses for outbound HTTPS, not merely by whether they parse.
   # Reject private, local, reserved, and special-purpose IPv4 ranges; mapped IPv6
-  # uses these same checks. Native IPv6 must be global unicast, excluding unsafe
-  # special-purpose prefixes, with narrow exceptions for routable public services.
+  # uses these same checks. Native IPv6 must be allocated global unicast,
+  # excluding unsafe special-purpose prefixes, with narrow public service exceptions.
   defp public_address?({a, b, c, _d}) do
     cond do
       a == 0 -> false
@@ -165,14 +186,11 @@ defmodule Nixstasis.Notifications.Webhook do
   defp public_address?({0x2001, 4, 0x112, _d, _e, _f, _g, _h}), do: true
 
   defp public_address?({first, second, _c, _d, _e, _f, _g, _h}) do
-    cond do
-      (first &&& 0xE000) != 0x2000 -> false
-      first == 0x2001 and (second &&& 0xFE00) == 0 -> false
-      first == 0x2001 and second == 0xDB8 -> false
-      first == 0x2002 -> false
-      first == 0x3FFF and (second &&& 0xF000) == 0 -> false
-      true -> true
-    end
+    prefix = first <<< 16 ||| second
+
+    # Documentation is reserved inside an otherwise allocated RIR range.
+    not (first == 0x2001 and second == 0xDB8) and
+      Enum.any?(@ipv6_global_allocations, &(prefix in &1))
   end
 
   defp public_address?(_address), do: false

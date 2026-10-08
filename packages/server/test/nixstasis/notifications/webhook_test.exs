@@ -44,7 +44,12 @@ defmodule Nixstasis.Notifications.WebhookTest do
 
       assert target.host_header == expected_host
       assert target.hostname == "hooks.example.test"
-      assert URI.parse(target.request_url).host == address |> :inet.ntoa() |> List.to_string()
+      pinned = URI.parse(target.request_url)
+      assert pinned.host == address |> :inet.ntoa() |> List.to_string()
+      assert pinned.port == if(port == ":8443", do: 8443, else: 443)
+      assert pinned.path == "/alerts"
+      assert pinned.query == "token=secret"
+      assert pinned.userinfo == "user:secret"
     end
   end
 
@@ -69,6 +74,8 @@ defmodule Nixstasis.Notifications.WebhookTest do
       assert_receive {:webhook_request, request, finch_request}
       assert {"host", host <> port} in finch_request.headers
       assert request.options[:connect_options][:hostname] == String.trim(host, "[") |> String.trim_trailing("]")
+      expected_transport = if String.starts_with?(host, "["), do: [inet6: true], else: nil
+      assert request.options[:connect_options][:transport_opts] == expected_transport
       assert request.options[:redirect] == false
       assert request.options[:retry] == false
     end
@@ -133,6 +140,10 @@ defmodule Nixstasis.Notifications.WebhookTest do
           "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff",
           "2001:db8::1",
           "2002::1",
+          "3ffe::",
+          "3ffe:831f::1",
+          "3ffe:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+          "3fff:1000::1",
           "3fff::1",
           "3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff",
           "4000::1",
@@ -169,7 +180,6 @@ defmodule Nixstasis.Notifications.WebhookTest do
           "2003::1",
           "2606:4700::1111",
           "2620:4f:8000::1",
-          "3fff:1000::1",
           "::ffff:93.184.216.34"
         ] do
       assert {:ok, target} = Webhook.validate_url("https://[#{host}]/alerts")
@@ -178,6 +188,84 @@ defmodule Nixstasis.Notifications.WebhookTest do
       resolver = fn "hooks.example.test" -> {:ok, [address]} end
       assert {:ok, resolved_target} = Webhook.validate_url("https://hooks.example.test/alerts", resolver)
       assert resolved_target.address == address
+    end
+  end
+
+  test "only accepts allocated IPv6 global unicast ranges" do
+    # IANA Global Unicast registry, 2025-10-10: endpoint pairs include merged
+    # adjacent allocations. Keep separate from the classifier's numeric table.
+    ranges = [
+      {"2001:200::", "2001:fff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2001:1200::", "2001:4dff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2001:5000::", "2001:5fff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2001:8000::", "2001:bfff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2003::", "2003:3fff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2400::", "241f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2600::", "260f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2610::", "2610:1ff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2620::", "2620:1ff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2630::", "263f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2800::", "280f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2a00::", "2a1f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+      {"2c00::", "2c0f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
+    ]
+
+    for {first, last} <- ranges, host <- [first, last] do
+      assert {:ok, _} = Webhook.validate_url("https://[#{host}]/alerts")
+    end
+
+    for host <- [
+          "2000::1",
+          "2001:1000::1",
+          "2001:4e00::1",
+          "2001:6000::1",
+          "2001:c000::1",
+          "2003:4000::1",
+          "2004::1",
+          "2420::1",
+          "2610:200::1",
+          "2611::1",
+          "2620:200::1",
+          "2621::1",
+          "2640::1",
+          "2810::1",
+          "2a20::1",
+          "2c10::1",
+          "2d00::1",
+          "2e00::1",
+          "3000::1",
+          "3ffd::1",
+          "3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+        ] do
+      assert {:error, :non_public_address} = Webhook.validate_url("https://[#{host}]/alerts")
+      {:ok, address} = :inet.parse_address(String.to_charlist(host))
+
+      for addresses <- [[{0x2606, 0x4700, 0, 0, 0, 0, 0, 0x1111}, address], [address, {93, 184, 216, 34}]] do
+        resolver = fn _ -> {:ok, addresses} end
+        assert {:error, :non_public_address} = Webhook.validate_url("https://hooks.example.test", resolver)
+      end
+    end
+  end
+
+  test "mapped IPv6 applies the embedded IPv4 boundary in both notations" do
+    for ipv4 <- [
+          "0.0.0.0",
+          "10.0.0.1",
+          "100.64.0.1",
+          "127.0.0.1",
+          "169.254.169.254",
+          "172.16.0.1",
+          "192.168.0.1",
+          "192.0.2.1",
+          "198.18.0.1",
+          "224.0.0.1"
+        ] do
+      {:ok, address} = :inet.parse_address(String.to_charlist("::ffff:" <> ipv4))
+      canonical = address |> :inet.ntoa() |> List.to_string()
+
+      for host <- ["::ffff:" <> ipv4, canonical] do
+        assert {:error, :non_public_address} = Webhook.validate_url("https://[#{host}]/alerts")
+      end
     end
   end
 
