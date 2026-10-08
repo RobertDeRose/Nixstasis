@@ -292,6 +292,16 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
         |> Repo.all()
 
       assert invalid_scope_results == []
+
+      for ids <- [[device.id, "not-a-device-id"], ["not-a-device-id", device.id]],
+          scope <- [ids, MapSet.new(ids)] do
+        mixed_scope_results =
+          config
+          |> QueryBuilder.build(%{"authorized_device_ids" => scope})
+          |> Repo.all()
+
+        assert mixed_scope_results == []
+      end
     end
 
     test "supports e2e source with explicit fields", %{run: run} do

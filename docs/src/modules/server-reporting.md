@@ -66,7 +66,8 @@
   authorized device IDs in SQL before report filters, sorting, or pagination;
   an explicitly unscoped operator retains fleet-wide report access. Report
   execution uses the separately supplied trusted scope; caller options cannot
-  override it through atom or string authorization keys.
+  override it through atom or string authorization keys. A scope containing any
+  malformed device ID returns no telemetry rows, even if other IDs are valid.
 - The report detail LiveView applies the same SQL-level device scope so browser
   rendering and the bespoke result endpoint share the same telemetry boundary.
 - Report list/detail interaction requirements, including filtering, sorting,

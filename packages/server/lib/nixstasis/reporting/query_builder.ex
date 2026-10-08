@@ -128,8 +128,8 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp base_query(_unknown), do: from(r in Run, where: false)
 
   # Constrain telemetry by valid device UUIDs before other filters. Keep nil
-  # unrestricted, preserve empty scopes as zero rows, and deny unsupported scope
-  # types. Other report sources have no device scope to apply.
+  # unrestricted, preserve empty scopes as zero rows, and deny the entire scope
+  # if any ID is malformed or the scope type is unsupported. Other report sources have no device scope to apply.
   defp apply_authorized_device_scope(query, "telemetry", nil), do: query
 
   defp apply_authorized_device_scope(query, "telemetry", %MapSet{} = device_ids) do
@@ -137,7 +137,14 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp apply_authorized_device_scope(query, "telemetry", device_ids) when is_list(device_ids) do
-    valid_device_ids = Enum.flat_map(device_ids, &cast_device_id/1)
+    valid_device_ids =
+      Enum.reduce_while(device_ids, [], fn device_id, ids ->
+        case Ecto.UUID.cast(device_id) do
+          {:ok, valid_id} -> {:cont, [valid_id | ids]}
+          :error -> {:halt, []}
+        end
+      end)
+
     from(q in query, where: q.device_id in ^valid_device_ids)
   end
 
@@ -146,15 +153,6 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   end
 
   defp apply_authorized_device_scope(query, _source, _device_ids), do: query
-
-  # Return a singleton normalized UUID list, or an empty list for an invalid ID,
-  # so callers can safely build a SQL membership filter without raising.
-  defp cast_device_id(device_id) do
-    case Ecto.UUID.cast(device_id) do
-      {:ok, valid_id} -> [valid_id]
-      :error -> []
-    end
-  end
 
   defp apply_schema_scope(query, config, "telemetry") do
     schema_id = config["schema_id"] || config[:schema_id]
