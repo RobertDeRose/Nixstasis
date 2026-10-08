@@ -98,6 +98,8 @@ mise run deploy:dev -- exec nixstasis /bin/bash
    `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, the
    `NIXSTASIS_*_GROUPS` group-to-role mapping values, and a fresh
    `NIXSTASIS_PROXY_AUTH_TOKEN` generated with `openssl rand -hex 32`.
+   Matching single or double quotes around this value do not count toward its
+   minimum length of 32 characters.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`

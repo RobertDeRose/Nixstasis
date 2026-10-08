@@ -391,6 +391,8 @@ require_text "$CONTRACT_DOC" 'client-logs'
 require_text "$CONTRACT_DOC" 'down.*named volumes'
 require_text "$CONTRACT_DOC" 'check_domain'
 
+python3 "$COMPOSE_DIR/scripts/test_validate_stack.py"
+
 if [ -n "${CADDY_BIN:-}" ]; then
   python3 "$COMPOSE_DIR/scripts/check_proxy_claims.py" --caddy "$CADDY_BIN"
 fi
