@@ -85,6 +85,75 @@ defmodule Nixstasis.Notifications.WebhookTest do
              Webhook.validate_url("https://mixed.example.test/alerts", resolver)
   end
 
+  test "rejects non-global IPv6 literals and mixed DNS answers" do
+    for host <- [
+          "::",
+          "::1",
+          "::2",
+          "::ffff:127.0.0.1",
+          "64:ff9b::1",
+          "64:ff9b:1::1",
+          "100::1",
+          "100:0:0:1::1",
+          "2001::1",
+          "2001:1::4",
+          "2001:2::1",
+          "2001:4:111::1",
+          "2001:10::1",
+          "2001:1f:ffff:ffff:ffff:ffff:ffff:ffff",
+          "2001:20::1",
+          "2001:30::1",
+          "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff",
+          "2001:db8::1",
+          "2002::1",
+          "3fff::1",
+          "3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff",
+          "4000::1",
+          "5f00::1",
+          "fc00::1",
+          "fe80::1",
+          "fec0::1",
+          "ff00::1"
+        ] do
+      assert {:error, :non_public_address} = Webhook.validate_url("https://[#{host}]/alerts")
+      assert {:error, :non_public_address} = Webhook.send_alert_webhook("https://[#{host}]/alerts", nil)
+      {:ok, address} = :inet.parse_address(String.to_charlist(host))
+
+      for addresses <- [[{93, 184, 216, 34}, address], [address, {93, 184, 216, 34}]] do
+        resolver = fn "mixed.example.test" -> {:ok, addresses} end
+        assert {:error, :non_public_address} = Webhook.validate_url("https://mixed.example.test/alerts", resolver)
+      end
+    end
+  end
+
+  test "preserves public IPv6 ranges and globally routable protocol services" do
+    for host <- [
+          "2001:1::1",
+          "2001:1::2",
+          "2001:1::3",
+          "2001:3::1",
+          "2001:3:ffff:ffff:ffff:ffff:ffff:ffff",
+          "2001:4:112::1",
+          "2001:4:112:ffff:ffff:ffff:ffff:ffff",
+          "2001:200::1",
+          "2001:db7::1",
+          "2001:db9::1",
+          "2001:4860:4860::8888",
+          "2003::1",
+          "2606:4700::1111",
+          "2620:4f:8000::1",
+          "3fff:1000::1",
+          "::ffff:93.184.216.34"
+        ] do
+      assert {:ok, target} = Webhook.validate_url("https://[#{host}]/alerts")
+      {:ok, address} = :inet.parse_address(String.to_charlist(host))
+      assert target.address == address
+      resolver = fn "hooks.example.test" -> {:ok, [address]} end
+      assert {:ok, resolved_target} = Webhook.validate_url("https://hooks.example.test/alerts", resolver)
+      assert resolved_target.address == address
+    end
+  end
+
   test "rejects unresolvable webhook hosts" do
     resolver = fn _host -> {:error, :nxdomain} end
 

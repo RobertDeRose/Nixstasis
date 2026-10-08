@@ -126,24 +126,23 @@ defmodule Nixstasis.Notifications.Webhook do
     end
   end
 
-  defp public_address?({0, 0, 0, 0, 0, 0, 0, 0}), do: false
-  defp public_address?({0, 0, 0, 0, 0, 0, 0, 1}), do: false
-  defp public_address?({0, 0, 0, 0, 0, 0, _high, _low}), do: false
-
   defp public_address?({0, 0, 0, 0, 0, 0xFFFF, high, low}) do
     public_address?({high >>> 8, high &&& 0xFF, low >>> 8, low &&& 0xFF})
   end
 
+  # Globally routable service exceptions within IANA's 2001::/23 protocol block:
+  # https://www.iana.org/assignments/iana-ipv6-special-registry/
+  defp public_address?({0x2001, 1, 0, 0, 0, 0, 0, service}) when service in [1, 2, 3], do: true
+  defp public_address?({0x2001, 3, _c, _d, _e, _f, _g, _h}), do: true
+  defp public_address?({0x2001, 4, 0x112, _d, _e, _f, _g, _h}), do: true
+
   defp public_address?({first, second, _c, _d, _e, _f, _g, _h}) do
     cond do
-      first == 0x64 and second == 0xFF9B -> false
-      first == 0x100 -> false
+      (first &&& 0xE000) != 0x2000 -> false
+      first == 0x2001 and (second &&& 0xFE00) == 0 -> false
       first == 0x2001 and second == 0xDB8 -> false
       first == 0x2002 -> false
-      (first &&& 0xFE00) == 0xFC00 -> false
-      (first &&& 0xFFC0) == 0xFE80 -> false
-      (first &&& 0xFFC0) == 0xFEC0 -> false
-      (first &&& 0xFF00) == 0xFF00 -> false
+      first == 0x3FFF and (second &&& 0xF000) == 0 -> false
       true -> true
     end
   end

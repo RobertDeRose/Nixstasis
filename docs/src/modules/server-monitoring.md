@@ -76,7 +76,11 @@
   Unchanged legacy destinations can be preserved without resolving them at save
   time; they still undergo the delivery-time checks below.
 - Webhook destinations must use HTTPS. Phoenix resolves them before each
-  delivery, rejects loopback/private/link-local/reserved answers, pins the
+  delivery and rejects loopback/private/link-local/reserved answers. Native IPv6
+  destinations must be in global-unicast space (`2000::/3`), excluding documentation,
+  6to4, and protocol-assignment ranges; designated globally routable protocol
+  services remain allowed. IPv4-mapped addresses use the IPv4 checks. Any rejected
+  DNS answer blocks delivery, even alongside public answers. Phoenix pins the
   request to a validated public address while retaining the original hostname
   for TLS verification and the HTTP Host header (including non-default ports),
   and does not follow redirects.
