@@ -138,7 +138,7 @@ schema:
       type: string
 ---
 def main():
-  lines = read_file(path="/proc/net/route").split("\n")
+  lines = read_file(path="/proc/1/net/route").split("\n")
   for line in lines[1:]:
     cols = [c for c in line.split("\t") if c != ""]
     if len(cols) > 2 and cols[1] == "00000000":

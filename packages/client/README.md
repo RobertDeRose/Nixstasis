@@ -120,6 +120,8 @@ policies cannot expand those argument capabilities. The shipped configuration no
 Scripts that need file-backed diagnostics must use `read_file`, which accepts only exact
 paths listed locally under `runtime.read_files`; Nixstasis state under `/etc/nixstasis`
 and `/run/nixstasis` is always denied, and each read is capped at 64 KiB.
+Every path component must be free of symlinks, and only regular files are readable;
+FIFOs, directories, and other special files are rejected without waiting for data.
 
 Runtime suite journeys:
 

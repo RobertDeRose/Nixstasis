@@ -116,6 +116,9 @@ Traceable references:
   `read_file` capability. It accepts only
   exact locally configured `runtime.read_files` paths, caps each read at 64 KiB,
   and always rejects paths under `/etc/nixstasis` and `/run/nixstasis`.
+  Symlinks in any path component and non-regular files are rejected. Descriptor-relative,
+  nonblocking opens prevent path swaps or FIFOs from bypassing authorization or
+  hanging script cancellation.
 - Script results become telemetry payload fields sent to the server.
 
 Traceable references:

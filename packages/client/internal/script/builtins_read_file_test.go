@@ -21,7 +21,7 @@ def main():
 }
 
 func TestReadFileReadsOnlyExplicitlyAllowlistedPath(t *testing.T) {
-	dir := t.TempDir()
+	dir := readFileTestDir(t)
 	allowed := filepath.Join(dir, "allowed")
 	secret := filepath.Join(dir, "secret")
 	if err := os.WriteFile(allowed, []byte("diagnostic\n"), 0o600); err != nil {
@@ -72,7 +72,7 @@ def main():
 }
 
 func TestReadFileRejectsOversizedContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "large")
+	path := filepath.Join(readFileTestDir(t), "large")
 	if err := os.WriteFile(path, []byte(strings.Repeat("x", maxReadFileBytes+1)), 0o600); err != nil {
 		t.Fatalf("write large file: %v", err)
 	}
@@ -88,4 +88,13 @@ def main():
 	if err == nil || !strings.Contains(err.Error(), "read limit") {
 		t.Fatalf("expected oversized read to fail, got %v", err)
 	}
+}
+
+func readFileTestDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

@@ -1,6 +1,7 @@
 package script
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ var protectedReadFileRoots = []string{
 }
 
 func (r *Runtime) readFileBuiltin(
-	_ *starlark.Thread,
+	thread *starlark.Thread,
 	_ *starlark.Builtin,
 	args starlark.Tuple,
 	kwargs []starlark.Tuple,
@@ -33,15 +34,31 @@ func (r *Runtime) readFileBuiltin(
 		return nil, err
 	}
 
-	file, err := os.Open(resolved) // #nosec G304 -- resolveReadFile checks the canonical path against the exact allowlist and protected roots.
+	file, err := openReadFile(resolved)
 	if err != nil {
 		return nil, fmt.Errorf("open allowlisted file: %w", err)
 	}
 	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat allowlisted file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("read_file requires a regular file")
+	}
+	ctx := runtimeContext(thread)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	stop := context.AfterFunc(ctx, func() { _ = file.Close() })
+	defer stop()
 
 	data, err := io.ReadAll(io.LimitReader(file, maxReadFileBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read allowlisted file: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if len(data) > maxReadFileBytes {
 		return nil, fmt.Errorf("allowlisted file exceeds %d-byte read limit", maxReadFileBytes)
@@ -66,10 +83,7 @@ func (r *Runtime) resolveReadFile(requested string) (string, error) {
 		return "", fmt.Errorf("read_file path is protected: %s", requested)
 	}
 
-	requestedPath, err := canonicalReadFilePath(requestedCandidate, r.config.ExecWorkDir)
-	if err != nil {
-		return "", fmt.Errorf("resolve read_file path: %w", err)
-	}
+	requestedPath := filepath.Clean(requestedCandidate)
 	if protectedReadFilePath(requestedPath) {
 		return "", fmt.Errorf("read_file path is protected: %s", requested)
 	}
@@ -79,10 +93,7 @@ func (r *Runtime) resolveReadFile(requested string) (string, error) {
 			continue
 		}
 
-		allowedPath, err := canonicalReadFilePath(allowed, r.config.ExecWorkDir)
-		if err != nil {
-			continue
-		}
+		allowedPath := filepath.Clean(allowed)
 		if protectedReadFilePath(allowedPath) {
 			continue
 		}
@@ -92,13 +103,6 @@ func (r *Runtime) resolveReadFile(requested string) (string, error) {
 	}
 
 	return "", fmt.Errorf("read_file path is not allowlisted: %s", requested)
-}
-
-func canonicalReadFilePath(path, workDir string) (string, error) {
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(workDir, path)
-	}
-	return filepath.EvalSymlinks(filepath.Clean(path))
 }
 
 func protectedReadFilePath(path string) bool {

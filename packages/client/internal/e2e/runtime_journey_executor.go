@@ -882,7 +882,7 @@ func executeScriptsForRuntime(
 			"/proc/1/comm",
 			"/proc/loadavg",
 			"/proc/meminfo",
-			"/proc/net/route",
+			"/proc/1/net/route",
 			"/proc/stat",
 			"/proc/uptime",
 		},
