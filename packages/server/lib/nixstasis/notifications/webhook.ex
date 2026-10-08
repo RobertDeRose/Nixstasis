@@ -50,7 +50,9 @@ defmodule Nixstasis.Notifications.Webhook do
 
   The optional resolver receives a hostname and returns `{:ok, addresses}` or
   `{:error, reason}`. It makes tests deterministic; normal callers use the system
-  resolver. Literal IP addresses are checked directly without a DNS lookup.
+  resolver, with a five-second timeout for each sequential IPv4/IPv6 lookup
+  (up to ten seconds for DNS resolution). Literal IP addresses are checked
+  directly without a DNS lookup. Connection and response timeouts are separate.
   """
   def validate_url(url, resolver \\ &resolve_host/1)
 
@@ -99,14 +101,15 @@ defmodule Nixstasis.Notifications.Webhook do
   end
 
   # Collect and deduplicate both IPv4 and IPv6 DNS answers. A failed lookup for
-  # one family is harmless if the other succeeds; no answers means a host error.
+  # one family, including timeout, is harmless if the other succeeds; no answers
+  # means a host error. Each sequential lookup has its own five-second budget.
   defp resolve_host(host) do
     host = String.to_charlist(host)
 
     addresses =
       [:inet, :inet6]
       |> Enum.flat_map(fn family ->
-        case :inet.getaddrs(host, family) do
+        case :inet.getaddrs(host, family, @network_timeout_ms) do
           {:ok, values} -> values
           {:error, _reason} -> []
         end

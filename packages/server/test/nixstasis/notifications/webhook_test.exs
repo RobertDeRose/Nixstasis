@@ -3,6 +3,33 @@ defmodule Nixstasis.Notifications.WebhookTest do
 
   alias Nixstasis.Notifications.Webhook
 
+  test "system DNS lookups use a five-second timeout for each address family" do
+    # Trace only this lookup task in an isolated session, without mocking :inet
+    # or changing resolver settings for other tests. localhost needs no external DNS.
+    session = :trace.session_create(:webhook_dns_timeout, self(), [])
+
+    try do
+      :trace.function(session, {:inet, :getaddrs, 3}, true, [:local])
+
+      lookup =
+        Task.async(fn ->
+          receive do
+            :resolve -> Webhook.validate_url("https://localhost/alerts")
+          end
+        end)
+
+      :trace.process(session, lookup.pid, true, [:call])
+      send(lookup.pid, :resolve)
+      assert Task.await(lookup) == {:error, :non_public_address}
+      pid = lookup.pid
+
+      assert_receive {:trace, ^pid, :call, {:inet, :getaddrs, [~c"localhost", :inet, 5_000]}}, 1_000
+      assert_receive {:trace, ^pid, :call, {:inet, :getaddrs, [~c"localhost", :inet6, 5_000]}}, 1_000
+    after
+      :trace.session_destroy(session)
+    end
+  end
+
   test "preserves the original authority when DNS resolves to IPv4 or IPv6" do
     for address <- [{93, 184, 216, 34}, {0x2606, 0x4700, 0, 0, 0, 0, 0, 0x1111}],
         {port, expected_host} <- [

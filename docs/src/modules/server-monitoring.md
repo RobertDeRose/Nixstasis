@@ -83,7 +83,9 @@
   DNS answer blocks delivery, even alongside public answers. Phoenix pins the
   request to a validated public address while retaining the original hostname
   for TLS verification and the HTTP Host header (including non-default ports),
-  and does not follow redirects.
+  and does not follow redirects. Each sequential IPv4/IPv6 DNS lookup has a
+  five-second timeout, so DNS resolution can take up to ten seconds. Literal IP
+  destinations bypass DNS; connection and response timeouts are separate.
 
 ### Alert rule modal contract
 
