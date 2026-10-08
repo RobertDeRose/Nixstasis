@@ -33,7 +33,7 @@ func (r *Runtime) readFileBuiltin(
 		return nil, err
 	}
 
-	file, err := os.Open(resolved)
+	file, err := os.Open(resolved) // #nosec G304 -- resolveReadFile checks the canonical path against the exact allowlist and protected roots.
 	if err != nil {
 		return nil, fmt.Errorf("open allowlisted file: %w", err)
 	}
