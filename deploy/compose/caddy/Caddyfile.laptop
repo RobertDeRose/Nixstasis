@@ -76,22 +76,22 @@ nixstasis.{$BASE_DOMAIN} {
 
   @device_registration {
     method POST
-    path /api/v1/devices/register
+    path /api/v1/devices/register /api/json/device_runtime/devices/register
   }
 
   @device_heartbeat {
     method POST
-    path_regexp ^/api/v1/devices/[^/]+/heartbeat$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/heartbeat$
   }
 
   @device_command_results {
     method POST
-    path_regexp ^/api/v1/devices/[^/]+/command_results$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/command_results$
   }
 
   @device_command_payload {
     method GET
-    path_regexp ^/api/v1/devices/[^/]+/command_payloads/[^/]+$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/command_payloads/[^/]+$
   }
 
   # Explicit order keeps rejection ahead of all device and operator handlers.

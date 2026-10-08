@@ -263,6 +263,10 @@ class ProxyClaimsTest(unittest.TestCase):
         device scope only when configured, and reject requests without a token.
         """
         for method, path in [
+            ("POST", "/api/json/device_runtime/devices/register"),
+            ("POST", "/api/json/device_runtime/devices/device-a/heartbeat?api_key=device-credential"),
+            ("POST", "/api/json/device_runtime/devices/device-a/command_results?api_key=device-credential"),
+            ("GET", "/api/json/device_runtime/devices/device-a/command_payloads/ref-a?api_key=device-credential"),
             ("POST", "/api/v1/devices/register"),
             ("POST", "/api/v1/devices/device-a/heartbeat?api_key=device-credential"),
             ("POST", "/api/v1/devices/device-a/command_results?api_key=device-credential"),
@@ -276,7 +280,7 @@ class ProxyClaimsTest(unittest.TestCase):
             self.assertEqual(result["headers"]["x-nixstasis-proxy-token"], PROXY_TOKEN)
             self.assertFalse(any(k.startswith("x-token-") for k in result["headers"]), result)
 
-        for path in ["/reports", "/api/json/devices"]:
+        for path in ["/reports", "/api/json/devices", "/api/json/device_runtime/devices"]:
             status, body = self.request(port, "GET", path, authenticated=True)
             self.assertEqual(status, 200, body)
             claims = {k: v for k, v in json.loads(body)["headers"].items()

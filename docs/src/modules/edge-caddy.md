@@ -81,8 +81,10 @@ same Nixstasis role contract.
   `dev.env` and relies on Phoenix's explicit local auth fallback instead of a
   live OIDC provider.
 - Device protocol HTTPS traffic on `nixstasis.<base-domain>` bypasses AuthCrunch
-  only for registration, heartbeat, command result, and command payload routes;
+  only for registration, heartbeat, command result, and command payload routes
+  under both `/api/v1/devices` and `/api/json/device_runtime/devices`;
   Phoenix enforces the device credential contract for those runtime calls.
+  Generated device listing remains operator-authenticated.
 - The Caddy image workflow runs real signed-JWT proxy checks for both production
   and laptop configurations through `check_runtime_contract.sh` with `CADDY_BIN`.
   These use loopback HTTP and an echo upstream, checking device claim removal,
