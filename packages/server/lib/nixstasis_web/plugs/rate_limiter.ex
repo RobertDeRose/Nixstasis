@@ -181,14 +181,19 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
     value = String.trim(value)
 
     case :inet.parse_address(String.to_charlist(value)) do
-      {:ok, address} -> address |> :inet.ntoa() |> to_string()
+      {:ok, address} -> normalize_ip(address)
       {:error, _reason} -> nil
     end
   end
 
+  defp normalize_ip({a, b, c, d, _, _, _, _}),
+    do: {a, b, c, d, 0, 0, 0, 0} |> :inet.ntoa() |> to_string()
+
+  defp normalize_ip({_, _, _, _} = address), do: address |> :inet.ntoa() |> to_string()
+
   defp normalize_ip(_value), do: nil
 
-  defp remote_ip(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()
+  defp remote_ip(conn), do: normalize_ip(conn.remote_ip)
 
   defp rate_limit(opts, key, default) do
     app_config = Application.get_env(:nixstasis, :rate_limit, [])

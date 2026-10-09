@@ -98,7 +98,7 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
-  def handle_event("trust_pending_ssh_host_key", _, socket) do
+  def handle_event("trust_pending_ssh_host_key", params, socket) do
     device = socket.assigns.device
 
     cond do
@@ -109,12 +109,16 @@ defmodule NixstasisWeb.DeviceLive.Show do
         {:noreply, put_flash(socket, :error, "Unable to identify the operator accepting this SSH host key.")}
 
       true ->
-        case Devices.accept_pending_ssh_host_key(device, socket.assigns.remote_access_actor_id) do
+        case Devices.accept_pending_ssh_host_key(device, socket.assigns.remote_access_actor_id, params["fingerprint"]) do
           {:ok, updated} ->
             {:noreply,
              socket
              |> refresh_device_view(updated)
              |> put_flash(:info, "The new SSH host key is now trusted for this device.")}
+
+          {:error, :ssh_host_key_changed} ->
+            {:noreply,
+             put_flash(socket, :error, "The SSH host key changed. Review the current fingerprint before trusting it.")}
 
           {:error, :no_pending_ssh_host_key} ->
             {:noreply, put_flash(socket, :error, "There is no pending SSH host key to trust.")}

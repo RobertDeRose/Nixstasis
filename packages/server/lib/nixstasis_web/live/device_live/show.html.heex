@@ -194,6 +194,7 @@
               id="trust-pending-ssh-host-key"
               class="btn btn-warning btn-sm"
               phx-click="trust_pending_ssh_host_key"
+              phx-value-fingerprint={Devices.ssh_host_key_fingerprint(@device.ssh_host_key_pending)}
             >
               Trust new host key
             </button>

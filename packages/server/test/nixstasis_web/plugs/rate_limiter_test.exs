@@ -62,6 +62,27 @@ defmodule NixstasisWeb.Plugs.RateLimiterTest do
              |> json_response(429)
   end
 
+  test "direct IPv6 origins share a quota within a /64" do
+    configure(preauth_limit: 1, preauth_global_limit: 100)
+    path = "/api/v1/devices/register"
+
+    refute preauth_request(path, {0x2001, 0xDB8, 1, 2, 0, 0, 0, 1}).halted
+    assert preauth_request(path, {0x2001, 0xDB8, 1, 2, 9, 8, 7, 6}).status == 429
+    refute preauth_request(path, {0x2001, 0xDB8, 1, 3, 0, 0, 0, 1}).halted
+    assert RateLimiterStore.bounded_size() == 2
+  end
+
+  test "trusted proxy IPv6 origins share a quota within a /64" do
+    configure(preauth_limit: 1, preauth_global_limit: 100)
+    path = "/api/v1/devices/register"
+    peer = {172, 18, 0, 2}
+
+    refute preauth_request(path, peer, trusted_client_headers("2001:db8:1:2::1")).halted
+    assert preauth_request(path, peer, trusted_client_headers("2001:db8:1:2:ffff::2")).status == 429
+    refute preauth_request(path, peer, trusted_client_headers("2001:db8:1:3::1")).halted
+    assert RateLimiterStore.bounded_size() == 2
+  end
+
   test "untrusted callers cannot spoof the internal client IP header" do
     configure(preauth_limit: 1, preauth_global_limit: 100)
     device_id = Ecto.UUID.generate()

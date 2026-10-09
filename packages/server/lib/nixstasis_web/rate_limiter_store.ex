@@ -55,6 +55,10 @@ defmodule NixstasisWeb.RateLimiterStore do
           if count > limit, do: :limited, else: :ok
 
         :missing_or_expired ->
+          if not :ets.member(@bounded_table, key) and :ets.info(@bounded_table, :size) >= max_keys do
+            prune_table(@bounded_table, now - window_ms)
+          end
+
           if :ets.member(@bounded_table, key) or :ets.info(@bounded_table, :size) < max_keys do
             :ets.insert(@bounded_table, {key, now, 1})
             :ok
@@ -101,7 +105,7 @@ defmodule NixstasisWeb.RateLimiterStore do
   end
 
   defp prune_table(table, cutoff) do
-    :ets.select_delete(table, [{{:"$1", :"$2", :"$3"}, [{:<, :"$2", cutoff}], [true]}])
+    :ets.select_delete(table, [{{:"$1", :"$2", :"$3"}, [{:"=<", :"$2", cutoff}], [true]}])
   end
 
   defp schedule_prune, do: Process.send_after(self(), :prune, @prune_interval_ms)

@@ -791,11 +791,98 @@ defmodule Nixstasis.DevicesTest do
       {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
       previous_fingerprint = Devices.ssh_host_key_fingerprint(@host_key_a)
 
-      assert {:ok, trusted} = Devices.accept_pending_ssh_host_key(changed, "operator:test@example.com")
+      assert {:ok, trusted} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test@example.com",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
       assert trusted.ssh_host_key == @host_key_b
       assert is_nil(trusted.ssh_host_key_pending)
       assert trusted.ssh_host_key_previous_fingerprint == previous_fingerprint
       assert trusted.ssh_host_key_trusted_by == "operator:test@example.com"
+    end
+
+    test "recovery rejects a fingerprint other than the one reviewed" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+
+      for fingerprint <- [nil, "", Devices.ssh_host_key_fingerprint(@host_key_a)] do
+        assert {:error, :ssh_host_key_changed} =
+                 Devices.accept_pending_ssh_host_key(changed, "operator:test", fingerprint)
+      end
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert Devices.get_device!(device.id).ssh_host_key_pending == @host_key_b
+    end
+
+    test "recovery cannot promote a pending key removed after review" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      {:ok, _restored} = Devices.record_ssh_host_key(changed, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert is_nil(Devices.get_device!(device.id).ssh_host_key_pending)
+    end
+
+    test "recovery cannot promote a different pending key after review" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      replacement = "ssh-ed25519 " <> Base.encode64(<<11::32, "ssh-ed25519", 32::32, 2::256>>)
+      {:ok, _replaced} = Devices.record_ssh_host_key(changed, replacement)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert Devices.get_device!(device.id).ssh_host_key_pending == replacement
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(changed, @host_key_a)
+    end
+
+    test "a competing enrollment cannot overwrite the first trusted key" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(device, @host_key_b)
+      assert Devices.get_device!(device.id).ssh_host_key == enrolled.ssh_host_key
+    end
+
+    test "a stale heartbeat cannot overwrite an operator trust decision" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+
+      {:ok, trusted} =
+        Devices.accept_pending_ssh_host_key(changed, "operator:test", Devices.ssh_host_key_fingerprint(@host_key_b))
+
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(changed, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:other",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      current = Devices.get_device!(device.id)
+      assert current.ssh_host_key == trusted.ssh_host_key
+      assert current.ssh_host_key_trusted_by == "operator:test"
+      assert is_nil(current.ssh_host_key_pending)
     end
 
     test "return to the trusted host key clears a stale pending mismatch" do

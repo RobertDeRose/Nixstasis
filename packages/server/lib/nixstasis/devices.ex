@@ -521,7 +521,7 @@ defmodule Nixstasis.Devices do
   end
 
   @doc false
-  def accept_pending_ssh_host_key(%Device{} = device, actor_id) when is_binary(actor_id) do
+  def accept_pending_ssh_host_key(%Device{} = device, actor_id, reviewed_fingerprint) when is_binary(actor_id) do
     actor_id = String.trim(actor_id)
 
     cond do
@@ -530,6 +530,10 @@ defmodule Nixstasis.Devices do
 
       blank_string?(device.ssh_host_key_pending) ->
         {:error, :no_pending_ssh_host_key}
+
+      not is_binary(reviewed_fingerprint) or
+          reviewed_fingerprint != ssh_host_key_fingerprint(device.ssh_host_key_pending) ->
+        {:error, :ssh_host_key_changed}
 
       true ->
         previous_fingerprint = ssh_host_key_fingerprint(device.ssh_host_key)
@@ -559,7 +563,7 @@ defmodule Nixstasis.Devices do
     end
   end
 
-  def accept_pending_ssh_host_key(%Device{}, _actor_id), do: {:error, :missing_actor}
+  def accept_pending_ssh_host_key(%Device{}, _actor_id, _reviewed_fingerprint), do: {:error, :missing_actor}
 
   @doc false
   def ssh_host_key_fingerprint(value) when is_binary(value) do
@@ -572,10 +576,33 @@ defmodule Nixstasis.Devices do
   def ssh_host_key_fingerprint(_value), do: nil
 
   defp persist_ssh_host_key_state(%Device{} = device, attrs) do
-    case Domain.update_device_ssh_host_key_state(device, attrs) do
-      {:ok, updated} = result ->
+    result =
+      Repo.transaction(fn ->
+        current = Repo.one(from(current in Device, where: current.id == ^device.id, lock: "FOR UPDATE"))
+
+        fields = [
+          :ssh_host_key,
+          :ssh_host_key_pending,
+          :ssh_host_key_trusted_at,
+          :ssh_host_key_trusted_by,
+          :ssh_host_key_previous_fingerprint
+        ]
+
+        if is_nil(current) or Map.take(current, fields) != Map.take(device, fields) do
+          Repo.rollback(:ssh_host_key_changed)
+        end
+
+        case Domain.update_device_ssh_host_key_state(current, attrs, return_notifications?: true) do
+          {:ok, updated, notifications} -> {updated, notifications}
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    case result do
+      {:ok, {updated, notifications}} ->
+        Ash.Notifier.notify(notifications)
         broadcast_device(:device_updated, updated)
-        result
+        {:ok, updated}
 
       error ->
         error

@@ -61,6 +61,18 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
       assert RateLimiterStore.bounded_size() == 2
     end
 
+    test "prunes expired entries at capacity without discarding active quotas" do
+      window_ms = 60_000
+      now = System.monotonic_time(:millisecond)
+      :ets.insert(:nixstasis_preauth_rate_limiter, {{:origin, :expired}, now - window_ms, 1})
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, :active}, 1, window_ms, 2)
+
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, :new}, 1, window_ms, 2)
+      assert RateLimiterStore.bounded_size() == 2
+      assert :limited = RateLimiterStore.check_bounded_rate({:origin, :active}, 1, window_ms, 2)
+      assert :limited = RateLimiterStore.check_bounded_rate({:origin, :overflow}, 1, window_ms, 2)
+    end
+
     test "reuses an expired key without consuming additional cardinality" do
       key = {:origin, :expiry}
       assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
