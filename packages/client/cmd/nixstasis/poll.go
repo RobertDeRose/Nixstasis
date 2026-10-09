@@ -233,6 +233,7 @@ type remoteAccessPollState struct {
 	tokenHash             string
 	profileKey            string
 	expiresAtMS           int64
+	leaseID               string
 	commandInventoryProbe *transport.CommandInventoryProbe
 }
 
@@ -339,7 +340,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 		switch {
 		case !currentFRPStatus.Active:
 			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
-		case state != nil && ((state.profileKey != "" && state.profileKey != profileKey) || credentialNeedsRefresh(state.expiresAtMS, resp.RemoteAccessExpiresAtMS)):
+		case state != nil && ((state.profileKey != "" && state.profileKey != profileKey) || state.leaseID != resp.RemoteAccessLeaseID || credentialNeedsRefresh(state.expiresAtMS, resp.RemoteAccessExpiresAtMS)):
 			slog.Info("Server remote access profile or credential validity changed, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
@@ -357,6 +358,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 		}
 		if state != nil && state.tokenHash == remoteAccessTokenHash {
 			state.expiresAtMS = resp.RemoteAccessExpiresAtMS
+			state.leaseID = resp.RemoteAccessLeaseID
 		}
 	default:
 		if currentFRPStatus.Active {
@@ -417,6 +419,7 @@ func clearRemoteAccessState(state *remoteAccessPollState) {
 		state.tokenHash = ""
 		state.profileKey = ""
 		state.expiresAtMS = 0
+		state.leaseID = ""
 	}
 }
 

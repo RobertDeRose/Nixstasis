@@ -10,8 +10,8 @@
 
 ## Delivered Capability
 
-Authenticated heartbeat responses carry a signed, device-bound FRPS credential only while remote access is requested. The Go client uses token
-presence as the FRPC lifecycle signal and supplies the secret through the transient systemd unit credential path.
+Authenticated heartbeat responses carry a signed, device/lease-bound FRPS credential only while a selected durable lease is authorized. The Go client uses token
+presence as the FRPC lifecycle signal and supplies the secret through a root-only session environment file.
 
 ## User-Facing Behavior
 
@@ -50,15 +50,25 @@ The boolean trigger was replaced by a token-bearing contract without persisting 
 Security hardening now derives FRP route identity from the server-assigned device UUID, uses signed per-device
 credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoenix.
 
+### Current Lease Contract
+
+PR #3's approved lifecycle correction (`nixstasis-n01`) persists each lease's
+identity, owner, immutable profile, expiry, and revocation independently. Device
+fields are projections rather than authorization sources. Provisioning uses its
+delivery UUID to recover the same lease after restart; it cannot silently renew
+or close another operator's authorization.
+
+Provisioning takes precedence over browser/direct leases; newest creation wins
+within each class. The selected lease supplies both profile and lifetime. FRPS
+checks that exact lease for new Login/NewProxy operations, so another live lease
+cannot validate a revoked credential. Heartbeats advertise `remote_access_lease_id`
+and `remote_access_expires_at_ms`; the client replaces a changed lease without
+signature-only restart churn. Old unowned device-summary credentials fail closed.
+
 ### Deferred Work
 
-Remote-access lease expiry is durable: Phoenix persists an absolute expiry and audit
-owner, restores only unexpired leases after restart, refuses to mint FRPS
-credentials after that persisted expiry, and caps each signed credential at the
-lease expiry or signing maximum age, whichever is earlier. Heartbeats advertise
-`remote_access_expires_at_ms` for client renewal without signature-only restart
-churn. FRPS checks current persisted authorization for new Login/NewProxy operations,
-so closing the lease blocks reuse of an outstanding credential.
+Established FRPS tunnels are stopped through the next authenticated heartbeat;
+instant server-side tunnel teardown is not part of this correction.
 
 ### Rejected or Removed Scope
 
@@ -75,3 +85,5 @@ Browser and terminal authorization remain separate from FRPS client authorizatio
 
 Legacy tasks were imported beneath `nixstasis-5hx`. Commit `8d4c10618c56a1412f29bfda1f08d77c88ed03bf`
 directly implemented heartbeat-provided FRPS token handling in the client polling path.
+The user approved the durable per-lease redesign during PR #3 review; acceptance,
+independent review, migration, and validation evidence are tracked by `nixstasis-n01`.

@@ -8304,6 +8304,13 @@ paths:
                             x-struct:
                             x-validate:
                           - type: 'null'
+                      remote_access_lease_id:
+                        anyOf:
+                          - format: uuid
+                            type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_profile:
                         anyOf:
                           - additionalProperties: false

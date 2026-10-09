@@ -29,7 +29,7 @@ defmodule Nixstasis.Devices.DeviceTest do
                })
     end
 
-    test "accepts new fields" do
+    test "accepts metadata without granting remote access through device attributes" do
       attrs = %{
         mac_address: "AA:BB:CC:DD:EE:FF",
         product_name: "key123",
@@ -39,7 +39,8 @@ defmodule Nixstasis.Devices.DeviceTest do
 
       assert {:ok, device} = Devices.create_device(attrs)
       assert device.account_number == "12345"
-      assert device.remote_access_requested == true
+      refute device.remote_access_requested
+      refute Devices.remote_access_active?(device)
     end
   end
 end

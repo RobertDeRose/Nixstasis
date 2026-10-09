@@ -86,6 +86,13 @@ The durable delivery resource adds an operator-facing status surface and
 retains the latest job events/result because AtomixOS reports progress through
 the job resource rather than through a second Nixstasis command protocol.
 
+PR #3's approved correction (`nixstasis-n01`) makes each delivery's route lease a
+durable authorization owned by its UUID. Withdrawal and resume after restart use
+the original lease, never a replacement with a fresh expiry. Completion/withdrawal
+invalidates its credential independently of other operators' live leases.
+Provisioning takes profile precedence until it ends; remaining owners regain
+their own profiles and expiries afterward.
+
 ### Deferred Work
 
 Human measurement of the broader 90-second usability target remains deferred;
@@ -113,4 +120,6 @@ POST, or forwarding-URL follow behavior was added.
 
 The implementation is tracked by Beads issue `nixstasis-4gg`. Review and
 validation limitations are recorded in its notes; no independent Pi reviewer
-session was available. No push or pull request was authorized or performed.
+session was available. No push or pull request was authorized or performed for
+that original delivery. The later PR #3 lifecycle correction and its review and
+validation evidence are tracked separately by `nixstasis-n01`.

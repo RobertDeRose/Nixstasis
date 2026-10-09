@@ -57,11 +57,16 @@
 
 ## Client-Server Interaction Details
 
-- The server stores remote-access intent and a named route-profile reference on
-  devices. Operators or authorized API clients select the profile through the
-  device update contract; the server stores only its bounded name.
-- It exposes a short-lived, signed device authorization credential and versioned `remote_access_profile`
-  reference only through heartbeat responses.
+- The server stores independently owned durable leases. Device access fields are
+  projections, not authorization sources. Operators or authorized API clients
+  select a preferred bounded profile name for future operator leases.
+- Heartbeats expose a signed credential bound to the selected device and lease,
+  its `remote_access_lease_id` and expiry, and a versioned `remote_access_profile`.
+  Provisioning leases take precedence; otherwise the newest lease wins. Closing
+  the selected lease restores the next owner's own profile and expiry.
+- FRPS validates the exact currently selected lease for new Login/NewProxy
+  operations. Another live device lease cannot make a revoked credential valid.
+  Existing tunnels stop through subsequent heartbeats, not instant callback teardown.
 - Client polling validates the profile reference against client-owned route
   definitions, then starts/stops FRPC through a transient systemd unit. A
   missing or empty token means FRPC should stop or remain stopped.

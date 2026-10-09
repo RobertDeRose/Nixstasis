@@ -1,10 +1,10 @@
 defmodule NixstasisWeb.FrpAuthorizationControllerTest do
-  use NixstasisWeb.ConnCase, async: true
+  use NixstasisWeb.ConnCase, async: false
 
   import Ecto.Query
 
   alias Nixstasis.Devices
-  alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.RemoteAccessLease
   alias Nixstasis.Repo
   alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
@@ -31,9 +31,21 @@ defmodule NixstasisWeb.FrpAuthorizationControllerTest do
     assert %{"reject" => true} = json_response(http_proxy(context, context.device_name), 200)
   end
 
+  test "revoked credentials cannot borrow another active lease", context do
+    {:ok, second, second_id} = Devices.open_remote_access_lease(context.device)
+    second_token = FrpsToken.for_heartbeat(second)
+    assert %{"reject" => true} = json_response(login(context.device_name, context.token), 200)
+    assert %{"reject" => false} = json_response(login(context.device_name, second_token), 200)
+    :ok = Devices.close_remote_access_lease(second_id)
+    assert Devices.remote_access_active?(Devices.get_device!(context.device.id))
+    assert %{"reject" => true} = json_response(login(context.device_name, second_token), 200)
+    assert %{"reject" => true} = json_response(http_proxy(%{context | token: second_token}, context.device_name), 200)
+    assert %{"reject" => false} = json_response(login(context.device_name, context.token), 200)
+  end
+
   test "Login and NewProxy reject expired persisted authorization", context do
-    Repo.update_all(from(d in Device, where: d.id == ^context.device.id),
-      set: [remote_access_expires_at: DateTime.add(DateTime.utc_now(), -1, :second)]
+    Repo.update_all(from(l in RemoteAccessLease, where: l.device_id == ^context.device.id),
+      set: [expires_at: DateTime.add(DateTime.utc_now(), -1, :second)]
     )
 
     assert %{"reject" => true} = json_response(login(context.device_name, context.token), 200)
@@ -43,13 +55,8 @@ defmodule NixstasisWeb.FrpAuthorizationControllerTest do
   test "a long lease cannot advertise credential validity beyond the signing maximum age" do
     now = System.system_time(:millisecond)
 
-    device = %{
-      id: Ecto.UUID.generate(),
-      remote_access_requested: true,
-      remote_access_expires_at: DateTime.add(DateTime.utc_now(), 7200, :second),
-      remote_access_profile: "default"
-    }
-
+    {:ok, device} = Devices.create_device(%{mac_address: "02:00:00:00:90:01"})
+    {:ok, device, _lease} = Devices.open_remote_access_lease(device, ttl_ms: 7_200_000)
     {token, expiry} = FrpsToken.credential_for_heartbeat(device)
     assert {:ok, %{"expires_at_ms" => ^expiry}} = FrpsToken.verify(token)
     assert expiry > now

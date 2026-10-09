@@ -199,6 +199,8 @@ defmodule Nixstasis.Domain do
   end
 
   resources do
+    resource Nixstasis.Devices.RemoteAccessLease
+
     resource Nixstasis.Devices.Device do
       define :list_devices, action: :read
       define :get_device, action: :read, get_by: [:id]

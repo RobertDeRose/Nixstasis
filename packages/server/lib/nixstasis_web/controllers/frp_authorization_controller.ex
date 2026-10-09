@@ -1,7 +1,6 @@
 defmodule NixstasisWeb.FrpAuthorizationController do
   use NixstasisWeb, :controller
 
-  alias Nixstasis.Devices
   alias Nixstasis.Devices.FrpsToken
 
   def authorize(conn, %{"op" => "Login", "content" => content}) do
@@ -28,14 +27,7 @@ defmodule NixstasisWeb.FrpAuthorizationController do
   def authorize(conn, _params), do: reject(conn, "unsupported FRP operation")
 
   defp verify_metadata(metadata) when is_map(metadata) do
-    with {:ok, claims} <- FrpsToken.verify(metadata["nixstasis_token"]),
-         {:ok, device_id} <- Ecto.UUID.cast(claims["device_id"]),
-         {:ok, device} <- Devices.get_device(device_id),
-         true <- Devices.remote_access_active?(device) do
-      {:ok, claims}
-    else
-      _ -> {:error, :inactive_authorization}
-    end
+    FrpsToken.verify(metadata["nixstasis_token"])
   end
 
   defp verify_metadata(_metadata), do: {:error, :invalid}

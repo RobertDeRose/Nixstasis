@@ -227,6 +227,11 @@ paths:
                         type: string
                         nullable: true
                         description: Short-lived signed FRPS device credential. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                      remote_access_lease_id:
+                        type: string
+                        format: uuid
+                        nullable: true
+                        description: Selected durable lease identity. A change requires replacing the installed FRPC credential, even if profile and expiry do not shorten.
                       remote_access_expires_at_ms:
                         type: integer
                         format: int64

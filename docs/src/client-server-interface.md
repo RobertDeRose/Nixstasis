@@ -402,6 +402,7 @@ Remote-access response:
   "data": {
     "remote_access_token": "<signed-device-frp-credential>",
     "remote_access_expires_at_ms": 1900000000000,
+    "remote_access_lease_id": "11111111-2222-3333-4444-555555555555",
     "remote_access_profile": {
       "name": "default",
       "version": 1
@@ -414,7 +415,17 @@ Remote-access response:
 `remote_access_expires_at_ms` is the credential's absolute expiration as Unix
 milliseconds, bounded by both the persisted lease and the signing maximum age.
 The client refreshes near expiration rather than restarting for every signature
-change. FRPS rejects new operations after the persisted authorization is closed.
+change. `remote_access_lease_id` identifies the selected durable lease; replacing
+that lease restarts FRPC even if its profile is unchanged or expiry increases.
+FRPS requires the exact selected lease to remain authorized. A revoked credential
+cannot borrow another active lease's permission.
+
+A provisioning lease takes precedence over browser/direct leases; otherwise the
+newest lease wins (UUID breaks timestamp ties). Its profile and expiry stay paired.
+Closing it restores the next eligible lease without revoking another owner's
+access. Profile updates configure future operator leases, not existing ones.
+New Login/NewProxy operations are rejected after revocation; established tunnels
+are stopped on the next authenticated heartbeat.
 
 `remote_access_profile` is an optional named, versioned reference resolved
 against the client configuration. It contains no FRPC TOML, plugin options, or

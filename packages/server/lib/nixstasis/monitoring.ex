@@ -51,15 +51,9 @@ defmodule Nixstasis.Monitoring do
     }
 
     data =
-      case FrpsToken.credential_for_heartbeat(device) do
-        nil ->
-          data
-
-        {token, expires_at_ms} ->
-          data
-          |> Map.put(:remote_access_token, token)
-          |> Map.put(:remote_access_expires_at_ms, expires_at_ms)
-          |> Map.put(:remote_access_profile, Devices.remote_access_profile_data(device))
+      case FrpsToken.authorization_for_heartbeat(device) do
+        nil -> data
+        authorization -> Map.merge(data, authorization)
       end
 
     maybe_put_command_inventory_probe(data)

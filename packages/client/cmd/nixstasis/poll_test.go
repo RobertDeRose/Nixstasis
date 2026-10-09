@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -457,6 +458,29 @@ func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
 
 	if frpManager.stopCalls != 0 || frpManager.startCalls != 0 {
 		t.Fatalf("short-lived credential rotation must not churn an active FRP session: start=%d stop=%d", frpManager.startCalls, frpManager.stopCalls)
+	}
+}
+
+func TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry(t *testing.T) {
+	manager := &fakeFRPController{}
+	client := &fakePollClient{}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+	state := &remoteAccessPollState{}
+	runtimeCfg := script.RuntimeConfig{}
+	for index, lease := range []string{"lease-a", "lease-b", "lease-b"} {
+		response := &transport.PollResponse{}
+		body := fmt.Sprintf(`{"remote_access_token":"token-%d","remote_access_lease_id":%q,"remote_access_expires_at_ms":%d}`, index, lease, time.Now().Add(time.Duration(index+1)*time.Hour).UnixMilli())
+		if err := json.Unmarshal([]byte(body), response); err != nil {
+			t.Fatal(err)
+		}
+		client.response = response
+		manager.status.Active = index > 0
+		if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if manager.startCalls != 2 || manager.stopCalls != 1 {
+		t.Fatalf("lease replacement must restart once; signature changes must not churn: starts=%d stops=%d", manager.startCalls, manager.stopCalls)
 	}
 }
 

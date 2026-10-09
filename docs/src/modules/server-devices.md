@@ -135,13 +135,20 @@ metadata payloads.
   best-effort early invalidation signal. The complete wire contract is in
   [API & Runtime Contracts](../reference/contracts.md#browser-terminal-ssh-authorization-contract).
 - Device detail is reached through `/devices/:id`; opening remote-access tabs creates
-  a bounded lease with a persisted absolute `remote_access_expires_at` and audit
-  owner. Phoenix reconstructs unexpired lease timers after restart, clears stale
-  requested state fail-closed, and bounds issued FRPS credentials by that absolute
-  expiry and the signing maximum age. Heartbeats advertise the effective credential
-  expiry as `remote_access_expires_at_ms`; FRPS checks persisted authorization before
-  permitting new logins or proxies. Authorized device updates may select a profile name,
-  while route definitions and target capabilities remain client-owned.
+  a durable lease with stable UUID, owner kind/UUID, profile, expiry, and audit
+  subject. Device access fields are projections: attribute writes cannot grant or
+  revoke authorization. Phoenix restores original lease identities and timers,
+  not synthetic leases from device flags. Credentials carry the selected lease
+  identity and are bounded by its expiry and signing maximum age. Heartbeats
+  advertise `remote_access_lease_id` and `remote_access_expires_at_ms`; FRPS checks
+  that exact lease before permitting new logins or proxies.
+- Provisioning leases take precedence over browser/direct leases. Within each
+  class, newest creation wins, with UUID breaking ties. Profile and expiry come
+  from the same selected lease; closing it restores the next eligible owner's
+  authorization. Profile updates save a separate preference for future operator
+  leases rather than altering an existing lease. `set_remote_access(device, false)`
+  explicitly withdraws all device leases; delivery/session cleanup closes only its
+  own UUID. Route definitions and target capabilities remain client-owned.
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 

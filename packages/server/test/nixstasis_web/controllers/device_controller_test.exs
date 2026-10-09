@@ -236,9 +236,10 @@ defmodule NixstasisWeb.DeviceControllerTest do
     {:ok, device} =
       Devices.create_device(%{
         mac_address: "44:44:44:44:44:44",
-        product_name: "Alpha",
-        remote_access_requested: true
+        product_name: "Alpha"
       })
+
+    {:ok, device} = Devices.set_remote_access(device, true)
 
     conn = delete(conn, "/api/v1/devices/#{device.id}/modal")
     assert response(conn, 404)
