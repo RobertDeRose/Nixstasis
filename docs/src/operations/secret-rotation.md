@@ -56,11 +56,24 @@ Phoenix secret.
 
 ## FRPS Secrets
 
-FRPS device credentials are signed from `SECRET_KEY_BASE` and expire quickly.
-There is no separate device-visible FRPS shared secret to rotate. If FRPS device
-credentials may have been exposed, rotate `SECRET_KEY_BASE`, restart `nixstasis`,
-and re-open only the remote-access sessions that are still required. Existing
-signed login credentials then fail verification after their short validity window.
+FRPS device credentials are signed from `SECRET_KEY_BASE` and bounded by their
+lease expiry and maximum signing age. There is no separate device-visible FRPS
+shared secret to rotate. If credentials may have been exposed, rotate
+`SECRET_KEY_BASE` and restart `nixstasis`. Credentials signed with the old key
+then fail signature verification immediately for new `Login` and `NewProxy`
+operations; their remaining validity window is not a grace period.
+
+Established tunnels are not forcibly disconnected by signing-key rotation.
+FRPC reconnects or new proxy registrations using the old credential fail until
+the client installs a replacement. Authenticated heartbeats provide freshly
+signed credentials, but signature-only changes do not immediately restart FRPC.
+For session-owned access, close and re-open only still-required sessions so a
+new lease becomes selected; the client installs its credential at the next
+authenticated heartbeat. A higher-priority provisioning lease must be handled
+through delivery reconciliation, not replaced by reopening a browser session.
+Near-expiry renewal can also install a replacement when the advertised credential
+expiry extends beyond the installed deadline; do not assume every heartbeat
+reloads the credential or extends its lease.
 
 `FRPS_DASHBOARD_USER` and `FRPS_DASHBOARD_PASSWORD` are FRPS dashboard
 credentials consumed by `frps`. Caddy protects the dashboard route with

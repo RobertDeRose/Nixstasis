@@ -120,6 +120,8 @@ not claim instantaneous teardown of established FRPS connections.
 
 ## Documentation Impact
 
+- `deploy/compose/README.md`
+- `docs/src/operations/secret-rotation.md`
 - `docs/src/planned-features.md`
 - `docs/src/client-server-interface.md`
 - `docs/src/data-flow.md`

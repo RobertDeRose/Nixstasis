@@ -167,7 +167,10 @@ targeting the compose `postgres` host.
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
 - `ATOMIXOS_PROVISIONING_BASE_URL` optionally overrides the per-device public
   FRP API base used by the server's initial AtomixOS bootstrap action. When it
-  is unset, the server derives `https://atom-<normalized-mac>.<BASE_DOMAIN>`.
+  is unset, the server derives
+  `https://atom-<compact-device-uuid>-provisioning.<BASE_DOMAIN>`, using the
+  server-assigned device UUID in lowercase without hyphens, not the MAC address.
+  This hostname must resolve to Caddy and be eligible for TLS approval.
   The action still requires the authorized `atomixos-bootstrap` route and
   resolves only the documented relative `/api/jobs/<job_id>` path.
 - The client poll service and root-owned SSH helper use the fixed local socket

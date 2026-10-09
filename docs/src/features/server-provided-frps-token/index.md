@@ -76,6 +76,7 @@ Browser and terminal authorization remain separate from FRPS client authorizatio
 
 ## Documentation Updated
 
+- `docs/src/operations/secret-rotation.md`
 - `docs/src/planned-features.md`
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/client-frp-manager.md`
@@ -90,3 +91,5 @@ The user approved the durable per-lease redesign during PR #3 review; acceptance
 independent review, migration, and validation evidence are tracked by `nixstasis-n01`.
 PR #3 review item 31 reconciles the completed roadmap entry with the current
 lease-bound credential and internal authorization plugin contract (`nixstasis-yeo`).
+Review items 36 and 37 correct provisioning hostname and signing-key rotation
+recovery guidance (`nixstasis-1uk`, `nixstasis-7bk`) without changing runtime behavior.
