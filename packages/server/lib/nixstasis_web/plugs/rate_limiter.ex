@@ -186,6 +186,9 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
     end
   end
 
+  defp normalize_ip({0, 0, 0, 0, 0, 0xFFFF, high, low}),
+    do: normalize_ip({div(high, 256), rem(high, 256), div(low, 256), rem(low, 256)})
+
   defp normalize_ip({a, b, c, d, _, _, _, _}),
     do: {a, b, c, d, 0, 0, 0, 0} |> :inet.ntoa() |> to_string()
 

@@ -50,6 +50,36 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
     end
   end
 
+  test "concurrent key deletion does not crash rate checks" do
+    supervisor = start_supervised!(Task.Supervisor)
+    key = {:test, :deletion_race}
+    now = System.monotonic_time(:millisecond)
+    tables = [:nixstasis_rate_limiter, :nixstasis_preauth_rate_limiter]
+
+    for table <- tables, do: :ets.insert(table, {key, now, 1})
+
+    deleter =
+      Task.Supervisor.async_nolink(supervisor, fn ->
+        for _ <- 1..100_000, table <- tables do
+          :ets.delete(table, key)
+          :ets.insert(table, {key, now, 1})
+        end
+      end)
+
+    readers =
+      for _ <- 1..2 do
+        Task.Supervisor.async_nolink(supervisor, fn ->
+          for _ <- 1..10_000 do
+            assert :ok = RateLimiterStore.check_rate(key, 1_000_000, 60_000)
+            assert RateLimiterStore.check_bounded_rate(key, 1_000_000, 60_000, 1) in [:ok, :limited]
+          end
+        end)
+      end
+
+    for task <- [deleter | readers], do: Task.await(task, 30_000)
+    assert RateLimiterStore.bounded_size() <= 1
+  end
+
   describe "check_bounded_rate/4" do
     test "caps new key cardinality without evicting active counters" do
       assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, 60_000, 2)

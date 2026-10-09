@@ -56,11 +56,16 @@
 - Heartbeat controller passes client telemetry and connection status into `Monitoring.heartbeat/2`.
 - `Monitoring.heartbeat/2` validates normalized telemetry before any heartbeat side
   effect, then updates device `last_seen_at`, persists telemetry, evaluates rules,
-  and returns queued commands to the client.
+  and returns queued commands to the client. A concurrent SSH host-key enrollment
+  or operator trust change is deferred to the next heartbeat without overwriting
+  the competing trust state or interrupting telemetry and command processing.
 - Persisted telemetry is capped at 65,536 encoded bytes, nesting depth 8, 512
   total keys, 128 keys per object, 128 bytes per key, 256 items per array, and
   16,384 bytes per string. The same limits are enforced by the Ash telemetry
-  resource so direct internal writes cannot bypass them. Rejected telemetry does
+  resource on creation and payload changes so direct internal writes cannot
+  bypass them. Timestamp-only updates preserve unchanged legacy payloads, even
+  when they exceed the new limits. Payloads must contain JSON-compatible values;
+  Elixir structs are rejected, including nested structs. Rejected telemetry does
   not update last-seen state, enroll SSH keys, persist command inventory,
   resolve/evaluate alerts, or dequeue commands.
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.

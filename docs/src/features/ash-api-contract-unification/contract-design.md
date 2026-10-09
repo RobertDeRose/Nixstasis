@@ -224,18 +224,25 @@ surface.
 #### Current `/api/v1` compatibility contract
 
 The following behavior is the baseline that every generated action and wrapper
-must preserve at the domain/side-effect level:
+must preserve at the domain/side-effect level. Every route below also passes the
+pre-authentication origin-and-route limiter (default 1,000 requests per 60 seconds)
+and global flood ceiling (default 50,000 requests per 60 seconds). Only successfully
+authenticated device runtime actions consume the separate per-device quotas:
 
-- **List — `GET /api/v1/devices`:** the current `:api` pipeline has no
-  application-level authentication (deployment-edge protection is separate) and
-  uses the 120/60-second limit. `Devices.list_devices/1` applies exact product,
+- **List — `GET /api/v1/devices`:** requires verified operator authentication
+  and device-view permission (or the explicit local-development fallback), with
+  the operator's device scope enforced before query filters. Missing authentication
+  returns `401`; missing permission or malformed scope returns `403`. The route
+  uses the pre-authentication origin-and-route limit and global flood ceiling,
+  without a device quota. `Devices.list_devices/1` applies exact product,
   account, approval, connectivity, and `ipv4_address` filters. Connectivity is
   online when `last_seen_at` is within five minutes and offline when it is older
   or nil. Success is `200` with `{"data": [...], "meta": {"active_filters": ...}}`;
   filter values are normalized before being echoed. The route has no mutation
-  side effects and returns `429` when its 120/60-second limit is exceeded.
+  side effects and returns `429` when either pre-authentication limit is exceeded.
 - **Registration — `POST /api/v1/devices/register`:** the current `:api`
-  pipeline has no device API-key requirement and uses the 120/60-second limit.
+  pipeline has no device API-key requirement and uses only the pre-authentication
+  origin-and-route limit and global flood ceiling, without a device quota.
   `schema_definition` is copied to `schema`; `schema` is the legacy alias; public
   registration requires a schema with `product`; and `ipv4_address` may be taken
   from either the direct field or `metadata.ip_address`. Registration is keyed by
@@ -248,11 +255,12 @@ must preserve at the domain/side-effect level:
   replacement as `api_token` without mutation; superseded proofs cannot exchange
   again. Pending devices have no runtime API token. Success remains `201`.
   Invalid schema or required new credentials are `422`, invalid proof is `403`,
-  and exceeding the 120/60-second limit is `429`.
+  and exceeding either pre-authentication limit is `429`.
 - **Heartbeat — `POST /api/v1/devices/:device_id/heartbeat`:** the controller
   fetches the device before authenticating `api_key`; approved devices require a
-  secure token match. The route is limited to 30/60 seconds per device. A
-  successful `200` response contains `data.commands` and may contain the
+  secure token match. After successful device authentication, the route is limited
+  to 30 requests per 60 seconds per device, in addition to the pre-authentication
+  limits. A successful `200` response contains `data.commands` and may contain the
   server-owned `command_inventory_probe` and the FRPS `remote_access_token`.
   Telemetry is sanitized so top-level and nested `command_inventory` do not enter
   the telemetry event; inventory is persisted separately and malformed inventory
@@ -271,11 +279,14 @@ must preserve at the domain/side-effect level:
   `401`/`404`/`403`; a non-list body is `400`. The current controller has no
   reachable `422` processing-error branch for a list input, so `.7.42` must not
   invent one or silently change replay behavior; any future hardening requires an
-  explicit versioned contract decision. The route returns `429` when its
-  120/60-second limit is exceeded.
+  explicit versioned contract decision. After successful device authentication,
+  the route has a separate 120-requests-per-60-seconds per-device command-result
+  quota. Exceeding that quota or either pre-authentication limit returns `429`.
 - **Deferred payload — `GET /api/v1/devices/:device_id/command_payloads/:ref`:**
-  lookup and API-key authentication use the same precedence and `120/60-second`
-  route limit. Success is `200` with the raw `{content_type, name, data}` payload;
+  lookup and API-key authentication use the same precedence. After successful
+  device authentication, a separate command-payload quota allows 120 requests per
+  60 seconds per device, in addition to the pre-authentication limits. Success is
+  `200` with the raw `{content_type, name, data}` payload;
   missing device or payload is `404`, missing/invalid key is `401`, and an
   unapproved device is `403`. Fetching a payload has no command acknowledgement
   side effect; rate limiting returns `429`.

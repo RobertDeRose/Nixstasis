@@ -15,6 +15,15 @@ defmodule Nixstasis.Monitoring.TelemetryLimitsTest do
     assert :ok = TelemetryLimits.validate(payload)
   end
 
+  test "rejects top-level and nested structs without raising" do
+    for value <- [DateTime.utc_now(), URI.parse("https://example.com")] do
+      assert {:error, "telemetry must contain only JSON-compatible values"} = TelemetryLimits.validate(value)
+
+      assert {:error, "telemetry must contain only JSON-compatible values"} =
+               TelemetryLimits.validate(%{"value" => value})
+    end
+  end
+
   test "rejects encoded payloads larger than the persistence budget" do
     payload = %{"chunks" => List.duplicate(String.duplicate("x", 14_000), 5)}
 

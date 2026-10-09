@@ -39,7 +39,7 @@ defmodule Nixstasis.Monitoring.Telemetry do
     update :update do
       require_atomic? false
       accept [:payload, :timestamp]
-      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}
+      validate {Nixstasis.Monitoring.Validations.TelemetryPayload, []}, where: changing(:payload)
     end
   end
 

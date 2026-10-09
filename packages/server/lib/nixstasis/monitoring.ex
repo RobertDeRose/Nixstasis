@@ -68,6 +68,10 @@ defmodule Nixstasis.Monitoring do
         Logger.warning("Ignoring invalid SSH host key from authenticated heartbeat", device_id: device.id)
         {:ok, device}
 
+      {:error, :ssh_host_key_changed} ->
+        Logger.info("SSH host key state changed concurrently; deferring to next heartbeat", device_id: device.id)
+        {:ok, device}
+
       result ->
         result
     end

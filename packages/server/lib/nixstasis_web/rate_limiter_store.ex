@@ -97,7 +97,11 @@ defmodule NixstasisWeb.RateLimiterStore do
   defp active_counter(table, key, now, window_ms) do
     case :ets.lookup(table, key) do
       [{^key, window_started_at, _count}] when now - window_started_at < window_ms ->
-        {:active, :ets.update_counter(table, key, {3, 1})}
+        try do
+          {:active, :ets.update_counter(table, key, {3, 1})}
+        rescue
+          ArgumentError -> :missing_or_expired
+        end
 
       _ ->
         :missing_or_expired

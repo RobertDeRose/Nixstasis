@@ -82,9 +82,12 @@ Attacker-supplied device IDs are never used as pre-authentication keys.
 | Other authenticated device runtime action | 120 requests    | 60 seconds |
 
 The pre-authentication origin table is capped at 4,096 active keys; expired entries
-are reclaimed before rejecting a new origin at capacity. IPv6 origins share a
-quota per /64 prefix, including origins forwarded by the trusted proxy. Heartbeat,
-command-result, and command-payload quotas use distinct authenticated keys, so
+are reclaimed before rejecting a new origin at capacity. Native IPv6 origins share
+a quota per /64 prefix, including origins forwarded by the trusted proxy.
+IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) use the corresponding IPv4 origin's
+quota, so different IPv4 addresses stay separate and alternate representations
+cannot bypass the same-origin quota. Heartbeat, command-result, and command-payload
+quotas use distinct authenticated keys, so
 invalid-token traffic cannot consume a device quota and one runtime action does
 not consume another action's quota.
 
@@ -388,7 +391,10 @@ as pending and blocks browser terminal connections until an authorized operator
 explicitly trusts the replacement; the previous fingerprint, actor, and trust time
 are retained with the device. Acceptance is bound to the fingerprint the operator
 reviewed. Concurrent changes to SSH trust state reject stale enrollment or
-acceptance attempts; operators must review the current fingerprint again.
+acceptance attempts; operators must review the current fingerprint again. A
+heartbeat defers a stale SSH enrollment/change to its next poll while continuing
+telemetry persistence and command delivery; it never overwrites the competing
+trust decision.
 
 `command_inventory` is optional, top-level, and untrusted. The client only
 reports package names and command names from the latest server

@@ -81,6 +81,8 @@ defmodule Nixstasis.Monitoring.TelemetryLimits do
        when is_number(value) or is_boolean(value) or is_nil(value),
        do: {:ok, key_count}
 
+  defp walk(value, _depth, _key_count) when is_struct(value), do: {:error, :json}
+
   defp walk(value, depth, key_count) when is_map(value) do
     cond do
       map_size(value) > @max_map_entries ->

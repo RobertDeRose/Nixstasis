@@ -62,6 +62,29 @@ defmodule NixstasisWeb.Plugs.RateLimiterTest do
              |> json_response(429)
   end
 
+  test "direct IPv4-mapped origins share their IPv4 quota, not other mapped origins" do
+    configure(preauth_limit: 1, preauth_global_limit: 100)
+    path = "/api/v1/devices/register"
+
+    refute preauth_request(path, {0, 0, 0, 0, 0, 0xFFFF, 0xC633, 0x640A}).halted
+    assert preauth_request(path, {198, 51, 100, 10}).status == 429
+    refute preauth_request(path, {0, 0, 0, 0, 0, 0xFFFF, 0xC633, 0x640B}).halted
+    assert preauth_request(path, {198, 51, 100, 11}).status == 429
+    assert RateLimiterStore.bounded_size() == 2
+  end
+
+  test "trusted proxy IPv4-mapped origins share their IPv4 quota, not other mapped origins" do
+    configure(preauth_limit: 1, preauth_global_limit: 100)
+    path = "/api/v1/devices/register"
+    peer = {172, 18, 0, 2}
+
+    refute preauth_request(path, peer, trusted_client_headers("::ffff:198.51.100.10")).halted
+    assert preauth_request(path, peer, trusted_client_headers("198.51.100.10")).status == 429
+    refute preauth_request(path, peer, trusted_client_headers("::ffff:c633:640b")).halted
+    assert preauth_request(path, peer, trusted_client_headers("198.51.100.11")).status == 429
+    assert RateLimiterStore.bounded_size() == 2
+  end
+
   test "direct IPv6 origins share a quota within a /64" do
     configure(preauth_limit: 1, preauth_global_limit: 100)
     path = "/api/v1/devices/register"
