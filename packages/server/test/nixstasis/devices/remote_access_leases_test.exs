@@ -137,6 +137,70 @@ defmodule Nixstasis.Devices.RemoteAccessLeasesTest do
     assert next.remote_access_profile == "bootstrap"
   end
 
+  test "a prepared heartbeat update cannot resurrect a concurrently closed lease projection" do
+    stale = device()
+    {:ok, _, ref} = Devices.open_remote_access_lease(stale, audit_owner: "closed-owner")
+    update = prepare_update(stale, %{last_seen_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+    assert :ok = Devices.close_remote_access_lease(ref)
+    assert {:ok, _} = commit_update(update)
+    persisted = Devices.get_device!(stale.id)
+    refute persisted.remote_access_requested
+    assert is_nil(persisted.remote_access_expires_at)
+    assert is_nil(persisted.remote_access_owner)
+    assert persisted.remote_access_profile == "default"
+  end
+
+  test "a prepared metadata update cannot clear a concurrently opened lease projection" do
+    {:ok, stale, first} = Devices.open_remote_access_lease(device(), audit_owner: "old-owner")
+    assert :ok = Devices.close_remote_access_lease(first)
+    update = prepare_update(stale, %{product_name: "updated"})
+    {:ok, opened, second} = Devices.open_remote_access_lease(stale, profile: "bootstrap", audit_owner: "new-owner")
+    assert {:ok, updated} = commit_update(update)
+    assert updated.remote_access_profile == "bootstrap"
+    assert updated.remote_access_owner == "new-owner"
+    persisted = Devices.get_device!(stale.id)
+    assert persisted.product_name == "updated"
+    assert persisted.remote_access_requested
+    assert persisted.remote_access_profile == "bootstrap"
+    assert persisted.remote_access_expires_at == opened.remote_access_expires_at
+    assert persisted.remote_access_owner == "new-owner"
+    assert RemoteAccess.selected(stale.id).id == second
+  end
+
+  test "a prepared preference update projects the current lease and preserves the future preference" do
+    {:ok, stale, first} = Devices.open_remote_access_lease(device())
+    assert :ok = Devices.close_remote_access_lease(first)
+    update = prepare_update(stale, %{remote_access_profile: "operator-choice"})
+    {:ok, opened, second} = Devices.open_remote_access_lease(stale, profile: "bootstrap", audit_owner: "new-owner")
+    token = FrpsToken.for_heartbeat(opened)
+    assert {:ok, updated} = commit_update(update)
+    assert updated.remote_access_default_profile == "operator-choice"
+    persisted = Devices.get_device!(stale.id)
+    assert persisted.remote_access_requested
+    assert persisted.remote_access_profile == "bootstrap"
+    assert persisted.remote_access_expires_at == opened.remote_access_expires_at
+    assert persisted.remote_access_owner == "new-owner"
+    assert {:ok, %{"lease_id" => ^second, "profile" => "bootstrap"}} = FrpsToken.verify(token)
+    assert :ok = Devices.close_remote_access_lease(second)
+    assert Devices.get_device!(stale.id).remote_access_profile == "operator-choice"
+  end
+
+  test "preference and locked projection reconciliation roll back together" do
+    {:ok, opened, ref} = Devices.open_remote_access_lease(device(), profile: "bootstrap")
+
+    changeset =
+      opened
+      |> Ash.Changeset.for_update(:update, %{remote_access_profile: "operator-choice"})
+      |> Ash.Changeset.after_action(fn _changeset, _device -> {:error, :forced_rollback} end)
+
+    assert {:error, _} = Ash.update(changeset)
+    persisted = Devices.get_device!(opened.id)
+    assert persisted.remote_access_default_profile == "default"
+    assert persisted.remote_access_profile == "bootstrap"
+    assert persisted.remote_access_expires_at == opened.remote_access_expires_at
+    assert RemoteAccess.selected(opened.id).id == ref
+  end
+
   test "a device projection alone cannot authorize access" do
     device = device()
 
@@ -146,6 +210,32 @@ defmodule Nixstasis.Devices.RemoteAccessLeasesTest do
 
     refute Devices.remote_access_active?(Devices.get_device!(device.id))
     assert is_nil(FrpsToken.for_heartbeat(Devices.get_device!(device.id)))
+  end
+
+  defp prepare_update(device, attrs) do
+    parent = self()
+
+    task =
+      Task.async(fn ->
+        changeset = Ash.Changeset.for_update(device, :update, attrs)
+        send(parent, {:update_prepared, self()})
+
+        receive do
+          :commit -> Ash.update(changeset)
+        after
+          5_000 -> raise "prepared update was not resumed"
+        end
+      end)
+
+    on_exit(fn -> if Process.alive?(task.pid), do: Process.exit(task.pid, :kill) end)
+    assert_receive {:update_prepared, pid}
+    assert pid == task.pid
+    task
+  end
+
+  defp commit_update(task) do
+    send(task.pid, :commit)
+    Task.await(task)
   end
 
   defp device do

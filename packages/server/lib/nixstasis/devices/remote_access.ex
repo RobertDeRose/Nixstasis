@@ -97,6 +97,32 @@ defmodule Nixstasis.Devices.RemoteAccess do
     end)
   end
 
+  def refresh_projection(%Device{} = device) do
+    fields =
+      Repo.one!(
+        from d in Device,
+          where: d.id == ^device.id,
+          select:
+            map(d, [
+              :remote_access_requested,
+              :remote_access_profile,
+              :remote_access_expires_at,
+              :remote_access_owner,
+              :remote_access_default_profile
+            ])
+      )
+
+    struct!(device, fields)
+  end
+
+  def sync_projection(device_id) do
+    Repo.transaction(fn ->
+      device = lock_device(device_id)
+      if is_nil(device), do: Repo.rollback(:not_found)
+      project(device)
+    end)
+  end
+
   def restore do
     # Old device-level flags cannot recreate authorization without a lease.
     leases = Repo.all(from l in Lease, where: is_nil(l.revoked_at))

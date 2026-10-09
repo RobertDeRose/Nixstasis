@@ -53,6 +53,12 @@ they do not mutate an existing lease's profile. Explicit device-wide withdrawal
 through `Devices.set_remote_access(device, false)` revokes every lease. Delivery
 and browser cleanup instead close their own stable lease UUID.
 
+Unrelated heartbeat/metadata updates must not write lease projections from an
+earlier changeset snapshot. Their responses refresh current stored summary fields
+after the update. Profile preference changes reconcile the selected lease under
+the same device-row lock and transaction; failure rolls back both preference and
+projection.
+
 ## Overlap and Profile Selection
 
 A client runs one FRPC profile at a time:
@@ -141,6 +147,9 @@ leases, profile/expiry selection and restoration, provisioning precedence,
 withdrawal and resume after restart, no silent renewal, terminal-owner
 invalidation, credential isolation, expired/deleted authorization, ignored device
 flags, immutable lease profiles, and transaction rollback for invalid ownership.
+Stage device updates across concurrent lease open/close operations to verify that
+neither persisted nor returned projections become stale; preference reconciliation
+must roll back with its parent update.
 Client tests must distinguish lease replacement from signature-only rotation.
 
 Generate named Ash migrations/snapshots, verify `mix ash.codegen --check`, regenerate

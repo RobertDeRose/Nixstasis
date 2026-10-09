@@ -93,3 +93,6 @@ PR #3 review item 31 reconciles the completed roadmap entry with the current
 lease-bound credential and internal authorization plugin contract (`nixstasis-yeo`).
 Review items 36 and 37 correct provisioning hostname and signing-key rotation
 recovery guidance (`nixstasis-1uk`, `nixstasis-7bk`) without changing runtime behavior.
+Review item 38 (`nixstasis-3z4`) prevents unrelated device updates from overwriting
+lease projections and reconciles profile preferences within the locked update
+transaction, with staged concurrency and rollback regressions.

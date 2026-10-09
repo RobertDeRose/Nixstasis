@@ -149,6 +149,11 @@ metadata payloads.
   leases rather than altering an existing lease. `set_remote_access(device, false)`
   explicitly withdraws all device leases; delivery/session cleanup closes only its
   own UUID. Route definitions and target capabilities remain client-owned.
+- Heartbeat and metadata updates do not rewrite lease projections from a snapshot
+  taken while building their changeset. They return current stored summary fields
+  after the update. Profile preference changes reconcile the selected lease under
+  the same device-row lock and transaction, so a concurrent open/close cannot be
+  overwritten and a failed update rolls back both preference and projection.
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 
