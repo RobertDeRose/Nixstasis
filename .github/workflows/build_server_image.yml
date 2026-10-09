@@ -55,6 +55,8 @@ jobs:
         with:
           context: packages
           file: packages/server/Dockerfile
+          cache-from: type=gha,version=2,scope=server-image
+          cache-to: type=gha,version=2,scope=server-image,mode=max,ignore-error=true
           build-args: |
             ELIXIR_BUILDER_IMAGE_DIGEST=${{ env.ELIXIR_BUILDER_IMAGE_DIGEST }}
             UBUNTU_RUNNER_VERSION=${{ env.UBUNTU_RUNNER_VERSION }}

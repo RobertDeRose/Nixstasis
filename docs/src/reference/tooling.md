@@ -34,6 +34,30 @@ lack matching built-ins; and test, compiler, linter, and module checks must rema
 
 Recorded language profiles: `other`.
 
+## Container build caches
+
+The server and Caddy image workflows use BuildKit's GitHub Actions cache backend
+(API v2) to reuse unchanged layers across fresh hosted runners. The existing
+Docker actions provide cache access without new registry credentials or secrets.
+Cache exports use `mode=max` to include intermediate dependency and compilation
+layers, with distinct scopes so the three build targets do not overwrite one
+another:
+
+- `.github/workflows/build_server_image.yml`: `server-image`.
+- `.github/workflows/build_caddy_image.yml`: `caddy-proxy-test` for the exported
+  proxy-test binary and `caddy-image` for the final image.
+
+Cache availability follows GitHub's branch-access rules and eviction policy; the
+first build or a cache miss still needs a normal build. Exports use
+`ignore-error=true` so a read-only cache or failed cache upload does not turn a
+successful image build into a failure. Missing cache entries are rebuilt.
+
+Caching does not eliminate base-image metadata requests or the BuildKit bootstrap
+image pull during builder setup. Docker Hub timeouts and pull-rate limits can
+still fail those pulls. No Docker Hub login is configured by these workflows;
+existing conditional GHCR publication and credentials are unchanged. See
+[Docker's cache guidance](https://docs.docker.com/build/ci/github-actions/cache/).
+
 ## Template updates
 
 `.copier-answers.yml` records `dstack_template_channel` and the exact reachable template commit in `_commit`. Stable
