@@ -81,6 +81,7 @@
   - Sends `telemetry`, `connection_status`, and optional top-level `command_inventory` evidence.
   - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
+    `data.remote_access_expires_at_ms`, `data.remote_access_lease_id`,
     `data.remote_access_profile`, `data.commands`, and
     `data.command_inventory_probe`.
   - `remote_access_profile` is only a named/versioned reference; the client

@@ -20,7 +20,6 @@ services:
       NIXSTASIS_E2E_ENABLED: ${NIXSTASIS_E2E_ENABLED:-false}
       NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK: ${NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK:-false}
       NIXSTASIS_PROXY_AUTH_TOKEN: ${NIXSTASIS_PROXY_AUTH_TOKEN}
-      FRPS_AUTH_TOKEN: ${FRPS_AUTH_TOKEN}
       FRPS_TCPMUX_PORT: ${FRPS_TCPMUX_PORT}
       NIXSTASIS_SSH_FRP_HOST: ${NIXSTASIS_SSH_FRP_HOST:-frps}
     ports:
@@ -80,7 +79,6 @@ services:
       - /bin/sh
       - -c
       - |
-        : "$${FRPS_AUTH_TOKEN:?FRPS_AUTH_TOKEN is required}"
         : "$${FRPS_DASHBOARD_USER:?FRPS_DASHBOARD_USER is required}"
         : "$${FRPS_DASHBOARD_PASSWORD:?FRPS_DASHBOARD_PASSWORD is required}"
         : "$${BASE_DOMAIN:?BASE_DOMAIN is required}"
@@ -95,7 +93,6 @@ services:
             ''|*[!0-9]*) echo "$$port_name must be numeric" >&2; exit 1 ;;
           esac
         done
-        escaped_frps_auth_token=$$(printf '%s' "$$FRPS_AUTH_TOKEN" | sed 's/[\/&]/\\&/g')
         escaped_frps_dashboard_user=$$(printf '%s' "$$FRPS_DASHBOARD_USER" | sed 's/[\/&]/\\&/g')
         escaped_frps_dashboard_password=$$(printf '%s' "$$FRPS_DASHBOARD_PASSWORD" | sed 's/[\/&]/\\&/g')
         escaped_base_domain=$$(printf '%s' "$$BASE_DOMAIN" | sed 's/[\/&]/\\&/g')
@@ -106,11 +103,9 @@ services:
           -e "s/__FRPS_DASHBOARD_PASSWORD__/$${escaped_frps_dashboard_password}/g" \
           -e "s/\"__FRPS_TCPMUX_PORT__\"/${FRPS_TCPMUX_PORT}/g" \
           -e "s/\"__FRPS_HTTP_PORT__\"/${FRPS_HTTP_PORT}/g" \
-          -e "s/__FRPS_AUTH_TOKEN__/$${escaped_frps_auth_token}/g" \
           -e "s/__BASE_DOMAIN__/$${escaped_base_domain}/g" \
           /etc/frp/frps.toml.template > /tmp/frps.toml && exec frps -c /tmp/frps.toml
     environment:
-      FRPS_AUTH_TOKEN: ${FRPS_AUTH_TOKEN}
       FRPS_DASHBOARD_USER: ${FRPS_DASHBOARD_USER}
       FRPS_DASHBOARD_PASSWORD: ${FRPS_DASHBOARD_PASSWORD}
       BASE_DOMAIN: ${BASE_DOMAIN}
@@ -147,7 +142,6 @@ services:
       dockerfile: Dockerfile
     environment:
       NIXSTASIS_API_URL: ${NIXSTASIS_API_URL:-https://nixstasis.${BASE_DOMAIN}}
-      NIXSTASIS_FRP_AUTH_TOKEN: ${NIXSTASIS_FRP_AUTH_TOKEN:-}
       NIXSTASIS_FRP_SERVER_ADDR: frps
       NIXSTASIS_FRP_SERVER_PORT: ${FRPS_BIND_PORT}
       NIXSTASIS_FRP_HTTP_LOCAL_ADDR: ${NIXSTASIS_FRP_HTTP_LOCAL_ADDR:-127.0.0.1:443}

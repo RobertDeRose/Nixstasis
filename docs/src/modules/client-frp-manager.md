@@ -55,17 +55,21 @@
 
 ## Client-Server Interaction Details
 
-- Heartbeat responses include `remote_access_token` and the optional
-  versioned `remote_access_profile` reference only while remote access is
-  requested for the device.
+- Heartbeat responses include `remote_access_token`, the selected durable
+  `remote_access_lease_id`, its Unix-millisecond `remote_access_expires_at_ms`,
+  and the optional versioned `remote_access_profile`
+  reference only while the device has an active authorization.
 - If `remote_access_token` is non-empty and FRP is inactive, `pollOnce` resolves
   the named profile against client configuration, then starts the `nixstasis-frpc`
   transient unit using typed local routes and the heartbeat token. A token-only
   legacy response selects the local `default` profile.
 - If `remote_access_token` is absent or empty and FRP is active, `pollOnce` stops
   FRPC.
-- If the heartbeat token or selected profile changes while FRP is active,
-  `pollOnce` performs one bounded stop/start restart with the current token.
+- A changed signature alone does not restart FRPC. The client replaces its stored
+  credential when validity is shortened or a later expiry is available within
+  30 seconds of the stored expiry. Profile or lease identity changes trigger a
+  bounded restart, including same-profile lease replacement with a later expiry.
+  An already-expired advertised credential stops FRPC.
 - Unknown profile names, unsupported versions, non-loopback targets, and
   unsupported route/plugin kinds fail closed; the error is included in the next
   `connection_status.error` report and is cleared when remote access is withdrawn.
@@ -81,9 +85,15 @@
   are rendered from them. Plain HTTP routes may optionally set a Host-header
   rewrite, but only to `localhost` or a loopback IP; the built-in
   `atomixos-bootstrap` profile uses `localhost` for its `127.0.0.1:8080` route.
-- FRPS auth is passed to the transient unit through a root-only environment file
-  and converted to `FRPS_AUTH_TOKEN` inside `frp-session`, avoiding token exposure
-  in `systemd-run --setenv` metadata.
+- FRPS wire proxy names include the authenticated user prefix. Phoenix removes
+  only that exact prefix before checking the device-owned raw route name/domain.
+  Login and NewProxy also check the exact selected durable lease and its profile,
+  so a revoked credential cannot borrow another owner's active authorization.
+  Established tunnels stop on the next authenticated heartbeat, not synchronously
+  through the authorization callback.
+- The signed FRPS device credential is passed to the transient unit through a
+  root-only environment file and exposed to frpc as `FRPS_AUTH_TOKEN`; the FRPC
+  template sends it only as FRPS plugin metadata, not as the shared transport token.
 - If an unprivileged poll service is denied access to the system manager (as in
   the nested systemd Compose client), the manager starts a poll-owned
   `frp-session` child with the same bounded timeout and stops it when remote

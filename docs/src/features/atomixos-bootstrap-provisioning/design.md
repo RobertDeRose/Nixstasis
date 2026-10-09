@@ -76,6 +76,12 @@ unknown result and withdraw temporary access.
   device and bootstrap-attempt UUID.
 - Successful and failed terminal results are recorded before route withdrawal;
   indeterminate results retain access until explicit withdrawal or expiry.
+- Each delivery owns one durable lease through its UUID. Restart restores that
+  same lease identity; withdrawal and completion close only that delivery's lease.
+  Resume neither creates a replacement lease nor extends its original expiry.
+- A live provisioning lease takes precedence over browser/direct leases. Other
+  owners retain their leases and regain their own profiles when provisioning ends.
+  A terminal/withdrawn delivery invalidates its credential before cleanup can finish.
 
 ### Quality and Security Requirements
 
@@ -92,7 +98,9 @@ unknown result and withdraw temporary access.
 ## Architecture Consistency
 
 The server action is a retained Phoenix controller boundary backed by an Ash
-resource. It delegates device authorization and lease lifecycle to
+resource. PR #3's approved lifecycle correction (`nixstasis-n01`) replaces volatile
+lease ownership with the internal durable `RemoteAccessLease` resource and
+lease-bound FRPS credentials; see the [current lease contract](../server-provided-frps-token/index.md#current-lease-contract). It delegates device authorization and lease lifecycle to
 `Nixstasis.Devices`, profile selection to the existing remote-access contract,
 HTTP transport to a small Req adapter, and audit emission to the same
 Logger/PubSub pattern used by scripts and device groups. The client remains

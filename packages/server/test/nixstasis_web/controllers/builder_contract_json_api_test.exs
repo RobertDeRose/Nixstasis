@@ -190,7 +190,7 @@ defmodule NixstasisWeb.BuilderContractJSONAPITest do
     assert %{"data" => []} = json_response(conn, 200)
   end
 
-  test "JSON:API report-family writes require manager role when local fallback is disabled", %{conn: conn} do
+  test "JSON:API alert-rule writes require alert management when local fallback is disabled", %{conn: conn} do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
     Application.put_env(:nixstasis, :local_browser_auth_fallback?, false)
 

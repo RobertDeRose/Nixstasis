@@ -37,7 +37,7 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_profile":{"name":"default","version":1,"host_header_rewrite":"evil.example"},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
+		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_expires_at_ms":1900000000000,"remote_access_lease_id":"11111111-2222-3333-4444-555555555555","remote_access_profile":{"name":"default","version":1,"host_header_rewrite":"evil.example"},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
 	}))
 	defer server.Close()
 
@@ -67,6 +67,12 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	}
 	if resp == nil || len(resp.Commands) != 1 || resp.Commands[0].CommandID != "c1" {
 		t.Fatalf("unexpected poll response: %#v", resp)
+	}
+	if resp.RemoteAccessLeaseID != "11111111-2222-3333-4444-555555555555" {
+		t.Fatalf("remote access lease = %q", resp.RemoteAccessLeaseID)
+	}
+	if resp.RemoteAccessExpiresAtMS != 1900000000000 {
+		t.Fatalf("remote access expiry = %d", resp.RemoteAccessExpiresAtMS)
 	}
 	if resp.RemoteAccessToken != "shared-secret" {
 		t.Fatalf("remote access token = %q", resp.RemoteAccessToken)

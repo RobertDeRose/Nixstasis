@@ -93,6 +93,8 @@ defmodule Nixstasis.Devices.Device do
       constraints: [items: [fields: @heartbeat_command_fields]]
     ],
     remote_access_token: [type: :string],
+    remote_access_expires_at_ms: [type: :integer],
+    remote_access_lease_id: [type: :uuid],
     remote_access_profile: [type: :map, constraints: [fields: @heartbeat_profile_fields]],
     command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
   ]
@@ -158,6 +160,7 @@ defmodule Nixstasis.Devices.Device do
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
     end
 
     create :register do
@@ -175,9 +178,22 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
 
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
+
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash, :remote_access_profile]}
+
+      upsert_fields {:replace_all_except,
+                     [
+                       :id,
+                       :approval_status,
+                       :api_token_hash,
+                       :remote_access_requested,
+                       :remote_access_default_profile,
+                       :remote_access_profile,
+                       :remote_access_expires_at,
+                       :remote_access_owner
+                     ]}
     end
 
     update :update do
@@ -199,6 +215,7 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
       validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
     end
 
     action :list_runtime_devices, :map do
@@ -404,6 +421,16 @@ defmodule Nixstasis.Devices.Device do
       allow_nil? false
       default false
       public? true
+    end
+
+    attribute :remote_access_expires_at, :utc_datetime_usec
+
+    attribute :remote_access_owner, :string
+
+    attribute :remote_access_default_profile, :string do
+      allow_nil? false
+      default "default"
+      constraints match: ~r/^[a-z][a-z0-9._-]{0,63}$/
     end
 
     attribute :remote_access_profile, :string do

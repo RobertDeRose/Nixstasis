@@ -159,3 +159,31 @@ func TestLoadCanUseExplicitConfigFile(t *testing.T) {
 		t.Fatalf("api url = %q", cfg.API.URL)
 	}
 }
+
+func TestLoadReadsLocalScriptArgumentAndFileCapabilities(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	contents := `runtime:
+  exec_commands:
+    uname: /usr/bin/uname
+  exec_command_args:
+    /usr/bin/uname:
+      - ["-srmo"]
+  read_files:
+    - /proc/loadavg
+`
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := cfg.Runtime.ExecCommandArgs["/usr/bin/uname"]; len(got) != 1 || len(got[0]) != 1 || got[0][0] != "-srmo" {
+		t.Fatalf("exec command args = %#v", got)
+	}
+	if len(cfg.Runtime.ReadFiles) != 1 || cfg.Runtime.ReadFiles[0] != "/proc/loadavg" {
+		t.Fatalf("read files = %#v", cfg.Runtime.ReadFiles)
+	}
+}

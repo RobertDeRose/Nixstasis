@@ -226,7 +226,17 @@ paths:
                       remote_access_token:
                         type: string
                         nullable: true
-                        description: Shared FRPS token. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                        description: Short-lived signed FRPS device credential. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                      remote_access_lease_id:
+                        type: string
+                        format: uuid
+                        nullable: true
+                        description: Selected durable lease identity. A change requires replacing the installed FRPC credential, even if profile and expiry do not shorten.
+                      remote_access_expires_at_ms:
+                        type: integer
+                        format: int64
+                        nullable: true
+                        description: Absolute credential expiry as Unix milliseconds, bounded by persisted lease expiry and signing maximum age.
                       remote_access_profile:
                         type: object
                         nullable: true

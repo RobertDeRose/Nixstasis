@@ -113,8 +113,15 @@ The runtime suite generates and executes 10+ Linux-oriented Starlark scripts (re
 - alert triggering from script data
 
 Production `exec_cmd` usage is deny-by-default. Operators must explicitly
-allowlist commands in the client runtime configuration before scripts can run
-host commands.
+allowlist executable paths in the client runtime configuration before scripts can run
+host commands. Commands execute with no arguments unless the exact argument vector is
+listed locally under `runtime.exec_command_args` for that absolute executable path; server-delivered command
+policies cannot expand those argument capabilities. The shipped configuration no longer exposes `cat`.
+Scripts that need file-backed diagnostics must use `read_file`, which accepts only exact
+paths listed locally under `runtime.read_files`; Nixstasis state under `/etc/nixstasis`
+and `/run/nixstasis` is always denied, and each read is capped at 64 KiB.
+Every path component must be free of symlinks, and only regular files are readable;
+FIFOs, directories, and other special files are rejected without waiting for data.
 
 Runtime suite journeys:
 

@@ -14,6 +14,14 @@ defmodule Nixstasis.ProvisioningTest do
     :ok
   end
 
+  test "generated provisioning URL matches the UUID-bound bootstrap proxy" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:09"})
+    host = Nixstasis.Devices.FrpsToken.device_name(device.id) <> "-provisioning"
+
+    assert URI.parse(Provisioning.route_url(device)).host ==
+             host <> "." <> Application.get_env(:nixstasis, :base_domain)
+  end
+
   test "delivers a raw config through the bootstrap route and withdraws access" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:01"})
     parent = self()
@@ -54,7 +62,7 @@ defmodule Nixstasis.ProvisioningTest do
     assert url =~ "/api/config"
 
     refreshed_device = Devices.get_device!(device.id)
-    assert refreshed_device.remote_access_profile == "atomixos-bootstrap"
+    assert refreshed_device.remote_access_profile == "default"
     refute refreshed_device.remote_access_requested
   end
 
@@ -340,6 +348,128 @@ defmodule Nixstasis.ProvisioningTest do
     refute Devices.get_device!(device.id).remote_access_requested
   end
 
+  test "withdrawal after restart closes the original delivery lease" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:40"})
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               readiness_fun: readiness_success_fun(),
+               submit_fun: fn _, _, _ -> {:error, {:transport, :timeout}} end
+             )
+
+    restart_process(Devices.RemoteAccessLeases)
+    Devices.sync_remote_access_leases()
+    restart_process(Provisioning)
+    assert Devices.remote_access_active?(Devices.get_device!(device.id))
+    assert :ok = Provisioning.withdraw_delivery(operator_session(device), delivery.id)
+    refute Devices.remote_access_active?(Devices.get_device!(device.id))
+  end
+
+  test "withdrawal after restart preserves another operator's lease and profile" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:41"})
+
+    {:ok, original, operator_lease} =
+      Devices.open_remote_access_lease(device, profile: "default", audit_owner: "another-operator", ttl_ms: 120_000)
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               readiness_fun: readiness_success_fun(),
+               submit_fun: fn _, _, _ -> {:error, {:transport, :timeout}} end,
+               lease_ttl_ms: 60_000
+             )
+
+    restart_process(Devices.RemoteAccessLeases)
+    Devices.sync_remote_access_leases()
+    restart_process(Provisioning)
+    assert :ok = Provisioning.withdraw_delivery(operator_session(device), delivery.id)
+    remaining = Devices.get_device!(device.id)
+    assert Devices.remote_access_lease_active?(operator_lease)
+    assert remaining.remote_access_profile == "default"
+    assert remaining.remote_access_expires_at == original.remote_access_expires_at
+    assert remaining.remote_access_owner == "another-operator"
+  end
+
+  test "a new browser lease cannot interrupt an active bootstrap delivery" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:42"})
+
+    {:ok, delivery} =
+      Provisioning.deliver(operator_session(device), device.id, "bundle",
+        readiness_fun: readiness_success_fun(),
+        submit_fun: fn _, _, _ -> {:error, {:transport, :timeout}} end
+      )
+
+    bootstrap = Nixstasis.Devices.RemoteAccess.for_owner("provisioning", delivery.id)
+    {:ok, selected, browser_id} = Devices.open_remote_access_lease(Devices.get_device!(device.id), profile: "default")
+    assert selected.remote_access_profile == "atomixos-bootstrap"
+    assert Nixstasis.Devices.RemoteAccess.selected(device.id).id == bootstrap.id
+    assert Devices.remote_access_lease_active?(browser_id)
+    Provisioning.withdraw_delivery(operator_session(device), delivery.id)
+    assert Devices.get_device!(device.id).remote_access_profile == "default"
+  end
+
+  test "resume after restart keeps the original lease and closes only that lease on completion" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:43"})
+    {:ok, original, operator_id} = Devices.open_remote_access_lease(device, profile: "default", ttl_ms: 120_000)
+    {delivery, lease} = running_delivery(device)
+    restart_process(Devices.RemoteAccessLeases)
+    Devices.sync_remote_access_leases()
+    restart_process(Provisioning)
+
+    assert {:ok, finished} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               submit_fun: fn _, _, _ -> flunk("resume must not upload again") end,
+               get_job_fun: fn _, _ ->
+                 current = Nixstasis.Devices.RemoteAccess.for_owner("provisioning", delivery.id)
+                 assert current.id == lease.id
+                 assert current.expires_at == lease.expires_at
+                 {:ok, %{"id" => "job-resume", "state" => "succeeded", "result" => %{}}}
+               end
+             )
+
+    assert finished.id == delivery.id
+    assert finished.lease_withdrawn_at
+    refute Devices.remote_access_lease_active?(lease.id)
+    assert Devices.remote_access_lease_active?(operator_id)
+    assert Repo.aggregate(Nixstasis.Devices.RemoteAccessLease, :count) == 2
+    assert Devices.get_device!(device.id).remote_access_expires_at == original.remote_access_expires_at
+  end
+
+  test "resume cannot renew an expired original lease" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:44"})
+    {delivery, lease} = running_delivery(device)
+
+    Repo.update_all(from(l in Nixstasis.Devices.RemoteAccessLease, where: l.id == ^lease.id),
+      set: [expires_at: DateTime.add(DateTime.utc_now(), -1, :second)]
+    )
+
+    restart_process(Devices.RemoteAccessLeases)
+    Devices.sync_remote_access_leases()
+    restart_process(Provisioning)
+
+    assert {:error, :inactive_authorization} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               submit_fun: fn _, _, _ -> flunk("must not upload") end,
+               get_job_fun: fn _, _ -> flunk("must not poll without the original authorization") end
+             )
+
+    assert Repo.aggregate(Nixstasis.Devices.RemoteAccessLease, :count) == 1
+    refute Devices.remote_access_active?(Devices.get_device!(device.id))
+    {:ok, updated} = Provisioning.get_delivery(operator_session(device), delivery.id)
+    assert updated.lease_withdrawn_at
+  end
+
+  test "a terminal delivery invalidates its credential before lease cleanup" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:45"})
+    {delivery, lease} = running_delivery(device)
+    token = Nixstasis.Devices.FrpsToken.for_heartbeat(Devices.get_device!(device.id))
+    {:ok, _} = Nixstasis.Domain.update_provisioning_delivery(delivery, %{state: :succeeded})
+    refute Devices.remote_access_lease_active?(lease.id)
+    assert {:error, :inactive_authorization} = Nixstasis.Devices.FrpsToken.verify(token)
+    restart_process(Devices.RemoteAccessLeases)
+    Devices.sync_remote_access_leases()
+    refute Devices.get_device!(device.id).remote_access_requested
+  end
+
   test "marks a delivery indeterminate when its route lease expires while polling" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:06"})
 
@@ -371,6 +501,44 @@ defmodule Nixstasis.ProvisioningTest do
 
     refute Devices.get_device!(pending.id).remote_access_requested
     refute Devices.get_device!(unauthorized.id).remote_access_requested
+  end
+
+  defp running_delivery(device) do
+    {:ok, delivery} =
+      Nixstasis.Domain.create_provisioning_delivery(%{
+        device_id: device.id,
+        attempt_id: Ecto.UUID.generate(),
+        artifact_sha256: Base.encode16(:crypto.hash(:sha256, "bundle"), case: :lower),
+        artifact_filename: "config.toml",
+        artifact_size: 6,
+        state: :running,
+        actor_id: "operator@example.invalid",
+        started_at: DateTime.utc_now()
+      })
+
+    {:ok, delivery} =
+      Nixstasis.Domain.update_provisioning_delivery(
+        delivery,
+        %{job_id: "job-resume", job_url: "https://bootstrap.example/api/jobs/job-resume", job_state: "running"}
+      )
+
+    {:ok, _, ref} =
+      Devices.open_remote_access_lease(device,
+        owner_kind: "provisioning",
+        owner_id: delivery.id,
+        owner: Process.whereis(Provisioning),
+        audit_owner: delivery.actor_id,
+        profile: "atomixos-bootstrap",
+        ttl_ms: 60_000
+      )
+
+    {delivery, Nixstasis.Devices.RemoteAccess.get(ref)}
+  end
+
+  defp restart_process(name) do
+    child = if name == Devices.RemoteAccessLeases, do: Devices, else: name
+    :ok = Supervisor.terminate_child(Nixstasis.Supervisor, child)
+    {:ok, _} = Supervisor.restart_child(Nixstasis.Supervisor, child)
   end
 
   defp readiness_success_fun do

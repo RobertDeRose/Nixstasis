@@ -1,11 +1,10 @@
 defmodule NixstasisWeb.HeartbeatControllerTest do
   use NixstasisWeb.ConnCase
 
-  import ExUnit.CaptureLog
-
   require Ash.Query
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
 
@@ -233,132 +232,58 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     device: device,
     token: token
   } do
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
 
-      data = json_response(conn, 200)["data"]
+    data = json_response(conn, 200)["data"]
 
-      refute Map.has_key?(data, "remote_access_token")
-      refute Map.has_key?(data, "remote_access_profile")
-      refute Map.has_key?(data, "remote_access_requested")
-    end)
+    refute Map.has_key?(data, "remote_access_token")
+    refute Map.has_key?(data, "remote_access_profile")
+    refute Map.has_key?(data, "remote_access_expires_at_ms")
+    refute Map.has_key?(data, "remote_access_requested")
   end
 
-  test "heartbeat includes the default remote access profile with its token", %{
+  test "heartbeat issues a signed device-bound remote access credential", %{
     conn: conn,
     device: device,
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true)
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert %{
+             "remote_access_token" => remote_access_token,
+             "remote_access_profile" => %{"name" => "default", "version" => 1}
+           } = data = json_response(conn, 200)["data"]
 
-      assert %{
-               "remote_access_token" => "shared-secret",
-               "remote_access_profile" => %{"name" => "default", "version" => 1}
-             } = data = json_response(conn, 200)["data"]
+    assert {:ok,
+            %{
+              "device_id" => device_id,
+              "device_name" => device_name,
+              "expires_at_ms" => expires_at_ms,
+              "profile" => "default"
+            }} = FrpsToken.verify(remote_access_token)
 
-      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
-    end)
+    assert data["remote_access_expires_at_ms"] == expires_at_ms
+    assert expires_at_ms == DateTime.to_unix(device.remote_access_expires_at, :millisecond)
+    assert device_id == to_string(device.id)
+    assert device_name == FrpsToken.device_name(device.id)
+    refute remote_access_token == System.get_env("FRPS_AUTH_TOKEN")
+    refute Map.has_key?(data, "remote_access_requested")
   end
 
-  test "heartbeat includes an operator-selected remote access profile", %{
+  test "heartbeat binds an operator-selected profile into the FRP credential", %{
     conn: conn,
     device: device,
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true, "bootstrap")
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert %{
+             "remote_access_token" => remote_access_token,
+             "remote_access_profile" => %{"name" => "bootstrap", "version" => 1}
+           } = json_response(conn, 200)["data"]
 
-      assert %{"remote_access_profile" => %{"name" => "bootstrap", "version" => 1}} =
-               data = json_response(conn, 200)["data"]
-
-      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
-    end)
+    assert {:ok, %{"profile" => "bootstrap"}} = FrpsToken.verify(remote_access_token)
   end
-
-  test "heartbeat includes remote_access_token when requested and configured", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-      assert %{"remote_access_token" => "shared-secret"} = data = json_response(conn, 200)["data"]
-      refute Map.has_key?(data, "remote_access_requested")
-    end)
-  end
-
-  test "heartbeat omits remote_access_token and logs when requested token is missing", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    without_env("FRPS_AUTH_TOKEN", fn ->
-      log =
-        capture_log(fn ->
-          conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-          data = json_response(conn, 200)["data"]
-          refute Map.has_key?(data, "remote_access_token")
-          refute Map.has_key?(data, "remote_access_requested")
-        end)
-
-      assert log =~ "FRPS_AUTH_TOKEN is missing while remote access is requested"
-    end)
-  end
-
-  test "heartbeat omits remote_access_token and logs when requested token is blank", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    with_env("FRPS_AUTH_TOKEN", "   ", fn ->
-      log =
-        capture_log(fn ->
-          conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-          data = json_response(conn, 200)["data"]
-          refute Map.has_key?(data, "remote_access_token")
-          refute Map.has_key?(data, "remote_access_requested")
-        end)
-
-      assert log =~ "FRPS_AUTH_TOKEN is missing while remote access is requested"
-    end)
-  end
-
-  defp with_env(name, value, fun) do
-    previous = System.get_env(name)
-    System.put_env(name, value)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp without_env(name, fun) do
-    previous = System.get_env(name)
-    System.delete_env(name)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp restore_env(name, nil), do: System.delete_env(name)
-  defp restore_env(name, value), do: System.put_env(name, value)
 end

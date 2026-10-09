@@ -76,7 +76,7 @@ schema:
     load_15m: {type: number}
 ---
 def main():
-  parts = exec_cmd(cmd="cat", args=["/proc/loadavg"]).split(" ")
+  parts = read_file(path="/proc/loadavg").split(" ")
   return {"load_1m": float(parts[0]), "load_5m": float(parts[1]), "load_15m": float(parts[2])}
 `,
 		"mem_linux": `---
@@ -91,7 +91,7 @@ schema:
     memory_used_percent: {type: number}
 ---
 def main():
-  lines = exec_cmd(cmd="cat", args=["/proc/meminfo"]).split("\n")
+  lines = read_file(path="/proc/meminfo").split("\n")
   total_kb = 0
   avail_kb = 0
   for line in lines:
@@ -138,7 +138,7 @@ schema:
       type: string
 ---
 def main():
-  lines = exec_cmd(cmd="cat", args=["/proc/net/route"]).split("\n")
+  lines = read_file(path="/proc/1/net/route").split("\n")
   for line in lines[1:]:
     cols = [c for c in line.split("\t") if c != ""]
     if len(cols) > 2 and cols[1] == "00000000":
@@ -155,7 +155,7 @@ schema:
     uptime_seconds: {type: number}
 ---
 def main():
-  raw = exec_cmd(cmd="cat", args=["/proc/uptime"]).split(" ")[0]
+  raw = read_file(path="/proc/uptime").split(" ")[0]
   return {"uptime_seconds": float(raw)}
 `,
 		"top_process_cpu": `---
@@ -169,7 +169,7 @@ schema:
       type: string
 ---
 def main():
-  return {"top_process": exec_cmd(cmd="cat", args=["/proc/1/comm"])}
+  return {"top_process": read_file(path="/proc/1/comm")}
 `,
 		"filesystem_type": `---
 name: filesystem_type
@@ -195,7 +195,7 @@ schema:
       type: string
 ---
 def main():
-  lines = exec_cmd(cmd="cat", args=["/proc/stat"]).split("\n")
+  lines = read_file(path="/proc/stat").split("\n")
   return {"cpu_line": lines[0]}
 `,
 	}

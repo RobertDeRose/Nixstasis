@@ -133,7 +133,6 @@ require_text "$ENV_EXAMPLE" '^NIXSTASIS_VIEWER_GROUPS='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_OPERATOR_GROUPS='
 require_text "$ENV_EXAMPLE" '^NIXSTASIS_ADMIN_GROUPS='
 require_text "$ENV_EXAMPLE" '^FRPS_BIND_PORT='
-require_text "$ENV_EXAMPLE" '^FRPS_AUTH_TOKEN='
 require_text "$ENV_EXAMPLE" '^FRPS_HTTP_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_DASHBOARD_PORT='
 require_text "$ENV_EXAMPLE" '^FRPS_TCPMUX_PORT='
@@ -173,6 +172,13 @@ require_text "$FRPS_TOML" '__FRPS_BIND_PORT__'
 require_text "$FRPS_TOML" '__FRPS_HTTP_PORT__'
 require_text "$FRPS_TOML" '__FRPS_DASHBOARD_PORT__'
 require_text "$FRPS_TOML" '__FRPS_TCPMUX_PORT__'
+require_text "$FRPS_TOML" 'nixstasis-frp-plugin-gated'
+require_text "$FRPS_TOML" 'nixstasis:4000'
+require_text "$FRPS_TOML" '/internal/frp/authorize'
+require_text "$FRPS_TOML" 'Login.*NewProxy'
+reject_text "$FRPS_TOML" '__FRPS_AUTH_TOKEN__'
+require_text "$CADDYFILE" 'path /internal/frp/\*'
+require_text "$DEV_CADDYFILE" 'path /internal/frp/\*'
 
 require_text "$SERVER_RUNTIME" 'required_env!\("DATABASE_URL"\)'
 require_text "$SERVER_RUNTIME" 'required_env!\("SECRET_KEY_BASE"\)'
@@ -188,11 +194,9 @@ require_text "$SERVER_RUNTIME" 'PORT must be 4000 for supported Compose deployme
 require_text "$SERVER_RUNTIME" 'NIXSTASIS_LOCAL_BROWSER_AUTH_FALLBACK'
 require_text "$ROOT_DIR/packages/server/config/prod.exs" 'NIXSTASIS_SESSION_COOKIE_SECURE'
 require_text "$ROOT_DIR/packages/server/Dockerfile" 'ARG NIXSTASIS_SESSION_COOKIE_SECURE=true'
-require_compose_service_env nixstasis FRPS_AUTH_TOKEN
 require_compose_service_env nixstasis FRPS_TCPMUX_PORT
 require_compose_service_env nixstasis NIXSTASIS_SSH_FRP_HOST
 require_compose_service_env nixstasis NIXSTASIS_PROXY_AUTH_TOKEN
-require_compose_service_env frps FRPS_AUTH_TOKEN
 require_compose_service_env caddy NIXSTASIS_VIEWER_GROUPS
 require_compose_service_env caddy NIXSTASIS_OPERATOR_GROUPS
 require_compose_service_env caddy NIXSTASIS_ADMIN_GROUPS
@@ -267,7 +271,6 @@ require_text "$SERVER_README" 'TENANT_ID'
 require_text "$SERVER_README" 'JWT_KEY'
 require_text "$SERVER_README" 'NIXSTASIS_PROXY_AUTH_TOKEN'
 require_text "$SERVER_README" 'FRPS_BIND_PORT'
-require_text "$SERVER_README" 'FRPS_AUTH_TOKEN'
 require_text "$SERVER_README" 'FRPS_HTTP_PORT'
 require_text "$SERVER_README" 'FRPS_DASHBOARD_PORT'
 require_text "$SERVER_README" 'FRPS_TCPMUX_PORT'
@@ -354,6 +357,8 @@ require_text "$ROOT_DIR/packages/client/build/root-dir/usr/share/nixstasis/simul
 require_text "$CLIENT_FRPC_TEMPLATE" 'serverAddr = "\{\{ \.Envs\.FRPS_SERVER_ADDR \}\}"'
 require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPS_SERVER_PORT \}\}'
 require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.FRPS_AUTH_TOKEN \}\}'
+require_text "$CLIENT_FRPC_TEMPLATE" 'auth.token = \"nixstasis-frp-plugin-gated\"'
+require_text "$CLIENT_FRPC_TEMPLATE" 'metadatas.nixstasis_token'
 require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.NAME \}\}'
 require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.SSH_NAME \}\}'
 require_text "$CLIENT_FRPC_TEMPLATE" '\{\{ \.Envs\.PCP_NAME \}\}'
@@ -380,7 +385,6 @@ require_text "$CONTRACT_DOC" 'NIXSTASIS_VIEWER_GROUPS'
 require_text "$CONTRACT_DOC" 'NIXSTASIS_OPERATOR_GROUPS'
 require_text "$CONTRACT_DOC" 'NIXSTASIS_ADMIN_GROUPS'
 require_text "$CONTRACT_DOC" 'FRPS_BIND_PORT'
-require_text "$CONTRACT_DOC" 'FRPS_AUTH_TOKEN.*`frps`, `nixstasis`'
 require_text "$CONTRACT_DOC" 'FRPS_HTTP_PORT'
 require_text "$CONTRACT_DOC" 'FRPS_DASHBOARD_PORT'
 require_text "$CONTRACT_DOC" 'FRPS_TCPMUX_PORT'

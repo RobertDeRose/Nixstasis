@@ -93,6 +93,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert Map.has_key?(response_properties, "remote_access_profile")
+    assert Map.has_key?(response_properties, "remote_access_expires_at_ms")
   end
 
   test "generated OpenAPI includes command result and payload action contracts" do

@@ -37,6 +37,9 @@ func TestRenderConfigSupportsHTTPSAndPlainHTTPProfiles(t *testing.T) {
 
 	for _, fragment := range []string{
 		`serverAddr = "{{ .Envs.FRPS_SERVER_ADDR }}"`,
+		`auth.token = "nixstasis-frp-plugin-gated"`,
+		`user = "atom-device"`,
+		`metadatas.nixstasis_token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`,
 		`type = "http"`,
 		`type = "http2https"`,
 		`localAddr = "127.0.0.1:443"`,

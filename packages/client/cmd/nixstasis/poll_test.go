@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -182,7 +183,7 @@ func TestGivenCommands_WhenHandleCommandResponses_ThenResultsSent(t *testing.T) 
 	}
 }
 
-func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) {
+func TestRuntimeFRPConfigDerivesDeviceIdentityAndPreservesOtherConfiguredValues(t *testing.T) {
 	base := config.FRPConfig{
 		AuthToken:     "local-token",
 		Name:          "configured-name",
@@ -196,8 +197,9 @@ func TestRuntimeFRPConfigPreservesConfiguredValuesExceptAuthToken(t *testing.T) 
 
 	got := runtimeFRPConfig(base, "11111111-2222-3333-4444-555555555555")
 
-	if got.Name != "configured-name" {
-		t.Fatalf("runtimeFRPConfig() name = %q", got.Name)
+	wantName := identity.GenerateDeviceName("11111111-2222-3333-4444-555555555555")
+	if got.Name != wantName {
+		t.Fatalf("runtimeFRPConfig() name = %q, want device-bound %q", got.Name, wantName)
 	}
 	if got.AuthToken != "" {
 		t.Fatalf("runtimeFRPConfig() auth token = %q", got.AuthToken)
@@ -442,29 +444,74 @@ func TestPollOnceKeepsActiveFRPWhenTokenPresent(t *testing.T) {
 	}
 }
 
-func TestPollOnceRestartsActiveFRPWhenTokenChanges(t *testing.T) {
+func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token"}}
 
 	runtimeCfg := script.RuntimeConfig{}
-	state := &remoteAccessPollState{tokenHash: tokenHash("old-token")}
+	state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1"}
 
 	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
-	if frpManager.stopCalls != 1 {
-		t.Fatalf("expected one stop call, got %d", frpManager.stopCalls)
+	if frpManager.stopCalls != 0 || frpManager.startCalls != 0 {
+		t.Fatalf("short-lived credential rotation must not churn an active FRP session: start=%d stop=%d", frpManager.startCalls, frpManager.stopCalls)
 	}
-	if frpManager.startCalls != 1 {
-		t.Fatalf("expected one start call, got %d", frpManager.startCalls)
+}
+
+func TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry(t *testing.T) {
+	manager := &fakeFRPController{}
+	client := &fakePollClient{}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+	state := &remoteAccessPollState{}
+	runtimeCfg := script.RuntimeConfig{}
+	for index, lease := range []string{"lease-a", "lease-b", "lease-b"} {
+		response := &transport.PollResponse{}
+		body := fmt.Sprintf(`{"remote_access_token":"token-%d","remote_access_lease_id":%q,"remote_access_expires_at_ms":%d}`, index, lease, time.Now().Add(time.Duration(index+1)*time.Hour).UnixMilli())
+		if err := json.Unmarshal([]byte(body), response); err != nil {
+			t.Fatal(err)
+		}
+		client.response = response
+		manager.status.Active = index > 0
+		if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if frpManager.startedConfig.AuthToken != "new-token" {
-		t.Fatalf("started auth token = %q", frpManager.startedConfig.AuthToken)
+	if manager.startCalls != 2 || manager.stopCalls != 1 {
+		t.Fatalf("lease replacement must restart once; signature changes must not churn: starts=%d stops=%d", manager.startCalls, manager.stopCalls)
 	}
-	if state.tokenHash != tokenHash("new-token") {
-		t.Fatalf("expected active token hash to be updated")
+}
+
+func TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		storedExpiry int64
+		newExpiry    int64
+		wantRestart  bool
+	}{
+		{"same validity", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(time.Hour).UnixMilli(), false},
+		{"extension while still valid", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(2 * time.Hour).UnixMilli(), false},
+		{"renew before expiry", time.Now().Add(10 * time.Second).UnixMilli(), time.Now().Add(time.Hour).UnixMilli(), true},
+		{"shortened validity", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(time.Minute).UnixMilli(), true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token", RemoteAccessExpiresAtMS: test.newExpiry}}
+			manager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
+			cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+			state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1", expiresAtMS: test.storedExpiry}
+			runtimeCfg := script.RuntimeConfig{}
+			if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+				t.Fatal(err)
+			}
+			if (manager.startCalls == 1 && manager.stopCalls == 1) != test.wantRestart {
+				t.Fatalf("restart = start:%d stop:%d, want %v", manager.startCalls, manager.stopCalls, test.wantRestart)
+			}
+			if test.wantRestart && state.expiresAtMS != test.newExpiry {
+				t.Fatalf("stored expiry = %d", state.expiresAtMS)
+			}
+		})
 	}
 }
 

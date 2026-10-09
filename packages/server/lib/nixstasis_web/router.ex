@@ -26,6 +26,10 @@ defmodule NixstasisWeb.Router do
     plug(NixstasisWeb.Plugs.JsonApiPermissions)
   end
 
+  pipeline :frp_plugin do
+    plug(:accepts, ["json"])
+  end
+
   pipeline :e2e_api do
     plug(:accepts, ["json"])
     plug(NixstasisWeb.Plugs.E2EEnabled)
@@ -91,6 +95,12 @@ defmodule NixstasisWeb.Router do
     get("/devices/:device_id/command_payloads/:ref", DeviceCommandController, :command_payload)
     get("/reports/:id/results", ReportResultController, :show)
     get("/check_domain", TLSController, :check_domain)
+  end
+
+  scope "/internal/frp", NixstasisWeb do
+    pipe_through(:frp_plugin)
+
+    post("/authorize", FrpAuthorizationController, :authorize)
   end
 
   scope "/api/v1/provisioning", NixstasisWeb do

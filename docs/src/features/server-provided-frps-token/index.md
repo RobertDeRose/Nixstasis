@@ -10,23 +10,23 @@
 
 ## Delivered Capability
 
-Authenticated heartbeat responses carry the FRPS token only while remote access is requested. The Go client uses token
-presence as the FRPC lifecycle signal and supplies the secret through the transient systemd unit credential path.
+Authenticated heartbeat responses carry a signed, device/lease-bound FRPS credential only while a selected durable lease is authorized. The Go client uses token
+presence as the FRPC lifecycle signal and supplies the secret through a root-only session environment file.
 
 ## User-Facing Behavior
 
 Remote access starts when the server returns a non-empty token and stops when the token is absent. Operators no longer
-configure the shared FRPS token in static client configuration.
+configure a deployment-wide FRPS credential in static client configuration.
 
 ## Design Integration
 
-Phoenix and FRPS receive the same deployment secret, while device API credentials remain separate. FRPC lifecycle stays
-inside the client manager and the existing client-owned template expansion model.
+Phoenix signs a short-lived device credential and FRPS validates it through the internal `Login`/`NewProxy` authorization
+plugin. FRPC lifecycle stays inside the client manager and the existing client-owned template expansion model.
 
 ## Operational Impact
 
-A missing server token prevents tunnel startup without breaking heartbeat processing. Shared-token rotation remains a
-fleet-wide operation under the current upstream FRP authentication model.
+The deployment-wide FRPS client secret has been removed. Device credentials are session-bounded and signed from
+`SECRET_KEY_BASE`; FRPS rejects credentials and proxy registrations that do not match the device identity.
 
 ## Reference and Contracts
 
@@ -37,7 +37,7 @@ fleet-wide operation under the current upstream FRP authentication model.
 ## Validation Evidence
 
 Client polling and transport tests cover token-present and token-absent behavior; server controller tests cover
-conditional response rendering; the Compose runtime-contract check verifies shared configuration.
+signed credential and cross-device proxy rejection; the Compose runtime-contract check verifies the FRPS plugin wiring.
 
 ## Design Reconciliation
 
@@ -47,18 +47,37 @@ The boolean trigger was replaced by a token-bearing contract without persisting 
 
 ### Intentional Changes
 
-Later client work derives FRP route identity from the server-assigned device UUID while retaining token semantics.
+Security hardening now derives FRP route identity from the server-assigned device UUID, uses signed per-device
+credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoenix.
+
+### Current Lease Contract
+
+PR #3's approved lifecycle correction (`nixstasis-n01`) persists each lease's
+identity, owner, immutable profile, expiry, and revocation independently. Device
+fields are projections rather than authorization sources. Provisioning uses its
+delivery UUID to recover the same lease after restart; it cannot silently renew
+or close another operator's authorization.
+
+Provisioning takes precedence over browser/direct leases; newest creation wins
+within each class. The selected lease supplies both profile and lifetime. FRPS
+checks that exact lease for new Login/NewProxy operations, so another live lease
+cannot validate a revoked credential. Heartbeats advertise `remote_access_lease_id`
+and `remote_access_expires_at_ms`; the client replaces a changed lease without
+signature-only restart churn. Old unowned device-summary credentials fail closed.
 
 ### Deferred Work
 
-Per-device FRPS credentials and independent revocation remain deferred.
+Established FRPS tunnels are stopped through the next authenticated heartbeat;
+instant server-side tunnel teardown is not part of this correction.
 
 ### Rejected or Removed Scope
 
-The feature did not replace FRP authentication or alter browser and terminal authorization.
+Browser and terminal authorization remain separate from FRPS client authorization.
 
 ## Documentation Updated
 
+- `docs/src/operations/secret-rotation.md`
+- `docs/src/planned-features.md`
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/client-frp-manager.md`
 - `docs/src/modules/deployment-compose.md`
@@ -68,3 +87,12 @@ The feature did not replace FRP authentication or alter browser and terminal aut
 
 Legacy tasks were imported beneath `nixstasis-5hx`. Commit `8d4c10618c56a1412f29bfda1f08d77c88ed03bf`
 directly implemented heartbeat-provided FRPS token handling in the client polling path.
+The user approved the durable per-lease redesign during PR #3 review; acceptance,
+independent review, migration, and validation evidence are tracked by `nixstasis-n01`.
+PR #3 review item 31 reconciles the completed roadmap entry with the current
+lease-bound credential and internal authorization plugin contract (`nixstasis-yeo`).
+Review items 36 and 37 correct provisioning hostname and signing-key rotation
+recovery guidance (`nixstasis-1uk`, `nixstasis-7bk`) without changing runtime behavior.
+Review item 38 (`nixstasis-3z4`) prevents unrelated device updates from overwriting
+lease projections and reconciles profile preferences within the locked update
+transaction, with staged concurrency and rollback regressions.

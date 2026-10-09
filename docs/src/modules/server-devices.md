@@ -115,7 +115,7 @@ metadata payloads.
   the client-prepared replacement hash. Retries bearing the committed replacement
   return the same runtime token without mutation. Registration cannot overwrite
   operator-owned approval or remote-access settings.
-- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested and the shared FRPS token exists, the response also carries the device's named, versioned `remote_access_profile` reference. The additive generated `POST /api/json/device_runtime/devices/:device_id/heartbeat` action shares this orchestration and returns the generated `200` heartbeat contract.
+- `POST /api/v1/devices/:device_id/heartbeat` calls `Monitoring.heartbeat/2`, which updates last seen and returns pending commands. When remote access is requested, the response carries a short-lived signed FRPS credential bound to that device plus its named, versioned `remote_access_profile`. The generated heartbeat action shares this orchestration and returns the generated `200` contract.
 - Command policy delivery reuses the pending-command queue as `apply_command_policy`; small payloads stay inline, large payloads are delivered by `payload_ref` with deferred fetch through the existing command-payload endpoint.
 - `POST /api/v1/devices/:device_id/command_results` acknowledges pending commands and also records `apply_command_policy` delivery outcomes into command-policy history/status.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
@@ -134,10 +134,26 @@ metadata payloads.
   offline/lease expiry, queue failure, failed join, or other cleanup paths as a
   best-effort early invalidation signal. The complete wire contract is in
   [API & Runtime Contracts](../reference/contracts.md#browser-terminal-ssh-authorization-contract).
-- Device detail is reached through `/devices/:id`; opening remote-access tabs may
-  set `remote_access_requested`, and close/cleanup paths must clear stale remote
-  access intent. Authorized device updates may select a profile name, while route
-  definitions and target capabilities remain client-owned.
+- Device detail is reached through `/devices/:id`; opening remote-access tabs creates
+  a durable lease with stable UUID, owner kind/UUID, profile, expiry, and audit
+  subject. Device access fields are projections: attribute writes cannot grant or
+  revoke authorization. Phoenix restores original lease identities and timers,
+  not synthetic leases from device flags. Credentials carry the selected lease
+  identity and are bounded by its expiry and signing maximum age. Heartbeats
+  advertise `remote_access_lease_id` and `remote_access_expires_at_ms`; FRPS checks
+  that exact lease before permitting new logins or proxies.
+- Provisioning leases take precedence over browser/direct leases. Within each
+  class, newest creation wins, with UUID breaking ties. Profile and expiry come
+  from the same selected lease; closing it restores the next eligible owner's
+  authorization. Profile updates save a separate preference for future operator
+  leases rather than altering an existing lease. `set_remote_access(device, false)`
+  explicitly withdraws all device leases; delivery/session cleanup closes only its
+  own UUID. Route definitions and target capabilities remain client-owned.
+- Heartbeat and metadata updates do not rewrite lease projections from a snapshot
+  taken while building their changeset. They return current stored summary fields
+  after the update. Profile preference changes reconcile the selected lease under
+  the same device-row lock and transaction, so a concurrent open/close cannot be
+  overwritten and a failed update rolls back both preference and projection.
 - PCP metrics, Cockpit links, and terminal sessions are detail-view concerns and
   should degrade gracefully when FRP, SSH, or device data is unavailable.
 

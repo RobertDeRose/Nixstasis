@@ -145,8 +145,9 @@
   devices, pending commands, telemetry events, and alerts are policy-filtered by the
   actor's trusted device scope before rows are returned. An omitted device-scope claim
   means unscoped fleet access for a role that can view devices; an explicit empty scope
-  returns no device-backed rows, and malformed device IDs fail closed. Internal domain
-  calls that do not supply an operator actor retain their existing behavior.
+  returns no device-backed rows, and malformed device IDs fail closed. Alert-rule reads
+  and mutations are separately policy-gated by the actor's alert view/manage capability.
+  Internal domain calls that do not supply an operator actor retain their existing behavior.
 - Both the generated runtime device list and compatibility `GET /api/v1/devices`
   forward a verified operator actor to the nested Device read, enforcing the same
   policies as generic device reads. UUID scope validation is shared with device

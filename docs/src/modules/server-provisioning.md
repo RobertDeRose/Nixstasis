@@ -36,6 +36,19 @@ readiness deadline, 30-second request timeout, and backoff. This
 preflight gives the client time to receive the lease on its next heartbeat,
 whose default interval is 30 seconds.
 
+## Durable lease ownership
+
+Each delivery owns one persisted lease through its delivery UUID. Withdrawal,
+resume, polling, and completion resolve that same identity from PostgreSQL,
+including after worker/server restart. Resume does not create a replacement lease
+or extend the original expiry; missing or expired authorization fails closed.
+Completion or withdrawal makes the delivery's credential invalid even if another
+operator still has access to the device.
+
+Provisioning takes profile precedence while its lease is live, so opening another
+browser cannot interrupt the upload. Closing its lease restores the remaining
+operator's own profile and expiry rather than disabling all device access.
+
 ## Artifact boundary
 
 The server accepts non-empty opaque artifacts no larger than 32 MiB. Accepted
@@ -53,7 +66,8 @@ AtomixOS owns TOML/archive validation and decompression limits.
 ## AtomixOS job contract
 
 The FRP API base is derived from the device identity as
-`https://atom-<normalized-mac>.<BASE_DOMAIN>`, or can be explicitly set with
+`https://atom-<normalized-device-uuid>-provisioning.<BASE_DOMAIN>`, matching the
+client-owned bootstrap route. It can be explicitly set with
 `ATOMIXOS_PROVISIONING_BASE_URL`. The server posts to `/api/config` and accepts
 HTTP `202` JSON containing `job_id`, a documented job `state`, and a relative
 `job_url` such as `/api/jobs/<job_id>`. The job URL must stay on the same FRP

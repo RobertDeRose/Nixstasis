@@ -14,6 +14,7 @@ defmodule Nixstasis.Provisioning do
 
   alias Nixstasis.Devices
   alias Nixstasis.Devices.Device
+  alias Nixstasis.Devices.RemoteAccess
   alias Nixstasis.Domain
   alias Nixstasis.Provisioning.Artifact
   alias Nixstasis.Provisioning.Audit
@@ -113,13 +114,9 @@ defmodule Nixstasis.Provisioning do
         String.trim_trailing(base, "/")
 
       _ ->
-        normalized_mac =
-          device.mac_address
-          |> String.replace(~r/[^a-fA-F0-9]/, "")
-          |> String.downcase()
-
         base_domain = Application.get_env(:nixstasis, :base_domain, @default_base_domain)
-        "https://atom-#{normalized_mac}.#{String.trim(to_string(base_domain), ".")}"
+
+        "https://#{Nixstasis.Devices.FrpsToken.device_name(device.id)}-provisioning.#{String.trim(to_string(base_domain), ".")}"
     end
   end
 
@@ -136,8 +133,8 @@ defmodule Nixstasis.Provisioning do
     if delivery.lease_withdrawn_at do
       {:reply, :ok, state}
     else
-      {lease_ref, leases} = Map.pop(state.leases, delivery.id)
-      state = %{state | leases: leases}
+      lease_ref = delivery_lease_ref(delivery.id)
+      state = %{state | leases: Map.delete(state.leases, delivery.id)}
 
       if lease_ref do
         :ok = Devices.close_remote_access_lease(lease_ref)
@@ -149,9 +146,9 @@ defmodule Nixstasis.Provisioning do
     end
   end
 
-  def handle_call(:reset, _from, state) do
-    Enum.each(state.leases, fn {_delivery_id, lease_ref} ->
-      Devices.close_remote_access_lease(lease_ref)
+  def handle_call(:reset, _from, _state) do
+    Enum.each(RemoteAccess.for_kind("provisioning"), fn lease ->
+      Devices.close_remote_access_lease(lease.id)
     end)
 
     {:reply, :ok, %{leases: %{}}}
@@ -159,13 +156,13 @@ defmodule Nixstasis.Provisioning do
 
   @impl true
   def handle_info({:remote_access_lease_expired, lease_ref}, state) do
-    case Enum.find(state.leases, fn {_delivery_id, ref} -> ref == lease_ref end) do
-      {delivery_id, _lease_ref} ->
+    case RemoteAccess.get(lease_ref) do
+      %{owner_kind: "provisioning", owner_id: delivery_id} ->
         state = %{state | leases: Map.delete(state.leases, delivery_id)}
         record_lease_expiry(delivery_id)
         {:noreply, state}
 
-      nil ->
+      _ ->
         {:noreply, state}
     end
   end
@@ -248,7 +245,7 @@ defmodule Nixstasis.Provisioning do
 
     case Domain.create_provisioning_delivery(attrs) do
       {:ok, delivery} ->
-        case open_bootstrap_lease(device, opts) do
+        case open_bootstrap_lease(device, Keyword.put(opts, :audit_owner, actor_id), delivery.id) do
           {:ok, _updated_device, lease_ref} ->
             state = put_in(state.leases[delivery.id], lease_ref)
             Audit.emit(:bootstrap_started, actor_id, delivery_attributes(delivery))
@@ -279,6 +276,8 @@ defmodule Nixstasis.Provisioning do
     do: {{:error, {:reconciliation_required, delivery}}, state}
 
   defp resume_delivery(delivery, device, actor_id, opts, state) do
+    opts = Keyword.put(opts, :audit_owner, actor_id)
+
     case ensure_lease(delivery, device, opts, state) do
       {:ok, lease_state} when is_binary(delivery.job_url) ->
         get_job_fun = Keyword.get(opts, :get_job_fun, default_get_job_fun(opts))
@@ -478,8 +477,8 @@ defmodule Nixstasis.Provisioning do
     end
   end
 
-  defp lease_active?(state, delivery_id) do
-    case Map.get(state.leases, delivery_id) do
+  defp lease_active?(_state, delivery_id) do
+    case delivery_lease_ref(delivery_id) do
       lease_ref when is_binary(lease_ref) -> Devices.remote_access_lease_active?(lease_ref)
       _ -> false
     end
@@ -510,8 +509,21 @@ defmodule Nixstasis.Provisioning do
     end
   end
 
-  defp open_bootstrap_lease(device, opts) do
-    lease_opts = [owner: self(), profile: @route_profile]
+  defp delivery_lease_ref(delivery_id) do
+    case RemoteAccess.for_owner("provisioning", delivery_id) do
+      %{id: ref} -> ref
+      nil -> nil
+    end
+  end
+
+  defp open_bootstrap_lease(device, opts, delivery_id) do
+    lease_opts = [
+      owner: self(),
+      owner_kind: "provisioning",
+      owner_id: delivery_id,
+      profile: @route_profile,
+      audit_owner: Keyword.get(opts, :audit_owner)
+    ]
 
     lease_opts =
       case Keyword.fetch(opts, :lease_ttl_ms) do
@@ -522,16 +534,18 @@ defmodule Nixstasis.Provisioning do
     Devices.open_remote_access_lease(device, lease_opts)
   end
 
-  defp ensure_lease(delivery, device, opts, state) do
-    case Map.has_key?(state.leases, delivery.id) do
-      true ->
-        {:ok, state}
-
-      false ->
-        case open_bootstrap_lease(device, opts) do
-          {:ok, _updated, lease_ref} -> {:ok, put_in(state.leases[delivery.id], lease_ref)}
-          {:error, reason} -> {:error, reason, state}
+  defp ensure_lease(delivery, _device, _opts, state) do
+    case delivery_lease_ref(delivery.id) do
+      ref when is_binary(ref) ->
+        if Devices.remote_access_lease_active?(ref) do
+          {:ok, put_in(state.leases[delivery.id], ref)}
+        else
+          record_lease_expiry(delivery.id)
+          {:error, :inactive_authorization, state}
         end
+
+      nil ->
+        {:error, :missing_authorization, state}
     end
   end
 
@@ -580,8 +594,8 @@ defmodule Nixstasis.Provisioning do
   end
 
   defp close_lease(state, delivery) do
-    {lease_ref, leases} = Map.pop(state.leases, delivery.id)
-    state = %{state | leases: leases}
+    lease_ref = delivery_lease_ref(delivery.id)
+    state = %{state | leases: Map.delete(state.leases, delivery.id)}
 
     if lease_ref do
       :ok = Devices.close_remote_access_lease(lease_ref)

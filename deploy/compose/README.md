@@ -154,9 +154,10 @@ targeting the compose `postgres` host.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
   production; browser authorization is only supported through Caddy/AuthCrunch.
-- `FRPS_AUTH_TOKEN` is provided to both `frps` and `nixstasis`; FRPS uses it for
-  token auth, and Phoenix only returns it to authenticated device heartbeats while
-  remote access is requested for that device.
+- FRPS delegates `Login` and `NewProxy` authorization to Phoenix. Heartbeats
+  return a short-lived signed credential bound to the requesting device, and
+  FRPS confines proxy names and domains to that device namespace. Devices no
+  longer receive a deployment-wide FRPS client secret.
 - PostgreSQL data is mounted at `/var/lib/postgresql` to match the PostgreSQL 18+
   image layout.
 - `FRPS_HTTP_PORT` is an internal Compose port for Caddy wildcard proxying and is
@@ -166,7 +167,10 @@ targeting the compose `postgres` host.
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
 - `ATOMIXOS_PROVISIONING_BASE_URL` optionally overrides the per-device public
   FRP API base used by the server's initial AtomixOS bootstrap action. When it
-  is unset, the server derives `https://atom-<normalized-mac>.<BASE_DOMAIN>`.
+  is unset, the server derives
+  `https://atom-<compact-device-uuid>-provisioning.<BASE_DOMAIN>`, using the
+  server-assigned device UUID in lowercase without hyphens, not the MAC address.
+  This hostname must resolve to Caddy and be eligible for TLS approval.
   The action still requires the authorized `atomixos-bootstrap` route and
   resolves only the documented relative `/api/jobs/<job_id>` path.
 - The client poll service and root-owned SSH helper use the fixed local socket

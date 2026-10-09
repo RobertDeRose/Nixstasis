@@ -4,6 +4,7 @@ defmodule Nixstasis.DevicesTest do
   import ExUnit.CaptureLog
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
 
   describe "devices" do
@@ -303,13 +304,72 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.get_device!(d2.id).approval_status == :rejected
     end
 
-    test "set_remote_access/2 toggles flag" do
+    test "set_remote_access/2 toggles bounded remote access" do
       device = device_fixture()
       assert {:ok, updated} = Devices.set_remote_access(device, true)
       assert updated.remote_access_requested == true
+      assert %DateTime{} = updated.remote_access_expires_at
+      assert Devices.remote_access_active?(updated)
 
       assert {:ok, updated} = Devices.set_remote_access(updated, false)
       assert updated.remote_access_requested == false
+      assert is_nil(updated.remote_access_expires_at)
+      assert is_nil(updated.remote_access_owner)
+      refute Devices.remote_access_active?(updated)
+    end
+
+    test "remote-access lease survives manager restart only until its original expiry" do
+      device = device_fixture(%{mac_address: "10:20:30:40:50:60"})
+
+      assert {:ok, opened, lease_ref} =
+               Devices.open_remote_access_lease(device,
+                 owner: self(),
+                 audit_owner: "operator@example.invalid",
+                 ttl_ms: 1_500
+               )
+
+      original_expiry = opened.remote_access_expires_at
+      token = FrpsToken.for_heartbeat(opened)
+      assert is_binary(token)
+      assert opened.remote_access_owner == "operator@example.invalid"
+      assert Devices.remote_access_lease_active?(lease_ref)
+
+      restart_remote_access_leases!()
+      Devices.sync_remote_access_leases()
+
+      restored = Devices.get_device!(device.id)
+      assert restored.remote_access_requested
+      assert restored.remote_access_expires_at == original_expiry
+      assert restored.remote_access_owner == "operator@example.invalid"
+      assert Devices.remote_access_active?(restored)
+      assert Devices.remote_access_lease_active?(lease_ref)
+
+      assert eventually(fn ->
+               refreshed = Devices.get_device!(device.id)
+               not refreshed.remote_access_requested and is_nil(refreshed.remote_access_expires_at)
+             end)
+
+      assert {:error, :expired} = FrpsToken.verify(token)
+    end
+
+    test "restart never recreates authorization from a stale device projection" do
+      device = device_fixture(%{mac_address: "10:20:30:40:50:61"})
+      assert {:ok, opened} = Devices.set_remote_access(device, true)
+
+      Repo.delete_all(from(l in Nixstasis.Devices.RemoteAccessLease, where: l.device_id == ^opened.id))
+
+      expired = Devices.get_device!(device.id)
+      assert expired.remote_access_requested
+      refute Devices.remote_access_active?(expired)
+      assert is_nil(FrpsToken.for_heartbeat(expired))
+
+      restart_remote_access_leases!()
+      Devices.sync_remote_access_leases()
+
+      refreshed = Devices.get_device!(device.id)
+      refute refreshed.remote_access_requested
+      assert is_nil(refreshed.remote_access_expires_at)
+      refute Devices.remote_access_active?(refreshed)
     end
 
     test "set_remote_access/3 stores a validated route profile" do
@@ -749,4 +809,22 @@ defmodule Nixstasis.DevicesTest do
       assert log =~ "failed to queue terminal revoke for device #{missing_device.id}"
     end
   end
+
+  defp restart_remote_access_leases! do
+    :ok = Supervisor.terminate_child(Nixstasis.Supervisor, Devices)
+    {:ok, _} = Supervisor.restart_child(Nixstasis.Supervisor, Devices)
+  end
+
+  defp eventually(fun, attempts \\ 100)
+
+  defp eventually(fun, attempts) when attempts > 0 do
+    if fun.() do
+      true
+    else
+      Process.sleep(20)
+      eventually(fun, attempts - 1)
+    end
+  end
+
+  defp eventually(_fun, 0), do: false
 end

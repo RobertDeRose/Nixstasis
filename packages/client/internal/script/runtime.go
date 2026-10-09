@@ -62,6 +62,7 @@ func NewRuntime(config RuntimeConfig) *Runtime {
 	r.builtins = starlark.StringDict{
 		"pub_and_get": starlark.NewBuiltin("pub_and_get", r.pubAndGetBuiltin),
 		"exec_cmd":    starlark.NewBuiltin("exec_cmd", r.execCmdBuiltin),
+		"read_file":   starlark.NewBuiltin("read_file", r.readFileBuiltin),
 		"json":        json.Module,
 	}
 

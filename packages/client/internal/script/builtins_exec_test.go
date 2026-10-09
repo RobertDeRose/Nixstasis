@@ -204,3 +204,62 @@ def main():
 		t.Fatalf("expected capability error, got %v", err)
 	}
 }
+
+func TestExecCmdRejectsArgumentsWithoutLocalRule(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "reader")
+	if err := os.WriteFile(cmdPath, []byte("#!/bin/sh\nprintf '%s' \"$1\"\n"), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout: 5 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"reader": cmdPath,
+		},
+	})
+	_, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/etc/nixstasis/id"])}
+`)
+	if err == nil || !strings.Contains(err.Error(), "without a local exec_command_args rule") {
+		t.Fatalf("expected argument capability denial, got %v", err)
+	}
+}
+
+func TestExecCmdAllowsOnlyExactLocallyConfiguredArguments(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "reader")
+	if err := os.WriteFile(cmdPath, []byte("#!/bin/sh\nprintf '%s' \"$1\"\n"), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout: 5 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"reader": cmdPath,
+		},
+		ExecArgumentAllowlist: map[string][][]string{
+			cmdPath: {{"/proc/loadavg"}},
+		},
+	})
+
+	out, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/proc/loadavg"])}
+`)
+	if err != nil {
+		t.Fatalf("expected exact argument vector to succeed: %v", err)
+	}
+	if got := out["out"]; got != "/proc/loadavg" {
+		t.Fatalf("unexpected command output: %q", got)
+	}
+
+	_, err = runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/etc/nixstasis/id"])}
+`)
+	if err == nil || !strings.Contains(err.Error(), "arguments are not allowlisted") {
+		t.Fatalf("expected non-allowlisted argument vector to fail, got %v", err)
+	}
+}

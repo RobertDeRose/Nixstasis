@@ -38,6 +38,16 @@ defmodule NixstasisWeb.DeviceLiveTest do
     defp output_for(data), do: data
   end
 
+  test "Cockpit links use the same UUID-bound host as FRPC", %{conn: conn} do
+    device = create_device!(%{mac_address: "AA:BB:CC:DD:EE:09"})
+    {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}")
+
+    assert html =~
+             "https://#{Nixstasis.Devices.FrpsToken.device_name(device.id)}.#{Application.get_env(:nixstasis, :base_domain)}"
+
+    refute html =~ "https://atom-aabbccddee09."
+  end
+
   @base_attrs %{
     account_number: "123456789",
     approval_status: :approved,

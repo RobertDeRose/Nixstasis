@@ -59,7 +59,6 @@
   - `NIXSTASIS_OPERATOR_GROUPS`
   - `NIXSTASIS_ADMIN_GROUPS`
   - `FRPS_BIND_PORT`
-  - `FRPS_AUTH_TOKEN`
   - `FRPS_HTTP_PORT`
   - `FRPS_DASHBOARD_PORT`
   - `FRPS_DASHBOARD_USER`
@@ -106,8 +105,9 @@
   transforms into provider-generic `nixstasis/*` roles before proxying to
   Phoenix.
 - `FRPS_BIND_PORT`: FRPS bind port for client tunnel connections.
-- `FRPS_AUTH_TOKEN`: Shared FRPS auth token consumed by `frps`, `nixstasis`,
-  and managed clients when remote access is requested.
+- FRPS `Login` and `NewProxy` operations are authorized by the internal Phoenix
+  FRP plugin endpoint using short-lived, signed device credentials. There is no
+  deployment-wide FRPS client secret distributed to devices.
 - `FRPS_HTTP_PORT`: internal FRPS HTTP virtual host port used by Caddy wildcard
   proxying; it is not published directly on the host.
 - `FRPS_DASHBOARD_PORT`: FRPS dashboard port used behind authenticated Caddy
