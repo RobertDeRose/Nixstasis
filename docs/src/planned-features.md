@@ -301,79 +301,77 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 
 - Status: completed
 - Overview:
-- Move the remote-access trigger from a boolean heartbeat response flag to a
-  server-provided FRPS auth token. When the server wants a client to open
-  remote access, the heartbeat response includes the shared FRPS token. The
-  client treats the presence of that token as the start signal, passes it to
-  the transient unit through a systemd credential, and stops FRPC when the
-  token is absent.
+- Replace the boolean remote-access trigger and legacy shared deployment token
+  with signed device/lease credentials. Authenticated heartbeats advertise the
+  selected durable lease; the client starts or refreshes FRPC with its credential
+  and stops when authorization is absent or expired.
+- Current contract:
+- [Delivered capability and lease contract](features/server-provided-frps-token/index.md#current-lease-contract)
 - Requirements:
-- Replace `remote_access_requested` in the device heartbeat response contract
-  with `remote_access_token`.
-- Include `remote_access_token` only when remote access is currently requested
-  for the device.
-- Make the Phoenix server read the shared FRPS token from deployment
-  configuration and expose it only to authenticated device heartbeat responses
-  that need remote access.
-- Make the Compose `nixstasis` service receive the same `FRPS_AUTH_TOKEN` as
-  the `frps` service.
-- Make the Go client start FRPC when `remote_access_token` is non-empty and
-  use that value as `FRPS_AUTH_TOKEN` for frpc template expansion.
-- Make the Go client stop FRPC when `remote_access_token` is absent or empty.
-- Keep the device runtime API token separate from the FRPS auth token.
+- Persist individual lease identity, owner, immutable profile, expiry, and
+  revocation. Device summary fields are projections, not authorization sources.
+- Recover the same provisioning lease by delivery UUID after restart; withdrawal
+  or completion must not revoke another owner's lease or renew the original expiry.
+- Give provisioning leases precedence; otherwise select the newest active lease.
+  Take profile and expiry from the same selected lease.
+- Return `remote_access_token`, `remote_access_lease_id`,
+  `remote_access_expires_at_ms`, and `remote_access_profile` only for an eligible
+  selected lease in authenticated device heartbeats.
+- Sign credentials from `SECRET_KEY_BASE`; bind them to device, lease, profile,
+  and expiry. Keep device runtime API tokens separate.
+- Validate FRPS `Login` and `NewProxy` through the internal Phoenix authorization
+  plugin, including current lease authority and device-owned routes and domains.
+- Restart FRPC when the selected lease or profile changes; renew near credential
+  expiry or when validity shortens without restarting for signature-only changes.
 - Constraints:
-- The current FRPS deployment uses upstream FRP token auth with one shared
-  `FRPS_AUTH_TOKEN`.
-- Do not add an FRPS authentication plugin or per-device FRPS tokens in this
-  feature.
-- Do not persist the FRPS token in client config or identity files.
-- The client-owned `frpc.toml` continues to use `{{ .Envs.FRPS_AUTH_TOKEN }}`
-  and frpc-native environment expansion.
-- The client continues launching FRPC through the `nixstasis-frpc` transient
-  systemd unit.
+- No deployment-wide FRPS client secret is shared between Phoenix and FRPS.
+- Keep credentials out of persistent client config and identity files; use a
+  root-only session environment file and FRPS plugin metadata.
+- Keep route definitions, templates, and local targets client-owned. The existing
+  `FRPS_AUTH_TOKEN` template variable carries the session credential, not a shared
+  deployment token.
+- Keep the `nixstasis-frpc` transient systemd unit lifecycle on supported Linux hosts.
 - Non-goals:
-- Replacing FRP token authentication.
-- Implementing per-device FRPS auth or revocation.
-- Changing browser terminal authorization.
-- Changing how operators request or close remote access in the UI beyond the
-  heartbeat response payload.
+- Changing browser or terminal authentication.
+- Supplying arbitrary FRPC configuration or local targets from the server.
+- Instantly tearing down established FRPS tunnels through a new control API.
+- Retaining unowned device-summary authorization or legacy signed credentials.
 - Success criteria:
-- A heartbeat for a device without requested remote access returns no FRPS
-  token and the client stops or leaves FRPC stopped.
-- A heartbeat for a device with requested remote access returns the configured
-  FRPS token and the client starts FRPC with that token in the transient unit
-  credential path.
-- The device API token is never used as the FRPS token.
-- Server and client tests cover both token-present and token-absent response
-  paths.
-- Runtime contract documentation identifies `FRPS_AUTH_TOKEN` as consumed by
-  both `frps` and `nixstasis`.
+- Missing or expired authorization leaves FRPC stopped; eligible heartbeats start
+  FRPC with a credential for the selected lease.
+- Restart preserves original lease identity and expiry; overlapping owners can
+  revoke their own leases independently and restore the next eligible profile.
+- Revoked, expired, deleted, or nonselected lease credentials cannot authorize new
+  FRPS operations or borrow another lease's access.
+- Established tunnels stop or change through the next authenticated heartbeat,
+  rather than an instantaneous server-side teardown.
 - Risks and tradeoffs:
-- Returning a shared FRPS token to a device exposes that token to the managed
-  host during the active remote-access lease.
-- A shared token keeps FRPS deployment simple but cannot revoke a single
-  device independently at the FRPS layer.
-- If `FRPS_AUTH_TOKEN` is missing from the server environment while remote
-  access is requested, clients cannot open FRPC even though the UI requested
-  access.
+- FRPS authorization depends on Phoenix and durable lease storage being available.
+- Signing-key rotation invalidates outstanding credentials; clients must obtain
+  replacement credentials through authenticated heartbeats.
+- An active managed host receives its bounded lease credential, not a secret that
+  authorizes every device.
 - Dependencies:
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`
-- `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`
+- `packages/server/lib/nixstasis/devices/remote_access.ex`
+- `packages/server/lib/nixstasis/devices/frps_token.ex`
+- `packages/server/lib/nixstasis/provisioning.ex`
+- `packages/server/lib/nixstasis_web/controllers/frp_authorization_controller.ex`
 - `packages/client/internal/transport/client.go`
 - `packages/client/cmd/nixstasis/poll.go`
-- `packages/client/cmd/nixstasis/poll_test.go`
 - `packages/client/internal/frp/manager.go`
-- `deploy/compose/docker-compose.yml`
+- `deploy/compose/frps/frps.toml`
 - `deploy/compose/scripts/check_runtime_contract.sh`
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/deployment-compose.md`
 - Suggested validation:
-- Server controller tests for `remote_access_token` omitted when remote access
-  is false and present when true with `FRPS_AUTH_TOKEN` configured.
-- Client transport/poll tests for starting FRPC with heartbeat-provided token.
-- Client poll tests for stopping FRPC when the token is absent.
-- Runtime contract check proving the Phoenix service receives
-  `FRPS_AUTH_TOKEN`.
+- Server lease/provisioning tests for restart, selective revocation, overlap,
+  expiry, ownership isolation, and transaction rollback.
+- FRPS authorization tests for device/lease binding and route/domain ownership.
+- Client transport/poll tests for lease replacement, bounded renewal,
+  signature-only rotation, and absent or expired credentials.
+- Named Ash migration/snapshot verification and OpenAPI contract checks.
+- Compose runtime-contract checks for plugin wiring and absence of shared client
+  secrets.
 - Suggested first workflow command: `/start-feature server-provided-frps-token`
 
 ### In memory ssh authorized keys (`in-memory-ssh-authorized-keys`)

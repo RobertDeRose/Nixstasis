@@ -76,6 +76,7 @@ Browser and terminal authorization remain separate from FRPS client authorizatio
 
 ## Documentation Updated
 
+- `docs/src/planned-features.md`
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/client-frp-manager.md`
 - `docs/src/modules/deployment-compose.md`
@@ -87,3 +88,5 @@ Legacy tasks were imported beneath `nixstasis-5hx`. Commit `8d4c10618c56a1412f29
 directly implemented heartbeat-provided FRPS token handling in the client polling path.
 The user approved the durable per-lease redesign during PR #3 review; acceptance,
 independent review, migration, and validation evidence are tracked by `nixstasis-n01`.
+PR #3 review item 31 reconciles the completed roadmap entry with the current
+lease-bound credential and internal authorization plugin contract (`nixstasis-yeo`).

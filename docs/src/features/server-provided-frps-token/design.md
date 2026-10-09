@@ -120,6 +120,7 @@ not claim instantaneous teardown of established FRPS connections.
 
 ## Documentation Impact
 
+- `docs/src/planned-features.md`
 - `docs/src/client-server-interface.md`
 - `docs/src/data-flow.md`
 - `docs/src/modules/server-devices.md`
