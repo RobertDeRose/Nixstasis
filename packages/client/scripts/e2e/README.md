@@ -51,7 +51,8 @@ Performance gate:
 If the host is not Linux, `scripts/e2e/run` automatically executes runtime E2E in an ephemeral Ubuntu container.
 It prefers Apple Container (`container`), then Docker, then Podman, and rewrites `--api-url` to the appropriate host
 alias so the containerized harness reaches the host server. Runtime client
-journeys require HTTPS for any non-loopback URL: use a reachable HTTPS hostname
+journeys and the runner-authenticated run API requests require HTTPS for any
+non-loopback URL and never follow redirects: use a reachable HTTPS hostname
 with a trusted certificate when running in a container. The wrapper preserves
 HTTPS hostnames and forwards a supplied `SSL_CERT_FILE` PEM CA bundle read-only.
 The default HTTP example supports runtime journeys only when run directly on
@@ -89,8 +90,10 @@ action token.
 
 The aggregate runner intentionally defaults to local loopback HTTP; the example
 config explicitly enables `api.allow_loopback_http` for this Linux development
-path. For containerized runtime journeys, supply a reachable HTTPS API URL
-instead, with a trusted CA as described above.
+path. It refuses to send the runner token to any `--api-url` other than
+`https://` or `http://` on `localhost`, `127.0.0.1`, or `[::1]`, and does not
+follow redirects. For containerized runtime journeys, supply a reachable HTTPS
+API URL instead, with a trusted CA as described above.
 
 ```bash
 scripts/e2e/run_all_suites \

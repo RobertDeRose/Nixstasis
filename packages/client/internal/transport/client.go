@@ -36,6 +36,17 @@ type Client struct {
 // NewClient rejects insecure API URLs before any credentials can be sent.
 // HTTP is permitted only for explicitly enabled loopback development.
 func NewClient(cfg config.APIConfig) (*Client, error) {
+	httpClient, err := NewHTTPClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{baseURL: strings.TrimRight(cfg.URL, "/"), httpClient: httpClient}, nil
+}
+
+// NewHTTPClient returns an HTTP client for credential-bearing API requests.
+// It rejects insecure API URLs, permits HTTP only for explicitly enabled
+// loopback development, and never follows redirects.
+func NewHTTPClient(cfg config.APIConfig) (*http.Client, error) {
 	u, err := url.Parse(cfg.URL)
 	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return nil, errors.New("API URL must be an absolute HTTPS URL without userinfo, query, or fragment")
@@ -61,14 +72,11 @@ func NewClient(cfg config.APIConfig) (*Client, error) {
 	default:
 		return nil, errors.New("API URL requires the HTTPS scheme")
 	}
-	return &Client{
-		baseURL: strings.TrimRight(cfg.URL, "/"),
-		httpClient: &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: transport,
-			// A redirect must never forward a registration body or runtime token.
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
-		},
+	return &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+		// A redirect must never forward a registration body or bearer token.
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 	}, nil
 }
 

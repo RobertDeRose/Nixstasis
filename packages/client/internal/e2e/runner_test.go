@@ -32,15 +32,16 @@ func TestRunSuiteUsesConfiguredJourneys(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		RunnerID:        testE2ERunnerID,
-		RunnerToken:     testE2ERunnerToken,
-		IdempotencyKey:  "run-1",
-		Journeys:        []string{"auth", "dashboard"},
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		IdempotencyKey:    "run-1",
+		Journeys:          []string{"auth", "dashboard"},
 	}
 
 	runner := NewRunner(cfg)
@@ -89,14 +90,15 @@ func TestRunSuiteOverridesJourneys(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		RunnerID:        testE2ERunnerID,
-		RunnerToken:     testE2ERunnerToken,
-		Journeys:        []string{"auth"},
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
 	}
 
 	runner := NewRunner(cfg)
@@ -128,15 +130,16 @@ func TestRunSuiteWritesV1JourneyLogs(t *testing.T) {
 
 	logDir := t.TempDir()
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		RunnerID:        testE2ERunnerID,
-		RunnerToken:     testE2ERunnerToken,
-		Journeys:        []string{"auth"},
-		LogDir:          logDir,
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
+		LogDir:            logDir,
 	}
 
 	runner := NewRunner(cfg)
@@ -391,4 +394,66 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 	})
 
 	return httptest.NewServer(handler)
+}
+
+func TestRunSuiteRejectsInsecureAPIURLBeforeSendingToken(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		apiURL            string
+		allowLoopbackHTTP bool
+	}{
+		{name: "remote http", apiURL: "http://e2e.example.invalid", allowLoopbackHTTP: true},
+		{name: "loopback http without opt-in", apiURL: "http://127.0.0.1:1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				APIURL:            tc.apiURL,
+				AllowLoopbackHTTP: tc.allowLoopbackHTTP,
+				Suite:             "full",
+				Environment:       "local",
+				Trigger:           "manual",
+				ProtocolVersion:   "1",
+				RunnerID:          testE2ERunnerID,
+				RunnerToken:       testE2ERunnerToken,
+				Journeys:          []string{"auth"},
+			}
+
+			_, err := NewRunner(cfg).RunSuite(context.Background(), nil)
+			if err == nil || !strings.Contains(err.Error(), "HTTPS") {
+				t.Fatalf("expected insecure API URL rejection, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRunSuiteDoesNotFollowRedirectsWithToken(t *testing.T) {
+	redirectedRequests := 0
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		redirectedRequests++
+		w.WriteHeader(http.StatusCreated)
+	}))
+	t.Cleanup(target.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := Config{
+		APIURL:            origin.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
+	}
+
+	if _, err := NewRunner(cfg).RunSuite(context.Background(), nil); err == nil {
+		t.Fatal("expected redirected run creation to fail")
+	}
+	if redirectedRequests != 0 {
+		t.Fatalf("redirect target received %d requests", redirectedRequests)
+	}
 }

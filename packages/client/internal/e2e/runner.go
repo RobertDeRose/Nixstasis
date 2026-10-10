@@ -46,27 +46,8 @@ func (r *Runner) RunSuite(ctx context.Context, journeyIDs []string) (*RunSummary
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-
-	if r.cfg.APIURL == "" {
-		return nil, errors.New("API url is required")
-	}
-	if r.cfg.Suite == "" {
-		return nil, errors.New("suite is required")
-	}
-	if r.cfg.Environment == "" {
-		return nil, errors.New("environment is required")
-	}
-	if r.cfg.Trigger == "" {
-		return nil, errors.New("trigger is required")
-	}
-	if r.cfg.ProtocolVersion == "" {
-		return nil, errors.New("protocol version is required")
-	}
-	if r.cfg.RunnerID == "" {
-		return nil, errors.New("E2E runner id is required")
-	}
-	if len(r.cfg.RunnerToken) < 32 {
-		return nil, errors.New("E2E runner token must be at least 32 bytes")
+	if err := r.validateConfig(); err != nil {
+		return nil, err
 	}
 
 	journeys := journeyIDs
@@ -78,7 +59,10 @@ func (r *Runner) RunSuite(ctx context.Context, journeyIDs []string) (*RunSummary
 		return nil, fmt.Errorf("no journeys selected")
 	}
 
-	api := newAPIClient(r.cfg.APIURL, r.cfg.RunnerID, r.cfg.RunnerToken)
+	api, err := newAPIClient(r.cfg)
+	if err != nil {
+		return nil, err
+	}
 	run, err := api.createRun(ctx, runCreateRequest{
 		SuiteID:          r.cfg.Suite,
 		JourneyIDs:       journeys,
@@ -108,6 +92,26 @@ func (r *Runner) RunSuite(ctx context.Context, journeyIDs []string) (*RunSummary
 		Status:   summarizeStatus(results),
 		Journeys: results,
 	}, nil
+}
+
+func (r *Runner) validateConfig() error {
+	switch {
+	case r.cfg.APIURL == "":
+		return errors.New("API url is required")
+	case r.cfg.Suite == "":
+		return errors.New("suite is required")
+	case r.cfg.Environment == "":
+		return errors.New("environment is required")
+	case r.cfg.Trigger == "":
+		return errors.New("trigger is required")
+	case r.cfg.ProtocolVersion == "":
+		return errors.New("protocol version is required")
+	case r.cfg.RunnerID == "":
+		return errors.New("E2E runner id is required")
+	case len(r.cfg.RunnerToken) < 32:
+		return errors.New("E2E runner token must be at least 32 bytes")
+	}
+	return nil
 }
 
 func summarizeStatus(results []JourneyResult) string {

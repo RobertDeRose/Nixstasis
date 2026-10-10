@@ -87,6 +87,17 @@ if [[ -z "${runner_id}" || -z "${runner_token}" ]]; then
   exit 1
 fi
 
+# The runner token may cross plaintext HTTP only on loopback.
+case "${api_url}" in
+  *@*) api_url_allowed=false ;;
+  https://* | http://localhost | http://localhost[:/]* | http://127.0.0.1 | http://127.0.0.1[:/]* | http://\[::1\] | http://\[::1\][:/]*) api_url_allowed=true ;;
+  *) api_url_allowed=false ;;
+esac
+if [[ "${api_url_allowed}" != true ]]; then
+  echo "--api-url must use https:// or http:// on localhost, 127.0.0.1, or [::1], without userinfo." >&2
+  exit 1
+fi
+
 mkdir -p "${reports_dir}"
 cd "${ROOT_DIR}"
 

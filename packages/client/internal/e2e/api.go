@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 type apiClient struct {
@@ -54,13 +56,18 @@ type resultsRequest struct {
 	Results []resultPayload `json:"results"`
 }
 
-func newAPIClient(baseURL, runnerID, runnerToken string) *apiClient {
-	return &apiClient{
-		baseURL:     strings.TrimRight(baseURL, "/"),
-		runnerID:    strings.TrimSpace(runnerID),
-		runnerToken: strings.TrimSpace(runnerToken),
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+// newAPIClient rejects insecure API URLs before the runner token can be sent.
+func newAPIClient(cfg Config) (*apiClient, error) {
+	httpClient, err := transport.NewHTTPClient(config.APIConfig{URL: cfg.APIURL, AllowLoopbackHTTP: cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return nil, err
 	}
+	return &apiClient{
+		baseURL:     strings.TrimRight(cfg.APIURL, "/"),
+		runnerID:    strings.TrimSpace(cfg.RunnerID),
+		runnerToken: strings.TrimSpace(cfg.RunnerToken),
+		httpClient:  httpClient,
+	}, nil
 }
 
 func (c *apiClient) createRun(ctx context.Context, req runCreateRequest) (runData, error) {
