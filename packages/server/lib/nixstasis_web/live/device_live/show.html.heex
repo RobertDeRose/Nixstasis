@@ -182,6 +182,11 @@
               <p class="text-sm">
                 Remote terminal access is blocked until the new host key is explicitly trusted.
               </p>
+              <p id="ssh-host-key-verification-guidance" class="mt-2 text-sm">
+                Before trusting it, confirm the pending fingerprint matches the device through an
+                independent trusted channel, such as its console or a reimaging record. Do not trust
+                a change you cannot explain.
+              </p>
               <p class="mt-2 font-mono text-xs break-all">
                 Current: {Devices.ssh_host_key_fingerprint(@device.ssh_host_key) || "unavailable"}
               </p>

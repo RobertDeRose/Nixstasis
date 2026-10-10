@@ -395,7 +395,9 @@ heartbeat. The server enrolls
 the first value received over an authenticated heartbeat. A different key is held
 as pending and blocks browser terminal connections until an authorized operator
 explicitly trusts the replacement; the previous fingerprint, actor, and trust time
-are retained with the device. Acceptance is bound to the fingerprint the operator
+are retained with the device. The device page tells operators to confirm the pending
+fingerprint through an independent trusted channel, such as the device console or a
+reimaging record, before trusting it. Acceptance is bound to the fingerprint the operator
 reviewed. Concurrent changes to SSH trust state reject stale enrollment or
 acceptance attempts; operators must review the current fingerprint again. A
 heartbeat defers a stale SSH enrollment/change, or one that fails to persist, to its

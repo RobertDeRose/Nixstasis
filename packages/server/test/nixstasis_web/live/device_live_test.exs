@@ -1086,6 +1086,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       assert html =~ ~s(id="ssh-host-key-change-warning")
       assert html =~ "SSH host identity changed"
+      assert has_element?(view, "#ssh-host-key-verification-guidance", "independent trusted channel")
       assert has_element?(view, "#trust-pending-ssh-host-key")
 
       view
