@@ -395,11 +395,11 @@ Request:
 }
 ```
 
-`ssh_host_key` is the public host key used by the device's sshd. The server accepts only
-complete Ed25519, RSA, or ECDSA (`nistp256`, `nistp384`, `nistp521`) key blobs, and an
-ECDSA point must lie on its named curve. The client applies the same checks before
-reporting a key. A truncated, padded, off-curve, or otherwise malformed key is logged and
-ignored without failing the heartbeat. The server enrolls
+`ssh_host_key` is the device sshd's Ed25519 public host key. Devices must provide an
+Ed25519 host key; RSA and ECDSA host keys are not supported. The server and client accept
+only a complete `ssh-ed25519` key blob with a 32-byte key, and terminal sessions restrict
+`HostKeyAlgorithms` to `ssh-ed25519`. Any other algorithm, or a truncated, padded, or
+otherwise malformed key, is logged and ignored without failing the heartbeat. The server enrolls
 the first value received over an authenticated heartbeat. A different key is held
 as pending and blocks browser terminal connections until an authorized operator
 explicitly trusts the replacement; the previous fingerprint, actor, and trust time

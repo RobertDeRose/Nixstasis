@@ -215,6 +215,8 @@ defmodule Nixstasis.Devices.SshClient do
       "-o",
       "StrictHostKeyChecking=yes",
       "-o",
+      "HostKeyAlgorithms=ssh-ed25519",
+      "-o",
       "UserKnownHostsFile=#{known_hosts_path}",
       "-o",
       "GlobalKnownHostsFile=/dev/null",

@@ -1,13 +1,9 @@
 defmodule Nixstasis.Devices.SshHostKey do
   @moduledoc false
 
-  @allowed_algorithms MapSet.new([
-                        "ssh-ed25519",
-                        "ssh-rsa",
-                        "ecdsa-sha2-nistp256",
-                        "ecdsa-sha2-nistp384",
-                        "ecdsa-sha2-nistp521"
-                      ])
+  # Only Ed25519 host keys are accepted. Its fixed 32-byte encoding is fully
+  # validated here, so a malformed key cannot be enrolled and pinned.
+  @algorithm "ssh-ed25519"
   @max_encoded_bytes 24_000
   @max_decoded_bytes 16_384
 
@@ -16,7 +12,7 @@ defmodule Nixstasis.Devices.SshHostKey do
 
     with true <- byte_size(trimmed) > 0 and byte_size(trimmed) <= @max_encoded_bytes,
          [algorithm, encoded | _] <- String.split(trimmed, ~r/\s+/, parts: 3),
-         true <- MapSet.member?(@allowed_algorithms, algorithm),
+         true <- algorithm == @algorithm,
          {:ok, decoded} <- Base.decode64(encoded),
          true <- byte_size(decoded) > 0 and byte_size(decoded) <= @max_decoded_bytes,
          :ok <- validate_key_blob(decoded, algorithm) do
@@ -49,52 +45,11 @@ defmodule Nixstasis.Devices.SshHostKey do
     end
   end
 
-  defp validate_key_body("ssh-ed25519", body) do
+  defp validate_key_body(@algorithm, body) do
     case read_field(body) do
       {:ok, <<_key::binary-size(32)>>, ""} -> :ok
       _ -> {:error, :invalid_ssh_host_key}
     end
-  end
-
-  defp validate_key_body("ssh-rsa", body) do
-    with {:ok, exponent, rest} when exponent != "" <- read_field(body),
-         {:ok, modulus, ""} when modulus != "" <- read_field(rest) do
-      :ok
-    else
-      _ -> {:error, :invalid_ssh_host_key}
-    end
-  end
-
-  defp validate_key_body("ecdsa-sha2-" <> curve, body) do
-    with {:ok, ^curve, rest} <- read_field(body),
-         {:ok, <<4, coordinates::binary>>, ""} <- read_field(rest),
-         true <- byte_size(coordinates) == 2 * ecdsa_coordinate_bytes(curve),
-         true <- on_curve?(curve, coordinates) do
-      :ok
-    else
-      _ -> {:error, :invalid_ssh_host_key}
-    end
-  end
-
-  defp ecdsa_coordinate_bytes("nistp256"), do: 32
-  defp ecdsa_coordinate_bytes("nistp384"), do: 48
-  defp ecdsa_coordinate_bytes("nistp521"), do: 66
-
-  defp ecdsa_named_curve("nistp256"), do: :secp256r1
-  defp ecdsa_named_curve("nistp384"), do: :secp384r1
-  defp ecdsa_named_curve("nistp521"), do: :secp521r1
-
-  # OpenSSH rejects points that are not on the named curve, so such keys could
-  # be enrolled but never used for strict host verification.
-  defp on_curve?(curve, coordinates) do
-    {{:prime_field, p}, {a, b, _seed}, _base, _order, _cofactor} =
-      :crypto.ec_curve(ecdsa_named_curve(curve))
-
-    [p, a, b] = Enum.map([p, a, b], &:binary.decode_unsigned/1)
-    size = ecdsa_coordinate_bytes(curve)
-    <<x::unsigned-big-size(size)-unit(8), y::unsigned-big-size(size)-unit(8)>> = coordinates
-
-    x < p and y < p and rem(y * y - (x * x * x + a * x + b), p) == 0
   end
 
   defp read_field(<<length::unsigned-big-integer-size(32), field::binary-size(length), rest::binary>>),

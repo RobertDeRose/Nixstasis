@@ -266,7 +266,8 @@ Behavior:
   `nixstasis-support` so it matches the sshd `Match User` block and dynamic
   payload `target_user`.
 - Authenticate the device SSH server independently of FRP route identity. Devices
-  report their sshd public host key on authenticated heartbeats; the first key is
+  report their sshd Ed25519 public host key on authenticated heartbeats (other host
+  key algorithms are not supported); the first key is
   enrolled and each terminal session receives a private temporary `known_hosts`
   file with strict host-key checking enabled. Changed keys are held pending and
   require an explicit operator trust action that records the actor, trust time,

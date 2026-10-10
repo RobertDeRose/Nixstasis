@@ -219,6 +219,7 @@ defmodule Nixstasis.Devices.SshClientTest do
 
     assert commands =~ "TERM=xterm-256color"
     assert commands =~ "StrictHostKeyChecking=yes"
+    assert commands =~ "HostKeyAlgorithms=ssh-ed25519"
     assert commands =~ "UserKnownHostsFile=#{Path.join(System.tmp_dir!(), "nixstasis_known_hosts_")}"
     assert commands =~ "GlobalKnownHostsFile=/dev/null"
     refute commands =~ "StrictHostKeyChecking=no"
