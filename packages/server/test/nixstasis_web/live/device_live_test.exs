@@ -1082,10 +1082,10 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
 
       conn = put_session(conn, "operator_context", %{"subject" => "operator-host-key-reviewer"})
-      {:ok, view, html} = live(conn, ~p"/devices/#{device.id}")
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
-      assert html =~ ~s(id="ssh-host-key-change-warning")
-      assert html =~ "SSH host identity changed"
+      assert has_element?(view, "#ssh-host-key-change-warning")
+      assert has_element?(view, "#ssh-host-key-change-heading", "SSH host identity changed")
       assert has_element?(view, "#ssh-host-key-verification-guidance", "independent trusted channel")
       assert has_element?(view, "#trust-pending-ssh-host-key")
 
@@ -1097,7 +1097,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert updated.ssh_host_key == new_host_key
       assert is_nil(updated.ssh_host_key_pending)
       assert updated.ssh_host_key_trusted_by == "operator-host-key-reviewer"
-      refute render(view) =~ ~s(id="ssh-host-key-change-warning")
+      refute has_element?(view, "#ssh-host-key-change-warning")
     end
 
     test "trust rejects a missing or outdated browser fingerprint", %{conn: conn} do
