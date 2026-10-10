@@ -83,20 +83,27 @@ Restore Caddy state before bringing the complete stack back online.
 
 Use the Caddy archive from the same recovery point as the database backup when
 possible. Restoring a Caddy archive replaces the current contents of both named
-volumes.
+volumes. The archive is first extracted into a staging directory and must
+contain both `data` and `config`; the volumes are cleared only after that
+succeeds, and the stack is not started if any step fails.
 
 ```sh
 cd deploy/compose
 backup_dir=/var/backups/nixstasis
 archive=caddy-YYYYMMDDHHMMSS.tar.gz
 
-docker compose --env-file .env stop caddy
+docker compose --env-file .env stop caddy &&
 docker compose --env-file .env run --rm --no-deps \
   -e CADDY_BACKUP_ARCHIVE="$archive" \
   -v "$backup_dir:/backup:ro" \
   --entrypoint /bin/sh caddy \
-  -c 'rm -rf /data/* /data/.[!.]* /data/..?* /config/* /config/.[!.]* /config/..?*; \
-      tar -C / -xzf "/backup/$CADDY_BACKUP_ARCHIVE"'
+  -euc 'staging=$(mktemp -d)
+        tar -C "$staging" -xzf "/backup/$CADDY_BACKUP_ARCHIVE"
+        test -d "$staging/data" && test -d "$staging/config"
+        rm -rf /data/* /data/.[!.]* /data/..?* /config/* /config/.[!.]* /config/..?*
+        cp -a "$staging/data/." /data/
+        cp -a "$staging/config/." /config/
+        rm -rf "$staging"' &&
 docker compose --env-file .env up -d
 ```
 
