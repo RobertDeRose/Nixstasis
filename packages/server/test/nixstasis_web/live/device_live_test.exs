@@ -14,7 +14,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias NixstasisWeb.DeviceLive.FormComponent
 
   @endpoint NixstasisWeb.Endpoint
-  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
   defmodule TerminalJourneySshClient do
     use GenServer
@@ -1077,7 +1077,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:01"})
 
       new_host_key =
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
 
       {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
 
@@ -1101,7 +1101,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
     test "trust rejects a missing or outdated browser fingerprint", %{conn: conn} do
       device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:02"})
-      new_host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
+      new_host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
       reviewed_fingerprint = Devices.ssh_host_key_fingerprint(device.ssh_host_key)
       {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
       conn = put_session(conn, "operator_context", %{"subject" => "operator-host-key-reviewer"})

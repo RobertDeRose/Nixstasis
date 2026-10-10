@@ -763,8 +763,8 @@ defmodule Nixstasis.DevicesTest do
   end
 
   describe "SSH host key trust" do
-    @host_key_a "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    @host_key_b "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
+    @host_key_a "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    @host_key_b "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
 
     test "first authenticated heartbeat host key is enrolled as trusted" do
       device = device_fixture(%{mac_address: "75:75:75:75:75:75", approval_status: :approved})

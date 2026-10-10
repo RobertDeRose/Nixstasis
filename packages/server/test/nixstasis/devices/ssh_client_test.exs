@@ -3,7 +3,7 @@ defmodule Nixstasis.Devices.SshClientTest do
 
   alias Nixstasis.Devices.SshClient
 
-  @host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  @host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
   test "validate_executables reports missing ssh executable" do
     assert {:error, %{reason: :missing_executable, executable: "missing-nixstasis-ssh"}} =

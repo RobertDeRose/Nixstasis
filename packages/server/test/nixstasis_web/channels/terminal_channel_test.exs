@@ -6,7 +6,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.SshKeyManager
 
-  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
   defmodule FakeSshClient do
     use GenServer
@@ -239,7 +239,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.record_ssh_host_key(
         device,
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
       )
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
