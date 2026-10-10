@@ -93,7 +93,9 @@ config explicitly enables `api.allow_loopback_http` for this Linux development
 path. It refuses to send the runner token to any `--api-url` other than
 `https://` or `http://` on `localhost`, `127.0.0.1`, or `[::1]`, and does not
 follow redirects. It also rejects runner IDs outside the server's runner-ID
-format and API URLs or tokens containing whitespace, quotes, or backslashes. For containerized runtime journeys, supply a reachable HTTPS
+format and API URLs or tokens containing whitespace, quotes, or backslashes.
+The catalog request ignores the user's `~/.curlrc` so local curl defaults
+cannot change its redirect or logging behavior. For containerized runtime journeys, supply a reachable HTTPS
 API URL instead, with a trusted CA as described above.
 
 ```bash

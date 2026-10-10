@@ -121,7 +121,7 @@ suite_catalog="$(
     'show-error' \
     "header = \"X-E2E-Runner-ID: ${runner_id}\"" \
     "header = \"Authorization: Bearer ${runner_token}\"" \
-    "url = \"${api_url}/e2e/suites\"" | curl --config -
+    "url = \"${api_url}/e2e/suites\"" | curl --disable --config -
 )"
 
 mapfile -t suite_rows < <(

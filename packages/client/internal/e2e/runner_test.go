@@ -457,3 +457,25 @@ func TestRunSuiteDoesNotFollowRedirectsWithToken(t *testing.T) {
 		t.Fatalf("redirect target received %d requests", redirectedRequests)
 	}
 }
+
+func TestJourneyRequestsDoNotFollowRedirectsWithDeviceToken(t *testing.T) {
+	redirectedRequests := 0
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		redirectedRequests++
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(target.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(origin.Close)
+
+	executor := newJourneyExecutor(Config{APIURL: origin.URL, AllowLoopbackHTTP: true}, newJourneyLog("redirect", runLogContext{}))
+	_, _, err := executor.doRequest(context.Background(), http.MethodGet, "/api/v1/devices/device-1/command_payloads/ref", nil, deviceBearerHeaders("device-token"), http.StatusOK)
+	if err == nil {
+		t.Fatal("expected redirected device request to fail")
+	}
+	if redirectedRequests != 0 {
+		t.Fatalf("redirect target received %d requests", redirectedRequests)
+	}
+}

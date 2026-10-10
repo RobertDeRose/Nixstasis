@@ -160,6 +160,8 @@ func newJourneyExecutor(cfg Config, log *journeyLog) *journeyExecutor {
 		baseURL: strings.TrimRight(cfg.APIURL, "/"),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
+			// Journeys attach device tokens; a redirect must never forward them.
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 		},
 		log: log,
 		cfg: cfg,
