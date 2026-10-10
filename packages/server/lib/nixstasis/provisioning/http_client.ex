@@ -115,7 +115,6 @@ defmodule Nixstasis.Provisioning.HTTPClient do
     {:ok, %{response | body: chunks |> Enum.reverse() |> IO.iodata_to_binary()}}
   end
 
-  defp finalize_bounded_response({:ok, %{body: body}} = response) when body in [nil, ""], do: response
   defp finalize_bounded_response({:ok, _response} = response), do: response
   defp finalize_bounded_response({:error, reason}), do: {:error, {:transport, reason}}
 

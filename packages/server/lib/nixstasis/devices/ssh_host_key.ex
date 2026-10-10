@@ -38,13 +38,6 @@ defmodule Nixstasis.Devices.SshHostKey do
     end
   end
 
-  def algorithm(value) do
-    with {:ok, normalized} <- normalize(value),
-         [algorithm, _encoded] <- String.split(normalized, " ", parts: 2) do
-      {:ok, algorithm}
-    end
-  end
-
   # Parses the complete SSH wire-format key so truncated or padded blobs are
   # rejected before they can be enrolled or written to known_hosts.
   defp validate_key_blob(decoded, algorithm) do
