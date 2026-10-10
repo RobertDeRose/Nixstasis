@@ -55,6 +55,8 @@ journeys and the runner-authenticated run API requests require HTTPS for any
 non-loopback URL and never follow redirects: use a reachable HTTPS hostname
 with a trusted certificate when running in a container. The wrapper preserves
 HTTPS hostnames and forwards a supplied `SSL_CERT_FILE` PEM CA bundle read-only.
+It forwards `NIXSTASIS_E2E_RUNNER_TOKEN` by name only, so the token value never
+appears in the container command's process arguments.
 The default HTTP example supports runtime journeys only when run directly on
 Linux against loopback; `api.allow_loopback_http: true` in the example config is
 not a bypass for container host aliases or LAN addresses.
