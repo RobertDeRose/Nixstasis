@@ -33,7 +33,7 @@ defmodule NixstasisWeb.RateLimiterStore do
   def clear do
     :ets.delete_all_objects(@table)
     :ets.delete_all_objects(@bounded_table)
-    :ok
+    GenServer.call(__MODULE__, :reset_bounded_prune)
   end
 
   @doc false
@@ -44,29 +44,37 @@ defmodule NixstasisWeb.RateLimiterStore do
     :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
     :ets.new(@bounded_table, [:named_table, :public, :set, read_concurrency: true])
     schedule_prune()
-    {:ok, %{max_window_ms: max_window_ms()}}
+    {:ok, %{max_window_ms: max_window_ms(), next_bounded_prune_at: nil}}
+  end
+
+  @impl true
+  def handle_call(:reset_bounded_prune, _from, state) do
+    {:reply, :ok, %{state | next_bounded_prune_at: nil}}
   end
 
   @impl true
   def handle_call({:check_bounded_rate, key, limit, window_ms, max_keys, now}, _from, state) do
-    result =
-      case active_counter(@bounded_table, key, now, window_ms) do
-        {:active, count} ->
-          if count > limit, do: :limited, else: :ok
+    case active_counter(@bounded_table, key, now, window_ms) do
+      {:active, count} ->
+        {:reply, if(count > limit, do: :limited, else: :ok), state}
 
-        :missing_or_expired ->
+      :missing_or_expired ->
+        state =
           if not :ets.member(@bounded_table, key) and :ets.info(@bounded_table, :size) >= max_keys do
-            prune_table(@bounded_table, now - window_ms)
+            maybe_prune_bounded(state, now, window_ms)
+          else
+            state
           end
 
+        result =
           if :ets.member(@bounded_table, key) or :ets.info(@bounded_table, :size) < max_keys do
             if count_request(@bounded_table, key, now, window_ms) > limit, do: :limited, else: :ok
           else
             :limited
           end
-      end
 
-    {:reply, result, state}
+        {:reply, result, state}
+    end
   end
 
   @impl true
@@ -130,6 +138,27 @@ defmodule NixstasisWeb.RateLimiterStore do
       _ ->
         :missing_or_expired
     end
+  end
+
+  # At capacity, skip the full-table scan until the oldest remaining window can
+  # have expired, so a flood of new origins cannot rescan an all-active table on
+  # every request inside this singleton process.
+  defp maybe_prune_bounded(%{next_bounded_prune_at: next} = state, now, _window_ms)
+       when is_integer(next) and now < next,
+       do: state
+
+  defp maybe_prune_bounded(state, now, window_ms) do
+    prune_table(@bounded_table, now - window_ms)
+
+    oldest_started_at =
+      :ets.foldl(
+        fn {_key, started_at, _count}, oldest -> min(started_at, oldest) end,
+        :infinity,
+        @bounded_table
+      )
+
+    next = if is_integer(oldest_started_at), do: oldest_started_at + window_ms
+    %{state | next_bounded_prune_at: next}
   end
 
   defp prune_table(table, cutoff) do

@@ -82,7 +82,8 @@ Attacker-supplied device IDs are never used as pre-authentication keys.
 | Other authenticated device runtime action | 120 requests    | 60 seconds |
 
 The pre-authentication origin table is capped at 4,096 active keys; expired entries
-are reclaimed before rejecting a new origin at capacity. Native IPv6 origins share
+are reclaimed before rejecting a new origin at capacity, and the reclaim scan is
+skipped until the oldest active entry can have expired. Native IPv6 origins share
 a quota per /64 prefix, including origins forwarded by the trusted proxy.
 IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) use the corresponding IPv4 origin's
 quota, so different IPv4 addresses stay separate and alternate representations

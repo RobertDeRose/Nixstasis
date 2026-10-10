@@ -135,6 +135,37 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
       assert :limited = RateLimiterStore.check_bounded_rate({:origin, :overflow}, 1, window_ms, 2)
     end
 
+    test "does not rescan a full table of active entries for every new origin" do
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, 60_000, 2)
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, 60_000, 2)
+
+      store = Process.whereis(RateLimiterStore)
+      :erlang.trace_pattern({:ets, :foldl, 3}, true, [:local])
+      :erlang.trace(store, true, [:call, {:tracer, self()}])
+
+      on_exit(fn -> :erlang.trace_pattern({:ets, :foldl, 3}, false, [:local]) end)
+
+      for origin <- 3..7 do
+        assert :limited = RateLimiterStore.check_bounded_rate({:origin, origin}, 10, 60_000, 2)
+      end
+
+      :erlang.trace(store, false, [:call])
+
+      assert_received {:trace, ^store, :call, {:ets, :foldl, _}}
+      refute_received {:trace, ^store, :call, {:ets, :foldl, _}}
+    end
+
+    test "reclaims expired entries once the oldest window at capacity expires" do
+      window_ms = 50
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, window_ms, 1)
+      assert :limited = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, window_ms, 1)
+
+      Process.sleep(window_ms + 10)
+
+      assert :ok = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, window_ms, 1)
+      assert RateLimiterStore.bounded_size() == 1
+    end
+
     test "reuses an expired key without consuming additional cardinality" do
       key = {:origin, :expiry}
       assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
