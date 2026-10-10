@@ -2,7 +2,6 @@
 package sshauth
 
 import (
-	"crypto/ecdh"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
@@ -110,76 +109,30 @@ func supportedKeyType(keyType string) bool {
 	}
 }
 
-// ecdsaCurves validates uncompressed points for each supported curve.
-var ecdsaCurves = map[string]ecdh.Curve{
-	"ecdsa-sha2-nistp256": ecdh.P256(),
-	"ecdsa-sha2-nistp384": ecdh.P384(),
-	"ecdsa-sha2-nistp521": ecdh.P521(),
-}
-
-// ecdsaCoordinateBytes is the uncompressed point coordinate size per curve.
-var ecdsaCoordinateBytes = map[string]int{
-	"ecdsa-sha2-nistp256": 32,
-	"ecdsa-sha2-nistp384": 48,
-	"ecdsa-sha2-nistp521": 66,
-}
-
 func validateKeyBody(keyType string, blob []byte) error {
 	switch keyType {
 	case "ssh-ed25519":
-		return validateEd25519Body(blob)
+		key, remainder, err := readSSHField(blob)
+		if err != nil {
+			return err
+		}
+		if len(key) != 32 || len(remainder) != 0 {
+			return errors.New("invalid ed25519 key body")
+		}
 	case "ssh-rsa":
-		return validateRSABody(blob)
-	case "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521":
-		return validateECDSABody(keyType, blob)
+		exponent, remainder, err := readSSHField(blob)
+		if err != nil {
+			return err
+		}
+		modulus, remainder, err := readSSHField(remainder)
+		if err != nil {
+			return err
+		}
+		if len(exponent) == 0 || len(modulus) == 0 || len(remainder) != 0 {
+			return errors.New("invalid rsa key body")
+		}
 	default:
 		return errors.New("unsupported public key type")
-	}
-}
-
-func validateEd25519Body(blob []byte) error {
-	key, remainder, err := readSSHField(blob)
-	if err != nil {
-		return err
-	}
-	if len(key) != 32 || len(remainder) != 0 {
-		return errors.New("invalid ed25519 key body")
-	}
-	return nil
-}
-
-func validateRSABody(blob []byte) error {
-	exponent, remainder, err := readSSHField(blob)
-	if err != nil {
-		return err
-	}
-	modulus, remainder, err := readSSHField(remainder)
-	if err != nil {
-		return err
-	}
-	if len(exponent) == 0 || len(modulus) == 0 || len(remainder) != 0 {
-		return errors.New("invalid rsa key body")
-	}
-	return nil
-}
-
-func validateECDSABody(keyType string, blob []byte) error {
-	curve, remainder, err := readSSHField(blob)
-	if err != nil {
-		return err
-	}
-	point, remainder, err := readSSHField(remainder)
-	if err != nil {
-		return err
-	}
-	coordinateBytes := ecdsaCoordinateBytes[keyType]
-	if string(curve) != strings.TrimPrefix(keyType, "ecdsa-sha2-") ||
-		len(point) != 1+2*coordinateBytes || point[0] != 0x04 || len(remainder) != 0 {
-		return errors.New("invalid ecdsa key body")
-	}
-	// OpenSSH rejects points that are not on the named curve.
-	if _, err := ecdsaCurves[keyType].NewPublicKey(point); err != nil {
-		return errors.New("invalid ecdsa key point")
 	}
 	return nil
 }

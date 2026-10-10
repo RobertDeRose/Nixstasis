@@ -84,9 +84,9 @@
   - `PollWithInventoryAndHostKey` also sends the local sshd host public key as
     `ssh_host_key`. The CLI poll loop calls this variant directly, so only it enrolls
     or refreshes host identity; an empty key is omitted.
-  - The CLI reads the first complete key from `/etc/ssh/ssh_host_ed25519_key.pub`,
-    `/etc/ssh/ssh_host_ecdsa_key.pub`, then `/etc/ssh/ssh_host_rsa_key.pub`; malformed
-    files are skipped, and the heartbeat omits `ssh_host_key` when no valid key is found.
+  - The CLI reads only the Ed25519 host key at `/etc/ssh/ssh_host_ed25519_key.pub`;
+    the heartbeat omits `ssh_host_key` when that file is missing or malformed. RSA and
+    ECDSA host keys are not reported.
   - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
     `data.remote_access_expires_at_ms`, `data.remote_access_lease_id`,

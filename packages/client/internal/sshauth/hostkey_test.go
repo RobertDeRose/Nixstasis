@@ -1,8 +1,6 @@
 package sshauth
 
 import (
-	"crypto/ecdh"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"os"
@@ -48,22 +46,16 @@ func TestLoadHostPublicKeyFromRejectsMismatchedBlobAlgorithm(t *testing.T) {
 	}
 }
 
-func TestNormalizeHostPublicKeyAcceptsCompleteKeyBodies(t *testing.T) {
+func TestNormalizeHostPublicKeyRejectsNonEd25519Algorithms(t *testing.T) {
 	t.Parallel()
 
 	keys := map[string]string{
-		"rsa":      "ssh-rsa " + encodeSSHBlob("ssh-rsa", []byte{1, 0, 1}, append([]byte{0}, make([]byte, 256)...)),
-		"nistp256": "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), ecPoint(t, ecdh.P256())),
-		"nistp384": "ecdsa-sha2-nistp384 " + encodeSSHBlob("ecdsa-sha2-nistp384", []byte("nistp384"), ecPoint(t, ecdh.P384())),
-		"nistp521": "ecdsa-sha2-nistp521 " + encodeSSHBlob("ecdsa-sha2-nistp521", []byte("nistp521"), ecPoint(t, ecdh.P521())),
+		"rsa":   "ssh-rsa " + encodeSSHBlob("ssh-rsa", []byte{1, 0, 1}, append([]byte{0}, make([]byte, 256)...)),
+		"ecdsa": "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), append([]byte{0x04}, make([]byte, 64)...)),
 	}
 	for name, key := range keys {
-		got, err := normalizeHostPublicKey(key + " root@test")
-		if err != nil {
-			t.Fatalf("%s: normalizeHostPublicKey: %v", name, err)
-		}
-		if got != key {
-			t.Fatalf("%s: got %q, want %q", name, got, key)
+		if _, err := normalizeHostPublicKey(key); err == nil {
+			t.Fatalf("%s: expected non-Ed25519 host key to be rejected", name)
 		}
 	}
 }
@@ -75,11 +67,6 @@ func TestNormalizeHostPublicKeyRejectsMalformedKeyBodies(t *testing.T) {
 		"ed25519 missing key":   "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519"),
 		"ed25519 short key":     "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519", make([]byte, 31)),
 		"ed25519 trailing data": "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519", make([]byte, 32), nil),
-		"rsa missing modulus":   "ssh-rsa " + encodeSSHBlob("ssh-rsa", []byte{1, 0, 1}),
-		"ecdsa curve mismatch":  "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp384"), ecPoint(t, ecdh.P256())),
-		"ecdsa short point":     "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), ecPoint(t, ecdh.P256())[:64]),
-		"ecdsa off curve":       "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), append([]byte{0x04}, make([]byte, 64)...)),
-		"ecdsa compressed":      "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), append([]byte{0x02}, make([]byte, 32)...)),
 	}
 	for name, key := range keys {
 		if _, err := normalizeHostPublicKey(key); err == nil {
@@ -95,13 +82,4 @@ func encodeSSHBlob(algorithm string, fields ...[]byte) string {
 		blob = append(blob, field...)
 	}
 	return base64.StdEncoding.EncodeToString(blob)
-}
-
-func ecPoint(t *testing.T, curve ecdh.Curve) []byte {
-	t.Helper()
-	key, err := curve.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("generate ecdh key: %v", err)
-	}
-	return key.PublicKey().Bytes()
 }

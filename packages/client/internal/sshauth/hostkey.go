@@ -8,22 +8,16 @@ import (
 	"strings"
 )
 
+// Only Ed25519 host keys are reported. Its fixed 32-byte encoding is fully
+// validated here, so a malformed key cannot be enrolled and pinned.
+const hostKeyAlgorithm = "ssh-ed25519"
+
 var defaultHostPublicKeyPaths = []string{
 	"/etc/ssh/ssh_host_ed25519_key.pub",
-	"/etc/ssh/ssh_host_ecdsa_key.pub",
-	"/etc/ssh/ssh_host_rsa_key.pub",
 }
 
-var allowedHostKeyAlgorithms = map[string]struct{}{
-	"ssh-ed25519":         {},
-	"ssh-rsa":             {},
-	"ecdsa-sha2-nistp256": {},
-	"ecdsa-sha2-nistp384": {},
-	"ecdsa-sha2-nistp521": {},
-}
-
-// LoadHostPublicKey returns the first valid OpenSSH host public key from the
-// standard sshd host-key locations. Comments are removed before transmission.
+// LoadHostPublicKey returns the sshd Ed25519 host public key. Comments are
+// removed before transmission.
 func LoadHostPublicKey() (string, error) {
 	return LoadHostPublicKeyFrom(defaultHostPublicKeyPaths...)
 }
@@ -63,7 +57,7 @@ func normalizeHostPublicKey(value string) (string, error) {
 	}
 
 	algorithm := fields[0]
-	if _, ok := allowedHostKeyAlgorithms[algorithm]; !ok {
+	if algorithm != hostKeyAlgorithm {
 		return "", fmt.Errorf("unsupported SSH host key algorithm %q", algorithm)
 	}
 
