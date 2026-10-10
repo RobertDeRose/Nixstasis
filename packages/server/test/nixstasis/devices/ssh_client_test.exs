@@ -61,6 +61,37 @@ defmodule Nixstasis.Devices.SshClientTest do
              )
   end
 
+  test "start_link removes session credentials when SSH startup fails" do
+    Process.flag(:trap_exit, true)
+    previous_tmpdir = System.get_env("TMPDIR")
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+    tmp_dir = Path.join(System.tmp_dir!(), "nixstasis_ssh_client_test_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(tmp_dir)
+
+    on_exit(fn ->
+      if previous_tmpdir, do: System.put_env("TMPDIR", previous_tmpdir), else: System.delete_env("TMPDIR")
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf!(tmp_dir)
+    end)
+
+    System.put_env("TMPDIR", tmp_dir)
+    # An unprintable terminal type raises after both credential files exist.
+    Application.put_env(:nixstasis, :ssh_client, terminal_type: %{})
+
+    assert {:error, {%Protocol.UndefinedError{}, _stacktrace}} =
+             SshClient.start_link(
+               device_id: "11111111-2222-3333-4444-555555555555",
+               private_key: "test-only-sensitive-key-material",
+               host_key: @host_key,
+               channel_pid: self(),
+               ssh_executable: "sh",
+               proxy_executable: "sh",
+               env_executable: "env"
+             )
+
+    assert File.ls!(tmp_dir) == []
+  end
+
   test "ssh_host uses atom normalized device id SSH host" do
     assert SshClient.ssh_host("11111111-2222-3333-4444-555555555555") ==
              "atom-11111111222233334444555555555555-ssh"

@@ -81,42 +81,54 @@ defmodule Nixstasis.Devices.SshClient do
 
   defp start_ssh_port(device_id, private_key, host_key, channel_pid, executables, columns, rows) do
     with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key) do
-      key_path = write_temp_key(private_key)
-      known_hosts_path = write_temp_known_hosts(device_id, normalized_host_key)
-      tty_path = remote_tty_path()
+      known_hosts_path = temp_path("nixstasis_known_hosts")
+      key_path = temp_path("nixstasis_ssh_client")
 
-      ssh_args =
-        ssh_args(
-          device_id,
-          key_path,
-          known_hosts_path,
-          executables,
-          remote_shell_command(tty_path, columns, rows)
-        )
+      try do
+        write_private_file!(known_hosts_path, "#{ssh_host(device_id)} #{normalized_host_key}\n")
+        write_private_file!(key_path, private_key)
+        tty_path = remote_tty_path()
 
-      args = ["TERM=#{terminal_type()}", executables.ssh | ssh_args]
+        ssh_args =
+          ssh_args(
+            device_id,
+            key_path,
+            known_hosts_path,
+            executables,
+            remote_shell_command(tty_path, columns, rows)
+          )
 
-      Logger.info("Starting SSH connection to #{device_id}...")
+        args = ["TERM=#{terminal_type()}", executables.ssh | ssh_args]
 
-      port =
-        Port.open({:spawn_executable, executables.env}, [
-          :binary,
-          :exit_status,
-          :stderr_to_stdout,
-          args: args
-        ])
+        Logger.info("Starting SSH connection to #{device_id}...")
 
-      {:ok,
-       %{
-         port: port,
-         key_path: key_path,
-         known_hosts_path: known_hosts_path,
-         channel_pid: channel_pid,
-         device_id: device_id,
-         executables: executables,
-         tty_path: tty_path,
-         size: {columns, rows}
-       }}
+        port =
+          Port.open({:spawn_executable, executables.env}, [
+            :binary,
+            :exit_status,
+            :stderr_to_stdout,
+            args: args
+          ])
+
+        {:ok,
+         %{
+           port: port,
+           key_path: key_path,
+           known_hosts_path: known_hosts_path,
+           channel_pid: channel_pid,
+           device_id: device_id,
+           executables: executables,
+           tty_path: tty_path,
+           size: {columns, rows}
+         }}
+      rescue
+        error ->
+          # terminate/2 does not run when init/1 raises, so remove the session
+          # credentials here instead of stranding the private key on disk.
+          File.rm(key_path)
+          File.rm(known_hosts_path)
+          reraise error, __STACKTRACE__
+      end
     else
       {:error, :invalid_ssh_host_key} -> {:stop, %{reason: :invalid_host_key}}
     end
@@ -172,22 +184,16 @@ defmodule Nixstasis.Devices.SshClient do
     :ok
   end
 
-  defp write_temp_key(content) do
-    dir = System.tmp_dir!()
-    id = Ecto.UUID.generate()
-    path = Path.join(dir, "nixstasis_ssh_client_#{id}")
-    File.write!(path, content)
-    File.chmod!(path, 0o600)
-    path
+  defp temp_path(prefix) do
+    Path.join(System.tmp_dir!(), "#{prefix}_#{Ecto.UUID.generate()}")
   end
 
-  defp write_temp_known_hosts(device_id, host_key) do
-    dir = System.tmp_dir!()
-    id = Ecto.UUID.generate()
-    path = Path.join(dir, "nixstasis_known_hosts_#{id}")
-    File.write!(path, "#{ssh_host(device_id)} #{host_key}\n")
+  # Restricts permissions before writing so key material is never readable under
+  # the default umask, even briefly.
+  defp write_private_file!(path, content) do
+    File.write!(path, "", [:exclusive])
     File.chmod!(path, 0o600)
-    path
+    File.write!(path, content)
   end
 
   defp find_required_executable(executable) do
