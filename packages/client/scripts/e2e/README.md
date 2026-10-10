@@ -92,7 +92,8 @@ The aggregate runner intentionally defaults to local loopback HTTP; the example
 config explicitly enables `api.allow_loopback_http` for this Linux development
 path. It refuses to send the runner token to any `--api-url` other than
 `https://` or `http://` on `localhost`, `127.0.0.1`, or `[::1]`, and does not
-follow redirects. For containerized runtime journeys, supply a reachable HTTPS
+follow redirects. It also rejects runner IDs outside the server's runner-ID
+format and API URLs or tokens containing whitespace, quotes, or backslashes. For containerized runtime journeys, supply a reachable HTTPS
 API URL instead, with a trusted CA as described above.
 
 ```bash
