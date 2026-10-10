@@ -11,6 +11,11 @@ import (
 	"testing"
 )
 
+const (
+	testE2ERunnerID    = "test-runner"
+	testE2ERunnerToken = "test-e2e-runner-token-0123456789abcdef0123456789abcdef"
+)
+
 func TestRunSuiteUsesConfiguredJourneys(t *testing.T) {
 	var gotCreate runCreateRequest
 	var gotResults resultsRequest
@@ -27,13 +32,16 @@ func TestRunSuiteUsesConfiguredJourneys(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		IdempotencyKey:  "run-1",
-		Journeys:        []string{"auth", "dashboard"},
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		IdempotencyKey:    "run-1",
+		Journeys:          []string{"auth", "dashboard"},
 	}
 
 	runner := NewRunner(cfg)
@@ -82,12 +90,15 @@ func TestRunSuiteOverridesJourneys(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		Journeys:        []string{"auth"},
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
 	}
 
 	runner := NewRunner(cfg)
@@ -119,13 +130,16 @@ func TestRunSuiteWritesV1JourneyLogs(t *testing.T) {
 
 	logDir := t.TempDir()
 	cfg := Config{
-		APIURL:          server.URL,
-		Suite:           "full",
-		Environment:     "local",
-		Trigger:         "manual",
-		ProtocolVersion: "1",
-		Journeys:        []string{"auth"},
-		LogDir:          logDir,
+		APIURL:            server.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
+		LogDir:            logDir,
 	}
 
 	runner := NewRunner(cfg)
@@ -199,6 +213,7 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs":
+			assertE2ERunnerHeaders(t, r)
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{"id":"run-123","suite_id":"runtime","journey_ids":["runtime_transport_negative"],"environment_label":"local","trigger_source":"manual","protocol_version":"1","status":"queued"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs/run-123/results":
@@ -236,8 +251,11 @@ func TestRuntimePayloadRefUsesDeviceAPIKey(t *testing.T) {
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{"id":"cmd-1"}}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/devices/device-1/command_payloads/runtime-install-script":
-			if got := r.URL.Query().Get("api_key"); got != issuedToken {
-				t.Fatalf("expected payload fetch api_key %q, got %q", issuedToken, got)
+			if got := r.Header.Get("Authorization"); got != "Bearer "+issuedToken {
+				t.Fatalf("expected payload fetch bearer token %q, got %q", issuedToken, got)
+			}
+			if r.URL.RawQuery != "" {
+				t.Fatalf("device token must not appear in payload-fetch URL query: %q", r.URL.RawQuery)
 			}
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"content_type":"text/plain","name":"alpha","data":"hello"}`))
@@ -273,6 +291,16 @@ func decodeLogLine(t *testing.T, line string) map[string]any {
 	return decoded
 }
 
+func assertE2ERunnerHeaders(t *testing.T, r *http.Request) {
+	t.Helper()
+	if got := r.Header.Get("X-E2E-Runner-ID"); got != testE2ERunnerID {
+		t.Fatalf("expected E2E runner id %q, got %q", testE2ERunnerID, got)
+	}
+	if got := r.Header.Get("Authorization"); got != "Bearer "+testE2ERunnerToken {
+		t.Fatalf("expected E2E bearer credential, got %q", got)
+	}
+}
+
 func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResults func(string, resultsRequest)) *httptest.Server {
 	t.Helper()
 
@@ -282,6 +310,7 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/e2e/runs":
+			assertE2ERunnerHeaders(t, r)
 			var payload runCreateRequest
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Fatalf("failed to decode create request: %v", err)
@@ -346,6 +375,7 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/json/devices/"):
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/e2e/runs/") && strings.HasSuffix(r.URL.Path, "/results"):
+			assertE2ERunnerHeaders(t, r)
 			runID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/e2e/runs/"), "/results")
 			var payload resultsRequest
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -364,4 +394,66 @@ func newE2EServer(t *testing.T, onCreate func(runCreateRequest, string), onResul
 	})
 
 	return httptest.NewServer(handler)
+}
+
+func TestRunSuiteRejectsInsecureAPIURLBeforeSendingToken(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		apiURL            string
+		allowLoopbackHTTP bool
+	}{
+		{name: "remote http", apiURL: "http://e2e.example.invalid", allowLoopbackHTTP: true},
+		{name: "loopback http without opt-in", apiURL: "http://127.0.0.1:1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				APIURL:            tc.apiURL,
+				AllowLoopbackHTTP: tc.allowLoopbackHTTP,
+				Suite:             "full",
+				Environment:       "local",
+				Trigger:           "manual",
+				ProtocolVersion:   "1",
+				RunnerID:          testE2ERunnerID,
+				RunnerToken:       testE2ERunnerToken,
+				Journeys:          []string{"auth"},
+			}
+
+			_, err := NewRunner(cfg).RunSuite(context.Background(), nil)
+			if err == nil || !strings.Contains(err.Error(), "HTTPS") {
+				t.Fatalf("expected insecure API URL rejection, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRunSuiteDoesNotFollowRedirectsWithToken(t *testing.T) {
+	redirectedRequests := 0
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		redirectedRequests++
+		w.WriteHeader(http.StatusCreated)
+	}))
+	t.Cleanup(target.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := Config{
+		APIURL:            origin.URL,
+		AllowLoopbackHTTP: true,
+		Suite:             "full",
+		Environment:       "local",
+		Trigger:           "manual",
+		ProtocolVersion:   "1",
+		RunnerID:          testE2ERunnerID,
+		RunnerToken:       testE2ERunnerToken,
+		Journeys:          []string{"auth"},
+	}
+
+	if _, err := NewRunner(cfg).RunSuite(context.Background(), nil); err == nil {
+		t.Fatal("expected redirected run creation to fail")
+	}
+	if redirectedRequests != 0 {
+		t.Fatalf("redirect target received %d requests", redirectedRequests)
+	}
 }

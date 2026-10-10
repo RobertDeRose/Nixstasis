@@ -8,6 +8,8 @@ api_url="http://localhost:4000"
 env_label="local"
 trigger_source="manual"
 protocol_version="1"
+runner_id="${NIXSTASIS_E2E_RUNNER_ID:-local-runner}"
+runner_token="${NIXSTASIS_E2E_RUNNER_TOKEN:-}"
 reports_dir="${ROOT_DIR}/tmp/e2e/reports"
 logs_dir="${ROOT_DIR}/tmp/e2e/logs"
 
@@ -21,6 +23,8 @@ Options:
   --env <label>               Environment label for runs. Default: local
   --trigger <manual|ci>       Trigger source. Default: manual
   --protocol-version <value>  Protocol version header value. Default: 1
+  --runner-id <id>            E2E runner principal id. Default: NIXSTASIS_E2E_RUNNER_ID or local-runner
+                              Token is read from NIXSTASIS_E2E_RUNNER_TOKEN.
   --reports-dir <path>        Output dir for per-suite JSON summaries.
                               Default: tmp/e2e/reports
   --logs-dir <path>           Log root dir used by exporter.
@@ -51,6 +55,11 @@ while (($#)); do
       protocol_version="${1:-}"
       shift || true
       ;;
+    --runner-id)
+      shift
+      runner_id="${1:-}"
+      shift || true
+      ;;
     --reports-dir)
       shift
       reports_dir="${1:-}"
@@ -73,11 +82,47 @@ while (($#)); do
   esac
 done
 
+if [[ -z "${runner_id}" || -z "${runner_token}" ]]; then
+  echo "NIXSTASIS_E2E_RUNNER_TOKEN and a runner id are required." >&2
+  exit 1
+fi
+
+# These values are written into curl's config; reject anything that could
+# end a quoted value or start another directive.
+if [[ ! "${runner_id}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+  echo "--runner-id must match [A-Za-z0-9][A-Za-z0-9._-]{0,63}." >&2
+  exit 1
+fi
+unsafe_curl_config_chars='[[:space:][:cntrl:]"\]'
+if [[ "${api_url}" =~ ${unsafe_curl_config_chars} || "${runner_token}" =~ ${unsafe_curl_config_chars} ]]; then
+  echo "--api-url and NIXSTASIS_E2E_RUNNER_TOKEN must not contain whitespace, control characters, quotes, or backslashes." >&2
+  exit 1
+fi
+
+# The runner token may cross plaintext HTTP only on loopback.
+case "${api_url}" in
+  *@*) api_url_allowed=false ;;
+  https://* | http://localhost | http://localhost[:/]* | http://127.0.0.1 | http://127.0.0.1[:/]* | http://\[::1\] | http://\[::1\][:/]*) api_url_allowed=true ;;
+  *) api_url_allowed=false ;;
+esac
+if [[ "${api_url_allowed}" != true ]]; then
+  echo "--api-url must use https:// or http:// on localhost, 127.0.0.1, or [::1], without userinfo." >&2
+  exit 1
+fi
+
 mkdir -p "${reports_dir}"
 cd "${ROOT_DIR}"
 
 echo "Fetching suite catalog from ${api_url}/e2e/suites..."
-suite_catalog="$(curl -fsS "${api_url}/e2e/suites")"
+suite_catalog="$(
+  printf '%s\n' \
+    'fail' \
+    'silent' \
+    'show-error' \
+    "header = \"X-E2E-Runner-ID: ${runner_id}\"" \
+    "header = \"Authorization: Bearer ${runner_token}\"" \
+    "url = \"${api_url}/e2e/suites\"" | curl --config -
+)"
 
 mapfile -t suite_rows < <(
   python3 -c '
@@ -119,7 +164,8 @@ for row in "${suite_rows[@]}"; do
     --suite "${suite}"
     --env "${env_label}"
     --trigger "${trigger_source}"
-    --protocol-version "${protocol_version}")
+    --protocol-version "${protocol_version}"
+    --runner-id "${runner_id}")
 
   if [[ -n "${journeys_csv}" ]]; then
     cmd+=(--journeys "${journeys_csv}")

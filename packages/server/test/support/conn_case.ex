@@ -48,4 +48,8 @@ defmodule NixstasisWeb.ConnCase do
     token = Application.fetch_env!(:nixstasis, :proxy_auth_token)
     Plug.Conn.put_req_header(conn, "x-nixstasis-proxy-token", token)
   end
+
+  def put_device_bearer(conn, token) when is_binary(token) do
+    Plug.Conn.put_req_header(conn, "authorization", "Bearer " <> token)
+  end
 end

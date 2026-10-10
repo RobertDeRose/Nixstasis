@@ -87,7 +87,7 @@
   - The CLI reads only the Ed25519 host key at `/etc/ssh/ssh_host_ed25519_key.pub`;
     the heartbeat omits `ssh_host_key` when that file is missing or malformed. RSA and
     ECDSA host keys are not reported.
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
     `data.remote_access_expires_at_ms`, `data.remote_access_lease_id`,
     `data.remote_access_profile`, `data.commands`, and
@@ -110,11 +110,11 @@
 - `SendCommandResults`:
   - `POST {baseURL}/api/v1/devices/{uuid}/command_results`
   - Sends `results` array.
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` or `202`.
 - `FetchCommandPayload`:
   - `GET {baseURL}/api/v1/devices/{uuid}/command_payloads/{ref}`
-  - Requires the issued device token as `api_key` query parameter.
+  - Requires the issued device token as `Authorization: Bearer <device-token>`; the token is never added to the URL.
   - Expects `200` and a `CommandPayload`.
 
 Traceable references:

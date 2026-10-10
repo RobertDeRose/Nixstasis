@@ -36,6 +36,17 @@ type Client struct {
 // NewClient rejects insecure API URLs before any credentials can be sent.
 // HTTP is permitted only for explicitly enabled loopback development.
 func NewClient(cfg config.APIConfig) (*Client, error) {
+	httpClient, err := NewHTTPClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{baseURL: strings.TrimRight(cfg.URL, "/"), httpClient: httpClient}, nil
+}
+
+// NewHTTPClient returns an HTTP client for credential-bearing API requests.
+// It rejects insecure API URLs, permits HTTP only for explicitly enabled
+// loopback development, and never follows redirects.
+func NewHTTPClient(cfg config.APIConfig) (*http.Client, error) {
 	u, err := url.Parse(cfg.URL)
 	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return nil, errors.New("API URL must be an absolute HTTPS URL without userinfo, query, or fragment")
@@ -61,14 +72,11 @@ func NewClient(cfg config.APIConfig) (*Client, error) {
 	default:
 		return nil, errors.New("API URL requires the HTTPS scheme")
 	}
-	return &Client{
-		baseURL: strings.TrimRight(cfg.URL, "/"),
-		httpClient: &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: transport,
-			// A redirect must never forward a registration body or runtime token.
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
-		},
+	return &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+		// A redirect must never forward a registration body or bearer token.
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 	}, nil
 }
 
@@ -96,6 +104,14 @@ func (c *Client) SetAPIKey(apiKey string) {
 }
 
 func (c *Client) doJSON(ctx context.Context, method, endpoint string, reqBody, respBody any, expectedStatuses ...int) error {
+	return c.doJSONWithBearer(ctx, method, endpoint, "", reqBody, respBody, expectedStatuses...)
+}
+
+func (c *Client) doDeviceJSON(ctx context.Context, method, endpoint string, reqBody, respBody any, expectedStatuses ...int) error {
+	return c.doJSONWithBearer(ctx, method, endpoint, c.apiKey, reqBody, respBody, expectedStatuses...)
+}
+
+func (c *Client) doJSONWithBearer(ctx context.Context, method, endpoint, bearerToken string, reqBody, respBody any, expectedStatuses ...int) error {
 	var bodyReader io.Reader
 	if reqBody != nil {
 		b, err := json.Marshal(reqBody)
@@ -111,6 +127,9 @@ func (c *Client) doJSON(ctx context.Context, method, endpoint string, reqBody, r
 	}
 	if reqBody != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -145,17 +164,6 @@ func (c *Client) doJSON(ctx context.Context, method, endpoint string, reqBody, r
 	}
 
 	return nil
-}
-
-func (c *Client) deviceURL(path string) string {
-	u, err := url.Parse(c.baseURL + path)
-	if err != nil || c.apiKey == "" {
-		return c.baseURL + path
-	}
-	q := u.Query()
-	q.Set("api_key", c.apiKey)
-	u.RawQuery = q.Encode()
-	return u.String()
 }
 
 // DeviceCredentials carries pending enrollment proof or approved runtime credentials.
@@ -338,7 +346,7 @@ func (c *Client) PollWithInventory(ctx context.Context, uuid string, payload tel
 
 // PollWithInventoryAndHostKey sends telemetry, inventory evidence, and the local sshd host public key.
 func (c *Client) PollWithInventoryAndHostKey(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *CommandInventoryEvidence, sshHostKey string) (*PollResponse, error) {
-	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid))
+	endpoint := c.baseURL + fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid)
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
@@ -350,7 +358,7 @@ func (c *Client) PollWithInventoryAndHostKey(ctx context.Context, uuid string, p
 	var response struct {
 		Data PollResponse `json:"data"`
 	}
-	if err := c.doJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusOK, http.StatusAccepted); err != nil {
+	if err := c.doDeviceJSON(ctx, http.MethodPost, endpoint, reqBody, &response, http.StatusOK, http.StatusAccepted); err != nil {
 		return nil, err
 	}
 
@@ -364,10 +372,10 @@ type CommandResultsRequest struct {
 
 // SendCommandResults posts aggregated command results to the API.
 func (c *Client) SendCommandResults(ctx context.Context, uuid string, results []CommandResult) error {
-	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_results", uuid))
+	endpoint := c.baseURL + fmt.Sprintf("/api/v1/devices/%s/command_results", uuid)
 	reqBody := CommandResultsRequest{Results: results}
 
-	return c.doJSON(ctx, http.MethodPost, endpoint, reqBody, nil, http.StatusOK, http.StatusAccepted)
+	return c.doDeviceJSON(ctx, http.MethodPost, endpoint, reqBody, nil, http.StatusOK, http.StatusAccepted)
 }
 
 var payloadRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
@@ -385,10 +393,10 @@ func ValidatePayloadRef(ref string) error {
 
 // FetchCommandPayload retrieves a payload by reference.
 func (c *Client) FetchCommandPayload(ctx context.Context, uuid, ref string) (*CommandPayload, error) {
-	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", uuid, ref))
+	endpoint := c.baseURL + fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", uuid, ref)
 
 	var payload CommandPayload
-	if err := c.doJSON(ctx, http.MethodGet, endpoint, nil, &payload, http.StatusOK); err != nil {
+	if err := c.doDeviceJSON(ctx, http.MethodGet, endpoint, nil, &payload, http.StatusOK); err != nil {
 		return nil, err
 	}
 

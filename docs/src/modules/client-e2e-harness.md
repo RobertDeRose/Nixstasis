@@ -58,6 +58,7 @@
 
 - Creates runs through `POST /e2e/runs`.
 - Uses `X-E2E-Protocol-Version`.
+- Authenticates every E2E API request with `X-E2E-Runner-ID` and `Authorization: Bearer <token>`. The runner ID comes from config/`--runner-id`; the token is read from `NIXSTASIS_E2E_RUNNER_TOKEN` so it does not need to be stored in the YAML file. These requests use the runtime client's transport policy: HTTPS, or HTTP only to loopback with `api.allow_loopback_http` enabled, and redirects are never followed.
 - Fetches suite catalog through `GET /e2e/suites`.
 - Submits journey outcomes through `POST /e2e/runs/:id/results`.
 - Logs can be inspected through `GET /e2e/runs/:id/results/:journey_id/log`.

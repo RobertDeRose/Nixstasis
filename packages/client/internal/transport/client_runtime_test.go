@@ -18,8 +18,10 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-123"
+	runtimeToken := "runtime-token"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
@@ -45,6 +47,7 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.SetAPIKey(runtimeToken)
 
 	resp, err := client.Poll(
 		context.Background(),
@@ -86,9 +89,11 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-inventory"
+	runtimeToken := "inventory-token"
 	observedAt := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		var req PollRequest
 		if err := json.UnmarshalRead(r.Body, &req); err != nil {
 			t.Fatalf("decode request: %v", err)
@@ -119,6 +124,7 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.SetAPIKey(runtimeToken)
 	resp, err := client.PollWithInventory(context.Background(), deviceID, telemetry.Payload{}, frp.ConnectionStatus{}, &CommandInventoryEvidence{
 		SchemaVersion:       1,
 		ProbeCatalogVersion: "catalog-v1",
@@ -144,9 +150,11 @@ func TestPollWithInventoryAndHostKeySendsSSHHostKey(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-host-key"
+	runtimeToken := "host-key-token"
 	hostKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE5peHN0YXNpcy10ZXN0LWhvc3Qta2V5LTEyMzQ1Ng=="
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		var req PollRequest
 		if err := json.UnmarshalRead(r.Body, &req); err != nil {
 			t.Fatalf("decode request: %v", err)
@@ -164,6 +172,7 @@ func TestPollWithInventoryAndHostKeySendsSSHHostKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.SetAPIKey(runtimeToken)
 	if _, err := client.PollWithInventoryAndHostKey(
 		context.Background(),
 		deviceID,
@@ -181,8 +190,10 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 
 	deviceID := "d-123"
 	payloadRef := "p-1"
+	runtimeToken := "command-token"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/devices/"+deviceID+"/command_results":
 			w.WriteHeader(http.StatusAccepted)
@@ -200,6 +211,7 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.SetAPIKey(runtimeToken)
 
 	if err := client.SendCommandResults(context.Background(), deviceID, []CommandResult{{CommandID: "c1", Status: CommandStatusOK}}); err != nil {
 		t.Fatalf("SendCommandResults failed: %v", err)
@@ -211,5 +223,16 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	}
 	if payload == nil || payload.Data != "echo hi" {
 		t.Fatalf("unexpected payload: %#v", payload)
+	}
+}
+
+func assertDeviceBearerRequest(t *testing.T, r *http.Request, token string) {
+	t.Helper()
+
+	if got := r.Header.Get("Authorization"); got != "Bearer "+token {
+		t.Fatalf("authorization header = %q, want bearer token", got)
+	}
+	if r.URL.RawQuery != "" {
+		t.Fatalf("runtime credential must not appear in URL query: %q", r.URL.RawQuery)
 	}
 }

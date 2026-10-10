@@ -36,8 +36,11 @@ func TestPathsUseNixstasisDefaults(t *testing.T) {
 		t.Fatalf("insecure API defaults: %+v", cfg.API)
 	}
 
-	if cfg.Scripts.Dir != DefaultScriptsDir() {
+	if cfg.Scripts.Dir != "/var/lib/nixstasis/scripts" {
 		t.Fatalf("scripts dir = %q", cfg.Scripts.Dir)
+	}
+	if cfg.Scripts.Dir != DefaultScriptsDir() {
+		t.Fatalf("DefaultScriptsDir() = %q, config = %q", DefaultScriptsDir(), cfg.Scripts.Dir)
 	}
 }
 
@@ -60,6 +63,25 @@ func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 
 	if got := FRPCBinaryPath(); got != "/tmp/nixstasis/frpc" {
 		t.Fatalf("FRPCBinaryPath() = %q", got)
+	}
+}
+
+func TestLoadMigratesLegacySystemScriptsDir(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	contents := `scripts:
+  dir: "/usr/libexec/nixstasis/scripts"
+`
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Scripts.Dir != "/var/lib/nixstasis/scripts" {
+		t.Fatalf("migrated scripts dir = %q", cfg.Scripts.Dir)
 	}
 }
 

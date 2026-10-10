@@ -1,8 +1,14 @@
 # Backup And Restore
 
-Nixstasis stores durable server state in PostgreSQL. Backups should be logical
-database backups unless an operator's managed PostgreSQL platform requires a
-different backup primitive.
+Nixstasis has two durable state domains in the supported Compose deployment:
+
+- PostgreSQL stores application state such as devices, commands, telemetry,
+  alerts, reports, settings, and provisioning metadata.
+- The named Caddy volumes `caddy-data` and `caddy-config` store Caddy TLS and
+  plugin-owned state under `/data` and `/config`.
+
+A complete bundled-stack backup preserves both domains. Backing up PostgreSQL
+alone does not preserve Caddy's persisted state.
 
 ## Before You Begin
 
@@ -30,6 +36,36 @@ The `sh -c` wrapper expands database variables inside the container environment
 loaded by Compose, not in the operator's host shell. Store the dump in an
 operator-controlled backup location.
 
+## Caddy State Backup
+
+Stop Caddy while copying its named volumes so the archive represents one
+consistent state. Phoenix, PostgreSQL, and FRPS can remain running while Caddy is
+stopped, but browser traffic is unavailable during this step.
+
+```sh
+cd deploy/compose
+backup_dir=/var/backups/nixstasis
+archive=caddy-$(date +%Y%m%d%H%M%S).tar.gz
+mkdir -p "$backup_dir"
+
+docker compose --env-file .env stop caddy
+backup_status=0
+docker compose --env-file .env run --rm --no-deps \
+  -e CADDY_BACKUP_ARCHIVE="$archive" \
+  -v "$backup_dir:/backup" \
+  --entrypoint /bin/sh caddy \
+  -c 'tar -C / -czf "/backup/$CADDY_BACKUP_ARCHIVE" data config && \
+      chmod 0600 "/backup/$CADDY_BACKUP_ARCHIVE"' || backup_status=$?
+docker compose --env-file .env start caddy
+test "$backup_status" -eq 0
+```
+
+Caddy is restarted even when the archive step fails; the final `test` then
+returns the archive failure so scripted runs do not report success.
+
+The archive contains the contents mounted at `/data` and `/config`, including
+TLS and plugin-owned state. Treat it as sensitive operational state.
+
 ## Bundled PostgreSQL Restore
 
 Restore into a disposable or recovered stack before declaring the backup valid.
@@ -44,6 +80,35 @@ docker compose --env-file .env exec -T postgres \
   sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
   < /path/to/nixstasis.dump
 docker compose --env-file .env run --rm nixstasis /app/bin/migrate
+```
+
+Restore Caddy state before bringing the complete stack back online.
+
+## Caddy State Restore
+
+Use the Caddy archive from the same recovery point as the database backup when
+possible. Restoring a Caddy archive replaces the current contents of both named
+volumes. The archive is first extracted into a staging directory and must
+contain both `data` and `config`; the volumes are cleared only after that
+succeeds, and the stack is not started if any step fails.
+
+```sh
+cd deploy/compose
+backup_dir=/var/backups/nixstasis
+archive=caddy-YYYYMMDDHHMMSS.tar.gz
+
+docker compose --env-file .env stop caddy &&
+docker compose --env-file .env run --rm --no-deps \
+  -e CADDY_BACKUP_ARCHIVE="$archive" \
+  -v "$backup_dir:/backup:ro" \
+  --entrypoint /bin/sh caddy \
+  -euc 'staging=$(mktemp -d)
+        tar -C "$staging" -xzf "/backup/$CADDY_BACKUP_ARCHIVE"
+        test -d "$staging/data" && test -d "$staging/config"
+        rm -rf /data/* /data/.[!.]* /data/..?* /config/* /config/.[!.]* /config/..?*
+        cp -a "$staging/data/." /data/
+        cp -a "$staging/config/." /config/
+        rm -rf "$staging"' &&
 docker compose --env-file .env up -d
 ```
 
@@ -56,10 +121,12 @@ backup and point-in-time recovery tooling. Nixstasis runbook responsibilities ar
 
 - Preserve the exact `DATABASE_URL` target and credentials needed by the Phoenix
   service.
+- Back up and restore the Compose-managed Caddy `caddy-data` and `caddy-config`
+  volumes independently of the managed PostgreSQL platform.
 - Run `/app/bin/migrate` after restore if the recovered database may predate the
   current release.
 - Validate Phoenix, Caddy, FRPS, device heartbeat freshness, and remote access
-  after the database is restored.
+  after the database and Caddy state are restored.
 
 ## Validation
 
@@ -68,5 +135,7 @@ backup and point-in-time recovery tooling. Nixstasis runbook responsibilities ar
 - Confirm the Phoenix application starts and can reach PostgreSQL.
 - Confirm Caddy routes to Phoenix and Caddy TLS approval still reaches
   `GET /api/v1/check_domain`.
+- Confirm expected Caddy certificates and authentication/plugin state survived
+  the restore.
 - Confirm device data, alert history, reports, and E2E records match the expected
   restore point.

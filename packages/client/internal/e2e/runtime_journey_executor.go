@@ -304,7 +304,7 @@ def main():
 	}
 
 	refPath := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, state.CommandRef)
-	if _, _, err := e.doRequest(ctx, "GET", withAPIKey(refPath, state.DeviceToken), nil, nil, 200); err != nil {
+	if _, _, err := e.doRequest(ctx, "GET", refPath, nil, deviceBearerHeaders(state.DeviceToken), 200); err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeAssertionFailed,
 			AssertionFailed: "queued command payload is retrievable by payload_ref",
@@ -330,7 +330,7 @@ func (e *journeyExecutor) runtimeExpectMissingPayloadRef(ctx context.Context, st
 
 	missingRef := fmt.Sprintf("missing-%d", time.Now().UnixNano())
 	path := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, missingRef)
-	_, _, err := e.doRequest(ctx, "GET", withAPIKey(path, state.DeviceToken), nil, nil, 404)
+	_, _, err := e.doRequest(ctx, "GET", path, nil, deviceBearerHeaders(state.DeviceToken), 404)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -371,8 +371,10 @@ func (e *journeyExecutor) runtimeRejectInvalidCommandResults(ctx context.Context
 		}
 	}
 
-	path := withAPIKey(fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID), state.DeviceToken)
-	_, _, err = e.doRequest(ctx, "POST", path, body, map[string]string{"Content-Type": "application/json"}, 400)
+	path := fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID)
+	headers := deviceBearerHeaders(state.DeviceToken)
+	headers["Content-Type"] = "application/json"
+	_, _, err = e.doRequest(ctx, "POST", path, body, headers, 400)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -973,15 +975,10 @@ func shouldEnforceRuntimeBudget() bool {
 		strings.EqualFold(os.Getenv("E2E_RUNTIME_PERF_GATE"), "true")
 }
 
-func withAPIKey(path, token string) string {
-	if token == "" {
-		return path
+func deviceBearerHeaders(token string) map[string]string {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
 	}
-
-	separator := "?"
-	if strings.Contains(path, "?") {
-		separator = "&"
-	}
-
-	return path + separator + "api_key=" + url.QueryEscape(token)
+	return headers
 }

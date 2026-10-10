@@ -60,6 +60,10 @@ fi
 # root-owned and readable only by the service group.
 install -d -m 0750 -o nixstasis -g nixstasis /etc/nixstasis
 if [ -f /etc/nixstasis/config.yaml ]; then
+    # Older package templates pointed remotely managed scripts at the immutable
+    # package directory. Migrate that exact legacy default to writable state.
+    sed -i 's#^  dir: "/usr/libexec/nixstasis/scripts"$#  dir: "/var/lib/nixstasis/scripts"#' \
+        /etc/nixstasis/config.yaml
     chown root:nixstasis /etc/nixstasis/config.yaml
     chmod 0640 /etc/nixstasis/config.yaml
 fi
@@ -71,6 +75,7 @@ for state_file in /etc/nixstasis/id /etc/nixstasis/registration /etc/nixstasis/c
 done
 
 mkdir -p /var/lib/nixstasis/.ssh
+install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts
 chown -R nixstasis:nixstasis /var/lib/nixstasis
 chmod 750 /var/lib/nixstasis
 chmod 700 /var/lib/nixstasis/.ssh

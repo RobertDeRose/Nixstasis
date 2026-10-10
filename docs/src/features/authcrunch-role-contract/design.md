@@ -60,8 +60,8 @@ This feature is seeded from `docs/src/planned-features.md` entry
   including scoped device IDs and report view/manage flags.
 - Device runtime APIs continue to authenticate with registration-issued device API
   tokens, not AuthCrunch claims.
-- E2E routes continue to be gated by `NixstasisWeb.Plugs.E2EEnabled`, not
-  AuthCrunch roles.
+- E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled` and a dedicated
+  `NixstasisWeb.Plugs.E2EAuthorization` runner credential, not AuthCrunch roles.
 
 ## Proposed Contract
 

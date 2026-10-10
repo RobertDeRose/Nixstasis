@@ -91,7 +91,7 @@ sequenceDiagram
 7. Client executes latest script versions and collects script reports/errors.
 8. Client reads current FRP status.
 9. Client optionally collects bounded command/package inventory evidence from the previous server probe.
-10. Client sends `POST /api/v1/devices/:uuid/heartbeat?api_key=...` with telemetry, connection status, the local sshd public host key, and optional top-level `command_inventory`.
+10. Client sends `POST /api/v1/devices/:uuid/heartbeat` with `Authorization: Bearer <device-token>` and a body containing telemetry, connection status, the local sshd public host key, and optional top-level `command_inventory`.
 11. Phoenix `HeartbeatController.create/2` loads device and requires `approval_status == :approved`.
 12. `Nixstasis.Monitoring.heartbeat/2` updates `last_seen_at`, enrolls or compares the SSH host key without placing it in telemetry, persists telemetry and inventory snapshots, evaluates rules, and pops pending commands. A changed host key is held pending and blocks terminal SSH until an operator explicitly trusts it.
 13. Server returns optional `remote_access_token`, optional command list, and a server-owned `command_inventory_probe` for the next heartbeat.
@@ -134,7 +134,7 @@ Traceable references:
 5. Client fetches any deferred payload with `GET /api/v1/devices/:uuid/command_payloads/:ref`.
 6. Client command handler executes supported commands: `list_scripts`,
    `install_script`, `remove_script`, `ssh_authorize`, and `ssh_revoke`.
-7. Client posts results to `POST /api/v1/devices/:uuid/command_results?api_key=...`.
+7. Client posts results to `POST /api/v1/devices/:uuid/command_results` with `Authorization: Bearer <device-token>`.
 8. Phoenix `DeviceCommandController.command_results/2` calls `Devices.acknowledge_command_results/2`.
 
 Observable error paths:
@@ -352,16 +352,16 @@ stateDiagram-v2
 ```
 
 1. Client E2E runner loads config and journey specs.
-2. Client sends `POST /e2e/runs` with `X-E2E-Protocol-Version`.
+2. Client authenticates with its dedicated runner ID/bearer token and sends `POST /e2e/runs` with `X-E2E-Protocol-Version`.
 3. Server validates legacy fields, environment policy, protocol version, suite/journey selection, and action/expect registrations.
-4. Server enforces idempotency for `(environment_label, idempotency_key)`.
+4. Server binds the run to the authenticated runner and enforces idempotency for `(runner_id, environment_label, idempotency_key)`.
 5. Server acquires an environment lock for new runs.
 6. Server runs the configured seed script.
 7. Server persists run and queued journey result rows.
 8. Client executes journeys and writes JSONL logs.
-9. Client submits results to `POST /e2e/runs/:id/results`.
+9. The owning runner submits results to `POST /e2e/runs/:id/results`; other runner principals receive `404` for the run.
 10. Server updates journey result rows, computes aggregate status, and releases environment lock on final status.
-11. Logs are fetched through `GET /e2e/runs/:id/results/:journey_id/log`.
+11. Logs are fetched through `GET /e2e/runs/:id/results/:journey_id/log` only by the owning runner.
 12. Retention worker periodically prunes old runs/logs according to retention policy.
 
 Observable error paths:

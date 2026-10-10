@@ -55,6 +55,11 @@ jobs:
         with:
           go-version: "1.27.1"
 
+      - name: Prepare E2E runner credential
+        run: |
+          echo "NIXSTASIS_E2E_RUNNER_ID=github-actions" >> "$GITHUB_ENV"
+          echo "NIXSTASIS_E2E_RUNNER_TOKEN=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Prepare server
         working-directory: packages/server
         run: |
