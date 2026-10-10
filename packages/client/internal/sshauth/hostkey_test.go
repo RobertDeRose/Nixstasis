@@ -13,10 +13,7 @@ func TestLoadHostPublicKeyFromNormalizesComment(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ssh_host_ed25519_key.pub")
-	blob := make([]byte, 4+len("ssh-ed25519")+32)
-	binary.BigEndian.PutUint32(blob[:4], uint32(len("ssh-ed25519")))
-	copy(blob[4:], "ssh-ed25519")
-	encoded := base64.StdEncoding.EncodeToString(blob)
+	encoded := encodeSSHBlob("ssh-ed25519", make([]byte, 32))
 	if err := os.WriteFile(path, []byte("ssh-ed25519 "+encoded+" root@test\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -47,4 +44,56 @@ func TestLoadHostPublicKeyFromRejectsMismatchedBlobAlgorithm(t *testing.T) {
 	if _, err := LoadHostPublicKeyFrom(path); err == nil {
 		t.Fatal("expected mismatched algorithm to be rejected")
 	}
+}
+
+func TestNormalizeHostPublicKeyAcceptsCompleteKeyBodies(t *testing.T) {
+	t.Parallel()
+
+	keys := map[string]string{
+		"rsa":      "ssh-rsa " + encodeSSHBlob("ssh-rsa", []byte{1, 0, 1}, append([]byte{0}, make([]byte, 256)...)),
+		"nistp256": "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), ecPoint(32)),
+		"nistp384": "ecdsa-sha2-nistp384 " + encodeSSHBlob("ecdsa-sha2-nistp384", []byte("nistp384"), ecPoint(48)),
+		"nistp521": "ecdsa-sha2-nistp521 " + encodeSSHBlob("ecdsa-sha2-nistp521", []byte("nistp521"), ecPoint(66)),
+	}
+	for name, key := range keys {
+		got, err := normalizeHostPublicKey(key + " root@test")
+		if err != nil {
+			t.Fatalf("%s: normalizeHostPublicKey: %v", name, err)
+		}
+		if got != key {
+			t.Fatalf("%s: got %q, want %q", name, got, key)
+		}
+	}
+}
+
+func TestNormalizeHostPublicKeyRejectsMalformedKeyBodies(t *testing.T) {
+	t.Parallel()
+
+	keys := map[string]string{
+		"ed25519 missing key":   "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519"),
+		"ed25519 short key":     "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519", make([]byte, 31)),
+		"ed25519 trailing data": "ssh-ed25519 " + encodeSSHBlob("ssh-ed25519", make([]byte, 32), nil),
+		"rsa missing modulus":   "ssh-rsa " + encodeSSHBlob("ssh-rsa", []byte{1, 0, 1}),
+		"ecdsa curve mismatch":  "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp384"), ecPoint(32)),
+		"ecdsa short point":     "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), ecPoint(31)),
+		"ecdsa compressed":      "ecdsa-sha2-nistp256 " + encodeSSHBlob("ecdsa-sha2-nistp256", []byte("nistp256"), append([]byte{0x02}, make([]byte, 32)...)),
+	}
+	for name, key := range keys {
+		if _, err := normalizeHostPublicKey(key); err == nil {
+			t.Fatalf("%s: expected malformed host key to be rejected", name)
+		}
+	}
+}
+
+func encodeSSHBlob(algorithm string, fields ...[]byte) string {
+	var blob []byte
+	for _, field := range append([][]byte{[]byte(algorithm)}, fields...) {
+		blob = binary.BigEndian.AppendUint32(blob, uint32(len(field)))
+		blob = append(blob, field...)
+	}
+	return base64.StdEncoding.EncodeToString(blob)
+}
+
+func ecPoint(coordinateBytes int) []byte {
+	return append([]byte{0x04}, make([]byte, 2*coordinateBytes)...)
 }

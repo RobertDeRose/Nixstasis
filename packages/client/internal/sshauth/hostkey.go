@@ -2,7 +2,6 @@ package sshauth
 
 import (
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -69,13 +68,16 @@ func normalizeHostPublicKey(value string) (string, error) {
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(fields[1])
-	if err != nil || len(decoded) < 4 {
+	if err != nil {
 		return "", errors.New("invalid SSH host public key encoding")
 	}
 
-	nameLength := int(binary.BigEndian.Uint32(decoded[:4]))
-	if nameLength <= 0 || len(decoded) < 4+nameLength || string(decoded[4:4+nameLength]) != algorithm {
+	embeddedAlgorithm, body, err := readSSHField(decoded)
+	if err != nil || string(embeddedAlgorithm) != algorithm {
 		return "", errors.New("SSH host key algorithm does not match key blob")
+	}
+	if err := validateKeyBody(algorithm, body); err != nil {
+		return "", fmt.Errorf("invalid SSH host public key: %w", err)
 	}
 
 	return algorithm + " " + fields[1], nil
