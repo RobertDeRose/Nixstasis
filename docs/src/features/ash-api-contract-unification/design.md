@@ -253,7 +253,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 - Go client transport tests continue to pass for registration, heartbeat, command
   polling, command results, and deferred payload fetches before and after each
   device migration group.
-- Device device bearer-token authentication, approval, telemetry, command delivery, and
+- Device bearer-token authentication, approval, telemetry, command delivery, and
   response-shape compatibility tests pass.
 - E2E harness tests continue to pass for the retained `/e2e` contract; no E2E
   conversion is required by this feature.
