@@ -18,8 +18,8 @@ defmodule Nixstasis.Devices.SshHostKeyTest do
     rsa = encode_key("ssh-rsa", [<<1, 0, 1>>, <<0>> <> :crypto.strong_rand_bytes(256)])
     assert {:ok, ^rsa} = SshHostKey.normalize(rsa)
 
-    for {curve, bytes} <- [{"nistp256", 32}, {"nistp384", 48}, {"nistp521", 66}] do
-      ecdsa = encode_key("ecdsa-sha2-" <> curve, [curve, <<4>> <> :crypto.strong_rand_bytes(2 * bytes)])
+    for {curve, named_curve} <- [{"nistp256", :secp256r1}, {"nistp384", :secp384r1}, {"nistp521", :secp521r1}] do
+      ecdsa = encode_key("ecdsa-sha2-" <> curve, [curve, ec_point(named_curve)])
       assert {:ok, ^ecdsa} = SshHostKey.normalize(ecdsa)
     end
   end
@@ -31,8 +31,9 @@ defmodule Nixstasis.Devices.SshHostKeyTest do
       "ssh-ed25519 " <> Base.encode64(Base.decode64!(@host_key |> String.split() |> List.last()) <> <<0>>),
       encode_key("ssh-rsa", [<<1, 0, 1>>]),
       encode_key("ssh-rsa", ["", <<0>> <> :crypto.strong_rand_bytes(256)]),
-      encode_key("ecdsa-sha2-nistp256", ["nistp384", <<4>> <> :crypto.strong_rand_bytes(64)]),
-      encode_key("ecdsa-sha2-nistp256", ["nistp256", <<4>> <> :crypto.strong_rand_bytes(63)]),
+      encode_key("ecdsa-sha2-nistp256", ["nistp384", ec_point(:secp256r1)]),
+      encode_key("ecdsa-sha2-nistp256", ["nistp256", binary_part(ec_point(:secp256r1), 0, 64)]),
+      encode_key("ecdsa-sha2-nistp256", ["nistp256", <<4>> <> :binary.copy(<<0>>, 64)]),
       encode_key("ecdsa-sha2-nistp256", ["nistp256", <<2>> <> :crypto.strong_rand_bytes(32)])
     ]
 
@@ -45,6 +46,11 @@ defmodule Nixstasis.Devices.SshHostKeyTest do
     assert {:ok, "SHA256:" <> fingerprint} = SshHostKey.fingerprint(@host_key)
     refute fingerprint == ""
     refute String.contains?(fingerprint, "=")
+  end
+
+  defp ec_point(named_curve) do
+    {public_key, _private_key} = :crypto.generate_key(:ecdh, named_curve)
+    public_key
   end
 
   defp encode_key(algorithm, fields) do

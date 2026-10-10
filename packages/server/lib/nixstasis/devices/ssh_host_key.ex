@@ -68,7 +68,8 @@ defmodule Nixstasis.Devices.SshHostKey do
   defp validate_key_body("ecdsa-sha2-" <> curve, body) do
     with {:ok, ^curve, rest} <- read_field(body),
          {:ok, <<4, coordinates::binary>>, ""} <- read_field(rest),
-         true <- byte_size(coordinates) == 2 * ecdsa_coordinate_bytes(curve) do
+         true <- byte_size(coordinates) == 2 * ecdsa_coordinate_bytes(curve),
+         true <- on_curve?(curve, coordinates) do
       :ok
     else
       _ -> {:error, :invalid_ssh_host_key}
@@ -78,6 +79,23 @@ defmodule Nixstasis.Devices.SshHostKey do
   defp ecdsa_coordinate_bytes("nistp256"), do: 32
   defp ecdsa_coordinate_bytes("nistp384"), do: 48
   defp ecdsa_coordinate_bytes("nistp521"), do: 66
+
+  defp ecdsa_named_curve("nistp256"), do: :secp256r1
+  defp ecdsa_named_curve("nistp384"), do: :secp384r1
+  defp ecdsa_named_curve("nistp521"), do: :secp521r1
+
+  # OpenSSH rejects points that are not on the named curve, so such keys could
+  # be enrolled but never used for strict host verification.
+  defp on_curve?(curve, coordinates) do
+    {{:prime_field, p}, {a, b, _seed}, _base, _order, _cofactor} =
+      :crypto.ec_curve(ecdsa_named_curve(curve))
+
+    [p, a, b] = Enum.map([p, a, b], &:binary.decode_unsigned/1)
+    size = ecdsa_coordinate_bytes(curve)
+    <<x::unsigned-big-size(size)-unit(8), y::unsigned-big-size(size)-unit(8)>> = coordinates
+
+    x < p and y < p and rem(y * y - (x * x * x + a * x + b), p) == 0
+  end
 
   defp read_field(<<length::unsigned-big-integer-size(32), field::binary-size(length), rest::binary>>),
     do: {:ok, field, rest}
