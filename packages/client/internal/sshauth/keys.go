@@ -2,6 +2,7 @@
 package sshauth
 
 import (
+	"crypto/ecdh"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
@@ -109,6 +110,13 @@ func supportedKeyType(keyType string) bool {
 	}
 }
 
+// ecdsaCurves validates uncompressed points for each supported curve.
+var ecdsaCurves = map[string]ecdh.Curve{
+	"ecdsa-sha2-nistp256": ecdh.P256(),
+	"ecdsa-sha2-nistp384": ecdh.P384(),
+	"ecdsa-sha2-nistp521": ecdh.P521(),
+}
+
 // ecdsaCoordinateBytes is the uncompressed point coordinate size per curve.
 var ecdsaCoordinateBytes = map[string]int{
 	"ecdsa-sha2-nistp256": 32,
@@ -168,6 +176,10 @@ func validateECDSABody(keyType string, blob []byte) error {
 	if string(curve) != strings.TrimPrefix(keyType, "ecdsa-sha2-") ||
 		len(point) != 1+2*coordinateBytes || point[0] != 0x04 || len(remainder) != 0 {
 		return errors.New("invalid ecdsa key body")
+	}
+	// OpenSSH rejects points that are not on the named curve.
+	if _, err := ecdsaCurves[keyType].NewPublicKey(point); err != nil {
+		return errors.New("invalid ecdsa key point")
 	}
 	return nil
 }
