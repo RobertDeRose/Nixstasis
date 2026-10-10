@@ -105,27 +105,24 @@ defmodule Nixstasis.Monitoring.TelemetryLimits do
     end
   end
 
-  defp walk(value, depth, key_count) when is_list(value) do
-    if array_limit_exceeded?(value) do
-      {:error, :array_items}
-    else
-      Enum.reduce_while(value, {:ok, key_count}, fn child, {:ok, count} ->
-        case walk(child, depth + 1, count) do
-          {:ok, child_count} -> {:cont, {:ok, child_count}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-    end
-  end
+  defp walk(value, depth, key_count) when is_list(value), do: walk_list(value, depth, key_count, 0)
 
   defp walk(_value, _depth, _key_count), do: {:error, :json}
 
-  defp array_limit_exceeded?(value) do
-    value
-    |> Enum.take(@max_array_items + 1)
-    |> length()
-    |> Kernel.>(@max_array_items)
+  # Walks list cells directly so an improper tail is rejected as non-JSON
+  # instead of raising inside Enum.
+  defp walk_list([], _depth, key_count, _index), do: {:ok, key_count}
+
+  defp walk_list([_child | _rest], _depth, _key_count, index) when index >= @max_array_items,
+    do: {:error, :array_items}
+
+  defp walk_list([child | rest], depth, key_count, index) do
+    with {:ok, child_count} <- walk(child, depth + 1, key_count) do
+      walk_list(rest, depth, child_count, index + 1)
+    end
   end
+
+  defp walk_list(_improper_tail, _depth, _key_count, _index), do: {:error, :json}
 
   defp validate_key(key) when is_binary(key) do
     if byte_size(key) <= @max_key_bytes, do: :ok, else: {:error, :key_bytes}

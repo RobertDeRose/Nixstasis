@@ -24,6 +24,13 @@ defmodule Nixstasis.Monitoring.TelemetryLimitsTest do
     end
   end
 
+  test "rejects improper lists without raising" do
+    for value <- [[1 | 2], [1, 2 | "tail"], [[1 | 2]]] do
+      assert {:error, "telemetry must contain only JSON-compatible values"} =
+               TelemetryLimits.validate(%{"value" => value})
+    end
+  end
+
   test "rejects encoded payloads larger than the persistence budget" do
     payload = %{"chunks" => List.duplicate(String.duplicate("x", 14_000), 5)}
 
