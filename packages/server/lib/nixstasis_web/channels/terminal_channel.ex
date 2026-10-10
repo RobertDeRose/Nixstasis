@@ -228,10 +228,10 @@ defmodule NixstasisWeb.TerminalChannel do
 
   defp start_ssh_client(device, private_key, columns, rows) do
     cond do
-      not (is_binary(device.ssh_host_key) and String.trim(device.ssh_host_key) != "") ->
+      not Devices.ssh_host_key_trusted?(device) ->
         {:error, :ssh_host_key_unavailable}
 
-      is_binary(device.ssh_host_key_pending) and String.trim(device.ssh_host_key_pending) != "" ->
+      Devices.ssh_host_key_pending?(device) ->
         {:error, :ssh_host_key_changed}
 
       true ->

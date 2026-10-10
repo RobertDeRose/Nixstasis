@@ -173,7 +173,7 @@
 
         <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
           <div
-            :if={is_binary(@device.ssh_host_key_pending) and String.trim(@device.ssh_host_key_pending) != ""}
+            :if={Devices.ssh_host_key_pending?(@device)}
             id="ssh-host-key-change-warning"
             class="alert alert-warning mb-4"
           >
@@ -201,7 +201,7 @@
           </div>
 
           <div
-            :if={not (is_binary(@device.ssh_host_key) and String.trim(@device.ssh_host_key) != "")}
+            :if={not Devices.ssh_host_key_trusted?(@device)}
             id="ssh-host-key-enrollment-warning"
             class="alert alert-info mb-4"
           >

@@ -575,6 +575,12 @@ defmodule Nixstasis.Devices do
 
   def ssh_host_key_fingerprint(_value), do: nil
 
+  @doc false
+  def ssh_host_key_trusted?(%Device{ssh_host_key: value}), do: not blank_string?(value)
+
+  @doc false
+  def ssh_host_key_pending?(%Device{ssh_host_key_pending: value}), do: not blank_string?(value)
+
   defp persist_ssh_host_key_state(%Device{} = device, attrs) do
     result =
       Repo.transaction(fn ->

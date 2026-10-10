@@ -207,10 +207,10 @@ defmodule NixstasisWeb.DeviceLive.Show do
       socket.assigns.device_offline ->
         {:error, "Device is offline; unable to start remote access"}
 
-      not trusted_ssh_host_key?(device) ->
+      not Devices.ssh_host_key_trusted?(device) ->
         {:error, "Device SSH host identity has not been enrolled yet. Wait for the next authenticated heartbeat."}
 
-      pending_ssh_host_key?(device) ->
+      Devices.ssh_host_key_pending?(device) ->
         {:error, "Device SSH host identity changed. Review and trust the pending host key before connecting."}
 
       true ->
@@ -610,12 +610,6 @@ defmodule NixstasisWeb.DeviceLive.Show do
       socket
     end
   end
-
-  defp trusted_ssh_host_key?(%Device{ssh_host_key: value}),
-    do: is_binary(value) and String.trim(value) != ""
-
-  defp pending_ssh_host_key?(%Device{ssh_host_key_pending: value}),
-    do: is_binary(value) and String.trim(value) != ""
 
   defp page_title(device) do
     if Devices.online?(device) do
