@@ -12,7 +12,7 @@ defmodule Nixstasis.Monitoring.Validations.TelemetryPayload do
   def init(opts), do: {:ok, opts}
 
   @impl true
-  def supports(_opts), do: [Ash.Changeset, Ash.ActionInput]
+  def supports(_opts), do: [Ash.Changeset]
 
   @impl true
   def validate(changeset, _opts, _context) do
