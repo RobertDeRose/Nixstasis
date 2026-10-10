@@ -50,6 +50,12 @@ and repeated header fields. This prevents hop-by-hop cleanup from deleting a
 verified device scope, which Phoenix would otherwise interpret as unscoped
 access. Ordinary `Connection: Upgrade` requests remain supported.
 
+Every Caddy-to-Phoenix proxy block also overwrites `X-Nixstasis-Client-IP` with
+the socket peer address observed by Caddy. Phoenix consumes that value only when
+`X-Nixstasis-Proxy-Token` authenticates the proxy; otherwise rate limiting uses
+the direct Phoenix peer address. This keeps pre-authentication rate-limit keys
+independent of attacker-controlled device IDs and forwarded-IP headers.
+
 Group-to-role mapping happens in Caddy/AuthCrunch, not Phoenix. The production
 environment provides provider-specific OIDC group values in
 `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, and

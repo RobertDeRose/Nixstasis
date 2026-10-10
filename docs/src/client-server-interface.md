@@ -48,10 +48,12 @@ filesystem.
 
 AtomixOS returns HTTP 202 with `job_id`, `state`, and a relative `job_url`.
 The server resolves that URL against the FRP API base and polls it until
-`succeeded`, `failed`, or the bounded deadline. It records events, result,
-error, and rollback diagnostics. Only HTTP 409 queue conflicts may be retried
-(two attempts after the initial request); an accepted or ambiguous upload is
-never submitted again.
+`succeeded`, `failed`, or the bounded deadline. Submit, error, and polling
+response bodies are streamed through a 1 MiB receive budget and are aborted
+before decoding if that budget is exceeded. It records events, result, error,
+and rollback diagnostics. Only HTTP 409 queue conflicts may be retried (two
+attempts after the initial request); an accepted or ambiguous upload is never
+submitted again.
 
 Delivery state is durable and idempotent by device, artifact SHA-256, and
 bootstrap attempt UUID. Active attempts are polled, terminal results are
@@ -65,22 +67,51 @@ artifact, state, retry, authorization, audit, and recovery contract.
 
 ## Rate Limiting
 
-All `/api/v1` and `/api/json` requests are rate-limited per device (or per
-remote IP when no device identity is available).
+API limiting has separate network-origin and authenticated-device boundaries.
+Before authentication, Phoenix keys requests by a finite route bucket plus the
+network origin. In the supported Caddy deployment, Caddy overwrites the internal
+`X-Nixstasis-Client-IP` header and Phoenix trusts it only when the accompanying
+proxy credential is valid; direct backend callers are keyed by their socket peer.
+Attacker-supplied device IDs are never used as pre-authentication keys.
 
-| Scope                            | Default Limit | Window     |
-|----------------------------------|---------------|------------|
-| Heartbeat (`POST .../heartbeat`) | 30 requests   | 60 seconds |
-| Other API requests               | 120 requests  | 60 seconds |
+| Scope                                     | Default Limit   | Window     |
+|-------------------------------------------|-----------------|------------|
+| Pre-auth origin + route                   | 1,000 requests  | 60 seconds |
+| Pre-auth global flood ceiling             | 50,000 requests | 60 seconds |
+| Authenticated heartbeat per device        | 30 requests     | 60 seconds |
+| Other authenticated device runtime action | 120 requests    | 60 seconds |
 
-When the limit is exceeded the server responds with HTTP `429` and body:
+The origin + route quota is checked before the global ceiling, so requests already
+rejected for one origin do not consume the shared flood ceiling of other clients.
+The pre-authentication origin table is capped at 4,096 active keys; expired entries
+are reclaimed before rejecting a new origin at capacity, and the reclaim scan is
+skipped until the oldest active entry can have expired. Native IPv6 origins share
+a quota per /64 prefix, including origins forwarded by the trusted proxy.
+IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) use the corresponding IPv4 origin's
+quota, so different IPv4 addresses stay separate and alternate representations
+cannot bypass the same-origin quota. Heartbeat, command-result, and command-payload
+quotas use distinct authenticated keys, so
+invalid-token traffic cannot consume a device quota and one runtime action does
+not consume another action's quota.
+
+When the limit is exceeded the compatibility API responds with HTTP `429` and body:
 
 ```json
 {"error": {"code": "rate_limited", "message": "Rate limit exceeded"}}
 ```
 
-Limits are configurable via application config (`:nixstasis, :rate_limit`
-keyword list with `:limit`, `:heartbeat_limit`, and `:window_ms` keys).
+Generated JSON:API routes under `/api/json` use the equivalent JSON:API `errors`
+envelope with content type `application/vnd.api+json` for every limit, including
+pre-authentication origin and global rejections:
+
+```json
+{"errors": [{"code": "rate_limited", "detail": "Rate limit exceeded"}]}
+```
+
+Limits are configurable via application config (`:nixstasis, :rate_limit`) with
+`:preauth_limit`, `:preauth_global_limit`, `:preauth_max_keys`, `:device_limit`,
+`:heartbeat_limit`, and `:window_ms`. The legacy `:limit` value remains a fallback
+for pre-authentication and non-heartbeat device limits.
 
 Traceable references:
 
@@ -173,7 +204,7 @@ canonical contract for new integrations is:
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device API key.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated
-  heartbeat action. It accepts `telemetry`, `connection_status`, and optional
+  heartbeat action. It accepts `telemetry`, `connection_status`, `ssh_host_key`, and optional
   `command_inventory`, returns `data.commands` plus optional remote-access
   token/profile and probe directives with status `200`, and preserves the same
   orchestration as the compatibility endpoint.
@@ -341,6 +372,7 @@ Request:
     "pid": 1234,
     "start_time": "2026-05-06T14:00:00Z"
   },
+  "ssh_host_key": "ssh-ed25519 AAAA...",
   "command_inventory": {
     "schema_version": 1,
     "probe_catalog_version": "catalog-v1",
@@ -362,6 +394,23 @@ Request:
   }
 }
 ```
+
+`ssh_host_key` is the device sshd's Ed25519 public host key. Devices must provide an
+Ed25519 host key; RSA and ECDSA host keys are not supported. The server and client accept
+only a complete `ssh-ed25519` key blob with a 32-byte key, and terminal sessions restrict
+`HostKeyAlgorithms` to `ssh-ed25519`. Any other algorithm, or a truncated, padded, or
+otherwise malformed key, is logged and ignored without failing the heartbeat. The server enrolls
+the first value received over an authenticated heartbeat. A different key is held
+as pending and blocks browser terminal connections until an authorized operator
+explicitly trusts the replacement; the previous fingerprint, actor, and trust time
+are retained with the device. The device page tells operators to confirm the pending
+fingerprint through an independent trusted channel, such as the device console or a
+reimaging record, before trusting it. Acceptance is bound to the fingerprint the operator
+reviewed. Concurrent changes to SSH trust state reject stale enrollment or
+acceptance attempts; operators must review the current fingerprint again. A
+heartbeat defers a stale SSH enrollment/change, or one that fails to persist, to its
+next poll while continuing telemetry persistence and command delivery; it never
+overwrites the competing trust decision.
 
 `command_inventory` is optional, top-level, and untrusted. The client only
 reports package names and command names from the latest server

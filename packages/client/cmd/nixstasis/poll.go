@@ -241,6 +241,12 @@ type inventoryPollClient interface {
 	PollWithInventory(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error)
 }
 
+// secureHeartbeatPollClient is implemented by the real transport client. The
+// optional interface keeps lightweight test and E2E poll clients compatible.
+type secureHeartbeatPollClient interface {
+	PollWithInventoryAndHostKey(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence, sshHostKey string) (*transport.PollResponse, error)
+}
+
 func collectCommandInventory(ctx context.Context, state *remoteAccessPollState) *transport.CommandInventoryEvidence {
 	if state == nil || state.commandInventoryProbe == nil {
 		return nil
@@ -248,7 +254,10 @@ func collectCommandInventory(ctx context.Context, state *remoteAccessPollState) 
 	return inventory.Collect(ctx, state.commandInventoryProbe)
 }
 
-func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, commandInventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, commandInventory *transport.CommandInventoryEvidence, sshHostKey string) (*transport.PollResponse, error) {
+	if secure, ok := client.(secureHeartbeatPollClient); ok {
+		return secure.PollWithInventoryAndHostKey(ctx, uuid, payload, frpStatus, commandInventory, sshHostKey)
+	}
 	if extended, ok := client.(inventoryPollClient); ok {
 		return extended.PollWithInventory(ctx, uuid, payload, frpStatus, commandInventory)
 	}
@@ -300,9 +309,13 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 	}
 
 	commandInventory := collectCommandInventory(ctx, state)
+	sshHostKey, hostKeyErr := sshauth.LoadHostPublicKey()
+	if hostKeyErr != nil {
+		slog.Debug("SSH host public key unavailable", "error", hostKeyErr)
+	}
 
 	slog.Debug("Sending telemetry", "scripts", len(payload.Scripts), "uptime", payload.Device.Uptime)
-	resp, err := sendHeartbeat(ctx, client, uuid, payload, frpStatus, commandInventory)
+	resp, err := sendHeartbeat(ctx, client, uuid, payload, frpStatus, commandInventory, sshHostKey)
 	if err != nil {
 		return err
 	}

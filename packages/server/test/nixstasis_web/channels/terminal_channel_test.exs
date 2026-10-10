@@ -6,6 +6,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
   alias Nixstasis.Devices
   alias Nixstasis.Devices.SshKeyManager
 
+  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
   defmodule FakeSshClient do
     use GenServer
 
@@ -18,6 +20,7 @@ defmodule NixstasisWeb.TerminalChannelTest do
     def init(opts) do
       test_pid = opts[:test_pid] || Process.whereis(:terminal_channel_test)
       send(test_pid, {:fake_ssh_started, opts[:columns], opts[:rows]})
+      send(test_pid, {:fake_ssh_host_key, opts[:host_key]})
       {:ok, %{test_pid: test_pid}}
     end
 
@@ -80,6 +83,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "AA:BB:CC:DD:EE:FF", product_name: "key"})
 
+    device = enroll_ssh_host_key!(device)
+
     private_key = "dummy_private_key"
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, private_key)
     command = authorize_terminal_session!(device, session_ref)
@@ -97,6 +102,10 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
   test "joins with device topic", %{socket: socket, device: device} do
     assert socket.topic == "terminal:#{device.id}"
+  end
+
+  test "passes the enrolled device host key to the SSH client" do
+    assert_receive {:fake_ssh_host_key, @ssh_host_key}
   end
 
   test "passes initial terminal size to ssh client", %{device: device} do
@@ -130,6 +139,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
   test "rejects terminal session ref for the wrong device", %{session_ref: session_ref} do
     {:ok, other_device} =
       Devices.create_device(%{mac_address: "BB:CC:DD:EE:FF:00", product_name: "key"})
+
+    other_device = enroll_ssh_host_key!(other_device)
 
     {:ok, wrong_ref} = SshKeyManager.create_terminal_session(session_ref, "secret")
 
@@ -203,11 +214,53 @@ defmodule NixstasisWeb.TerminalChannelTest do
     assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
   end
 
+  test "rejects terminal join before the device enrolls an SSH host key" do
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:10:01", product_name: "key"})
+
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref)
+
+    assert {:error, %{reason: "host_identity_unavailable", code: "ssh_host_key_unavailable"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref,
+               "command_id" => command.id
+             })
+  end
+
+  test "rejects terminal join while a changed SSH host key is pending" do
+    {:ok, device} =
+      Devices.create_device(%{mac_address: "CC:DD:EE:FF:10:02", product_name: "key"})
+
+    device = enroll_ssh_host_key!(device)
+
+    {:ok, device} =
+      Devices.record_ssh_host_key(
+        device,
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+      )
+
+    {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
+    command = authorize_terminal_session!(device, session_ref)
+
+    assert {:error, %{reason: "host_identity_changed", code: "ssh_host_key_changed"}} =
+             NixstasisWeb.UserSocket
+             |> socket("user_id", %{terminal_device_id: device.id})
+             |> subscribe_and_join(NixstasisWeb.TerminalChannel, "terminal:#{device.id}", %{
+               "token" => session_ref,
+               "command_id" => command.id
+             })
+  end
+
   test "returns structured error when ssh executable is missing" do
     Application.put_env(:nixstasis, :terminal_ssh_client, MissingExecutableSshClient)
 
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:11", product_name: "key"})
+
+    device = enroll_ssh_host_key!(device)
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
     command = authorize_terminal_session!(device, session_ref)
@@ -235,6 +288,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:12", product_name: "key"})
 
+    device = enroll_ssh_host_key!(device)
+
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret", ttl_ms: 0)
 
     {result, _log} =
@@ -258,6 +313,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:13", product_name: "key"})
 
+    device = enroll_ssh_host_key!(device)
+
     {_result, _log} =
       with_log(fn ->
         assert {:error, %{reason: "session_not_found", code: "session_not_found"}} =
@@ -276,6 +333,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:15", product_name: "key"})
+
+    device = enroll_ssh_host_key!(device)
 
     device_id = device.id
 
@@ -331,6 +390,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:17", product_name: "key"})
 
+    device = enroll_ssh_host_key!(device)
+
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
     command = authorize_terminal_session!(device, session_ref, acknowledge?: false)
 
@@ -353,6 +414,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
   test "rejects terminal join when ssh authorization command fails" do
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:16", product_name: "key"})
+
+    device = enroll_ssh_host_key!(device)
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
     command = authorize_terminal_session!(device, session_ref, acknowledge?: false)
@@ -382,6 +445,8 @@ defmodule NixstasisWeb.TerminalChannelTest do
 
     {:ok, device} =
       Devices.create_device(%{mac_address: "CC:DD:EE:FF:00:14", product_name: "key"})
+
+    device = enroll_ssh_host_key!(device)
 
     {:ok, session_ref} = SshKeyManager.create_terminal_session(device.id, "secret")
     command = authorize_terminal_session!(device, session_ref)
@@ -440,6 +505,11 @@ defmodule NixstasisWeb.TerminalChannelTest do
   test "disconnects on max duration", %{socket: socket} do
     send(socket.channel_pid, :max_duration_reached)
     assert_push("output", %{data: "\r\n[Session time limit reached (60m). Disconnecting...]\r\n"})
+  end
+
+  defp enroll_ssh_host_key!(device) do
+    {:ok, enrolled} = Devices.record_ssh_host_key(device, @ssh_host_key)
+    enrolled
   end
 
   defp authorize_terminal_session!(device, session_ref, opts \\ []) do

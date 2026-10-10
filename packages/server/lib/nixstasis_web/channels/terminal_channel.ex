@@ -227,15 +227,25 @@ defmodule NixstasisWeb.TerminalChannel do
   end
 
   defp start_ssh_client(device, private_key, columns, rows) do
-    case ssh_client_module().start_link(
-           device_id: device.id,
-           private_key: private_key,
-           channel_pid: self(),
-           columns: columns,
-           rows: rows
-         ) do
-      {:ok, pid} -> {:ok, pid}
-      {:error, reason} -> {:error, reason}
+    cond do
+      not Devices.ssh_host_key_trusted?(device) ->
+        {:error, :ssh_host_key_unavailable}
+
+      Devices.ssh_host_key_pending?(device) ->
+        {:error, :ssh_host_key_changed}
+
+      true ->
+        case ssh_client_module().start_link(
+               device_id: device.id,
+               private_key: private_key,
+               host_key: device.ssh_host_key,
+               channel_pid: self(),
+               columns: columns,
+               rows: rows
+             ) do
+          {:ok, pid} -> {:ok, pid}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -252,6 +262,15 @@ defmodule NixstasisWeb.TerminalChannel do
   defp terminal_join_error(:not_found), do: %{reason: "session_not_found", code: "session_not_found"}
 
   defp terminal_join_error(:device_not_found), do: %{reason: "device_unavailable", code: "device_not_found"}
+
+  defp terminal_join_error(:ssh_host_key_unavailable),
+    do: %{reason: "host_identity_unavailable", code: "ssh_host_key_unavailable"}
+
+  defp terminal_join_error(:ssh_host_key_changed),
+    do: %{reason: "host_identity_changed", code: "ssh_host_key_changed"}
+
+  defp terminal_join_error(%{reason: :invalid_host_key}),
+    do: %{reason: "host_identity_invalid", code: "invalid_ssh_host_key"}
 
   defp terminal_join_error(:device_mismatch), do: %{reason: "unauthorized", code: "device_mismatch"}
 

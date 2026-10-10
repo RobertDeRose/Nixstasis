@@ -4,6 +4,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
   alias Nixstasis.Scripts
+  alias NixstasisWeb.RateLimiterStore
 
   setup do
     {:ok, device} =
@@ -284,13 +285,12 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
 
-  test "POST /api/v1/devices/:device_id/heartbeat returns 429 over rate limit", %{
+  test "POST /api/v1/devices/:device_id/heartbeat returns 429 over authenticated device rate limit", %{
     conn: conn,
     device: device,
     token: token
   } do
-    Application.put_env(:nixstasis, :rate_limit, limit: 1, window_ms: 60_000)
-    on_exit(fn -> Application.delete_env(:nixstasis, :rate_limit) end)
+    configure_rate_limit(heartbeat_limit: 1)
 
     assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
            |> json_response(200)
@@ -298,6 +298,45 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
 
     assert %{"error" => %{"code" => "rate_limited"}} = json_response(conn, 429)
+  end
+
+  test "invalid-token traffic cannot consume an authenticated device heartbeat quota", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    configure_rate_limit(heartbeat_limit: 1)
+
+    for _ <- 1..5 do
+      invalid = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=wrong", %{})
+      assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(invalid, 401)
+    end
+
+    assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+           |> json_response(200)
+
+    limited = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert %{"error" => %{"code" => "rate_limited"}} = json_response(limited, 429)
+  end
+
+  test "authenticated heartbeat and command-result quotas are independent", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    configure_rate_limit(heartbeat_limit: 1, device_limit: 1)
+
+    assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+           |> json_response(200)
+
+    assert post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", %{"results" => []})
+           |> json_response(202)
+
+    assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+           |> json_response(429)
+
+    assert post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", %{"results" => []})
+           |> json_response(429)
   end
 
   test "approved device without token hash cannot use runtime endpoints", %{conn: conn} do
@@ -313,5 +352,26 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
 
     payload = get(conn, ~p"/api/v1/devices/#{approved.id}/command_payloads/ref?api_key=anything")
     assert %{"error" => %{"code" => "missing_api_key"}} = json_response(payload, 401)
+  end
+
+  defp configure_rate_limit(overrides) do
+    previous = Application.get_env(:nixstasis, :rate_limit)
+
+    values =
+      [preauth_limit: 100, preauth_global_limit: 1_000, preauth_max_keys: 128, window_ms: 60_000]
+      |> Keyword.merge(overrides)
+
+    Application.put_env(:nixstasis, :rate_limit, values)
+    RateLimiterStore.clear()
+
+    on_exit(fn ->
+      RateLimiterStore.clear()
+
+      if previous do
+        Application.put_env(:nixstasis, :rate_limit, previous)
+      else
+        Application.delete_env(:nixstasis, :rate_limit)
+      end
+    end)
   end
 end

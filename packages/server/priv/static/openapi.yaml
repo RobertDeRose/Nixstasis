@@ -8161,6 +8161,12 @@ paths:
                           x-struct:
                           x-validate:
                         - type: 'null'
+                    ssh_host_key:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
                     telemetry:
                       anyOf:
                         - type: object

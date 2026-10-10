@@ -98,6 +98,38 @@ defmodule NixstasisWeb.DeviceLive.Show do
   end
 
   @impl true
+  def handle_event("trust_pending_ssh_host_key", params, socket) do
+    device = socket.assigns.device
+
+    cond do
+      not Permissions.can_remote_access_device?(socket.assigns.device_permissions, device.id) ->
+        {:noreply, put_flash(socket, :error, "You are not authorized to trust SSH host keys for this device.")}
+
+      not (is_binary(socket.assigns.remote_access_actor_id) and String.trim(socket.assigns.remote_access_actor_id) != "") ->
+        {:noreply, put_flash(socket, :error, "Unable to identify the operator accepting this SSH host key.")}
+
+      true ->
+        case Devices.accept_pending_ssh_host_key(device, socket.assigns.remote_access_actor_id, params["fingerprint"]) do
+          {:ok, updated} ->
+            {:noreply,
+             socket
+             |> refresh_device_view(updated)
+             |> put_flash(:info, "The new SSH host key is now trusted for this device.")}
+
+          {:error, :ssh_host_key_changed} ->
+            {:noreply,
+             put_flash(socket, :error, "The SSH host key changed. Review the current fingerprint before trusting it.")}
+
+          {:error, :no_pending_ssh_host_key} ->
+            {:noreply, put_flash(socket, :error, "There is no pending SSH host key to trust.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Unable to update the trusted SSH host key.")}
+        end
+    end
+  end
+
+  @impl true
   def handle_event("toggle_maximized", _, socket) do
     {:noreply, Phoenix.Component.update(socket, :maximized?, &(!&1))}
   end
@@ -174,6 +206,12 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
       socket.assigns.device_offline ->
         {:error, "Device is offline; unable to start remote access"}
+
+      not Devices.ssh_host_key_trusted?(device) ->
+        {:error, "Device SSH host identity has not been enrolled yet. Wait for the next authenticated heartbeat."}
+
+      Devices.ssh_host_key_pending?(device) ->
+        {:error, "Device SSH host identity changed. Review and trust the pending host key before connecting."}
 
       true ->
         socket = clear_ssh_session(socket)

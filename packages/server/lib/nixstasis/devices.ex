@@ -19,6 +19,7 @@ defmodule Nixstasis.Devices do
   alias Nixstasis.Devices.PendingCommand
   alias Nixstasis.Devices.RemoteAccess
   alias Nixstasis.Devices.SchemaValidator
+  alias Nixstasis.Devices.SshHostKey
   alias Nixstasis.Domain
   alias Nixstasis.Repo
   alias Nixstasis.Utilities
@@ -480,6 +481,141 @@ defmodule Nixstasis.Devices do
         result
     end
   end
+
+  @doc false
+  def record_ssh_host_key(%Device{} = device, value) when value in [nil, ""], do: {:ok, device}
+
+  def record_ssh_host_key(%Device{} = device, value) do
+    with {:ok, normalized} <- SshHostKey.normalize(value) do
+      cond do
+        blank_string?(device.ssh_host_key) ->
+          persist_ssh_host_key_state(device, %{
+            ssh_host_key: normalized,
+            ssh_host_key_pending: nil,
+            ssh_host_key_trusted_at: DateTime.utc_now(),
+            ssh_host_key_trusted_by: "device-heartbeat:#{device.id}",
+            ssh_host_key_previous_fingerprint: nil
+          })
+
+        device.ssh_host_key == normalized ->
+          if blank_string?(device.ssh_host_key_pending) do
+            {:ok, device}
+          else
+            persist_ssh_host_key_state(device, %{ssh_host_key_pending: nil})
+          end
+
+        device.ssh_host_key_pending == normalized ->
+          {:ok, device}
+
+        true ->
+          Logger.warning(
+            "SSH host key change detected",
+            device_id: device.id,
+            trusted_fingerprint: ssh_host_key_fingerprint(device.ssh_host_key),
+            pending_fingerprint: ssh_host_key_fingerprint(normalized)
+          )
+
+          persist_ssh_host_key_state(device, %{ssh_host_key_pending: normalized})
+      end
+    end
+  end
+
+  @doc false
+  def accept_pending_ssh_host_key(%Device{} = device, actor_id, reviewed_fingerprint) when is_binary(actor_id) do
+    actor_id = String.trim(actor_id)
+
+    cond do
+      actor_id == "" ->
+        {:error, :missing_actor}
+
+      blank_string?(device.ssh_host_key_pending) ->
+        {:error, :no_pending_ssh_host_key}
+
+      not is_binary(reviewed_fingerprint) or
+          reviewed_fingerprint != ssh_host_key_fingerprint(device.ssh_host_key_pending) ->
+        {:error, :ssh_host_key_changed}
+
+      true ->
+        previous_fingerprint = ssh_host_key_fingerprint(device.ssh_host_key)
+        pending_fingerprint = ssh_host_key_fingerprint(device.ssh_host_key_pending)
+
+        case persist_ssh_host_key_state(device, %{
+               ssh_host_key: device.ssh_host_key_pending,
+               ssh_host_key_pending: nil,
+               ssh_host_key_trusted_at: DateTime.utc_now(),
+               ssh_host_key_trusted_by: actor_id,
+               ssh_host_key_previous_fingerprint: previous_fingerprint
+             }) do
+          {:ok, _updated} = result ->
+            Logger.warning(
+              "SSH host key recovery accepted",
+              device_id: device.id,
+              actor_id: actor_id,
+              previous_fingerprint: previous_fingerprint,
+              trusted_fingerprint: pending_fingerprint
+            )
+
+            result
+
+          error ->
+            error
+        end
+    end
+  end
+
+  def accept_pending_ssh_host_key(%Device{}, _actor_id, _reviewed_fingerprint), do: {:error, :missing_actor}
+
+  @doc false
+  def ssh_host_key_fingerprint(value) when is_binary(value) do
+    case SshHostKey.fingerprint(value) do
+      {:ok, fingerprint} -> fingerprint
+      {:error, _reason} -> nil
+    end
+  end
+
+  def ssh_host_key_fingerprint(_value), do: nil
+
+  @doc false
+  def ssh_host_key_trusted?(%Device{ssh_host_key: value}), do: not blank_string?(value)
+
+  @doc false
+  def ssh_host_key_pending?(%Device{ssh_host_key_pending: value}), do: not blank_string?(value)
+
+  defp persist_ssh_host_key_state(%Device{} = device, attrs) do
+    result =
+      Repo.transaction(fn ->
+        current = Repo.one(from(current in Device, where: current.id == ^device.id, lock: "FOR UPDATE"))
+
+        fields = [
+          :ssh_host_key,
+          :ssh_host_key_pending,
+          :ssh_host_key_trusted_at,
+          :ssh_host_key_trusted_by,
+          :ssh_host_key_previous_fingerprint
+        ]
+
+        if is_nil(current) or Map.take(current, fields) != Map.take(device, fields) do
+          Repo.rollback(:ssh_host_key_changed)
+        end
+
+        case Domain.update_device_ssh_host_key_state(current, attrs, return_notifications?: true) do
+          {:ok, updated, notifications} -> {updated, notifications}
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    case result do
+      {:ok, {updated, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        broadcast_device(:device_updated, updated)
+        {:ok, updated}
+
+      error ->
+        error
+    end
+  end
+
+  defp blank_string?(value), do: not (is_binary(value) and String.trim(value) != "")
 
   @doc """
   Lists pending devices.

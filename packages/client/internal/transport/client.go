@@ -240,6 +240,7 @@ type PollRequest struct {
 	Telemetry        telemetry.Payload         `json:"telemetry"`
 	ConnectionStatus frp.ConnectionStatus      `json:"connection_status"`
 	CommandInventory *CommandInventoryEvidence `json:"command_inventory,omitempty"`
+	SSHHostKey       string                    `json:"ssh_host_key,omitempty"`
 	// SchemaURLs to be added in Refinement
 }
 
@@ -327,17 +328,23 @@ type CommandEvidence struct {
 
 // Poll sends the collected telemetry payload to the Nixstasis API.
 func (c *Client) Poll(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus) (*PollResponse, error) {
-	return c.PollWithInventory(ctx, uuid, payload, frpStatus, nil)
+	return c.PollWithInventoryAndHostKey(ctx, uuid, payload, frpStatus, nil, "")
 }
 
 // PollWithInventory sends telemetry and optional untrusted command inventory evidence to the heartbeat endpoint.
 func (c *Client) PollWithInventory(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *CommandInventoryEvidence) (*PollResponse, error) {
+	return c.PollWithInventoryAndHostKey(ctx, uuid, payload, frpStatus, inventory, "")
+}
+
+// PollWithInventoryAndHostKey sends telemetry, inventory evidence, and the local sshd host public key.
+func (c *Client) PollWithInventoryAndHostKey(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *CommandInventoryEvidence, sshHostKey string) (*PollResponse, error) {
 	endpoint := c.deviceURL(fmt.Sprintf("/api/v1/devices/%s/heartbeat", uuid))
 
 	reqBody := PollRequest{
 		Telemetry:        payload,
 		ConnectionStatus: frpStatus,
 		CommandInventory: inventory,
+		SSHHostKey:       sshHostKey,
 	}
 
 	var response struct {

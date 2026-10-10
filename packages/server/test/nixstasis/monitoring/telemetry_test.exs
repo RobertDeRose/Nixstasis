@@ -3,6 +3,8 @@ defmodule Nixstasis.Monitoring.TelemetryTest do
 
   alias Nixstasis.Devices
   alias Nixstasis.Domain
+  alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
 
   setup do
     {:ok, device} = Devices.create_device(%{mac_address: "10:00:00:00:00:03"})
@@ -39,5 +41,73 @@ defmodule Nixstasis.Monitoring.TelemetryTest do
              })
 
     assert {:ok, []} = Domain.list_telemetry_events()
+  end
+
+  test "direct telemetry writes cannot bypass persistence limits", %{device: device} do
+    limits = TelemetryLimits.limits()
+
+    assert {:error, error} =
+             Domain.create_telemetry_event(%{
+               device_id: device.id,
+               payload: %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)},
+               timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+             })
+
+    assert Exception.message(error) =~ "telemetry string exceeds maximum size"
+    assert Domain.list_telemetry_events!() == []
+  end
+
+  test "timestamp-only updates preserve oversized legacy payloads", %{device: device} do
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {:ok, telemetry} =
+      Domain.create_telemetry_event(%{device_id: device.id, timestamp: timestamp, payload: %{}})
+
+    legacy_payload = %{"blob" => String.duplicate("x", TelemetryLimits.limits().max_string_bytes + 1)}
+    query = from(event in Telemetry, where: event.id == ^telemetry.id)
+    assert {1, _} = Repo.update_all(query, set: [payload: legacy_payload])
+    telemetry = Ash.get!(Telemetry, telemetry.id)
+    new_timestamp = DateTime.add(timestamp, 1, :second)
+
+    assert {:ok, updated} =
+             telemetry
+             |> Ash.Changeset.for_update(:update, %{timestamp: new_timestamp})
+             |> Ash.update()
+
+    assert updated.timestamp == new_timestamp
+    assert updated.payload == legacy_payload
+
+    assert {:error, _} =
+             updated
+             |> Ash.Changeset.for_update(:update, %{payload: Map.put(legacy_payload, "changed", true)})
+             |> Ash.update()
+
+    assert Ash.get!(Telemetry, telemetry.id).payload == legacy_payload
+  end
+
+  test "telemetry updates validate persistence limits before writing", %{device: device} do
+    {:ok, telemetry} =
+      Domain.create_telemetry_event(%{
+        device_id: device.id,
+        payload: %{"status" => "pending"},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+    assert {:ok, updated} =
+             telemetry
+             |> Ash.Changeset.for_update(:update, %{payload: %{"status" => "ok"}})
+             |> Ash.update()
+
+    assert updated.payload == %{"status" => "ok"}
+
+    assert {:error, error} =
+             updated
+             |> Ash.Changeset.for_update(:update, %{
+               payload: %{"blob" => String.duplicate("x", TelemetryLimits.limits().max_string_bytes + 1)}
+             })
+             |> Ash.update()
+
+    assert Exception.message(error) =~ "telemetry string exceeds maximum size"
+    assert [%{payload: %{"status" => "ok"}}] = Domain.list_telemetry_events!()
   end
 end

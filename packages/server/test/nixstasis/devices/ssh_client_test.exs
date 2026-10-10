@@ -3,6 +3,8 @@ defmodule Nixstasis.Devices.SshClientTest do
 
   alias Nixstasis.Devices.SshClient
 
+  @host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
   test "validate_executables reports missing ssh executable" do
     assert {:error, %{reason: :missing_executable, executable: "missing-nixstasis-ssh"}} =
              SshClient.validate_executables(
@@ -42,6 +44,52 @@ defmodule Nixstasis.Devices.SshClientTest do
                proxy_executable: "sh",
                env_executable: "env"
              )
+  end
+
+  test "start_link rejects a missing or invalid trusted host key before opening SSH" do
+    Process.flag(:trap_exit, true)
+
+    assert {:error, %{reason: :invalid_host_key}} =
+             SshClient.start_link(
+               device_id: "11111111-2222-3333-4444-555555555555",
+               private_key: "test-only-sensitive-key-material",
+               host_key: "not-a-host-key",
+               channel_pid: self(),
+               ssh_executable: "sh",
+               proxy_executable: "sh",
+               env_executable: "env"
+             )
+  end
+
+  test "start_link removes session credentials when SSH startup fails" do
+    Process.flag(:trap_exit, true)
+    previous_tmpdir = System.get_env("TMPDIR")
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+    tmp_dir = Path.join(System.tmp_dir!(), "nixstasis_ssh_client_test_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(tmp_dir)
+
+    on_exit(fn ->
+      if previous_tmpdir, do: System.put_env("TMPDIR", previous_tmpdir), else: System.delete_env("TMPDIR")
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf!(tmp_dir)
+    end)
+
+    System.put_env("TMPDIR", tmp_dir)
+    # An unprintable terminal type raises after both credential files exist.
+    Application.put_env(:nixstasis, :ssh_client, terminal_type: %{})
+
+    assert {:error, {%Protocol.UndefinedError{}, _stacktrace}} =
+             SshClient.start_link(
+               device_id: "11111111-2222-3333-4444-555555555555",
+               private_key: "test-only-sensitive-key-material",
+               host_key: @host_key,
+               channel_pid: self(),
+               ssh_executable: "sh",
+               proxy_executable: "sh",
+               env_executable: "env"
+             )
+
+    assert File.ls!(tmp_dir) == []
   end
 
   test "ssh_host uses atom normalized device id SSH host" do
@@ -153,6 +201,7 @@ defmodule Nixstasis.Devices.SshClientTest do
       SshClient.start_link(
         device_id: "11111111-2222-3333-4444-555555555555",
         private_key: "test-only-sensitive-key-material",
+        host_key: @host_key,
         channel_pid: self(),
         columns: 100,
         rows: 40,
@@ -169,6 +218,12 @@ defmodule Nixstasis.Devices.SshClientTest do
     commands = eventually_read!(log_path, &String.contains?(&1, "tty_path=$(cat"))
 
     assert commands =~ "TERM=xterm-256color"
+    assert commands =~ "StrictHostKeyChecking=yes"
+    assert commands =~ "HostKeyAlgorithms=ssh-ed25519"
+    assert commands =~ "UserKnownHostsFile=#{Path.join(System.tmp_dir!(), "nixstasis_known_hosts_")}"
+    assert commands =~ "GlobalKnownHostsFile=/dev/null"
+    refute commands =~ "StrictHostKeyChecking=no"
+    refute commands =~ "UserKnownHostsFile=/dev/null"
     assert commands =~ "tty > /tmp/nixstasis-terminal-"
     assert commands =~ "stty rows 40 cols 100"
     assert commands =~ "exec \"${SHELL:-/bin/sh}\" -l"

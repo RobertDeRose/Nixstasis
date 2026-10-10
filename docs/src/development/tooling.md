@@ -52,6 +52,23 @@ mise x -- mix test \
 
 These checks cover heartbeat inventory probes, bounded client evidence, server compatibility resolution, catalog-backed policy delivery, unchanged `exec_cmd` absolute-path enforcement, and deny-all revocation.
 
+## Feature validation: SSH host-key pinning
+
+Use these focused checks when changing remote terminal SSH startup or host-key
+trust:
+
+```bash
+cd packages/server
+mise x -- mix test \
+  test/nixstasis/devices/ssh_client_test.exs \
+  test/nixstasis/devices/ssh_client_integration_test.exs
+```
+
+The integration test runs the real OpenSSH client against a local Erlang SSH
+daemon. It proves the enrolled host key connects and a different host key fails
+before any remote command runs. It needs `ssh`, `ssh-keygen`, and `nc` on `PATH`
+and is skipped when any of them is missing.
+
 ## Feature validation: schema-driven builders
 
 Use these focused checks when changing schema-derived alert/report builders or

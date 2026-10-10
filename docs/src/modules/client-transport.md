@@ -76,9 +76,17 @@
     token as `data.api_token`; identical committed retries do not rotate it again.
   - Re-registering the same MAC address updates the existing device record rather
     than creating a duplicate identity.
-- `Poll`:
+- `Poll`, `PollWithInventory`, and `PollWithInventoryAndHostKey`:
   - `POST {baseURL}/api/v1/devices/{uuid}/heartbeat`
-  - Sends `telemetry`, `connection_status`, and optional top-level `command_inventory` evidence.
+  - All variants send `telemetry` and `connection_status`.
+  - `Poll` omits `command_inventory` and `ssh_host_key`; `PollWithInventory` adds
+    optional top-level `command_inventory` evidence but still omits `ssh_host_key`.
+  - `PollWithInventoryAndHostKey` also sends the local sshd host public key as
+    `ssh_host_key`. The CLI poll loop calls this variant directly, so only it enrolls
+    or refreshes host identity; an empty key is omitted.
+  - The CLI reads only the Ed25519 host key at `/etc/ssh/ssh_host_ed25519_key.pub`;
+    the heartbeat omits `ssh_host_key` when that file is missing or malformed. RSA and
+    ECDSA host keys are not reported.
   - Requires the issued device token as `api_key` query parameter.
   - Expects `200` or `202` and optional response `data.remote_access_token`,
     `data.remote_access_expires_at_ms`, `data.remote_access_lease_id`,
@@ -86,6 +94,8 @@
     `data.command_inventory_probe`.
   - `remote_access_profile` is only a named/versioned reference; the client
     resolves it against local configuration and rejects unknown or unsafe routes.
+  - HTTP `413` indicates normalized telemetry exceeded the server persistence
+    limits; the heartbeat is rejected before device or monitoring state changes.
   - HTTP `429` indicates the server rate limit rejected the heartbeat.
 - `PollWithInventory`:
   - Uses the same heartbeat endpoint as `Poll`.

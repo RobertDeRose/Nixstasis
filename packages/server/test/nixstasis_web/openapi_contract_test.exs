@@ -79,6 +79,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert Map.has_key?(request_properties, "telemetry")
     assert Map.has_key?(request_properties, "connection_status")
     assert Map.has_key?(request_properties, "command_inventory")
+    assert get_in(request_properties, ["ssh_host_key", "anyOf", Access.at(0), "type"]) == "string"
 
     response_properties =
       get_in(heartbeat, [

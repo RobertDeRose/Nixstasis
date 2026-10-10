@@ -15,6 +15,7 @@ defmodule Nixstasis.Monitoring do
   alias Nixstasis.Monitoring.Alert
   alias Nixstasis.Monitoring.AlertRule
   alias Nixstasis.Monitoring.RuleEvaluator
+  alias Nixstasis.Monitoring.TelemetryLimits
   alias Nixstasis.Notifications.Email
   alias Nixstasis.Repo
   alias Nixstasis.Notifications.Webhook
@@ -23,7 +24,9 @@ defmodule Nixstasis.Monitoring do
   def heartbeat(%Device{} = device, payload \\ %{}) do
     telemetry_payload = normalize_telemetry_payload(payload)
 
-    with {:ok, device} <- Devices.update_last_seen(device),
+    with :ok <- validate_telemetry_payload(telemetry_payload),
+         {:ok, device} <- Devices.update_last_seen(device),
+         {:ok, device} <- record_heartbeat_ssh_host_key(device, payload),
          {:ok, _event} <- persist_telemetry_event(device, telemetry_payload),
          {:ok, _inventory} <- persist_command_inventory(device, payload) do
       resolve_offline_alerts(device)
@@ -58,6 +61,37 @@ defmodule Nixstasis.Monitoring do
 
     maybe_put_command_inventory_probe(data)
   end
+
+  defp record_heartbeat_ssh_host_key(%Device{} = device, payload) do
+    case Devices.record_ssh_host_key(device, heartbeat_ssh_host_key(payload)) do
+      {:error, :invalid_ssh_host_key} ->
+        Logger.warning("Ignoring invalid SSH host key from authenticated heartbeat", device_id: device.id)
+        {:ok, device}
+
+      {:error, :ssh_host_key_changed} ->
+        Logger.info("SSH host key state changed concurrently; deferring to next heartbeat", device_id: device.id)
+        {:ok, device}
+
+      {:error, reason} ->
+        # Host-key enrollment is best effort; it must not drop telemetry for a
+        # heartbeat whose last-seen update has already been committed.
+        Logger.warning("Unable to record SSH host key; deferring to next heartbeat",
+          device_id: device.id,
+          reason: inspect(reason)
+        )
+
+        {:ok, device}
+
+      {:ok, %Device{}} = result ->
+        result
+    end
+  end
+
+  defp heartbeat_ssh_host_key(payload) when is_map(payload) do
+    Map.get(payload, "ssh_host_key") || Map.get(payload, :ssh_host_key)
+  end
+
+  defp heartbeat_ssh_host_key(_payload), do: nil
 
   defp maybe_put_command_inventory_probe(data) do
     case Domain.command_inventory_probe_manifest() do
@@ -307,6 +341,13 @@ defmodule Nixstasis.Monitoring do
     end)
   end
 
+  defp validate_telemetry_payload(payload) do
+    case TelemetryLimits.validate(payload) do
+      :ok -> :ok
+      {:error, message} -> {:error, {:telemetry_limits, message}}
+    end
+  end
+
   defp persist_telemetry_event(%Device{} = device, payload) do
     Domain.create_telemetry_event(%{
       device_id: device.id,
@@ -352,7 +393,14 @@ defmodule Nixstasis.Monitoring do
   defp normalize_telemetry_payload(payload) when is_map(payload) do
     sanitized =
       payload
-      |> Map.drop(["device_id", :device_id, "command_inventory", :command_inventory])
+      |> Map.drop([
+        "device_id",
+        :device_id,
+        "command_inventory",
+        :command_inventory,
+        "ssh_host_key",
+        :ssh_host_key
+      ])
 
     case map_get(sanitized, "telemetry") do
       telemetry when is_map(telemetry) ->

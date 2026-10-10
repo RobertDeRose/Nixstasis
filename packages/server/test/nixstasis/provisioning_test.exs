@@ -142,6 +142,68 @@ defmodule Nixstasis.ProvisioningTest do
     assert readiness_state.max_request_timeout <= 5
   end
 
+  test "keeps the lease when an accepted response exceeds the receive budget" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:32"})
+    Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
+               submit_fun: fn _url, _body, _filename ->
+                 {:error, {:response_too_large, 202, 1_048_576}}
+               end
+             )
+
+    assert delivery.state == :indeterminate
+    assert delivery.error =~ "HTTP 202"
+    assert delivery.error =~ "receive limit"
+    assert is_nil(delivery.lease_withdrawn_at)
+    assert Devices.get_device!(device.id).remote_access_requested
+    assert_receive {:provisioning_audit, %{action: :bootstrap_indeterminate, delivery_id: delivery_id}}
+    assert delivery_id == delivery.id
+  end
+
+  test "fails and withdraws the lease for an oversized definitive client-error response" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:33"})
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               readiness_fun: readiness_success_fun(),
+               submit_fun: fn _url, _body, _filename ->
+                 {:error, {:response_too_large, 400, 1_048_576}}
+               end
+             )
+
+    assert delivery.state == :failed
+    assert delivery.error =~ "HTTP 400"
+    assert delivery.error =~ "receive limit"
+    assert delivery.lease_withdrawn_at
+    refute Devices.get_device!(device.id).remote_access_requested
+  end
+
+  test "fails an oversized polling 404 instead of treating it as unknown" do
+    device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:34"})
+
+    assert {:ok, delivery} =
+             Provisioning.deliver(operator_session(device), device.id, "bundle",
+               filename: "config-bundle.tar.gz",
+               poll_timeout_ms: 0,
+               readiness_fun: readiness_success_fun(),
+               submit_fun: fn _url, _body, _filename ->
+                 {:ok, %{job_id: "job-gone", job_url: "/api/jobs/job-gone", state: "submitted"}}
+               end,
+               get_job_fun: fn _url, _opts -> {:error, {:response_too_large, 404, 1_048_576}} end,
+               sleep_fun: fn _milliseconds -> :ok end
+             )
+
+    assert delivery.state == :failed
+    assert delivery.error =~ "AtomixOS job was not found"
+    assert delivery.error =~ "receive limit"
+    assert delivery.lease_withdrawn_at
+  end
+
   test "keeps the lease when a success submission omits its job URL" do
     device = device_fixture(%{mac_address: "AA:BB:CC:DD:EE:08"})
     Phoenix.PubSub.subscribe(Nixstasis.PubSub, "provisioning_audit")

@@ -172,6 +172,49 @@
         </section>
 
         <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
+          <div
+            :if={Devices.ssh_host_key_pending?(@device)}
+            id="ssh-host-key-change-warning"
+            role="alert"
+            class="mb-4 flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4 text-base-content sm:flex-row sm:items-start sm:justify-between"
+          >
+            <div class="min-w-0">
+              <h3 id="ssh-host-key-change-heading" class="font-semibold">SSH host identity changed</h3>
+              <p class="text-sm">
+                Remote terminal access is blocked until the new host key is explicitly trusted.
+              </p>
+              <p id="ssh-host-key-verification-guidance" class="mt-2 text-sm">
+                Before trusting it, confirm the pending fingerprint matches the device through an
+                independent trusted channel, such as its console or a reimaging record. Do not trust
+                a change you cannot explain.
+              </p>
+              <p class="mt-2 font-mono text-xs break-all">
+                Current: {Devices.ssh_host_key_fingerprint(@device.ssh_host_key) || "unavailable"}
+              </p>
+              <p class="font-mono text-xs break-all">
+                Pending: {Devices.ssh_host_key_fingerprint(@device.ssh_host_key_pending) || "unavailable"}
+              </p>
+            </div>
+            <button
+              :if={@can_remote_access_device?}
+              id="trust-pending-ssh-host-key"
+              class="shrink-0 rounded-md bg-warning px-3 py-1.5 text-sm font-medium text-warning-content transition hover:bg-warning/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning"
+              phx-click="trust_pending_ssh_host_key"
+              phx-value-fingerprint={Devices.ssh_host_key_fingerprint(@device.ssh_host_key_pending)}
+            >
+              Trust new host key
+            </button>
+          </div>
+
+          <div
+            :if={not Devices.ssh_host_key_trusted?(@device)}
+            id="ssh-host-key-enrollment-warning"
+            role="status"
+            class="mb-4 rounded-lg border border-info/40 bg-info/10 p-4 text-sm text-base-content"
+          >
+            Waiting for this device to enroll its SSH host identity through an authenticated heartbeat.
+          </div>
+
           <%= if @ssh_session_started or @terminal_closed? do %>
             <div
               id="tab-terminal-wrapper"
