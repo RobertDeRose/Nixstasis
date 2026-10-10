@@ -34,7 +34,7 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
 
       assert :limited = RateLimiterStore.check_rate(key, 2, window_ms)
 
-      Process.sleep(window_ms + 10)
+      expire_window(:nixstasis_rate_limiter, key, window_ms)
 
       assert :ok = RateLimiterStore.check_rate(key, 2, window_ms)
     end
@@ -63,6 +63,14 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
         assert concurrent_accepts(fn -> RateLimiterStore.check_rate(key, 1, 60_000) end) == 1
       end
     end
+  end
+
+  # Backdates a stored window so it is expired without waiting on wall-clock time.
+  defp expire_window(table, key, window_ms) do
+    started_at = System.monotonic_time(:millisecond) - window_ms
+    [{^key, _started_at, count}] = :ets.lookup(table, key)
+    :ets.insert(table, {key, started_at, count})
+    started_at
   end
 
   defp concurrent_accepts(check, callers \\ 16) do
@@ -160,7 +168,11 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
       assert :ok = RateLimiterStore.check_bounded_rate({:origin, 1}, 10, window_ms, 1)
       assert :limited = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, window_ms, 1)
 
-      Process.sleep(window_ms + 10)
+      expired_at = expire_window(:nixstasis_preauth_rate_limiter, {:origin, 1}, window_ms)
+
+      :sys.replace_state(RateLimiterStore, fn state ->
+        %{state | next_bounded_prune_at: expired_at + window_ms}
+      end)
 
       assert :ok = RateLimiterStore.check_bounded_rate({:origin, 2}, 10, window_ms, 1)
       assert RateLimiterStore.bounded_size() == 1
@@ -169,7 +181,7 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
     test "reuses an expired key without consuming additional cardinality" do
       key = {:origin, :expiry}
       assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
-      Process.sleep(20)
+      expire_window(:nixstasis_preauth_rate_limiter, key, 10)
       assert :ok = RateLimiterStore.check_bounded_rate(key, 1, 10, 1)
       assert RateLimiterStore.bounded_size() == 1
     end
