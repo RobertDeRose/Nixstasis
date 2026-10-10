@@ -3,16 +3,16 @@ defmodule NixstasisWeb.Plugs.E2EAuthorization do
 
   import Plug.Conn
 
+  alias NixstasisWeb.DeviceAuthentication
+
   @runner_header "x-e2e-runner-id"
-  @bearer_prefix "Bearer "
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
     with [runner_id] <- get_req_header(conn, @runner_header),
          true <- valid_runner_id?(runner_id),
-         [authorization] <- get_req_header(conn, "authorization"),
-         {:ok, provided_token} <- bearer_token(authorization),
+         {:ok, provided_token} <- bearer_token(conn),
          {:ok, expected_token} <- configured_token(runner_id),
          true <- secure_match?(expected_token, provided_token) do
       assign(conn, :e2e_runner_id, runner_id)
@@ -28,12 +28,13 @@ defmodule NixstasisWeb.Plugs.E2EAuthorization do
     end
   end
 
-  defp bearer_token(@bearer_prefix <> token) do
-    token = String.trim(token)
-    if byte_size(token) >= 32, do: {:ok, token}, else: :error
+  # Reuse the device parser so the scheme is case-insensitive per RFC 9110.
+  defp bearer_token(conn) do
+    case DeviceAuthentication.bearer_token(conn) do
+      {:ok, token} when byte_size(token) >= 32 -> {:ok, token}
+      _ -> :error
+    end
   end
-
-  defp bearer_token(_), do: :error
 
   defp secure_match?(expected, provided) do
     expected_digest = :crypto.hash(:sha256, expected)

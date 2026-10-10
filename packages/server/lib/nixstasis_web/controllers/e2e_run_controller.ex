@@ -100,12 +100,14 @@ defmodule NixstasisWeb.E2ERunController do
     end
   end
 
-  defp list_limit(params) do
-    case Integer.parse(to_string(Map.get(params, "limit", "100"))) do
+  defp list_limit(%{"limit" => limit}) when is_binary(limit) do
+    case Integer.parse(limit) do
       {limit, ""} when limit > 0 -> min(limit, @max_list_limit)
       _ -> @max_list_limit
     end
   end
+
+  defp list_limit(_params), do: @max_list_limit
 
   defp runner_id(conn), do: conn.assigns.e2e_runner_id
   defp error_payload(code, message), do: %{error: %{code: code, message: message}}

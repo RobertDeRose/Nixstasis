@@ -89,6 +89,16 @@ defmodule NixstasisWeb.E2ERunControllerTest do
     assert %{"error" => %{"code" => "unauthorized"}} = json_response(conn, 401)
   end
 
+  test "Given a lowercase bearer scheme, when E2E is enabled, then the runner is authenticated" do
+    conn =
+      build_conn()
+      |> put_req_header("x-e2e-runner-id", @runner_id)
+      |> put_req_header("authorization", "bearer " <> @runner_token)
+      |> get(~p"/e2e/runs")
+
+    assert %{"data" => _runs} = json_response(conn, 200)
+  end
+
   test "Given a run owned by another runner, when reading or cancelling it, then it is hidden" do
     {:ok, run} =
       E2E.create_run(%{
@@ -126,6 +136,12 @@ defmodule NixstasisWeb.E2ERunControllerTest do
 
     assert %{"data" => data} = json_response(conn, 200)
     assert Enum.any?(data, fn item -> item["id"] == run.id end)
+  end
+
+  test "Given a nested limit param, when GET /e2e/runs, then the default limit is used", %{conn: conn} do
+    conn = get(conn, "/e2e/runs?limit[x]=1")
+
+    assert %{"data" => _runs} = json_response(conn, 200)
   end
 
   test "Given configured suites, when GET /e2e/suites, then suite catalog is returned", %{conn: conn} do
