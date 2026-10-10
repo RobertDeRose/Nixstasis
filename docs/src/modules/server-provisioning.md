@@ -99,7 +99,8 @@ linear backoff. A `202` is never submitted again. An ambiguous upload transport
 error, 5xx, or oversized `202`/5xx response becomes `indeterminate`; the server
 does not risk creating a duplicate AtomixOS job. An oversized definitive 4xx
 response fails without decoding its body. Polling is read-only and bounded by
-the action deadline; a polling `404` is a failure, not a reason to upload again.
+the action deadline; a polling `404`, including an oversized one, is a failure, not a
+reason to upload again.
 
 Delivery records are keyed by device, artifact SHA-256, and bootstrap-attempt
 identity. Re-entering an active attempt polls its known job. A terminal result

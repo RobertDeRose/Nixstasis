@@ -479,6 +479,14 @@ defmodule Nixstasis.Provisioning do
       {:error, {:http, 404, message}} ->
         finish_failed(state, delivery, actor_id, "AtomixOS job was not found: #{message}")
 
+      {:error, {:response_too_large, 404, max_bytes}} ->
+        finish_failed(
+          state,
+          delivery,
+          actor_id,
+          "AtomixOS job was not found: response exceeded #{max_bytes}-byte receive limit"
+        )
+
       {:error, reason} ->
         poll_or_mark_indeterminate(delivery, actor_id, get_job_fun, opts, state, deadline, reason)
     end
