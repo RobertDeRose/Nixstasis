@@ -49,14 +49,19 @@ archive=caddy-$(date +%Y%m%d%H%M%S).tar.gz
 mkdir -p "$backup_dir"
 
 docker compose --env-file .env stop caddy
+backup_status=0
 docker compose --env-file .env run --rm --no-deps \
   -e CADDY_BACKUP_ARCHIVE="$archive" \
   -v "$backup_dir:/backup" \
   --entrypoint /bin/sh caddy \
   -c 'tar -C / -czf "/backup/$CADDY_BACKUP_ARCHIVE" data config && \
-      chmod 0600 "/backup/$CADDY_BACKUP_ARCHIVE"'
+      chmod 0600 "/backup/$CADDY_BACKUP_ARCHIVE"' || backup_status=$?
 docker compose --env-file .env start caddy
+test "$backup_status" -eq 0
 ```
+
+Caddy is restarted even when the archive step fails; the final `test` then
+returns the archive failure so scripted runs do not report success.
 
 The archive contains the contents mounted at `/data` and `/config`, including
 TLS and plugin-owned state. Treat it as sensitive operational state.
