@@ -27,14 +27,16 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
     route = preauth_route(conn)
     origin = client_origin(conn)
 
-    with :ok <- RateLimiterStore.check_rate({:preauth, :global}, global_limit, window_ms),
-         :ok <-
+    # Check the origin quota first so requests already rejected for one origin
+    # cannot consume the shared global flood ceiling for every other client.
+    with :ok <-
            RateLimiterStore.check_bounded_rate(
              {:preauth, :origin, route, origin},
              origin_limit,
              window_ms,
              max_keys
-           ) do
+           ),
+         :ok <- RateLimiterStore.check_rate({:preauth, :global}, global_limit, window_ms) do
       conn
     else
       :limited -> reject(conn)

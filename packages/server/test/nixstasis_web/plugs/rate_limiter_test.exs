@@ -131,6 +131,19 @@ defmodule NixstasisWeb.Plugs.RateLimiterTest do
              |> json_response(429)
   end
 
+  test "requests rejected by the origin quota do not consume the global ceiling" do
+    configure(preauth_limit: 1, preauth_global_limit: 3)
+    path = "/api/v1/devices/#{Ecto.UUID.generate()}/heartbeat"
+
+    refute preauth_request(path, {198, 51, 100, 1}).halted
+
+    for _ <- 1..5 do
+      assert preauth_request(path, {198, 51, 100, 1}).status == 429
+    end
+
+    refute preauth_request(path, {198, 51, 100, 2}).halted
+  end
+
   defp configure(values) do
     Application.put_env(:nixstasis, :rate_limit, Keyword.put_new(values, :window_ms, 60_000))
   end

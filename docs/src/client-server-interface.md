@@ -81,6 +81,8 @@ Attacker-supplied device IDs are never used as pre-authentication keys.
 | Authenticated heartbeat per device        | 30 requests     | 60 seconds |
 | Other authenticated device runtime action | 120 requests    | 60 seconds |
 
+The origin + route quota is checked before the global ceiling, so requests already
+rejected for one origin do not consume the shared flood ceiling of other clients.
 The pre-authentication origin table is capped at 4,096 active keys; expired entries
 are reclaimed before rejecting a new origin at capacity, and the reclaim scan is
 skipped until the oldest active entry can have expired. Native IPv6 origins share
