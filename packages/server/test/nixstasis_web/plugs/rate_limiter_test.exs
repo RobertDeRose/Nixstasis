@@ -144,6 +144,22 @@ defmodule NixstasisWeb.Plugs.RateLimiterTest do
     refute preauth_request(path, {198, 51, 100, 2}).halted
   end
 
+  test "JSON:API routes receive the JSON:API errors envelope for origin and global limits" do
+    configure(preauth_limit: 1, preauth_global_limit: 2)
+    path = "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/heartbeat"
+
+    refute preauth_request(path, {198, 51, 100, 1}).halted
+    origin_limited = preauth_request(path, {198, 51, 100, 1})
+    refute preauth_request(path, {198, 51, 100, 2}).halted
+    global_limited = preauth_request(path, {198, 51, 100, 3})
+
+    for conn <- [origin_limited, global_limited] do
+      assert conn.status == 429
+      assert ["application/vnd.api+json" <> _] = Plug.Conn.get_resp_header(conn, "content-type")
+      assert %{"errors" => [%{"code" => "rate_limited"}]} = Jason.decode!(conn.resp_body)
+    end
+  end
+
   defp configure(values) do
     Application.put_env(:nixstasis, :rate_limit, Keyword.put_new(values, :window_ms, 60_000))
   end

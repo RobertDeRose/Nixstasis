@@ -100,7 +100,14 @@ When the limit is exceeded the compatibility API responds with HTTP `429` and bo
 {"error": {"code": "rate_limited", "message": "Rate limit exceeded"}}
 ```
 
-Generated JSON:API runtime routes use the equivalent JSON:API `errors` envelope.
+Generated JSON:API routes under `/api/json` use the equivalent JSON:API `errors`
+envelope with content type `application/vnd.api+json` for every limit, including
+pre-authentication origin and global rejections:
+
+```json
+{"errors": [{"code": "rate_limited", "detail": "Rate limit exceeded"}]}
+```
+
 Limits are configurable via application config (`:nixstasis, :rate_limit`) with
 `:preauth_limit`, `:preauth_global_limit`, `:preauth_max_keys`, `:device_limit`,
 `:heartbeat_limit`, and `:window_ms`. The legacy `:limit` value remains a fallback

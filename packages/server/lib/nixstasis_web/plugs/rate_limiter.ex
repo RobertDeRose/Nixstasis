@@ -55,11 +55,19 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
   end
 
   @doc false
+  def reject(%{path_info: ["api", "json" | _]} = conn) do
+    body = Jason.encode!(%{errors: [%{code: "rate_limited", detail: "Rate limit exceeded"}]})
+    send_rejection(conn, "application/vnd.api+json", body)
+  end
+
   def reject(conn) do
     body = Jason.encode!(%{error: %{code: "rate_limited", message: "Rate limit exceeded"}})
+    send_rejection(conn, "application/json", body)
+  end
 
+  defp send_rejection(conn, content_type, body) do
     conn
-    |> put_resp_content_type("application/json")
+    |> put_resp_content_type(content_type)
     |> send_resp(429, body)
     |> halt()
   end
