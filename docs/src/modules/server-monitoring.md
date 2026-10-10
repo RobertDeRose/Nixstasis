@@ -57,8 +57,9 @@
 - `Monitoring.heartbeat/2` validates normalized telemetry before any heartbeat side
   effect, then updates device `last_seen_at`, persists telemetry, evaluates rules,
   and returns queued commands to the client. A concurrent SSH host-key enrollment
-  or operator trust change is deferred to the next heartbeat without overwriting
-  the competing trust state or interrupting telemetry and command processing.
+  or operator trust change, or a host-key persistence failure, is logged and
+  deferred to the next heartbeat without overwriting the competing trust state or
+  interrupting telemetry and command processing.
 - Persisted telemetry is capped at 65,536 encoded bytes, nesting depth 8, 512
   total keys, 128 keys per object, 128 bytes per key, 256 items per array, and
   16,384 bytes per string. The same limits are enforced by the Ash telemetry

@@ -398,9 +398,9 @@ explicitly trusts the replacement; the previous fingerprint, actor, and trust ti
 are retained with the device. Acceptance is bound to the fingerprint the operator
 reviewed. Concurrent changes to SSH trust state reject stale enrollment or
 acceptance attempts; operators must review the current fingerprint again. A
-heartbeat defers a stale SSH enrollment/change to its next poll while continuing
-telemetry persistence and command delivery; it never overwrites the competing
-trust decision.
+heartbeat defers a stale SSH enrollment/change, or one that fails to persist, to its
+next poll while continuing telemetry persistence and command delivery; it never
+overwrites the competing trust decision.
 
 `command_inventory` is optional, top-level, and untrusted. The client only
 reports package names and command names from the latest server

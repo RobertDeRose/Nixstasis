@@ -72,7 +72,17 @@ defmodule Nixstasis.Monitoring do
         Logger.info("SSH host key state changed concurrently; deferring to next heartbeat", device_id: device.id)
         {:ok, device}
 
-      result ->
+      {:error, reason} ->
+        # Host-key enrollment is best effort; it must not drop telemetry for a
+        # heartbeat whose last-seen update has already been committed.
+        Logger.warning("Unable to record SSH host key; deferring to next heartbeat",
+          device_id: device.id,
+          reason: inspect(reason)
+        )
+
+        {:ok, device}
+
+      {:ok, %Device{}} = result ->
         result
     end
   end

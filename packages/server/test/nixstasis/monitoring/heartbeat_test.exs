@@ -4,6 +4,7 @@ defmodule Nixstasis.Monitoring.HeartbeatTest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring
+  alias Nixstasis.Repo
 
   @host_key_a "ssh-ed25519 " <> Base.encode64(<<11::32, "ssh-ed25519", 32::32, 0::256>>)
   @host_key_b "ssh-ed25519 " <> Base.encode64(<<11::32, "ssh-ed25519", 32::32, 1::256>>)
@@ -40,6 +41,38 @@ defmodule Nixstasis.Monitoring.HeartbeatTest do
     current = Devices.get_device!(device.id)
     assert current.ssh_host_key == @host_key_b
     assert current.ssh_host_key_trusted_by == "operator:test"
+    assert is_nil(current.ssh_host_key_pending)
+  end
+
+  test "a host-key persistence failure does not interrupt a heartbeat" do
+    {:ok, device} = Devices.create_device(%{mac_address: "10:00:00:00:00:05", product_name: "P1"})
+    {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+    {:ok, command} = Devices.queue_command(enrolled, %{"cmd" => "update"})
+
+    # Make recording the changed key fail in the database without touching the
+    # last-seen update; the sandbox transaction rolls the constraint back.
+    Repo.query!("""
+    ALTER TABLE devices ADD CONSTRAINT heartbeat_test_no_pending_host_key
+    CHECK (ssh_host_key_pending IS NULL) NOT VALID
+    """)
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert {:ok, updated, [delivered]} =
+                 Monitoring.heartbeat(enrolled, %{
+                   "ssh_host_key" => @host_key_b,
+                   "telemetry" => %{"temperature" => 22}
+                 })
+
+        assert delivered.id == command.id
+        refute is_nil(updated.last_seen_at)
+      end)
+
+    assert log =~ "Unable to record SSH host key"
+    assert [%{payload: %{"temperature" => 22}}] = Domain.list_telemetry_events!()
+
+    current = Devices.get_device!(device.id)
+    assert current.ssh_host_key == @host_key_a
     assert is_nil(current.ssh_host_key_pending)
   end
 
