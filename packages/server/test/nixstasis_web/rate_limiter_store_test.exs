@@ -48,6 +48,38 @@ defmodule NixstasisWeb.RateLimiterStoreTest do
       assert :limited = RateLimiterStore.check_rate(key_a, 2, 60_000)
       assert :ok = RateLimiterStore.check_rate(key_b, 2, 60_000)
     end
+
+    test "concurrent window starts count every accepted request" do
+      for round <- 1..50 do
+        key = {:test, :concurrent_start, round}
+        assert concurrent_accepts(fn -> RateLimiterStore.check_rate(key, 1, 60_000) end) == 1
+      end
+    end
+
+    test "concurrent resets of an expired window count every accepted request" do
+      for round <- 1..50 do
+        key = {:test, :concurrent_reset, round}
+        :ets.insert(:nixstasis_rate_limiter, {key, System.monotonic_time(:millisecond) - 120_000, 99})
+        assert concurrent_accepts(fn -> RateLimiterStore.check_rate(key, 1, 60_000) end) == 1
+      end
+    end
+  end
+
+  defp concurrent_accepts(check, callers \\ 16) do
+    tasks =
+      for _ <- 1..callers do
+        Task.async(fn ->
+          receive do
+            :go -> check.()
+          end
+        end)
+      end
+
+    for task <- tasks, do: send(task.pid, :go)
+
+    tasks
+    |> Task.await_many(5_000)
+    |> Enum.count(&(&1 == :ok))
   end
 
   test "concurrent key deletion does not crash rate checks" do

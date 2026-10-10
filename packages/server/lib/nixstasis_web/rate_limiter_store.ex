@@ -60,8 +60,7 @@ defmodule NixstasisWeb.RateLimiterStore do
           end
 
           if :ets.member(@bounded_table, key) or :ets.info(@bounded_table, :size) < max_keys do
-            :ets.insert(@bounded_table, {key, now, 1})
-            :ok
+            if count_request(@bounded_table, key, now, window_ms) > limit, do: :limited, else: :ok
           else
             :limited
           end
@@ -84,13 +83,38 @@ defmodule NixstasisWeb.RateLimiterStore do
   defp check_table_rate(table, key, limit, window_ms) do
     now = System.monotonic_time(:millisecond)
 
+    if count_request(table, key, now, window_ms) > limit, do: :limited, else: :ok
+  end
+
+  # Counts one request, atomically starting a new window when the key is
+  # missing or expired so concurrent resets cannot discard accepted requests.
+  defp count_request(table, key, now, window_ms) do
     case active_counter(table, key, now, window_ms) do
       {:active, count} ->
-        if count > limit, do: :limited, else: :ok
+        count
 
       :missing_or_expired ->
-        :ets.insert(table, {key, now, 1})
-        :ok
+        case start_window(table, key, now, window_ms) do
+          :started -> 1
+          :retry -> count_request(table, key, now, window_ms)
+        end
+    end
+  end
+
+  defp start_window(table, key, now, window_ms) do
+    if :ets.insert_new(table, {key, now, 1}) do
+      :started
+    else
+      case :ets.lookup(table, key) do
+        [{^key, window_started_at, _count}] when now - window_started_at >= window_ms ->
+          # Compare-and-swap: replace only the exact expired window observed.
+          match_spec = [{{key, window_started_at, :_}, [], [{{{:const, key}, now, 1}}]}]
+
+          if :ets.select_replace(table, match_spec) == 1, do: :started, else: :retry
+
+        _ ->
+          :retry
+      end
     end
   end
 
