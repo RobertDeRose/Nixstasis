@@ -109,16 +109,15 @@ Other generated resource routes:
 
 The compatibility `GET /api/v1/devices` requires the same verified operator
 and device-view capability as the generated list. It returns `401` when operator
-authentication is missing or invalid, `403` for missing capability or malformed
-scope, and no rows for explicit empty scope. The configured local-development
-fallback remains supported.
+authentication is missing or invalid and `403` for missing capability. The
+configured local-development fallback remains supported.
 
 For the device-backed resource routes (`devices`, `pending_commands`, `alerts`,
-and `telemetry_events`), `JsonApiPermissions` validates the forwarded device
-scope and installs it as the Ash actor. Resource read policies apply that scope
-to collection and member queries. Explicit empty scope is deny-all and malformed
-device IDs are rejected; only an omitted scope claim represents fleet-wide read
-access for an otherwise authorized operator.
+and `telemetry_events`), `JsonApiPermissions` installs the operator's Phoenix
+permissions as the Ash actor. Resource read policies apply any device scope in
+those permissions to collection and member queries. Forwarded device-scope
+headers are ignored, so role-authorized operators currently have fleet-wide
+read access; Phoenix-owned device grants are tracked in Beads `nixstasis-xhf`.
 
 The six `script_*` persistence resources remain Ash-owned for the Stary
 workbench, but they are intentionally not generic JSON:API routes. The current
@@ -235,8 +234,8 @@ remains a Caddy-only ingress workflow boundary.
   actions, including JSON:API POST/PATCH; invalid values return validation errors
   without changing saved settings. The Alerts LiveView keeps rule controls
   read-only for viewers and rechecks manage permission on every mutation event.
-  Scoped device claims such as `X-Token-Device-Ids` restrict JSON:API device
-  mutations to those IDs.
+  Forwarded device-scope headers such as `X-Token-Device-Ids` are ignored; device
+  authorization is Phoenix-owned.
 - Device detail uses the `/devices/:id` LiveView route and may render as a modal
   overlay over the Devices list; the old REST modal API is not part of the
   supported surface.

@@ -49,7 +49,6 @@
       crypto key verify {$JWT_KEY}
       validate bearer header
       inject headers with claims
-      inject header "X-Token-Device-Ids" from device_ids
     }
   }
 }

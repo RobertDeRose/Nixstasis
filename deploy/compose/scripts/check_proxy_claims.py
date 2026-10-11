@@ -85,9 +85,8 @@ class EchoHandler(BaseHTTPRequestHandler):
 def signed_token(scoped):
     """Create a short-lived HS512 viewer JWT using the isolated test signing key.
 
-    When scoped, include a fixed device_ids claim so the deployed injection is
-    exercised; otherwise omit it to model an unrestricted operator. This is not
-    a production key.
+    When scoped, include a fixed device_ids claim to prove the deployment never
+    forwards it as device scope; otherwise omit it. This is not a production key.
     """
     def encode(value):
         """Return the unpadded base64url bytes required by JWT segments."""
@@ -165,7 +164,7 @@ class ProxyClaimsTest(unittest.TestCase):
     caddy = "caddy"
 
     def check_config(self, name):
-        """Check one Caddyfile with scoped and unrestricted operator tokens.
+        """Check one Caddyfile with and without a device_ids token claim.
 
         Start an isolated echo backend and stop its serving thread even if a
         proxy assertion fails. Each scope mode is reported as a separate subtest.
@@ -256,9 +255,9 @@ class ProxyClaimsTest(unittest.TestCase):
         """Assert that runtime routes strip claims and operator routes rebuild them.
 
         Runtime paths and bodies must survive proxying with only the proxy-owned
-        credential. Operator routes must forward the signed viewer identity, add
-        device scope only when the token carries it, and reject requests without
-        a token.
+        credential. Operator routes must forward the signed viewer identity, never
+        forward device scope even when the token carries it, and reject requests
+        without a token.
         """
         for method, path in [
             ("POST", "/api/json/device_runtime/devices/register"),
@@ -290,8 +289,6 @@ class ProxyClaimsTest(unittest.TestCase):
                 "x-token-user-email": "viewer@example.test",
                 "x-token-user-roles": "nixstasis/viewer",
             }
-            if scoped:
-                expected["x-token-device-ids"] = DEVICE_ID
             self.assertEqual(claims, expected)
             self.assertEqual(json.loads(body)["headers"]["x-nixstasis-proxy-token"], PROXY_TOKEN)
             status, _body = self.request(port, "GET", path)
@@ -305,7 +302,7 @@ class ProxyClaimsTest(unittest.TestCase):
         headers = json.loads(body)["headers"]
         self.assertEqual(headers["connection"].lower(), "upgrade")
         self.assertEqual(headers["upgrade"], "websocket")
-        self.assertEqual(headers.get("x-token-device-ids"), DEVICE_ID if scoped else None)
+        self.assertNotIn("x-token-device-ids", headers)
         self.assertEqual(headers["x-token-user-roles"], "nixstasis/viewer")
         self.assertEqual(headers["x-nixstasis-proxy-token"], PROXY_TOKEN)
 

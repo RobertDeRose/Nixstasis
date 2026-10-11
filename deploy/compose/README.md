@@ -148,18 +148,15 @@ targeting the compose `postgres` host.
 - Those hosts reject requests with `400` before authorization or proxying if any
   `Connection` header names an `X-Token-*` header or `X-Nixstasis-Proxy-Token`.
   Matching is case-insensitive across comma-separated and repeated fields, so
-  hop-by-hop cleanup cannot remove verified device scope. Ordinary WebSocket
+  hop-by-hop cleanup cannot remove verified claims. Ordinary WebSocket
   upgrade requests remain supported.
 - Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
   `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
   unless that internal proxy credential matches, so direct loopback or Compose
   peers cannot manufacture an AuthCrunch identity from claim headers alone.
-- Device scope has one supported forwarded form: AuthCrunch injects
-  `X-Token-Device-Ids` from the authenticated `device_ids` token claim. The
-  request-entry `X-Token-*` cleanup also removes the legacy `X-Token-Device-Id`
-  and `X-Token-Allowed-Device-Ids` aliases, and Phoenix ignores those aliases.
-  AuthCrunch clears the canonical injected header before authorization, so a
-  client-supplied scope cannot survive as a trusted claim.
+- Caddy forwards identity and `nixstasis/*` roles only, never device scope.
+  Phoenix ignores `X-Token-Device-Ids` and its legacy aliases; device
+  authorization is Phoenix-owned.
 - `/e2e/*` bypasses browser OIDC at Caddy only because Phoenix requires the dedicated E2E runner credential. `X-E2E-Runner-ID` plus `Authorization: Bearer <token>` identify the runner, and each run is owner-scoped to that principal. Browser/AuthCrunch roles do not grant E2E access.
 - Caddy also overwrites `X-Nixstasis-Client-IP` with the peer address it observes.
   Phoenix uses that value for pre-authentication rate limiting only when the same

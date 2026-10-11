@@ -25,52 +25,27 @@ defmodule NixstasisWeb.DeviceListControllerTest do
     assert response(conn, 401) == ""
   end
 
-  test "limits the compatibility list to the normalized operator scope", %{conn: conn, allowed: allowed} do
-    body =
-      conn
-      |> viewer()
-      |> put_req_header("x-token-device-ids", String.upcase(allowed.id))
-      |> get("/api/v1/devices")
-      |> json_response(200)
-
-    assert Enum.map(body["data"], & &1["id"]) == [allowed.id]
-  end
-
-  test "filters cannot broaden the authorized scope", %{conn: conn, allowed: allowed} do
-    body =
-      conn
-      |> viewer()
-      |> put_req_header("x-token-device-ids", allowed.id)
-      |> get("/api/v1/devices?product=blocked")
-      |> json_response(200)
-
-    assert body["data"] == []
-    assert body["meta"]["active_filters"]["product"] == "blocked"
-  end
-
-  test "empty scope denies all rows and malformed scope is forbidden", %{conn: conn, allowed: allowed} do
-    body =
-      conn
-      |> viewer()
-      |> put_req_header("x-token-device-ids", "")
-      |> get("/api/v1/devices")
-      |> json_response(200)
-
-    assert body["data"] == []
-
-    conn =
-      conn
-      |> recycle()
-      |> viewer()
-      |> put_req_header("x-token-device-ids", "#{allowed.id},not-a-uuid")
-      |> get("/api/v1/devices")
-
-    assert response(conn, 403) == ""
-  end
-
   test "unscoped viewers retain fleet access", %{conn: conn, allowed: allowed, blocked: blocked} do
     body = conn |> viewer() |> get("/api/v1/devices") |> json_response(200)
     assert MapSet.new(Enum.map(body["data"], & &1["id"])) == MapSet.new([allowed.id, blocked.id])
+  end
+
+  test "forwarded device scope headers neither restrict nor reject the list", %{
+    conn: conn,
+    allowed: allowed,
+    blocked: blocked
+  } do
+    for scope <- [allowed.id, "", "not-a-uuid"] do
+      body =
+        conn
+        |> recycle()
+        |> viewer()
+        |> put_req_header("x-token-device-ids", scope)
+        |> get("/api/v1/devices")
+        |> json_response(200)
+
+      assert MapSet.new(Enum.map(body["data"], & &1["id"])) == MapSet.new([allowed.id, blocked.id])
+    end
   end
 
   test "explicit local development fallback still works", %{conn: conn} do

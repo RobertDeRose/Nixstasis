@@ -9,7 +9,7 @@ paths:
       security:
         - operatorBearer: []
       summary: List devices with optional filters
-      description: Requires verified operator claims supplied by Caddy/AuthCrunch with device-view permission. Device scope is applied before filtering; an omitted scope grants fleet access, an empty scope returns no rows, and malformed IDs are forbidden. Explicit local-development fallback remains available. The additive generated list action is the canonical Ash contract; device list filters and compatibility response shapes, including ipv4_address, are preserved.
+      description: Requires verified operator claims supplied by Caddy/AuthCrunch with device-view permission. Any Phoenix-owned device scope is applied before filtering; forwarded device-scope headers are ignored. Explicit local-development fallback remains available. The additive generated list action is the canonical Ash contract; device list filters and compatibility response shapes, including ipv4_address, are preserved.
       parameters:
         - in: query
           name: product
@@ -57,7 +57,7 @@ paths:
         "401":
           description: Verified operator authentication is missing or invalid; empty response body.
         "403":
-          description: Device-view permission is missing or the device scope is malformed; empty response body.
+          description: Device-view permission is missing; empty response body.
         "429":
           description: Device-list rate limit exceeded
   /api/v1/devices/register:

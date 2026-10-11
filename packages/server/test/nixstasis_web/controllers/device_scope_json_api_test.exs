@@ -69,109 +69,6 @@ defmodule NixstasisWeb.DeviceScopeJSONAPITest do
     }
   end
 
-  test "scoped viewers only read authorized device-backed collections", context do
-    resources = [
-      {"/api/json/devices", context.device_a.id, context.device_b.id},
-      {"/api/json/pending_commands", context.command_a.id, context.command_b.id},
-      {"/api/json/telemetry_events", context.telemetry_a.id, context.telemetry_b.id},
-      {"/api/json/alerts", context.alert_a.id, context.alert_b.id}
-    ]
-
-    for {path, allowed_id, blocked_id} <- resources do
-      body =
-        context.conn
-        |> recycle()
-        |> scoped_get(path, [context.device_a.id])
-        |> json_response(200)
-
-      ids = body["data"] |> Enum.map(& &1["id"]) |> MapSet.new()
-      assert ids == MapSet.new([allowed_id])
-      refute MapSet.member?(ids, blocked_id)
-    end
-  end
-
-  test "scoped viewers cannot read out-of-scope device-backed members", context do
-    resources = [
-      "/api/json/devices/#{context.device_b.id}",
-      "/api/json/pending_commands/#{context.command_b.id}",
-      "/api/json/telemetry_events/#{context.telemetry_b.id}",
-      "/api/json/alerts/#{context.alert_b.id}"
-    ]
-
-    for path <- resources do
-      conn =
-        context.conn
-        |> recycle()
-        |> scoped_get(path, [context.device_a.id])
-
-      assert conn.status in [403, 404]
-    end
-  end
-
-  test "different scoped viewers cannot read each other's rows", context do
-    body_a =
-      context.conn
-      |> scoped_get("/api/json/devices", [context.device_a.id])
-      |> json_response(200)
-
-    body_b =
-      context.conn
-      |> recycle()
-      |> scoped_get("/api/json/devices", [context.device_b.id])
-      |> json_response(200)
-
-    assert Enum.map(body_a["data"], & &1["id"]) == [context.device_a.id]
-    assert Enum.map(body_b["data"], & &1["id"]) == [context.device_b.id]
-  end
-
-  test "an explicit empty device scope grants no device-backed rows", %{conn: conn} do
-    for path <- [
-          "/api/json/devices",
-          "/api/json/pending_commands",
-          "/api/json/telemetry_events",
-          "/api/json/alerts"
-        ] do
-      body =
-        conn
-        |> recycle()
-        |> scoped_get(path, [])
-        |> json_response(200)
-
-      assert body["data"] == []
-    end
-  end
-
-  test "generated runtime list applies the trusted actor to its nested device query", context do
-    path = "/api/json/device_runtime/devices"
-
-    body = scoped_get(context.conn, path, [context.device_a.id]) |> json_response(200)
-    assert Enum.map(body["data"], & &1["id"]) == [context.device_a.id]
-
-    body = context.conn |> recycle() |> scoped_get(path, []) |> json_response(200)
-    assert body["data"] == []
-
-    body =
-      context.conn
-      |> recycle()
-      |> scoped_get(path <> "?product=scope-b", [context.device_a.id])
-      |> json_response(200)
-
-    assert body["data"] == []
-    assert body["meta"]["active_filters"]["product"] == "scope-b"
-  end
-
-  test "malformed device scope is rejected before querying device-backed resources", %{conn: conn} do
-    conn =
-      conn
-      |> put_req_header("accept", "application/vnd.api+json")
-      |> put_req_header("x-token-user-roles", "nixstasis/viewer")
-      |> put_req_header("x-token-device-ids", "not-a-uuid")
-      |> put_trusted_proxy_auth()
-      |> get("/api/json/devices")
-
-    assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)
-  end
-
   test "unscoped viewers retain fleet-wide read access", context do
     body =
       context.conn
@@ -185,8 +82,21 @@ defmodule NixstasisWeb.DeviceScopeJSONAPITest do
     assert ids == MapSet.new([context.device_a.id, context.device_b.id])
   end
 
-  # Issue a JSON:API GET as a proxy-authenticated viewer with exactly these
-  # device IDs. An empty list still sends a scope header to test deny-all access.
+  test "forwarded device scope headers neither restrict nor reject reads", context do
+    for device_ids <- [[context.device_a.id], [], ["not-a-uuid"]] do
+      body =
+        context.conn
+        |> recycle()
+        |> scoped_get("/api/json/devices", device_ids)
+        |> json_response(200)
+
+      ids = body["data"] |> Enum.map(& &1["id"]) |> MapSet.new()
+      assert ids == MapSet.new([context.device_a.id, context.device_b.id])
+    end
+  end
+
+  # Issue a JSON:API GET as a proxy-authenticated viewer that also forwards a
+  # device scope header, which Phoenix must ignore.
   defp scoped_get(conn, path, device_ids) do
     conn
     |> put_req_header("accept", "application/vnd.api+json")

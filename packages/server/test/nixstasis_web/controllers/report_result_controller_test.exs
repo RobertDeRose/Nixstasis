@@ -65,20 +65,6 @@ defmodule NixstasisWeb.ReportResultControllerTest do
     assert response(conn, 401) == ""
   end
 
-  test "limits telemetry rows to the operator device scope", %{
-    conn: conn,
-    allowed_device: allowed_device,
-    report: report
-  } do
-    conn =
-      conn
-      |> trusted_viewer()
-      |> put_req_header("x-token-device-ids", allowed_device.id)
-      |> get(~p"/api/v1/reports/#{report.id}/results")
-
-    assert %{"data" => %{"rows" => [%{"marker" => "allowed"}]}} = json_response(conn, 200)
-  end
-
   test "retains fleet-wide report access for an explicitly unscoped operator", %{conn: conn, report: report} do
     conn =
       conn

@@ -72,10 +72,10 @@
 - The `/alerts` active-alert LiveView reads alerts with the verified device-data
   actor from the browser session. Ash applies the same authorized-device scope as
   other device-backed reads, so scoped viewers cannot see alert messages, device
-  identifiers, or MAC addresses for devices outside their grant. An absent
-  optional device scope is unrestricted, so an authorized viewer sees all active
-  alerts; an explicitly empty or malformed scope, or a session without
-  device-view permission, fails closed to an empty active-alert list. Alert
+  identifiers, or MAC addresses for devices outside their grant. Device scope is
+  Phoenix-owned and never read from forwarded claims; without one, an authorized
+  viewer sees all active alerts. An empty or malformed scope, or a session
+  without device-view permission, fails closed to an empty active-alert list. Alert
   rules remain global and are governed separately by alert view/manage
   capabilities.
 - Offline checking uses `Settings.get_offline_window/0` and runs periodically through `OfflineChecker`.
