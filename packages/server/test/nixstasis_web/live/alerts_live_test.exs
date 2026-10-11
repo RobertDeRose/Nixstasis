@@ -82,7 +82,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "product_name" => "alert-page-device"
       })
 
-    {:ok, _authorized_alert} =
+    {:ok, authorized_alert} =
       Domain.create_alert(%{
         device_id: authorized_device.id,
         type: :offline,
@@ -90,7 +90,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         message: "authorized scoped alert"
       })
 
-    {:ok, _other_alert} =
+    {:ok, other_alert} =
       Domain.create_alert(%{
         device_id: other_device.id,
         type: :offline,
@@ -109,12 +109,12 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "device_ids" => [authorized_device.id]
       })
 
-    {:ok, _view, html} = live(conn, ~p"/alerts")
+    {:ok, view, _html} = live(conn, ~p"/alerts")
 
-    assert html =~ "authorized scoped alert"
-    assert html =~ authorized_device.mac_address
-    refute html =~ "out-of-scope alert"
-    refute html =~ other_device.mac_address
+    assert has_element?(view, "#alert-#{authorized_alert.id}", "authorized scoped alert")
+    assert has_element?(view, "#alert-#{authorized_alert.id}", authorized_device.mac_address)
+    refute has_element?(view, "#alert-#{other_alert.id}")
+    refute has_element?(view, "#alerts tr", other_device.mac_address)
   end
 
   test "active alerts fail closed when the device scope is invalid", %{conn: conn} do
@@ -124,7 +124,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "product_name" => "alert-page-device"
       })
 
-    {:ok, _alert} =
+    {:ok, alert} =
       Domain.create_alert(%{
         device_id: device.id,
         type: :offline,
@@ -143,10 +143,10 @@ defmodule NixstasisWeb.AlertsLiveTest do
         "device_ids" => ["not-a-uuid"]
       })
 
-    {:ok, _view, html} = live(conn, ~p"/alerts")
+    {:ok, view, _html} = live(conn, ~p"/alerts")
 
-    refute html =~ "must stay hidden"
-    refute html =~ device.mac_address
+    refute has_element?(view, "#alert-#{alert.id}")
+    refute has_element?(view, "#alerts tr", device.mac_address)
   end
 
   test "viewer can read alert rules but cannot create, edit, or delete them", %{conn: conn} do

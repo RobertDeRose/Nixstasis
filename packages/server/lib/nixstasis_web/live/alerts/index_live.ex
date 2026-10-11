@@ -436,7 +436,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       </div>
 
       <div :if={@alerts_tab == "active"}>
-        <.table id="alerts" rows={@alerts}>
+        <.table id="alerts" rows={@alerts} row_id={&"alert-#{&1.id}"}>
           <:col :let={alert} label="Type">
             <span class={["badge", alert.type == :offline && "badge-error"]}>{alert.type}</span>
           </:col>
