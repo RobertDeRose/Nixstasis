@@ -61,6 +61,12 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  @doc """
+  Resolves a request that carries no forwarded claim headers.
+
+  Returns `:local_development` only when the explicit local browser-auth
+  fallback is enabled, and `:error` otherwise.
+  """
   def fallback_context do
     if local_development_fallback?() do
       :local_development
@@ -156,6 +162,9 @@ defmodule NixstasisWeb.OperatorContext do
     Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
   end
 
+  # Merge the capabilities of every recognized role over fail-closed defaults.
+  # No roles, or only unrecognized ones, return :error so unknown roles cannot
+  # grant access.
   defp permissions_for_roles([]), do: :error
 
   defp permissions_for_roles(roles) do
@@ -197,6 +206,8 @@ defmodule NixstasisWeb.OperatorContext do
     Map.merge(current, incoming, fn _key, left, right -> left == true or right == true end)
   end
 
+  # Split a comma- or space-separated claim header into unique, lowercased
+  # values. A missing header yields an empty list.
   defp normalize_claim_values(value) when is_binary(value) do
     value
     |> String.split([",", " "], trim: true)
