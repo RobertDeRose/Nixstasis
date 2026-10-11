@@ -196,11 +196,10 @@ canonical contract for new integrations is:
 
 - `GET /api/json/device_runtime/devices` and compatibility `GET /api/v1/devices`
   require verified operator authentication and device-view permission. Both apply
-  the operator's device scope before list filters, including `ipv4_address` and
-  `connectivity_status`. An explicit empty scope returns no rows; an omitted scope
-  retains fleet access. The compatibility endpoint returns empty-body `401` for
-  missing/invalid authentication and `403` for missing permission or malformed
-  scope. The explicit local-development fallback remains supported.
+  any Phoenix-owned device scope before list filters, including `ipv4_address` and
+  `connectivity_status`; forwarded device-scope headers are ignored. The
+  compatibility endpoint returns empty-body `401` for missing/invalid
+  authentication and `403` for missing permission. The explicit local-development fallback remains supported.
 - `POST /api/json/device_runtime/devices/register` is the public registration
   action; it does not use a device bearer token.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated

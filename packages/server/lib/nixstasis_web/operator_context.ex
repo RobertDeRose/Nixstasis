@@ -35,18 +35,11 @@ defmodule NixstasisWeb.OperatorContext do
 
   @proxy_auth_header "x-nixstasis-proxy-token"
 
-  @device_scope_headers [
-    "x-token-device-id",
-    "x-token-device-ids",
-    "x-token-allowed-device-ids"
-  ]
-
   @token_headers [
     "x-token-subject",
     "x-token-user-email",
     "x-token-user-name",
     "x-token-user-roles"
-    | @device_scope_headers
   ]
 
   @doc """
@@ -68,6 +61,12 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
+  @doc """
+  Resolves a request that carries no forwarded claim headers.
+
+  Returns `:local_development` only when the explicit local browser-auth
+  fallback is enabled, and `:error` otherwise.
+  """
   def fallback_context do
     if local_development_fallback?() do
       :local_development
@@ -76,14 +75,13 @@ defmodule NixstasisWeb.OperatorContext do
     end
   end
 
-  # Convert already-authenticated headers into identity, role capabilities, and
-  # device scope. Unknown roles alone cannot grant access and return :error.
+  # Convert already-authenticated headers into identity and role capabilities.
+  # Device scope is never read from forwarded claims; Phoenix must own it.
+  # Unknown roles alone cannot grant access and return :error.
   defp from_trusted_headers(headers) when is_map(headers) do
     roles = headers |> Map.get("x-token-user-roles") |> normalize_claim_values()
 
-    device_ids = device_scope_from_headers(headers)
-
-    case permissions_for_roles(roles, device_ids) do
+    case permissions_for_roles(roles) do
       {:ok, permissions} ->
         {:ok,
          %{
@@ -164,9 +162,12 @@ defmodule NixstasisWeb.OperatorContext do
     Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
   end
 
-  defp permissions_for_roles([], _device_ids), do: :error
+  # Merge the capabilities of every recognized role over fail-closed defaults.
+  # No roles, or only unrecognized ones, return :error so unknown roles cannot
+  # grant access.
+  defp permissions_for_roles([]), do: :error
 
-  defp permissions_for_roles(roles, device_ids) do
+  defp permissions_for_roles(roles) do
     known_roles = Enum.filter(roles, &Map.has_key?(@role_capabilities, &1))
 
     if known_roles == [] do
@@ -175,7 +176,6 @@ defmodule NixstasisWeb.OperatorContext do
       permissions =
         known_roles
         |> Enum.reduce(fail_closed_permissions(), &merge_role_permissions/2)
-        |> scope_device_permissions(device_ids)
 
       {:ok, permissions}
     end
@@ -206,6 +206,8 @@ defmodule NixstasisWeb.OperatorContext do
     Map.merge(current, incoming, fn _key, left, right -> left == true or right == true end)
   end
 
+  # Split a comma- or space-separated claim header into unique, lowercased
+  # values. A missing header yields an empty list.
   defp normalize_claim_values(value) when is_binary(value) do
     value
     |> String.split([",", " "], trim: true)
@@ -214,23 +216,4 @@ defmodule NixstasisWeb.OperatorContext do
   end
 
   defp normalize_claim_values(_value), do: []
-
-  # Merge the supported device-scope headers. No header means unrestricted scope
-  # (nil); a present but empty header means an explicit empty scope, denying rows.
-  defp device_scope_from_headers(headers) do
-    if Enum.any?(@device_scope_headers, &Map.has_key?(headers, &1)) do
-      @device_scope_headers
-      |> Enum.map(&Map.get(headers, &1))
-      |> Enum.flat_map(&normalize_claim_values/1)
-      |> Enum.uniq()
-    end
-  end
-
-  # Attach explicit device IDs, including an empty list. An absent scope leaves
-  # role permissions unchanged rather than turning unrestricted access into denial.
-  defp scope_device_permissions(permissions, nil), do: permissions
-
-  defp scope_device_permissions(permissions, device_ids) do
-    update_in(permissions, ["device_permissions"], &Map.put(&1, "device_ids", device_ids))
-  end
 end

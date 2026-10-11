@@ -82,11 +82,11 @@ class EchoHandler(BaseHTTPRequestHandler):
         pass
 
 
-def signed_token():
+def signed_token(scoped):
     """Create a short-lived HS512 viewer JWT using the isolated test signing key.
 
-    Includes a fixed device ID so the same token exercises both unrestricted
-    forwarding and optional device-scope injection. This is not a production key.
+    When scoped, include a fixed device_ids claim to prove the deployment never
+    forwards it as device scope; otherwise omit it. This is not a production key.
     """
     def encode(value):
         """Return the unpadded base64url bytes required by JWT segments."""
@@ -98,10 +98,11 @@ def signed_token():
         "name": "Trusted Viewer",
         "email": "viewer@example.test",
         "roles": ["nixstasis/viewer"],
-        "device_ids": [DEVICE_ID],
         "iat": now,
         "exp": now + 300,
     }
+    if scoped:
+        claims["device_ids"] = [DEVICE_ID]
     message = b".".join(encode(json.dumps(value).encode()) for value in [
         {"alg": "HS512", "typ": "JWT"}, claims,
     ])
@@ -109,12 +110,11 @@ def signed_token():
     return (message + b"." + encode(signature)).decode()
 
 
-def local_config(caddy, filename, backend_port, listen_port, scoped):
+def local_config(caddy, filename, backend_port, listen_port):
     """Adapt a deployment Caddyfile into a loopback-only integration-test config.
 
     Preserve its application handlers and authorization policies while replacing
-    listeners and upstreams and removing unused TLS/OIDC services. When scoped,
-    inject the signed token's device_ids claim using the documented option.
+    listeners and upstreams and removing unused TLS/OIDC services.
     Return the JSON-compatible config; failed adaptation or host selection raises.
     """
     adapted = subprocess.run(
@@ -139,12 +139,6 @@ def local_config(caddy, filename, backend_port, listen_port, scoped):
     }}
     policies = config["apps"]["security"]["config"]["authorization_policies"]
     config["apps"]["security"]["config"] = {"authorization_policies": policies}
-    if scoped:
-        # Exercise the documented optional deployment scope injection as well.
-        for policy in policies:
-            policy.setdefault("header_injection_configs", []).append({
-                "header": "X-Token-Device-Ids", "field": "device_ids",
-            })
 
     def redirect_upstreams(value):
         """Recursively point every reverse proxy at the local echo backend.
@@ -170,7 +164,7 @@ class ProxyClaimsTest(unittest.TestCase):
     caddy = "caddy"
 
     def check_config(self, name):
-        """Check one Caddyfile with and without optional device-scope injection.
+        """Check one Caddyfile with and without a device_ids token claim.
 
         Start an isolated echo backend and stop its serving thread even if a
         proxy assertion fails. Each scope mode is reported as a separate subtest.
@@ -197,7 +191,7 @@ class ProxyClaimsTest(unittest.TestCase):
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
         config = local_config(self.caddy, ROOT / "deploy/compose/caddy" / name,
-                              backend.server_port, port, scoped)
+                              backend.server_port, port)
         with tempfile.TemporaryDirectory(prefix="nixstasis-proxy-claims-") as tmp:
             config_path = Path(tmp) / "caddy.json"
             config_path.write_text(json.dumps(config))
@@ -228,11 +222,13 @@ class ProxyClaimsTest(unittest.TestCase):
                         process.kill()
                         process.wait()
 
-    def request(self, port, method, path, authenticated=False, extra_headers=()):
+    def request(self, port, method, path, authenticated=False, extra_headers=(),
+                scoped=False):
         """Send forged claim headers and return the proxy's status and body bytes.
 
         authenticated adds a genuine signed viewer token alongside the forged
-        headers so tests can distinguish trusted claims from client input.
+        headers so tests can distinguish trusted claims from client input;
+        scoped selects whether that token carries a device_ids claim.
         extra_headers accepts ordered name/value pairs, including repeated fields
         needed to test Connection nominations. Use the fixed runtime body and
         always close the local HTTP connection.
@@ -240,7 +236,7 @@ class ProxyClaimsTest(unittest.TestCase):
         headers = dict(FORGED_HEADERS)
         headers["Host"] = "nixstasis.proxy.test"
         if authenticated:
-            headers["Authorization"] = f"Bearer {signed_token()}"
+            headers["Authorization"] = f"Bearer {signed_token(scoped)}"
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         try:
             # Emit separate fields so repeated Connection headers are tested too.
@@ -259,8 +255,9 @@ class ProxyClaimsTest(unittest.TestCase):
         """Assert that runtime routes strip claims and operator routes rebuild them.
 
         Runtime paths and bodies must survive proxying with only the proxy-owned
-        credential. Operator routes must forward the signed viewer identity, add
-        device scope only when configured, and reject requests without a token.
+        credential. Operator routes must forward the signed viewer identity, never
+        forward device scope even when the token carries it, and reject requests
+        without a token.
         """
         for method, path in [
             ("POST", "/api/json/device_runtime/devices/register"),
@@ -281,7 +278,8 @@ class ProxyClaimsTest(unittest.TestCase):
             self.assertFalse(any(k.startswith("x-token-") for k in result["headers"]), result)
 
         for path in ["/reports", "/api/json/devices", "/api/json/device_runtime/devices"]:
-            status, body = self.request(port, "GET", path, authenticated=True)
+            status, body = self.request(port, "GET", path, authenticated=True,
+                                        scoped=scoped)
             self.assertEqual(status, 200, body)
             claims = {k: v for k, v in json.loads(body)["headers"].items()
                       if k.startswith("x-token-")}
@@ -291,8 +289,6 @@ class ProxyClaimsTest(unittest.TestCase):
                 "x-token-user-email": "viewer@example.test",
                 "x-token-user-roles": "nixstasis/viewer",
             }
-            if scoped:
-                expected["x-token-device-ids"] = DEVICE_ID
             self.assertEqual(claims, expected)
             self.assertEqual(json.loads(body)["headers"]["x-nixstasis-proxy-token"], PROXY_TOKEN)
             status, _body = self.request(port, "GET", path)
@@ -300,12 +296,13 @@ class ProxyClaimsTest(unittest.TestCase):
 
         status, body = self.request(port, "GET", "/live/websocket", authenticated=True,
                                     extra_headers=[("Connection", "keep-alive, Upgrade"),
-                                                   ("Upgrade", "websocket")])
+                                                   ("Upgrade", "websocket")],
+                                    scoped=scoped)
         self.assertEqual(status, 200, body)
         headers = json.loads(body)["headers"]
         self.assertEqual(headers["connection"].lower(), "upgrade")
         self.assertEqual(headers["upgrade"], "websocket")
-        self.assertEqual(headers.get("x-token-device-ids"), DEVICE_ID if scoped else None)
+        self.assertNotIn("x-token-device-ids", headers)
         self.assertEqual(headers["x-token-user-roles"], "nixstasis/viewer")
         self.assertEqual(headers["x-nixstasis-proxy-token"], PROXY_TOKEN)
 

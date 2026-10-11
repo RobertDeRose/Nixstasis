@@ -69,6 +69,86 @@ defmodule NixstasisWeb.AlertsLiveTest do
     refute html =~ "resolved alert"
   end
 
+  test "active alerts are scoped to the viewer's authorized devices", %{conn: conn} do
+    {:ok, authorized_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:36",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, other_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:37",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, authorized_alert} =
+      Domain.create_alert(%{
+        device_id: authorized_device.id,
+        type: :offline,
+        status: :active,
+        message: "authorized scoped alert"
+      })
+
+    {:ok, other_alert} =
+      Domain.create_alert(%{
+        device_id: other_device.id,
+        type: :offline,
+        status: :active,
+        message: "out-of-scope alert"
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("alert_permissions", %{"can_view" => true, "can_manage" => false})
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => [authorized_device.id]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts")
+
+    assert has_element?(view, "#alert-#{authorized_alert.id}", "authorized scoped alert")
+    assert has_element?(view, "#alert-#{authorized_alert.id}", authorized_device.mac_address)
+    refute has_element?(view, "#alert-#{other_alert.id}")
+    refute has_element?(view, "#alerts tr", other_device.mac_address)
+  end
+
+  test "active alerts fail closed when the device scope is invalid", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:38",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, alert} =
+      Domain.create_alert(%{
+        device_id: device.id,
+        type: :offline,
+        status: :active,
+        message: "must stay hidden"
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("alert_permissions", %{"can_view" => true, "can_manage" => false})
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => ["not-a-uuid"]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts")
+
+    refute has_element?(view, "#alert-#{alert.id}")
+    refute has_element?(view, "#alerts tr", device.mac_address)
+  end
+
   test "viewer can read alert rules but cannot create, edit, or delete them", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{

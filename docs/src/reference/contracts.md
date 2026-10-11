@@ -210,10 +210,19 @@ locked `nixstasis-ssh-authority` account to run the helper.
 - The generated `/api/json` resource surface is protected as an
   operator/developer API. It is separate from the Go client `/api/v1/devices`
   runtime protocol and must not use device API tokens as operator credentials.
-- Optional scoped device claims (`X-Token-Device-Id`, `X-Token-Device-Ids`, or
-  `X-Token-Allowed-Device-Ids`) limit JSON:API device mutations to the listed
-  IDs. Unscoped device creation and collection-level command/telemetry writes
-  require unscoped device manage permission.
+- Device scope is never accepted from the identity layer. Phoenix ignores
+  `X-Token-Device-Ids` and the legacy `X-Token-Device-Id` and
+  `X-Token-Allowed-Device-Ids` headers, and Caddy does not forward a
+  `device_ids` token claim. The identity layer asserts authentication and
+  `nixstasis/*` roles only, so every role-authorized operator currently has
+  fleet-wide device access. Phoenix still enforces device scope when its own
+  permissions carry one: JSON:API device mutations and device-backed reads
+  (runtime device lists, `/alerts` active alerts, and dashboard aggregate
+  counts) are limited to the listed IDs, an empty grant returns no rows and zero
+  counts, and missing device-view permission fails closed. Phoenix-owned
+  per-role device grants are tracked in Beads `nixstasis-xhf`. Unscoped device
+  creation and collection-level command/telemetry writes require unscoped
+  device manage permission.
 
 ## Generated OpenAPI
 

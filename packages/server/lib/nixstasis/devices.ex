@@ -138,40 +138,42 @@ defmodule Nixstasis.Devices do
   @default_pending_command_limit 50
 
   @doc """
-  Counts all devices.
+  Counts all devices visible to the optional Ash actor.
   """
-  def count_all do
+  def count_all(opts \\ []) do
     Device
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
-  Counts devices by online/offline status.
+  Counts devices by online/offline status within the optional Ash actor scope.
   Online is defined as seen within the last 5 minutes.
   """
-  def count_by_status(:online) do
+  def count_by_status(status, opts \\ [])
+
+  def count_by_status(:online, opts) do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
     |> Ash.Query.filter(last_seen_at >= ^threshold)
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
-  def count_by_status(:offline) do
+  def count_by_status(:offline, opts) do
     threshold = DateTime.add(DateTime.utc_now(), -5, :minute)
 
     Device
     |> Ash.Query.filter(last_seen_at < ^threshold or is_nil(last_seen_at))
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
-  Counts devices pending approval.
+  Counts devices pending approval within the optional Ash actor scope.
   """
-  def count_pending_approvals do
+  def count_pending_approvals(opts \\ []) do
     Device
     |> Ash.Query.filter(approval_status == :pending)
-    |> Ash.count!(domain: Domain)
+    |> Ash.count!(domain: Domain, actor: Keyword.get(opts, :actor))
   end
 
   @doc """
@@ -736,7 +738,11 @@ defmodule Nixstasis.Devices do
 
     %{
       data:
-        list_devices(filter: filter, actor: Keyword.get(opts, :actor))
+        list_devices(
+          filter: filter,
+          actor: Keyword.get(opts, :actor),
+          authorized_device_ids: Keyword.get(opts, :authorized_device_ids)
+        )
         |> Enum.map(&runtime_list_device_data/1),
       meta: %{active_filters: runtime_active_filters(params)}
     }

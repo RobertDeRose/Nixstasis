@@ -4,19 +4,42 @@ defmodule NixstasisWeb.DashboardLive.Index do
   require Logger
 
   alias Nixstasis.Dashboard
+  alias NixstasisWeb.Permissions
 
+  @doc """
+  Mounts the dashboard home.
+
+  Subscribes to device and alert PubSub topics once connected, derives the
+  device-data actor from the session a single time, and loads the vital
+  statistics that actor may see. Refreshes reuse the same actor.
+  """
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
       Phoenix.PubSub.subscribe(Nixstasis.PubSub, "alerts")
     end
 
-    {:ok, assign(socket, stats: Dashboard.get_vital_stats(), loading: false)}
+    device_data_actor = device_data_actor(session)
+
+    {:ok,
+     assign(socket,
+       stats: Dashboard.get_vital_stats(device_data_actor),
+       device_data_actor: device_data_actor,
+       loading: false
+     )}
   end
 
   @refresh_debounce_ms 5_000
 
+  @doc """
+  Refreshes statistics in response to PubSub events.
+
+  Heartbeat (`last_seen`) updates are debounced to one refresh every five
+  seconds. Device registration, creation, update, deletion, approval, and
+  remote-access events, and new alerts, refresh immediately. Unknown messages
+  are logged and ignored.
+  """
   @impl true
   def handle_info({:device_last_seen_updated, _device}, socket) do
     {:noreply, schedule_debounced_refresh(socket)}
@@ -31,18 +54,18 @@ defmodule NixstasisWeb.DashboardLive.Index do
              :device_approval_status_changed,
              :device_remote_access_changed
            ] do
-    {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+    {:noreply, refresh_stats(socket)}
   end
 
   def handle_info({:alert_created, _alert}, socket) do
-    {:noreply, assign(socket, :stats, Dashboard.get_vital_stats())}
+    {:noreply, refresh_stats(socket)}
   end
 
   def handle_info(:debounced_refresh, socket) do
     {:noreply,
      socket
      |> assign(:refresh_timer, nil)
-     |> assign(:stats, Dashboard.get_vital_stats())}
+     |> refresh_stats()}
   end
 
   def handle_info(message, socket) do
@@ -58,6 +81,24 @@ defmodule NixstasisWeb.DashboardLive.Index do
     else
       timer = Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
       assign(socket, :refresh_timer, timer)
+    end
+  end
+
+  # Recompute statistics with the actor captured at mount, so a refresh can
+  # never widen what the viewer sees.
+  defp refresh_stats(socket) do
+    assign(socket, :stats, Dashboard.get_vital_stats(socket.assigns.device_data_actor))
+  end
+
+  # Build the Ash device-read actor from the session. Without device-view
+  # permission, or with an invalid device scope, return nil so the dashboard
+  # fails closed to zero-valued statistics.
+  defp device_data_actor(session) do
+    with true <- Permissions.can_view_device_details?(Permissions.device_permissions(session)),
+         {:ok, actor} <- Permissions.device_read_actor(session) do
+      actor
+    else
+      _denied -> nil
     end
   end
 

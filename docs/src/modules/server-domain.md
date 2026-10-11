@@ -143,9 +143,10 @@
 - Ash JSON:API routes are exposed under `/api/json` with Ash authorization enabled.
 - `JsonApiPermissions` supplies verified operator requests with an Ash actor. Reads of
   devices, pending commands, telemetry events, and alerts are policy-filtered by the
-  actor's trusted device scope before rows are returned. An omitted device-scope claim
-  means unscoped fleet access for a role that can view devices; an explicit empty scope
-  returns no device-backed rows, and malformed device IDs fail closed. Alert-rule reads
+  actor's device scope before rows are returned. The scope comes from Phoenix
+  permissions, never from forwarded claims; without one, a role that can view devices
+  has fleet access, an empty scope returns no device-backed rows, and malformed device
+  IDs fail closed. Alert-rule reads
   and mutations are separately policy-gated by the actor's alert view/manage capability.
   Internal domain calls that do not supply an operator actor retain their existing behavior.
 - Both the generated runtime device list and compatibility `GET /api/v1/devices`

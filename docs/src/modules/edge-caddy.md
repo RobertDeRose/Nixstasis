@@ -35,20 +35,23 @@
   - `X-Token-User-Name`
   - `X-Token-User-Roles`
 
-`inject headers with claims` is the source for the default `X-Token-*` claim
-headers. Production and laptop Nixstasis hosts delete client-supplied
-`X-Token-*` headers at request entry, before AuthCrunch authorization injects
-verified claims. Do not delete these headers in the operator `reverse_proxy`:
-that would also remove the legitimate injected claims. Phoenix additionally
+`inject headers with claims` is the only source of `X-Token-*` claim headers.
+Caddy does not forward device scope: there is no `device_ids` injection, and
+Phoenix ignores `X-Token-Device-Ids` and its legacy aliases. Device
+authorization belongs to Phoenix (see the operator scope contract in
+[Contracts](../reference/contracts.md)). Production and laptop Nixstasis hosts
+delete client-supplied `X-Token-*` headers at request entry, before AuthCrunch
+authorization injects verified claims. Do not delete these headers in the
+operator `reverse_proxy`: that would also remove the legitimate injected claims. Phoenix additionally
 requires the matching Caddy-to-Phoenix proxy credential before trusting claims;
 Caddy still enforces `authorize with entra_policy` on protected browser routes.
 
 Before authorization or proxying, both configurations reject requests with `400`
 when any `Connection` header names an `X-Token-*` header or
 `X-Nixstasis-Proxy-Token`. Matching is case-insensitive and covers comma-separated
-and repeated header fields. This prevents hop-by-hop cleanup from deleting a
-verified device scope, which Phoenix would otherwise interpret as unscoped
-access. Ordinary `Connection: Upgrade` requests remain supported.
+and repeated header fields. This prevents hop-by-hop cleanup from deleting
+verified claims or the proxy credential. Ordinary `Connection: Upgrade` requests
+remain supported.
 
 Every Caddy-to-Phoenix proxy block also overwrites `X-Nixstasis-Client-IP` with
 the socket peer address observed by Caddy. Phoenix consumes that value only when

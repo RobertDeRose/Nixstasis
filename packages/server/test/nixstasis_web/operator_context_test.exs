@@ -71,31 +71,22 @@ defmodule NixstasisWeb.OperatorContextTest do
     assert context["report_permissions"] == %{"can_view" => true, "can_manage" => true}
   end
 
-  test "applies forwarded device scope claims to device permissions", %{conn: conn} do
-    assert {:ok, context} =
-             conn
-             |> put_req_header("x-token-user-roles", "nixstasis/operator")
-             |> put_req_header("x-token-device-ids", "device-a,device-b")
-             |> put_trusted_proxy_auth()
-             |> OperatorContext.from_conn()
+  test "ignores forwarded device scope headers, including legacy aliases", %{conn: conn} do
+    for {header, value} <- [
+          {"x-token-device-ids", "device-a,device-b"},
+          {"x-token-device-ids", ""},
+          {"x-token-device-id", "device-a"},
+          {"x-token-allowed-device-ids", "device-b"}
+        ] do
+      assert {:ok, context} =
+               conn
+               |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+               |> put_req_header(header, value)
+               |> put_trusted_proxy_auth()
+               |> OperatorContext.from_conn()
 
-    assert context["device_permissions"] == %{
-             "can_view" => true,
-             "can_manage" => true,
-             "can_remote_access" => true,
-             "device_ids" => ["device-a", "device-b"]
-           }
-  end
-
-  test "preserves an explicit empty device scope as deny-all", %{conn: conn} do
-    assert {:ok, context} =
-             conn
-             |> put_req_header("x-token-user-roles", "nixstasis/viewer")
-             |> put_req_header("x-token-device-ids", "")
-             |> put_trusted_proxy_auth()
-             |> OperatorContext.from_conn()
-
-    assert context["device_permissions"]["device_ids"] == []
+      refute Map.has_key?(context["device_permissions"], "device_ids"), header
+    end
   end
 
   test "rejects forged AuthCrunch claims without proxy authentication", %{conn: conn} do

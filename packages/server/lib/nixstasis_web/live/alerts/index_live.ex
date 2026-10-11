@@ -16,13 +16,22 @@ defmodule NixstasisWeb.AlertLive.Index do
   @rule_page_size 50
   @rule_search_fields [:name, :product_name, :condition_field, :operator, :threshold_value]
 
+  @doc """
+  Mounts the alerts page.
+
+  Requires alert-view permission; otherwise redirects home with an error. Derives
+  the device-data actor that scopes active alerts, and sends viewers without
+  alert-manage permission away from the rule editor routes.
+  """
   def mount(_params, session, socket) do
     can_view_alerts = Permissions.can_view_alerts?(session)
     can_manage_alert_rules = Permissions.can_manage_alert_rules?(session)
+    device_data_actor = device_data_actor(session)
 
     socket =
       socket
       |> assign(:can_view_alerts, can_view_alerts)
+      |> assign(:device_data_actor, device_data_actor)
       |> assign(:can_manage_alert_rules, can_manage_alert_rules)
       |> assign(:alerts, [])
       |> assign(:rule_filters, %{"query" => ""})
@@ -68,6 +77,14 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
+  @doc """
+  Applies the URL to the page state.
+
+  Selects the active-alerts or rules tab and loads its data: active alerts are
+  read as the device-data actor, and rules are filtered, sorted, and paginated
+  from the query parameters. Legacy `?tab=rules` links are patched to the rules
+  route, and rule editor routes redirect viewers who cannot manage rules.
+  """
   def handle_params(params, _url, socket) do
     cond do
       socket.assigns.live_action in [:new, :edit] and not can_manage_alert_rules?(socket) ->
@@ -95,7 +112,7 @@ defmodule NixstasisWeb.AlertLive.Index do
         socket =
           socket
           |> assign(:alerts_tab, tab)
-          |> assign(:alerts, list_alerts(tab))
+          |> assign(:alerts, list_alerts(tab, socket.assigns.device_data_actor))
           |> assign(:rule_filters, view_state["filters"])
           |> assign(:rule_sort_by, view_state["sort_by"])
           |> assign(:rule_sort_dir, view_state["sort_dir"])
@@ -434,7 +451,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       </div>
 
       <div :if={@alerts_tab == "active"}>
-        <.table id="alerts" rows={@alerts}>
+        <.table id="alerts" rows={@alerts} row_id={&"alert-#{&1.id}"}>
           <:col :let={alert} label="Type">
             <span class={["badge", alert.type == :offline && "badge-error"]}>{alert.type}</span>
           </:col>
@@ -1571,16 +1588,33 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp list_alerts("rules"), do: []
+  # Load the newest active alerts (up to @alert_limit) as the given actor, so
+  # Ash read policies hide alerts for devices outside the viewer's scope. The
+  # rules tab loads no alerts, and a nil actor fails closed to an empty list.
+  defp list_alerts("rules", _actor), do: []
 
-  defp list_alerts("active") do
+  defp list_alerts("active", actor) when is_map(actor) do
     Alert
     |> Ash.Query.filter(status == :active)
     |> Ash.Query.sort(triggered_at: :desc)
     |> Ash.Query.limit(@alert_limit)
     |> Ash.Query.select([:id, :type, :device_id, :message, :triggered_at, :status])
     |> Ash.Query.load(device: [:mac_address])
-    |> Ash.read!(domain: Domain)
+    |> Ash.read!(domain: Domain, actor: actor)
+  end
+
+  defp list_alerts("active", _actor), do: []
+
+  # Build the Ash device-read actor from the session. Without device-view
+  # permission, or with an invalid device scope, return nil so active alerts
+  # fail closed to an empty list.
+  defp device_data_actor(session) do
+    with true <- Permissions.can_view_device_details?(Permissions.device_permissions(session)),
+         {:ok, actor} <- Permissions.device_read_actor(session) do
+      actor
+    else
+      _denied -> nil
+    end
   end
 
   defp normalize_rule_view_state(params) do
