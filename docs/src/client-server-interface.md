@@ -120,12 +120,12 @@ Traceable references:
 
 ## Go Client to Phoenix Endpoint Mapping
 
-| Go Method                    | HTTP Endpoint                                               | Server Handler                              | Purpose                                                                                              |
-|------------------------------|-------------------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------|
-| `RegisterDevice`             | `POST /api/v1/devices/register`                             | `DeviceController.register/2`               | Register device and receive UUID                                                                     |
-| `Poll` / `PollWithInventory` | `POST /api/v1/devices/:id/heartbeat?api_key=...`            | `HeartbeatController.create/2`              | Submit telemetry and optional command inventory, then receive remote-access/command/probe directives |
-| `SendCommandResults`         | `POST /api/v1/devices/:id/command_results?api_key=...`      | `DeviceCommandController.command_results/2` | Acknowledge command execution results                                                                |
-| `FetchCommandPayload`        | `GET /api/v1/devices/:id/command_payloads/:ref?api_key=...` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload                                                                       |
+| Go Method                    | HTTP Endpoint                                   | Server Handler                              | Purpose                                                                                              |
+|------------------------------|-------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------|
+| `RegisterDevice`             | `POST /api/v1/devices/register`                 | `DeviceController.register/2`               | Register device and receive UUID                                                                     |
+| `Poll` / `PollWithInventory` | `POST /api/v1/devices/:id/heartbeat`            | `HeartbeatController.create/2`              | Submit telemetry and optional command inventory, then receive remote-access/command/probe directives |
+| `SendCommandResults`         | `POST /api/v1/devices/:id/command_results`      | `DeviceCommandController.command_results/2` | Acknowledge command execution results                                                                |
+| `FetchCommandPayload`        | `GET /api/v1/devices/:id/command_payloads/:ref` | `DeviceCommandController.command_payload/2` | Fetch deferred command payload                                                                       |
 
 Traceable references:
 
@@ -164,7 +164,7 @@ Small rendered scripts are sent inline. The server marks scripts larger than 4,0
 deferred and retains the content behind `payload_ref`. During the poll cycle the Go client:
 
 1. validates the reference;
-2. fetches `GET /api/v1/devices/:device_id/command_payloads/:ref?api_key=...`;
+2. fetches `GET /api/v1/devices/:device_id/command_payloads/:ref` with `Authorization: Bearer <device-token>`;
 3. attaches the response payload to the command; and
 4. invokes the serial `run_script` handler.
 
@@ -175,7 +175,7 @@ The existing `install_script` deferred-payload behavior remains unchanged.
 ### Result and authorization boundaries
 
 The client returns one `CommandResult` per command through
-`POST /api/v1/devices/:device_id/command_results?api_key=...`. The result output preserves
+`POST /api/v1/devices/:device_id/command_results` with `Authorization: Bearer <device-token>`. The result output preserves
 client status, output, validation details, runtime errors, warnings, and timing when
 available. Phoenix authenticates the device token before associating the result with a
 script test or deployment run.
@@ -202,7 +202,7 @@ canonical contract for new integrations is:
   missing/invalid authentication and `403` for missing permission or malformed
   scope. The explicit local-development fallback remains supported.
 - `POST /api/json/device_runtime/devices/register` is the public registration
-  action; it does not use a device API key.
+  action; it does not use a device bearer token.
 - `POST /api/json/device_runtime/devices/:device_id/heartbeat` is the generated
   heartbeat action. It accepts `telemetry`, `connection_status`, `ssh_host_key`, and optional
   `command_inventory`, returns `data.commands` plus optional remote-access
@@ -214,9 +214,9 @@ canonical contract for new integrations is:
 - `GET /api/json/device_runtime/devices/:device_id/command_payloads/:ref`
   returns the raw `{content_type, name, data}` payload with status `200` and
   `404` when the payload is absent.
-- Heartbeat, command-result, and deferred-payload actions use `?api_key=...`
-  with the generated OpenAPI `deviceApiKey` scheme (`apiKey`, query parameter
-  named `api_key`). The device-runtime permission boundary performs lookup and
+- Heartbeat, command-result, and deferred-payload actions use `Authorization: Bearer <device-token>`
+  with the generated OpenAPI `deviceBearer` HTTP bearer scheme. Query-string device credentials are rejected.
+  The device-runtime permission boundary performs lookup and
   authentication before the Ash action; unknown devices are `404`,
   missing/invalid keys are `401`, and unapproved devices are `403`.
 
@@ -533,7 +533,7 @@ Authentication failures use the shared runtime API error envelope:
 {
   "error": {
     "code": "invalid_api_key",
-    "message": "API key is invalid"
+    "message": "Bearer token is invalid"
   }
 }
 ```
@@ -596,7 +596,7 @@ Missing-token response:
 {
   "error": {
     "code": "missing_api_key",
-    "message": "API key is required"
+    "message": "Bearer token is required"
   }
 }
 ```
@@ -636,7 +636,7 @@ Wrong-device or invalid-token response:
 {
   "error": {
     "code": "invalid_api_key",
-    "message": "API key is invalid"
+    "message": "Bearer token is invalid"
   }
 }
 ```
@@ -847,8 +847,7 @@ Traceable references:
 | `POST /e2e/runs/:id/results`                | `E2ERunResultController.create/2` | Submit results         |
 | `GET /e2e/runs/:id/results/:journey_id/log` | `E2ERunResultController.log/2`    | Fetch journey log      |
 
-Run creation requires `X-E2E-Protocol-Version`; protocol version `1` is the
-default supported version. Legacy `client_version`/`server_version` fields are
+All E2E routes require `X-E2E-Runner-ID` and `Authorization: Bearer <token>`. The runner identity is independent of browser/AuthCrunch roles and owns every run it creates. Cross-runner run/result/log access is hidden with `404`. Run creation additionally requires `X-E2E-Protocol-Version`; protocol version `1` is the default supported version. Legacy `client_version`/`server_version` fields are
 not accepted as the version-pairing contract.
 
 Traceable references:
@@ -863,6 +862,8 @@ Run creation request:
 
 ```http
 POST /e2e/runs
+X-E2E-Runner-ID: ci-runner
+Authorization: Bearer <runner-token>
 X-E2E-Protocol-Version: 1
 Content-Type: application/json
 ```
@@ -1089,10 +1090,10 @@ Traceable references:
   `/run/nixstasis/ssh-authority.sock`; no browser-terminal key is persisted in
   an `authorized_keys` file. See [API & Runtime Contracts](reference/contracts.md#browser-terminal-ssh-authorization-contract)
   for the complete command payloads.
-- Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as an `api_key` query parameter.
+- Runtime device heartbeat, command-result, and command-payload requests require the registration-issued device token as `Authorization: Bearer <device-token>`. The token is never placed in the request URL, and query-only credentials are rejected.
 - `apply_command_policy` uses the same heartbeat + optional command-payload-ref transport as other runtime commands; clients persist the accepted policy outside the script directory and use it to override local `runtime.exec_commands` until a newer server policy replaces it.
-- E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled`.
-- Initial device registration does not attach a device API key because it is the credential issuance step.
+- E2E routes are gated by `NixstasisWeb.Plugs.E2EEnabled` and the dedicated E2E runner credential; enablement is not authorization.
+- Initial device registration does not attach a device bearer token because it is the credential issuance step.
 
 Traceable references:
 
@@ -1106,8 +1107,8 @@ Traceable references:
 
 - Go transport treats any unexpected status as `API returned non-success status: <status>`.
 - Go transport allows empty response bodies when a response body target was provided and EOF is returned.
-- Runtime device API requests without `api_key` return HTTP `401` with code `missing_api_key`.
-- Runtime device API requests with an invalid `api_key` return HTTP `401` with code `invalid_api_key`.
+- Runtime device API requests without an `Authorization` bearer token return HTTP `401` with the legacy code `missing_api_key`.
+- Runtime device API requests with an invalid bearer token return HTTP `401` with the legacy code `invalid_api_key`; an `api_key` query parameter alone is treated as missing authentication.
 - Heartbeat rejects unapproved devices with HTTP `403` and code `device_not_approved`.
 - Command results without a results list return HTTP `400`; the current list-input
   controller path has no reachable `422` processing-error branch.

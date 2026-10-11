@@ -71,7 +71,7 @@ contract model, not UI-only routes or every internal HTTP handler.
   registration, heartbeat, command results, and payload fetches during migration.
   The canonical generated target is the additive
   `/api/json/device_runtime/devices` route family with route-level operator,
-  public-registration, and `deviceApiKey` security as defined in
+  public-registration, and `deviceBearer` security as defined in
   `contract-design.md`.
 - Caddy, E2E, and development-diagnostic protocols remain controller-owned.
 - Report result preview is controller-owned and has no confirmed external export
@@ -151,7 +151,7 @@ Initial classifications:
 
 - Device runtime registration, heartbeat, command result, and deferred payload
   behavior must preserve existing Go-client request/response shapes, status codes,
-  API-key authentication, approval/token semantics, rate limits, telemetry,
+  device bearer-token authentication, approval/token semantics, rate limits, telemetry,
   command delivery, and side effects unless a versioned client migration is
   explicitly documented.
 - Existing Caddy `GET /api/v1/check_domain` behavior must remain compatible with
@@ -164,7 +164,7 @@ Initial classifications:
   `/api/v1` wrapper authorization must be documented separately.
 - Deferred report preview behavior must remain unchanged until a future external
   report/export contract is approved.
-- Auth and authorization semantics for device API keys, bearer-protected Ash
+- Auth and authorization semantics for device bearer tokens, bearer-protected Ash
   routes, AuthCrunch/Caddy headers, E2E gates, and operator-only endpoints must
   remain explicit and tested.
 
@@ -180,7 +180,7 @@ Initial classifications:
    status, and OpenAPI artifact evidence before adding another conversion.
 3. Convert the device runtime one coherent group at a time. The approved target
    is `/api/json/device_runtime/devices`: an operator-gated filtered list, a public
-   registration action, and API-key-gated heartbeat/command actions. Define the
+   registration action, and bearer-token-gated heartbeat/command actions. Define the
    Ash actions, device-runtime permission plug, route-level OpenAPI security, and
    orchestration boundary first; preserve the existing device-authenticated
    `/api/v1` compatibility transport while generated coverage and Go-client tests
@@ -253,7 +253,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 - Go client transport tests continue to pass for registration, heartbeat, command
   polling, command results, and deferred payload fetches before and after each
   device migration group.
-- Device API-key authentication, approval, telemetry, command delivery, and
+- Device bearer-token authentication, approval, telemetry, command delivery, and
   response-shape compatibility tests pass.
 - E2E harness tests continue to pass for the retained `/e2e` contract; no E2E
   conversion is required by this feature.
@@ -281,7 +281,7 @@ Existing bespoke OpenAPI files that must be reconciled:
 
 ## Risks And Tradeoffs
 
-- Device runtime conversion crosses API-key authentication, telemetry, command
+- Device runtime conversion crosses device bearer-token authentication, telemetry, command
   delivery, and compatibility boundaries; forcing a JSON:API transport without
   preserving those semantics could break every Go client.
 - Some controller APIs are infrastructure or workflow protocols rather than clean
@@ -305,10 +305,10 @@ Existing bespoke OpenAPI files that must be reconciled:
   be organized differently, but runtime JSON, status codes, auth failures, and
   typed errors for existing consumers must remain compatible unless a versioned
   migration is explicitly documented.
-- The device-runtime generated surface uses `deviceApiKey` as a query API-key
-  scheme for heartbeat, command-result, and payload actions. Registration has no
+- The device-runtime generated surface uses `deviceBearer` as an HTTP bearer
+  scheme for heartbeat, command-result, and payload actions; query credentials are not accepted. Registration has no
   application key; the generated list uses the operator bearer boundary. The raw
-  key is a permission-plug concern, not an Ash action argument.
+  token is a permission-plug concern, not an Ash action argument.
 - Retained-controller endpoints are acceptable when they have a route-specific
   infrastructure/workflow rationale and current contract documentation.
 - Deferred endpoints remain unchanged until a separate external-consumer decision
@@ -379,7 +379,7 @@ routes.
 
 ## Operational Considerations
 
-Every device migration must preserve API-key authentication, authorization,
+Every device migration must preserve device bearer-token authentication, authorization,
 telemetry, command delivery, error semantics, and client compatibility. Caddy and
 E2E gates remain unchanged. Generated OpenAPI must be reproducible and its runtime
 and committed artifacts must not drift.
@@ -405,7 +405,7 @@ compatibility wrapper or canonical generated route is considered complete.
 2. Define the device runtime Ash action/resource and orchestration boundary using
    `:list_runtime_devices`, `:register_runtime_device`, `:heartbeat`,
    `:acknowledge_command_results`, and `:fetch_command_payload`, with explicit
-   route-level `deviceApiKey` security and the existing JSON:API permission
+   route-level `deviceBearer` security and the existing JSON:API permission
    pipeline dispatch.
 3. Migrate device registration, heartbeat, command result, and payload contracts in
    bounded groups while preserving the existing client transport and observed
@@ -429,7 +429,7 @@ rejected.
 ## Open Questions
 
 No device-runtime boundary or implementation question remains open: action names,
-orchestration ownership, generated route family, API-key security scheme,
+orchestration ownership, generated route family, device-bearer security scheme,
 route-specific authentication, compatibility wrapper, and error-precedence rules
 are defined in `docs/src/features/ash-api-contract-unification/contract-design.md`
 and are delivered on `dev`. Report export, E2E generated-contract treatment, and

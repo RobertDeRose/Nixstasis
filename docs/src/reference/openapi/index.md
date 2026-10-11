@@ -35,7 +35,7 @@ aligned with generated Ash coverage and Go-client behavior. The generated
 artifact includes all five device-runtime actions. The approved generated target
 is the additive
 `/api/json/device_runtime/devices` family. Its OpenAPI uses route-level
-`deviceApiKey` query security for heartbeat, command results, and payload fetches;
+`deviceBearer` HTTP bearer security for heartbeat, command results, and payload fetches; query-string device credentials are rejected;
 registration is unauthenticated at the application layer and the generated list
 uses the operator bearer boundary.
 

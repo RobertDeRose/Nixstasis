@@ -96,6 +96,10 @@ nixstasis.{$BASE_DOMAIN} {
     path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/command_payloads/[^/]+$
   }
 
+  @e2e_api {
+    path /e2e/*
+  }
+
   # Explicit order keeps rejection ahead of all device and operator handlers.
   route {
     respond @unsafe_connection 400
@@ -126,6 +130,14 @@ nixstasis.{$BASE_DOMAIN} {
     }
 
     handle @device_command_payload {
+      reverse_proxy nixstasis:{$PORT} {
+        header_up -X-Token-*
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
+
+    handle @e2e_api {
       reverse_proxy nixstasis:{$PORT} {
         header_up -X-Token-*
         header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}

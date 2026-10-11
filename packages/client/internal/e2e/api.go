@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/config"
+	"github.com/RobertDeRose/Nixstasis/packages/client/internal/transport"
 )
 
 type apiClient struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL     string
+	runnerID    string
+	runnerToken string
+	httpClient  *http.Client
 }
 
 type runCreateRequest struct {
@@ -52,11 +56,18 @@ type resultsRequest struct {
 	Results []resultPayload `json:"results"`
 }
 
-func newAPIClient(baseURL string) *apiClient {
-	return &apiClient{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+// newAPIClient rejects insecure API URLs before the runner token can be sent.
+func newAPIClient(cfg Config) (*apiClient, error) {
+	httpClient, err := transport.NewHTTPClient(config.APIConfig{URL: cfg.APIURL, AllowLoopbackHTTP: cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return nil, err
 	}
+	return &apiClient{
+		baseURL:     strings.TrimRight(cfg.APIURL, "/"),
+		runnerID:    strings.TrimSpace(cfg.RunnerID),
+		runnerToken: strings.TrimSpace(cfg.RunnerToken),
+		httpClient:  httpClient,
+	}, nil
 }
 
 func (c *apiClient) createRun(ctx context.Context, req runCreateRequest) (runData, error) {
@@ -105,6 +116,8 @@ func (c *apiClient) doJSON(ctx context.Context, method, url string, payload []by
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-E2E-Runner-ID", c.runnerID)
+	req.Header.Set("Authorization", "Bearer "+c.runnerToken)
 	for key, value := range headers {
 		if strings.TrimSpace(key) != "" && strings.TrimSpace(value) != "" {
 			req.Header.Set(key, value)

@@ -68,7 +68,6 @@ restarts before proceeding with application-level checks.
 
 ## E2E Retention
 
-- Confirm E2E endpoints are disabled in production unless intentionally enabled
-  with `NIXSTASIS_E2E_ENABLED=true` for staging validation.
+- Confirm E2E endpoints are disabled in production unless intentionally enabled with `NIXSTASIS_E2E_ENABLED=true` for staging validation. When enabled, verify `NIXSTASIS_E2E_RUNNER_ID` and a fresh 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN` are configured; browser credentials alone must receive `401`.
 - Confirm retention logs do not show repeated pruning failures.
 - Confirm E2E result pages remain available for retained runs when E2E is enabled.

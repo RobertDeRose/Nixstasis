@@ -99,7 +99,9 @@ mise run deploy:dev -- exec nixstasis /bin/bash
    `NIXSTASIS_*_GROUPS` group-to-role mapping values, and a fresh
    `NIXSTASIS_PROXY_AUTH_TOKEN` generated with `openssl rand -hex 32`.
    Matching single or double quotes around this value do not count toward its
-   minimum length of 32 characters.
+   minimum length of 32 characters. If E2E is enabled, also set a dedicated
+   `NIXSTASIS_E2E_RUNNER_ID` and fresh `NIXSTASIS_E2E_RUNNER_TOKEN` generated
+   the same way.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
@@ -129,6 +131,8 @@ targeting the compose `postgres` host.
 | `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
 | `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
 | `NIXSTASIS_PROXY_AUTH_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
+| `NIXSTASIS_E2E_RUNNER_ID`          | `local-runner`                       | dedicated CI/runner principal  |
+| `NIXSTASIS_E2E_RUNNER_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
 | `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
 | `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
 | `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
@@ -150,6 +154,7 @@ targeting the compose `postgres` host.
   `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
   unless that internal proxy credential matches, so direct loopback or Compose
   peers cannot manufacture an AuthCrunch identity from claim headers alone.
+- `/e2e/*` bypasses browser OIDC at Caddy only because Phoenix requires the dedicated E2E runner credential. `X-E2E-Runner-ID` plus `Authorization: Bearer <token>` identify the runner, and each run is owner-scoped to that principal. Browser/AuthCrunch roles do not grant E2E access.
 - Caddy also overwrites `X-Nixstasis-Client-IP` with the peer address it observes.
   Phoenix uses that value for pre-authentication rate limiting only when the same
   proxy credential validates; direct callers are limited by their socket peer.

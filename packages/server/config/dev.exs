@@ -100,6 +100,12 @@ config :nixstasis, :telemetry_retention,
   check_interval_ms: 86_400_000
 
 config :nixstasis, :base_domain, "devices.example.com"
+
+config :nixstasis, :e2e_runners, %{
+  System.get_env("NIXSTASIS_E2E_RUNNER_ID", "local-runner") =>
+    System.get_env("NIXSTASIS_E2E_RUNNER_TOKEN", "dev-e2e-runner-token-0123456789abcdef0123456789abcdef")
+}
+
 config :nixstasis, :local_browser_auth_fallback?, true
 
 # Enable dev routes for dashboard and mailbox

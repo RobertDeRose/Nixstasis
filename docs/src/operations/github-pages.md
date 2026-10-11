@@ -17,8 +17,28 @@ The task checks `gh`, authentication, and repository resolution. It creates or u
 build type, then sets `DOCS_DEPLOYMENT_ENABLED=true` as the last mutation and prints the Pages URL. Repeating the task
 updates the same configuration safely.
 
-Deployment requires both Pages `build_type=workflow` and the repository variable to be exactly `true`. The workflow runs
-only for pushes to the configured default branch and explicit manual dispatches; pull requests never deploy.
+Deployment requires both Pages `build_type=workflow` and the repository variable to be exactly `true`. The workflow
+always builds the documentation with `contents: read`, but its separate deployment job runs only when
+`DOCS_DEPLOYMENT_ENABLED == 'true'`. Only that deployment job receives `pages: write` and `id-token: write`.
+
+Eligible workflow events are:
+
+- pushes to `main` that change documentation, E2E results, `mise.toml`, or the documentation workflow;
+- explicit manual dispatches; and
+- successful `E2E Suites Report` `workflow_run` events whose source ref starts with `v`.
+
+Pull requests never deploy. Setting the repository variable to anything other than the exact string `true` leaves the
+build artifact undeployed.
+
+## Disable deployment
+
+Disable future Pages deployments without changing the workflow by setting the gate to `false`:
+
+```bash
+gh variable set DOCS_DEPLOYMENT_ENABLED --body false --repo OWNER/REPO
+```
+
+The workflow may still build documentation after an eligible event, but the deployment job remains skipped.
 
 ## Recovery
 

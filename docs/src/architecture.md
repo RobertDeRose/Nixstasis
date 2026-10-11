@@ -144,8 +144,7 @@ Nixstasis intentionally has multiple API surfaces with different consumers.
   contracts under `/api/json/builder_contract/*`. Public production access to
   this generated operator/developer resource API goes through Caddy/AuthCrunch,
   and Phoenix applies route-level role checks as a fail-closed backstop.
-- E2E harness APIs live under `/e2e` and are gated by
-  `NixstasisWeb.Plugs.E2EEnabled`.
+- E2E harness APIs live under `/e2e`, are gated by `NixstasisWeb.Plugs.E2EEnabled`, and require a dedicated runner ID/bearer credential; browser/AuthCrunch roles do not authorize this surface.
 
 The current docs distinguish these contracts in [API & Runtime Contracts](reference/contracts.md).
 Builder contracts now straddle generated Ash JSON:API routes and retained

@@ -15,7 +15,8 @@ import (
 const (
 	defaultConfigRoot         = "/etc/nixstasis"
 	defaultUserConfig         = "$HOME/.config/nixstasis"
-	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
+	defaultScriptsDir         = "/var/lib/nixstasis/scripts"
+	legacyScriptsDir          = "/usr/libexec/nixstasis/scripts"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 	defaultSSHAuthoritySocket = "/run/nixstasis/ssh-authority.sock"
@@ -116,6 +117,7 @@ func GetDefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
 
+	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
 }
@@ -152,8 +154,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
+}
+
+func normalizeScriptsConfig(cfg *ScriptsConfig) {
+	if filepath.Clean(cfg.Dir) == legacyScriptsDir {
+		cfg.Dir = defaultScriptsDir
+	}
 }
 
 // IdentityPath returns the canonical identity file path.

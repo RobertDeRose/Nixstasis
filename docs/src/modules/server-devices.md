@@ -164,10 +164,10 @@ Device runtime migration has two deliberate HTTP surfaces:
 - The Go client remains on `/api/v1` compatibility controllers after runtime
   and transport evidence established the additive generated action contracts.
 - The generated target is `/api/json/device_runtime/devices`: an operator-gated
-  filtered list, a public registration action, and API-key-gated heartbeat,
+  filtered list, a public registration action, and bearer-token-gated heartbeat,
   command-result, and payload actions. All five routes are enabled, while the Go
-  client remains on the compatibility surface. The API key is the `api_key` query
-  value represented by the generated OpenAPI `deviceApiKey` scheme.
+  client remains on the compatibility surface. The runtime token is carried in the `Authorization: Bearer <device-token>` header
+  represented by the generated OpenAPI `deviceBearer` scheme; query-string credentials are rejected.
 
 `Device` owns resource/action contracts. `Devices` owns registration, token
 issuance, device authentication, filters, pending commands, and payload lookup;

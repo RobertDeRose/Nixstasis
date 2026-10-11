@@ -20,6 +20,16 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     %{device: approved, token: token}
   end
 
+  test "POST /api/v1/devices/:id/heartbeat rejects query-string credentials", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"error" => %{"code" => "missing_api_key"}} = json_response(conn, 401)
+  end
+
   test "POST /api/v1/devices/:id/heartbeat updates last_seen and returns commands", %{
     conn: conn,
     device: device,
@@ -29,7 +39,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
 
     payload = %{"scripts" => %{"disk" => %{"data" => %{"usage_pct" => 73.2}}}}
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", payload)
 
     assert %{"commands" => commands} = data = json_response(conn, 200)["data"]
     refute Map.has_key?(data, "remote_access_token")
@@ -67,7 +77,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     limits = TelemetryLimits.limits()
 
     conn =
-      post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{
+      post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{
         "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
       })
 
@@ -102,7 +112,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
   } do
     {:ok, _} = Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["type"] == "ssh_authorize"
@@ -126,7 +136,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
         }
       })
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["payload_ref"] == "test-run-id"
@@ -153,7 +163,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
 
     assert {:ok, _} = Devices.queue_command_policy_assignment(assignment)
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["type"] == "apply_command_policy"
@@ -183,7 +193,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
         command_path: "/usr/bin/df"
       })
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"command_inventory_probe" => probe} = json_response(conn, 200)["data"]
     assert probe["catalog_version"] == "catalog-v1"
@@ -232,7 +242,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
       }
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", payload)
     assert json_response(conn, 200)["data"]
 
     snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
@@ -259,7 +269,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
 
     conn =
-      post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{
+      post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{
         "command_inventory" => %{
           "schema_version" => "bad",
           "probe_catalog_version" => "catalog-v1"
@@ -278,7 +288,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     device: device,
     token: token
   } do
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     data = json_response(conn, 200)["data"]
 
@@ -294,7 +304,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true)
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{
              "remote_access_token" => remote_access_token,
@@ -323,7 +333,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true, "bootstrap")
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{
              "remote_access_token" => remote_access_token,

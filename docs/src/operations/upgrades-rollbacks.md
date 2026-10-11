@@ -57,6 +57,28 @@ When deploying new managed-device client artifacts:
 - Confirm the bundled `frpc` path remains `/usr/libexec/nixstasis/frpc`.
 - Confirm the client can register or continue polling after upgrade.
 
+### Device bearer-token transport migration
+
+Releases that move managed-device authentication from the legacy `api_key` query
+parameter to `Authorization: Bearer <device-token>` require a coordinated client
+and server rollout. The hardened server does not accept query-only credentials,
+so an old client will receive `401` after the server is upgraded.
+
+After the compatible client and server are installed, rotate device tokens that
+may have appeared in retained proxy, APM, diagnostic, or support-bundle request
+URLs. Re-registration proves possession of the current token and returns a new
+runtime token. On each device, stop the polling process while rotating so it does
+not continue using the old in-memory token:
+
+```sh
+sudo systemctl stop nixstasis-poll
+sudo -u nixstasis /usr/bin/nixstasis register
+sudo systemctl start nixstasis-poll
+```
+
+Verify a subsequent heartbeat succeeds and contains no `api_key` query parameter
+in proxy or application request metadata.
+
 ## Rollback
 
 Rollback boundaries depend on whether migrations changed the database schema.

@@ -42,6 +42,7 @@ defmodule Nixstasis.Reporting.QueryBuilderTest do
         environment_label: "local",
         trigger_source: "manual",
         protocol_version: "1",
+        runner_id: "test-runner",
         status: "passed",
         started_at: DateTime.utc_now() |> DateTime.truncate(:second),
         finished_at: DateTime.utc_now() |> DateTime.truncate(:second),
