@@ -37,6 +37,8 @@ func TestRuntimeTimeoutCancelsRunawayScript(t *testing.T) {
 	}
 }
 
+// TestRuntimeRejectsCyclicScriptResults verifies that direct and mutual
+// container cycles fail during native result conversion.
 func TestRuntimeRejectsCyclicScriptResults(t *testing.T) {
 	tests := []struct {
 		name string
@@ -83,6 +85,8 @@ def main():
 	}
 }
 
+// TestRuntimeConvertsNormalNestedResult verifies native types and values for
+// a valid result containing nested dictionaries, lists, tuples, and scalars.
 func TestRuntimeConvertsNormalNestedResult(t *testing.T) {
 	runtime := NewRuntime(RuntimeConfig{Timeout: 5 * time.Second})
 	got, err := runtime.Execute(t.Context(), "test.star", `
@@ -109,6 +113,8 @@ def main():
 	}
 }
 
+// TestStarlarkValueToGoRejectsExcessiveNesting verifies that conversion stops
+// when a nested value exceeds the depth limit.
 func TestStarlarkValueToGoRejectsExcessiveNesting(t *testing.T) {
 	var value starlark.Value = starlark.None
 	for range maxStarlarkConversionDepth + 1 {
@@ -121,6 +127,8 @@ func TestStarlarkValueToGoRejectsExcessiveNesting(t *testing.T) {
 	}
 }
 
+// TestStarlarkValueToGoRejectsExcessiveNodes verifies that a container and its
+// elements must fit together within the node budget.
 func TestStarlarkValueToGoRejectsExcessiveNodes(t *testing.T) {
 	values := make([]starlark.Value, maxStarlarkConversionNodes)
 	for i := range values {
@@ -133,6 +141,7 @@ func TestStarlarkValueToGoRejectsExcessiveNodes(t *testing.T) {
 	}
 }
 
+// TestStarlarkValueToGoRejectsOversizedString verifies the per-string byte limit.
 func TestStarlarkValueToGoRejectsOversizedString(t *testing.T) {
 	value := starlark.String(strings.Repeat("x", maxStarlarkConversionStringBytes+1))
 
@@ -142,6 +151,8 @@ func TestStarlarkValueToGoRejectsOversizedString(t *testing.T) {
 	}
 }
 
+// TestStarlarkValueToGoRejectsExcessiveOutputSize verifies that individually
+// valid strings can still exceed the aggregate output budget.
 func TestStarlarkValueToGoRejectsExcessiveOutputSize(t *testing.T) {
 	chunk := starlark.String(strings.Repeat("x", maxStarlarkConversionStringBytes/2))
 	values := make([]starlark.Value, 9)
@@ -155,6 +166,8 @@ func TestStarlarkValueToGoRejectsExcessiveOutputSize(t *testing.T) {
 	}
 }
 
+// TestStarlarkValueToGoChecksCancellation verifies that a canceled context
+// stops conversion with ErrTimeout.
 func TestStarlarkValueToGoChecksCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

@@ -22,6 +22,8 @@ func TestMQTTTopicRestrictions(t *testing.T) {
 	}
 }
 
+// TestMQTTTopicRestrictionsRejectRequestedWildcards verifies that allowlist
+// patterns never authorize wildcard characters in requested topics.
 func TestMQTTTopicRestrictionsRejectRequestedWildcards(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -59,6 +61,8 @@ func TestMQTTTopicRestrictionsRejectRequestedWildcards(t *testing.T) {
 	}
 }
 
+// TestPubAndGetRejectsWildcardReplyTopicBeforeBroker verifies that reply topic
+// validation fails before attempting to contact an unreachable broker.
 func TestPubAndGetRejectsWildcardReplyTopicBeforeBroker(t *testing.T) {
 	runtime := NewRuntime(RuntimeConfig{
 		Timeout:             5 * time.Second,
@@ -86,6 +90,8 @@ def main():
 	}
 }
 
+// TestAcceptCriteriaMatchesOnlyExpectedKeyValues verifies that all requested
+// fields must match while extra response fields remain accepted.
 func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 	accept := starlark.NewDict(2)
 	if err := accept.SetKey(starlark.String("status"), starlark.String("ok")); err != nil {
@@ -107,6 +113,8 @@ func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 	}
 }
 
+// TestParseAcceptCriteriaRejectsCyclicValue verifies that reply filters cannot
+// contain a self-referential dictionary.
 func TestParseAcceptCriteriaRejectsCyclicValue(t *testing.T) {
 	accept := starlark.NewDict(1)
 	if err := accept.SetKey(starlark.String("status"), accept); err != nil {
@@ -119,6 +127,8 @@ func TestParseAcceptCriteriaRejectsCyclicValue(t *testing.T) {
 	}
 }
 
+// TestParseAcceptCriteriaRejectsNestedSelectors verifies that reply filters
+// reject dotted selectors instead of treating them as nested JSON paths.
 func TestParseAcceptCriteriaRejectsNestedSelectors(t *testing.T) {
 	accept := starlark.NewDict(1)
 	if err := accept.SetKey(starlark.String("status.ok"), starlark.String("ready")); err != nil {

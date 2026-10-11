@@ -12,6 +12,10 @@ import (
 	"go.starlark.net/starlark"
 )
 
+// pubAndGetBuiltin publishes on an allowed concrete topic and waits for a
+// matching reply. Calls are serialized to protect shared subscriptions; no reply
+// within five seconds returns None, and context cancellation returns ErrTimeout.
+//
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	ctx := runtimeContext(thread)
@@ -113,6 +117,9 @@ func runtimeContext(thread *starlark.Thread) context.Context {
 	return ctx
 }
 
+// parseAcceptCriteria converts optional reply filters using bounded native
+// conversion and validates top-level JSON field names. A nil dictionary means
+// no filtering; conversion and key validation failures return an error.
 func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string]any, error) {
 	if accept == nil {
 		return nil, nil
@@ -183,6 +190,8 @@ func topicAllowed(topic string, patterns []string) bool {
 	return false
 }
 
+// mqttTopicMatch matches a concrete topic against an allowlist pattern,
+// supporting + for one level and a final # for remaining levels.
 func mqttTopicMatch(pattern, topic string) bool {
 	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
@@ -203,6 +212,8 @@ func mqttTopicMatch(pattern, topic string) bool {
 	return len(patternParts) == len(topicParts)
 }
 
+// mqttTopicNameIsConcrete reports whether a topic is nonempty and contains
+// neither MQTT wildcard character (+ or #).
 func mqttTopicNameIsConcrete(topic string) bool {
 	return topic != "" && !strings.ContainsAny(topic, "+#")
 }

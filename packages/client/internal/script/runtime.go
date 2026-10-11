@@ -173,6 +173,9 @@ type starlarkConverter struct {
 	activeDicts map[*starlark.Dict]struct{}
 }
 
+// starlarkValueToGo converts a Starlark value to native Go values with fresh
+// cycle tracking and depth, node, string, and output size limits. Cancellation
+// returns ErrTimeout; a nil context disables cancellation checks.
 func starlarkValueToGo(ctx context.Context, value starlark.Value) (any, error) {
 	converter := &starlarkConverter{
 		ctx:         ctx,
@@ -182,6 +185,8 @@ func starlarkValueToGo(ctx context.Context, value starlark.Value) (any, error) {
 	return converter.convert(value, 0)
 }
 
+// convert dispatches one value after checking cancellation, nesting depth,
+// and the node budget. depth is zero for the root value.
 func (c *starlarkConverter) convert(value starlark.Value, depth int) (any, error) {
 	if err := c.checkContext(); err != nil {
 		return nil, err
@@ -225,6 +230,7 @@ func (c *starlarkConverter) convert(value starlark.Value, depth int) (any, error
 	}
 }
 
+// convertScalar charges the estimated output size before returning a scalar.
 func (c *starlarkConverter) convertScalar(value any, outputBytes int) (any, error) {
 	if err := c.consumeOutputBytes(outputBytes); err != nil {
 		return nil, err
@@ -232,6 +238,8 @@ func (c *starlarkConverter) convertScalar(value any, outputBytes int) (any, erro
 	return value, nil
 }
 
+// convertList converts a list after checking capacity and rejecting cycles
+// on the active traversal path; repeated noncyclic references are allowed.
 func (c *starlarkConverter) convertList(value *starlark.List, depth int) ([]any, error) {
 	if _, ok := c.activeLists[value]; ok {
 		return nil, fmt.Errorf("starlark conversion contains cyclic list")
@@ -247,6 +255,8 @@ func (c *starlarkConverter) convertList(value *starlark.List, depth int) ([]any,
 	return c.convertIterable(value.Len(), value.Iterate(), depth)
 }
 
+// convertDict converts a dictionary with string keys to a Go map, rejecting
+// cycles and charging both keys and values against the conversion budgets.
 func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[string]any, error) {
 	if _, ok := c.activeDicts[value]; ok {
 		return nil, fmt.Errorf("starlark conversion contains cyclic dict")
@@ -286,6 +296,9 @@ func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[st
 	return res, nil
 }
 
+// convertIterable collects converted elements at the next nesting depth and
+// always releases the iterator. The caller checks capacity and charges container
+// overhead before calling it.
 func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, depth int) ([]any, error) {
 	defer iter.Done()
 	res := make([]any, 0, size)
@@ -303,6 +316,7 @@ func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, de
 	return res, nil
 }
 
+// convertString returns a size-checked string as a native Go value.
 func (c *starlarkConverter) convertString(value string) (any, error) {
 	converted, err := c.convertStringValue(value)
 	if err != nil {
@@ -311,6 +325,8 @@ func (c *starlarkConverter) convertString(value string) (any, error) {
 	return converted, nil
 }
 
+// convertStringValue enforces the per-string byte limit and charges the
+// string bytes against the total output budget.
 func (c *starlarkConverter) convertStringValue(value string) (string, error) {
 	if len(value) > maxStarlarkConversionStringBytes {
 		return "", fmt.Errorf("starlark conversion string exceeds size limit of %d bytes", maxStarlarkConversionStringBytes)
@@ -321,6 +337,8 @@ func (c *starlarkConverter) convertStringValue(value string) (string, error) {
 	return value, nil
 }
 
+// checkContext returns ErrTimeout if the conversion context is canceled or
+// expired. A nil context permits conversion without cancellation checks.
 func (c *starlarkConverter) checkContext() error {
 	if c.ctx == nil {
 		return nil
@@ -333,6 +351,7 @@ func (c *starlarkConverter) checkContext() error {
 	}
 }
 
+// consumeNodes charges count nodes if they fit within the remaining budget.
 func (c *starlarkConverter) consumeNodes(count int) error {
 	if err := c.reserveNodes(count); err != nil {
 		return err
@@ -341,6 +360,8 @@ func (c *starlarkConverter) consumeNodes(count int) error {
 	return nil
 }
 
+// reserveNodes checks that count additional nodes fit without consuming them,
+// allowing containers to reject oversized allocations before visiting children.
 func (c *starlarkConverter) reserveNodes(count int) error {
 	if count < 0 || count > maxStarlarkConversionNodes-c.nodes {
 		return fmt.Errorf("starlark conversion exceeds node limit of %d", maxStarlarkConversionNodes)
@@ -348,6 +369,8 @@ func (c *starlarkConverter) reserveNodes(count int) error {
 	return nil
 }
 
+// consumeOutputBytes charges count estimated output bytes, rejecting negative
+// counts or values that exceed the remaining budget.
 func (c *starlarkConverter) consumeOutputBytes(count int) error {
 	if count < 0 || count > maxStarlarkConversionOutputBytes-c.outputBytes {
 		return fmt.Errorf("starlark conversion exceeds output size limit of %d bytes", maxStarlarkConversionOutputBytes)
@@ -356,6 +379,8 @@ func (c *starlarkConverter) consumeOutputBytes(count int) error {
 	return nil
 }
 
+// containerOutputOverhead estimates bracket and separator bytes for a list
+// or tuple of the given size, excluding element contents.
 func containerOutputOverhead(size int) int {
 	if size == 0 {
 		return 2
@@ -363,6 +388,8 @@ func containerOutputOverhead(size int) int {
 	return size + 1
 }
 
+// dictOutputOverhead estimates brace, colon, and separator bytes for a
+// dictionary of the given size, excluding keys and values.
 func dictOutputOverhead(size int) int {
 	if size == 0 {
 		return 2
