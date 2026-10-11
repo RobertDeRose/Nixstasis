@@ -216,11 +216,13 @@ locked `nixstasis-ssh-authority` account to run the helper.
   `X-Token-Allowed-Device-Ids` aliases are not authorization inputs. The scope
   limits JSON:API device mutations and device-backed reads (runtime device
   lists, `/alerts` active alerts, and dashboard aggregate counts) to the listed
-  IDs. An absent header is unrestricted; a present but empty header denies all
-  device rows; a malformed scope or missing device-view permission fails closed
-  to empty lists and zero counts. Unscoped device creation
-  and collection-level command/telemetry writes require unscoped device manage
-  permission.
+  IDs. An absent header is unrestricted. A present but empty header is a valid
+  grant of no devices: reads succeed with no rows and zero counts. A malformed
+  scope or missing device-view permission fails closed: HTTP device lists and
+  JSON:API requests return `403`, while the `/alerts` and dashboard LiveViews
+  render an empty active-alert list and zero-valued device-backed counts.
+  Unscoped device creation and collection-level command/telemetry writes require
+  unscoped device manage permission.
 
 ## Generated OpenAPI
 
