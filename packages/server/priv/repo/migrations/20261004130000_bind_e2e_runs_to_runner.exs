@@ -29,6 +29,8 @@ defmodule Nixstasis.Repo.Migrations.BindE2ERunsToRunner do
     create index(:e2e_runs, [:runner_id, :inserted_at], name: :e2e_runs_runner_inserted_at_idx)
   end
 
+  # Rollback drops ownership only; it does not restore runs cancelled or
+  # environment locks deleted by up/0.
   def down do
     drop_if_exists index(:e2e_runs, [:runner_id, :inserted_at], name: :e2e_runs_runner_inserted_at_idx)
 
