@@ -36,13 +36,15 @@ heartbeats arrive, approvals change, and alerts resolve.
 
 Dashboard aggregates follow the same device-data authorization scope as device-backed
 views. Unscoped authorized operators see the full fleet summary; device-scoped
-operators see counts only for their allowed device IDs. Missing or malformed device
-scope fails closed to zero-valued device-backed statistics.
+operators see counts only for their allowed device IDs. An absent optional device
+scope is unrestricted, not deny-all. An explicitly empty or malformed device scope,
+or a session without device-view permission, fails closed to zero-valued
+device-backed statistics.
 
 ## Validation
 
 - Seed devices, approvals, and alerts; verify displayed counts match the authorized device scope.
-- Verify malformed or missing device-data authorization cannot expose fleet-wide aggregate counts.
+- Verify malformed device scope or missing device-view permission cannot expose fleet-wide aggregate counts.
 - Verify navigation links reach the expected routes.
 - Verify empty-state counts display as zero rather than errors.
 - Verify updates arrive without manual page reload.

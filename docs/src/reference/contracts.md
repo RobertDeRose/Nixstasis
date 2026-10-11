@@ -214,7 +214,11 @@ locked `nixstasis-ssh-authority` account to run the helper.
   `X-Token-Device-Ids`, injected by AuthCrunch from the authenticated
   `device_ids` token claim. Legacy `X-Token-Device-Id` and
   `X-Token-Allowed-Device-Ids` aliases are not authorization inputs. The scope
-  limits JSON:API device mutations to the listed IDs. Unscoped device creation
+  limits JSON:API device mutations and device-backed reads (runtime device
+  lists, `/alerts` active alerts, and dashboard aggregate counts) to the listed
+  IDs. An absent header is unrestricted; a present but empty header denies all
+  device rows; a malformed scope or missing device-view permission fails closed
+  to empty lists and zero counts. Unscoped device creation
   and collection-level command/telemetry writes require unscoped device manage
   permission.
 
