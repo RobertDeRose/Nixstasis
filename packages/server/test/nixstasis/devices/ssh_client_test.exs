@@ -534,6 +534,7 @@ defmodule Nixstasis.Devices.SshClientTest do
   defp restore_env(key, nil), do: Application.delete_env(:nixstasis, key)
   defp restore_env(key, value), do: Application.put_env(:nixstasis, key, value)
 
+  # Returns the permission bits (mode & 0o777) of path for exact owner-only checks.
   defp permission_bits(path) do
     path
     |> File.stat!()

@@ -107,8 +107,23 @@ type result struct {
 	err error
 }
 
-// Execute runs the provided script body and returns the output dict as a Go map.
+// Execute runs body as the Starlark script scriptPath, calls its main()
+// function, and returns the dict main() returns as a Go map; a None result
+// becomes an empty map. A body larger than maxStarySourceBytes (1 MiB) fails with
+// errStarySourceTooLarge before Starlark parses it. Execution is bounded by the
+// configured timeout (ErrTimeout) and the computation-step ceiling
+// (ErrExecutionLimit), and the result is converted with bounded native
+// conversion.
+//
+// scriptPath names the source in diagnostics; body supplies its contents.
+// Parsing, execution, and result-conversion errors reach the caller, as do
+// errors for a missing or non-callable main or a result other than dict or None.
+// Observed context cancellation is reported as ErrTimeout.
 func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[string]any, error) {
+	if len(body) > maxStarySourceBytes {
+		return nil, starySourceTooLargeError(len(body))
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, r.config.Timeout)
 	defer cancel()
 

@@ -11,6 +11,19 @@ import (
 	"go.starlark.net/starlark"
 )
 
+// TestRuntimeRejectsOversizedBodyBeforeStarlarkParsing verifies that Execute
+// rejects a body over the Stary source limit with errStarySourceTooLarge before
+// Starlark parses it.
+func TestRuntimeRejectsOversizedBodyBeforeStarlarkParsing(t *testing.T) {
+	runtime := NewRuntime(RuntimeConfig{Timeout: 5 * time.Second})
+	body := strings.Repeat("x", maxStarySourceBytes+1)
+
+	_, err := runtime.Execute(t.Context(), "oversized.star", body)
+	if !errors.Is(err, errStarySourceTooLarge) {
+		t.Fatalf("Execute() error = %v, want errStarySourceTooLarge", err)
+	}
+}
+
 func TestRuntimeTimeoutOnCanceledContext(t *testing.T) {
 	runtime := NewRuntime(RuntimeConfig{Timeout: 5 * time.Second})
 	ctx, cancel := context.WithCancel(context.Background())

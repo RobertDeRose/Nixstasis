@@ -35,6 +35,15 @@ defmodule Nixstasis.Devices.SshClient do
     GenServer.stop(pid, :normal, 5_000)
   end
 
+  @doc """
+  Resolves the executables an SSH session needs through `PATH`.
+
+  Looks up `ssh`, `ncat`, `env`, and `mktemp` unless `:ssh_executable`,
+  `:proxy_executable`, `:env_executable`, or `:mktemp_executable` names another
+  executable. Returns `{:ok, %{ssh: path, proxy: path, env: path, mktemp: path}}`,
+  or `{:error, %{reason: :missing_executable, executable: name}}` for the first
+  executable that cannot be found.
+  """
   def validate_executables(opts \\ []) do
     ssh_executable = Keyword.get(opts, :ssh_executable, "ssh")
     proxy_executable = Keyword.get(opts, :proxy_executable, "ncat")
@@ -93,6 +102,12 @@ defmodule Nixstasis.Devices.SshClient do
     end
   end
 
+  # Starts the interactive SSH session for init/1. Writes the pinned host key and
+  # the session private key into a new owner-only temp directory, then spawns
+  # `env TERM=... ssh ...` as a port that reaches the device through the FRP proxy.
+  # Returns `{:ok, state}`, or `{:stop, reason}` when the host key is invalid or
+  # the temp directory cannot be created. If setup raises after the directory
+  # exists, the directory is removed before the error is re-raised.
   defp start_ssh_port(device_id, private_key, host_key, channel_pid, executables, columns, rows) do
     with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key),
          {:ok, temp_dir} <- create_private_temp_dir(executables.mktemp) do
@@ -219,6 +234,9 @@ defmodule Nixstasis.Devices.SshClient do
     {:stop, :normal, state}
   end
 
+  # Stops any in-flight resize task and removes the session's temporary
+  # credential directory when the server stops itself or is stopped with stop/1.
+  # It does not run when init/1 fails; start_ssh_port/7 cleans up in that case.
   @impl true
   def terminate(_reason, state) do
     stop_resize_task(state[:resize_task])
@@ -230,8 +248,12 @@ defmodule Nixstasis.Devices.SshClient do
     :ok
   end
 
-  # Holds both session credential files in an owner-only directory created by
-  # mktemp, so cleanup is one removal and file names are never guessable.
+  # Creates the session credential directory with `mktemp -d`, so its name is
+  # unpredictable, and verifies that it is a directory with exactly 0700
+  # permissions. Both credential files live inside it, so cleanup is one removal.
+  # Returns `{:ok, path}`. A failed mktemp returns `:temp_directory_creation_failed`
+  # with its exit status and output; any other file type or mode removes the path
+  # and returns `:insecure_temp_directory`.
   defp create_private_temp_dir(mktemp_executable) do
     template = Path.join(System.tmp_dir!(), "nixstasis_ssh_client_XXXXXXXXXX")
 

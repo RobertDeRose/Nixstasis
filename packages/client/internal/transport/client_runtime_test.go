@@ -15,6 +15,8 @@ import (
 	"github.com/RobertDeRose/Nixstasis/packages/client/internal/telemetry"
 )
 
+// TestDoJSONBoundsResponseBody verifies that a JSON response body of exactly
+// maxAPIResponseBytes decodes and one byte more fails with the size error.
 func TestDoJSONBoundsResponseBody(t *testing.T) {
 	t.Parallel()
 
@@ -67,6 +69,9 @@ func TestDoJSONBoundsResponseBody(t *testing.T) {
 	}
 }
 
+// TestDoJSONAllowsEmptyResponseBody verifies that empty and whitespace-only
+// success bodies are accepted without decoding, while truncated JSON still
+// fails to decode.
 func TestDoJSONAllowsEmptyResponseBody(t *testing.T) {
 	t.Parallel()
 
