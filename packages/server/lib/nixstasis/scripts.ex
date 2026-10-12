@@ -19,6 +19,9 @@ defmodule Nixstasis.Scripts do
   alias Nixstasis.Scripts.Validator
 
   @inline_script_payload_limit 4_096
+  # Matches the Go client's API response receive budget so every queued script
+  # remains downloadable through the deferred command-payload endpoint.
+  @device_payload_limit 1_048_576
   @script_history_limit 50
   @script_client_action_limit 500
   @script_target_limit 250
@@ -493,7 +496,8 @@ defmodule Nixstasis.Scripts do
            ),
          true <- length(devices) == length(device_ids),
          {:ok, version} <- reload_script_version(version),
-         :ok <- require_validated_version(version) do
+         :ok <- require_validated_version(version),
+         :ok <- ensure_downloadable_payload(draft.name, version.rendered_content) do
       rendered = version.rendered_content
 
       {:ok, test_run} =
@@ -618,7 +622,8 @@ defmodule Nixstasis.Scripts do
            ),
          true <- length(devices) == length(device_ids),
          {:ok, version} <- reload_script_version(version),
-         :ok <- require_validated_version(version) do
+         :ok <- require_validated_version(version),
+         :ok <- ensure_downloadable_payload(draft.name, version.rendered_content) do
       rendered = version.rendered_content
 
       {:ok, deployment_run} =
@@ -807,6 +812,16 @@ defmodule Nixstasis.Scripts do
 
   defp require_validated_version(%ScriptVersion{status: :validated}), do: :ok
   defp require_validated_version(_), do: {:error, :unvalidated_version}
+
+  # Measures the JSON body served by the command-payload endpoint, including
+  # escaping overhead, so oversized scripts fail here instead of on every device.
+  defp ensure_downloadable_payload(name, rendered) do
+    payload = script_command_payload("install_script", name, "", rendered)["payload"]
+
+    if byte_size(Jason.encode!(payload)) <= @device_payload_limit,
+      do: :ok,
+      else: {:error, :payload_too_large}
+  end
 
   defp run_update_attrs(:running), do: %{status: :running, completed_at: nil}
   defp run_update_attrs(status), do: %{status: status, completed_at: DateTime.utc_now()}

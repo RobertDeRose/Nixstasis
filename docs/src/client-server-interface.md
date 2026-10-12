@@ -161,7 +161,9 @@ the immutable validated version artifact. The common command request shape is:
 ```
 
 Small rendered scripts are sent inline. The server marks scripts larger than 4,096 bytes as
-deferred and retains the content behind `payload_ref`. During the poll cycle the Go client:
+deferred and retains the content behind `payload_ref`. Test-run and deployment queueing rejects
+a script whose JSON-encoded payload exceeds the client's 1 MiB response limit, so every queued
+script remains downloadable. During the poll cycle the Go client:
 
 1. validates the reference;
 2. fetches `GET /api/v1/devices/:device_id/command_payloads/:ref` with `Authorization: Bearer <device-token>`;
