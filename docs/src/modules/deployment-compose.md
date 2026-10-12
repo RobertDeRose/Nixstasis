@@ -40,7 +40,7 @@
 - Public published ports:
   - Caddy `80:80`
   - Caddy `443:443`
-  - FRPS bind and TCP mux ports.
+  - FRPS bind port. The FRPS TCP mux port stays internal to the Compose network.
 - Required operator inputs documented in `deploy/compose/README.md`:
   - `DATABASE_URL`
   - `SECRET_KEY_BASE`
