@@ -156,10 +156,16 @@ Traceable references:
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml:33-66`
-- `deploy/compose/frps/frps.toml:1-15`
-- `deploy/compose/caddy/Caddyfile:59-75`
-- `packages/server/lib/nixstasis/devices/ssh_client.ex:30-49`
+- `deploy/compose/docker-compose.yml`: the `caddy`, `frps`, and `client`
+  services and the ports each one publishes.
+- `deploy/compose/frps/frps.toml`: the FRPS transport ports and the
+  `[[httpPlugins]]` entry that gates Login/NewProxy through Phoenix.
+- `deploy/compose/caddy/Caddyfile`: the `*.{$BASE_DOMAIN}` site, which
+  forward-authorizes through `/internal/frp/access` before proxying to FRPS, and
+  the `frp-admin.{$BASE_DOMAIN}` dashboard site.
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`: the private per-session
+  temporary directory and the `ssh` arguments that use the `ncat` HTTP proxy to
+  reach the FRP TCP mux.
 
 ## Network Boundaries
 
