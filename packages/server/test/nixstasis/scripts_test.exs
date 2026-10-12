@@ -107,6 +107,27 @@ defmodule Nixstasis.ScriptsTest do
              )
   end
 
+  test "queue boundaries reject scripts too large for device download", %{draft: draft, device: device} do
+    # Quotes double in JSON, so this source fits on disk but not in the encoded payload.
+    body = "def main():\n    return \"" <> String.duplicate("\"", 600_000) <> "\"\n"
+
+    {:ok, version} =
+      Domain.create_script_version(%{
+        script_draft_id: draft.id,
+        version: "2",
+        status: :validated,
+        front_matter: draft.front_matter,
+        body: body,
+        rendered_content: Scripts.Validator.render_stary(draft.front_matter, body)
+      })
+
+    session = %{"script_permissions" => %{"can_manage" => true}}
+
+    assert {:error, :payload_too_large} = Scripts.queue_test_run(session, draft, version, [device])
+    assert {:error, :payload_too_large} = Scripts.queue_deployment(session, draft, version, [device])
+    assert Devices.pop_pending_commands(device) == []
+  end
+
   test "retry reloads in-bound authorized targets independently of the picker", %{
     draft: draft,
     version: version,

@@ -37,7 +37,7 @@ ARG UBUNTU_RUNNER_VERSION
 FROM ubuntu:${UBUNTU_RUNNER_VERSION} AS runner
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libstdc++6 openssl ca-certificates openssh-client ncat && \
+    apt-get install -y --no-install-recommends libstdc++6 openssl ca-certificates openssh-client ncat coreutils && \
     rm -rf /var/lib/apt/lists/* && \
     useradd --system --create-home --home-dir /app app
 

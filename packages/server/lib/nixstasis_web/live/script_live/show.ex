@@ -474,6 +474,9 @@ defmodule NixstasisWeb.ScriptLive.Show do
          |> assign(:client_actions, list_client_actions(test_runs, socket.assigns.deployment_runs))
          |> put_flash(:info, "Test queued for #{length(devices)} device(s)")}
 
+      {:error, :payload_too_large} ->
+        {:noreply, put_flash(socket, :error, "Failed to queue test: script exceeds the 1 MiB device download limit")}
+
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to queue test: #{inspect(reason)}")}
     end
@@ -495,6 +498,10 @@ defmodule NixstasisWeb.ScriptLive.Show do
          |> assign(:deployment_runs, deployment_runs)
          |> assign(:client_actions, list_client_actions(socket.assigns.test_runs, deployment_runs))
          |> put_flash(:info, "Deployment queued for #{length(devices)} device(s)")}
+
+      {:error, :payload_too_large} ->
+        {:noreply,
+         put_flash(socket, :error, "Failed to queue deployment: script exceeds the 1 MiB device download limit")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to queue deployment: #{inspect(reason)}")}

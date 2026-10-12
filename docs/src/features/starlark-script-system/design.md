@@ -26,6 +26,8 @@ front matter and declared output schemas.
 - Provide Starlark builtins including MQTT-style `pub_and_get` and deny-by-default command execution.
 - Treat configured MQTT topic entries as allowlist filters while requiring scripts to request concrete
   publish and reply topic names without MQTT wildcards.
+- Bound each MQTT reply consumed by `pub_and_get` to 1 MiB before JSON accept matching or
+  returning the payload to Starlark.
 - Execute heartbeat command batches and send aggregated command results back to the server.
 - Correlate command results by `command_id` and handle duplicate IDs deterministically.
 - Time out scripts and commands that exceed configured execution windows.

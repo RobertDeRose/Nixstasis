@@ -39,11 +39,13 @@ defmodule Nixstasis.Devices.SshClient do
     ssh_executable = Keyword.get(opts, :ssh_executable, "ssh")
     proxy_executable = Keyword.get(opts, :proxy_executable, "ncat")
     env_executable = Keyword.get(opts, :env_executable, "env")
+    mktemp_executable = Keyword.get(opts, :mktemp_executable, "mktemp")
 
     with {:ok, ssh_path} <- find_required_executable(ssh_executable),
          {:ok, proxy_path} <- find_required_executable(proxy_executable),
-         {:ok, env_path} <- find_required_executable(env_executable) do
-      {:ok, %{ssh: ssh_path, proxy: proxy_path, env: env_path}}
+         {:ok, env_path} <- find_required_executable(env_executable),
+         {:ok, mktemp_path} <- find_required_executable(mktemp_executable) do
+      {:ok, %{ssh: ssh_path, proxy: proxy_path, env: env_path, mktemp: mktemp_path}}
     end
   end
 
@@ -92,9 +94,10 @@ defmodule Nixstasis.Devices.SshClient do
   end
 
   defp start_ssh_port(device_id, private_key, host_key, channel_pid, executables, columns, rows) do
-    with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key) do
-      known_hosts_path = temp_path("nixstasis_known_hosts")
-      key_path = temp_path("nixstasis_ssh_client")
+    with {:ok, normalized_host_key} <- SshHostKey.normalize(host_key),
+         {:ok, temp_dir} <- create_private_temp_dir(executables.mktemp) do
+      known_hosts_path = Path.join(temp_dir, "known_hosts")
+      key_path = Path.join(temp_dir, "identity")
 
       try do
         write_private_file!(known_hosts_path, "#{ssh_host(device_id)} #{normalized_host_key}\n")
@@ -125,6 +128,7 @@ defmodule Nixstasis.Devices.SshClient do
         {:ok,
          %{
            port: port,
+           temp_dir: temp_dir,
            key_path: key_path,
            known_hosts_path: known_hosts_path,
            channel_pid: channel_pid,
@@ -139,12 +143,12 @@ defmodule Nixstasis.Devices.SshClient do
         error ->
           # terminate/2 does not run when init/1 raises, so remove the session
           # credentials here instead of stranding the private key on disk.
-          File.rm(key_path)
-          File.rm(known_hosts_path)
+          File.rm_rf(temp_dir)
           reraise error, __STACKTRACE__
       end
     else
       {:error, :invalid_ssh_host_key} -> {:stop, %{reason: :invalid_host_key}}
+      {:error, reason} -> {:stop, reason}
     end
   end
 
@@ -219,19 +223,44 @@ defmodule Nixstasis.Devices.SshClient do
   def terminate(_reason, state) do
     stop_resize_task(state[:resize_task])
 
-    if state[:key_path] do
-      File.rm(state.key_path)
-    end
-
-    if state[:known_hosts_path] do
-      File.rm(state.known_hosts_path)
+    if state[:temp_dir] do
+      File.rm_rf(state.temp_dir)
     end
 
     :ok
   end
 
-  defp temp_path(prefix) do
-    Path.join(System.tmp_dir!(), "#{prefix}_#{Ecto.UUID.generate()}")
+  # Holds both session credential files in an owner-only directory created by
+  # mktemp, so cleanup is one removal and file names are never guessable.
+  defp create_private_temp_dir(mktemp_executable) do
+    template = Path.join(System.tmp_dir!(), "nixstasis_ssh_client_XXXXXXXXXX")
+
+    case System.cmd(mktemp_executable, ["-d", template], stderr_to_stdout: true) do
+      {output, 0} ->
+        path = String.trim(output)
+
+        case File.stat(path) do
+          {:ok, %File.Stat{type: :directory, mode: mode}} ->
+            if Bitwise.band(mode, 0o777) == 0o700 do
+              {:ok, path}
+            else
+              File.rm_rf(path)
+              {:error, %{reason: :insecure_temp_directory}}
+            end
+
+          _ ->
+            File.rm_rf(path)
+            {:error, %{reason: :insecure_temp_directory}}
+        end
+
+      {output, status} ->
+        {:error,
+         %{
+           reason: :temp_directory_creation_failed,
+           status: status,
+           output: String.trim(output)
+         }}
+    end
   end
 
   # Restricts permissions before writing so key material is never readable under

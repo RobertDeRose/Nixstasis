@@ -22,6 +22,7 @@ from trusted `X-Token-*` claims into the Phoenix session.
   without creating partial runs or commands.
 - The picker searches and sorts in SQL within the trusted device scope, shows at most 50 results per query, and preserves selected labels across searches.
 - A maximum of 250 devices applies in the picker and again at the `Nixstasis.Scripts` queue boundary; LiveView filtering is not the security control.
+- A script whose JSON-encoded payload exceeds 1 MiB is rejected at the same queue boundary because devices cannot download it.
 - Missing trusted actor context fails closed for operator mutations in production. Audit
   events use the trusted subject, falling back to the trusted email when needed.
 
