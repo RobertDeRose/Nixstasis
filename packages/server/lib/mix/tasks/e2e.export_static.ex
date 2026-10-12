@@ -220,15 +220,21 @@ defmodule Mix.Tasks.E2e.ExportStatic do
     File.mkdir_p!(logs_export_dir)
 
     run_reports =
-      Enum.map(reports, fn report ->
-        run_id = report["RunID"] || ""
+      reports
+      |> Enum.with_index()
+      |> Enum.map(fn {report, report_index} ->
+        run_id = to_string(report["RunID"] || "")
         journeys = report["Journeys"] || []
 
         exported_logs =
-          Enum.map(journeys, fn journey ->
+          journeys
+          |> Enum.with_index()
+          |> Enum.map(fn {journey, journey_index} ->
             journey_id = to_string(journey["JourneyID"] || "")
             log_entries = load_log_entries(logs_dir, run_id, journey_id)
-            file_name = "#{journey_id}.json"
+            # Report-controlled IDs never name exported files; indexes keep paths
+            # inside the run directory and avoid collisions across reports.
+            file_name = "#{report_index}-#{journey_index}.json"
             File.write!(Path.join(logs_export_dir, file_name), Jason.encode!(%{"entries" => log_entries}, pretty: true))
 
             Map.put(journey, "log_payload", "logs/#{file_name}")
@@ -247,14 +253,25 @@ defmodule Mix.Tasks.E2e.ExportStatic do
   end
 
   defp load_log_entries(logs_dir, run_id, journey_id) do
-    path_glob = Path.join([logs_dir, run_id, "*-#{journey_id}.log"])
+    if safe_log_path_component?(run_id) and safe_log_path_component?(journey_id) do
+      path_glob = Path.join([logs_dir, run_id, "*-#{journey_id}.log"])
 
-    case path_glob |> Path.wildcard() |> Enum.sort() |> List.first() do
-      nil -> []
-      path -> path |> File.read!() |> E2ELogPresenter.parse_entries()
+      case path_glob |> Path.wildcard() |> Enum.sort() |> List.first() do
+        nil -> []
+        path -> path |> File.read!() |> E2ELogPresenter.parse_entries()
+      end
+    else
+      []
     end
   rescue
     _ -> []
+  end
+
+  # Report IDs are interpolated into a glob under logs_dir, so reject path
+  # separators, dot segments, and glob metacharacters.
+  defp safe_log_path_component?(value) do
+    value not in [".", ".."] and
+      not String.contains?(value, ["/", "\\", "*", "?", "[", "]", "{", "}"])
   end
 
   defp relative_root_prefix(run_path) do
@@ -521,7 +538,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
             const row = document.createElement("tr")
             const linkCell = document.createElement("td")
             const link = document.createElement("a")
-            link.href = String(run.run_path || "")
+            link.href = String(run.run_path || "").split("/").map(encodeURIComponent).join("/")
             link.textContent = String(run.short_commit_sha || "")
             linkCell.appendChild(link)
             row.appendChild(linkCell)
@@ -542,7 +559,7 @@ defmodule Mix.Tasks.E2e.ExportStatic do
           const refName = refNameSelect.value
           const filtered = runs.filter((run) => {
             if (refType !== "all" && run.ref_type !== refType) return false
-            if (refName !== "all" && run.ref_name !== refName) return false
+            if (refName !== "all" && String(run.ref_name || "") !== refName) return false
             return true
           })
 

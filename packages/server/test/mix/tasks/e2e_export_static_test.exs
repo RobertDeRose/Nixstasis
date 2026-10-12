@@ -277,6 +277,53 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
     end
   end
 
+  test "report IDs cannot escape the exported run or logs directories", %{
+    tmp: tmp,
+    reports_dir: reports_dir,
+    logs_dir: logs_dir,
+    pages_dir: pages_dir
+  } do
+    File.write!(Path.join(tmp, "001-secret.log"), "outside logs dir\n")
+
+    report = %{
+      "RunID" => "..",
+      "Journeys" => [
+        %{"JourneyID" => "secret", "Status" => "passed"},
+        %{"JourneyID" => "../../../../escaped", "Status" => "passed"}
+      ]
+    }
+
+    File.write!(Path.join(reports_dir, "traversal.json"), Jason.encode!(report))
+
+    run_task([
+      "--reports-dir",
+      reports_dir,
+      "--logs-dir",
+      logs_dir,
+      "--pages-dir",
+      pages_dir,
+      "--ref-name",
+      "main",
+      "--full-sha",
+      "abcdef1234567890",
+      "--timestamp",
+      "2026-02-14T10:00:00Z"
+    ])
+
+    run_dir = Path.join(pages_dir, "runs/main/abcdef1")
+    run_data = run_dir |> Path.join("run.json") |> File.read!() |> Jason.decode!()
+    [%{"Journeys" => journeys}] = run_data["reports"]
+
+    assert Enum.map(journeys, & &1["log_payload"]) == ["logs/0-0.json", "logs/0-1.json"]
+    refute File.exists?(Path.join(tmp, "escaped.json"))
+    refute File.exists?(Path.join(pages_dir, "escaped.json"))
+
+    for file <- ["logs/0-0.json", "logs/0-1.json"] do
+      log_payload = run_dir |> Path.join(file) |> File.read!() |> Jason.decode!()
+      assert log_payload["entries"] == []
+    end
+  end
+
   defp run_task(args) do
     Mix.Task.reenable(@task)
     ExportStatic.run(args)
