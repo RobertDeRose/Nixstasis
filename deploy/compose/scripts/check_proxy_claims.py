@@ -84,10 +84,12 @@ class EchoHandler(BaseHTTPRequestHandler):
 
 
 def signed_token(scoped, role="nixstasis/viewer"):
-    """Create a short-lived HS512 JWT for role using the isolated test signing key.
+    """Create a five-minute HS512 JWT with the single given role.
 
-    When scoped, include a fixed device_ids claim to prove the deployment never
-    forwards it as device scope; otherwise omit it. This is not a production key.
+    The identity claims always name the fixed trusted-viewer test user; only the
+    roles claim varies. When scoped, include a fixed device_ids claim to prove the
+    deployment never forwards it as device scope; otherwise omit it. The token is
+    signed with the isolated test key, not a production key.
     """
     def encode(value):
         """Return the unpadded base64url bytes required by JWT segments."""
@@ -114,9 +116,11 @@ def signed_token(scoped, role="nixstasis/viewer"):
 def local_config(caddy, filename, backend_port, listen_port):
     """Adapt a deployment Caddyfile into a loopback-only integration-test config.
 
-    Preserve its application handlers and authorization policies while replacing
-    listeners and upstreams and removing unused TLS/OIDC services.
-    Return the JSON-compatible config; failed adaptation or host selection raises.
+    Keep only the Nixstasis, FRPS dashboard, and wildcard device host routes, in
+    their adapted order, with their handlers and authorization policies intact.
+    Serve them on listen_port, point every reverse proxy at backend_port, and
+    drop the admin API, TLS automation, and OIDC portal services. Return the
+    JSON-compatible config; failed adaptation or host selection raises.
     """
     adapted = subprocess.run(
         [caddy, "adapt", "--adapter", "caddyfile", "--config", str(filename)],
@@ -164,7 +168,10 @@ def local_config(caddy, filename, backend_port, listen_port):
 
 
 def drain_requests(backend):
-    """Return the upstream arrivals recorded since the previous drain."""
+    """Remove and return the upstream arrivals recorded since the previous drain.
+
+    Each arrival is a (method, path, lowercase headers) tuple in arrival order.
+    """
     arrivals = []
     while not backend.requests.empty():
         arrivals.append(backend.requests.get())
@@ -195,10 +202,12 @@ class ProxyClaimsTest(unittest.TestCase):
                 thread.join()
 
     def check_proxy(self, name, backend, scoped):
-        """Run one adapted Caddy instance and exercise its trusted-claim boundary.
+        """Run one adapted Caddy instance and exercise every proxy boundary check.
 
-        Use temporary config/data directories and a free local port. Fail with
-        captured logs if startup exits or times out, and always reap the process.
+        Cover application claims, the device tunnel access check, the admin-only
+        FRPS dashboard, and rejected Connection nominations. Use temporary
+        config/data directories and a free local port. Fail with captured logs if
+        startup exits or times out, and always reap the process.
         """
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
@@ -243,7 +252,8 @@ class ProxyClaimsTest(unittest.TestCase):
 
         authenticated adds a genuine signed token for role alongside the forged
         headers so tests can distinguish trusted claims from client input;
-        scoped selects whether that token carries a device_ids claim.
+        scoped selects whether that token carries a device_ids claim. host sets
+        the Host header and defaults to the Nixstasis application host.
         extra_headers accepts ordered name/value pairs, including repeated fields
         needed to test Connection nominations. Use the fixed runtime body and
         always close the local HTTP connection.
@@ -324,9 +334,10 @@ class ProxyClaimsTest(unittest.TestCase):
     def exercise_device_tunnel(self, port, backend, scoped):
         """Assert that device tunnel hosts authorize before asking Phoenix.
 
-        The Phoenix access check must see only AuthCrunch-verified claims, never
-        forged client claims or device scope, and anonymous requests must be
-        rejected before either the access check or FRPS is reached.
+        The Phoenix access check must be called once with only AuthCrunch-verified
+        claims, never forged client claims or device scope, plus the proxy-owned
+        token and the requested tunnel host. Anonymous requests must be rejected
+        before either the access check or FRPS is reached.
         """
         tunnel_host = f"atom-{DEVICE_ID.replace('-', '')}.proxy.test"
 
