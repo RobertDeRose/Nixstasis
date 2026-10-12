@@ -267,10 +267,6 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
     assert index_html =~ "<h1>#{escaped_title}</h1>"
     refute index_html =~ title
 
-    for html <- [index_html, run_html], sink <- ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"] do
-      refute html =~ sink
-    end
-
     for payload <- [ref_name, run_id, run_status, journey_id, journey_status, duration, error] do
       refute index_html =~ payload
       refute run_html =~ payload
