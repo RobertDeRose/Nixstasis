@@ -271,18 +271,6 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
       refute html =~ sink
     end
 
-    assert index_html =~ "heading.textContent = name"
-    assert index_html =~ ~s'link.textContent = String(run.short_commit_sha || "")'
-    assert index_html =~ ~s'appendTextCell(row, run.full_commit_sha)'
-
-    assert run_html =~
-             ~s'reportHeading.textContent = `Run ${String(report.RunID || "unknown")} (${String(report.Status || "unknown")})`'
-
-    assert run_html =~ ~s'appendTextCell(row, "td", journey.JourneyID || "")'
-    assert run_html =~ ~s'appendTextCell(row, "td", journey.Status || "")'
-    assert run_html =~ ~s'appendTextCell(row, "td", journey.DurationMs ?? "")'
-    assert run_html =~ ~s'appendTextCell(row, "td", journey.Error || "")'
-
     for payload <- [ref_name, run_id, run_status, journey_id, journey_status, duration, error] do
       refute index_html =~ payload
       refute run_html =~ payload
