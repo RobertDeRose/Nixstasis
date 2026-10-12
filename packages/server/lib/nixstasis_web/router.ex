@@ -103,6 +103,7 @@ defmodule NixstasisWeb.Router do
     pipe_through(:frp_plugin)
 
     post("/authorize", FrpAuthorizationController, :authorize)
+    get("/access", FrpAccessController, :authorize)
   end
 
   scope "/api/v1/provisioning", NixstasisWeb do

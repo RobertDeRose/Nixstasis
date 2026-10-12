@@ -158,6 +158,16 @@ command type, device ownership, content type, and session ref before starting
 SSH. Authorization failure or the bounded timeout clears the server session
 and stops browser retry.
 
+Terminal resize messages accept rows and columns from `1` through `1,000`. The
+channel debounces resize bursts and forwards only the newest dimensions. The
+server-side SSH client additionally permits only one remote resize command at a
+time; while one is running, repeated resize requests are collapsed to the newest
+requested size. This prevents resize bursts from creating an unbounded number
+of SSH subprocesses. If a resize command crashes, the client keeps the last
+applied size, so a retry of the same dimensions still runs. Each resize command
+has a 15-second deadline and SSH connect and keepalive limits; a command that
+stalls past the deadline is killed and the newest pending size runs next.
+
 ### `ssh_revoke`
 
 When a terminal closes, expires, goes offline, or fails after session creation,

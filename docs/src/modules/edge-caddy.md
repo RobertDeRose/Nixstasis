@@ -98,11 +98,18 @@ same Nixstasis role contract.
   and laptop configurations through `check_runtime_contract.sh` with `CADDY_BIN`.
   These use loopback HTTP and an echo upstream, checking device claim removal,
   operator claim injection, optional scope injection, proxy-token overwrite,
+  verified-only claims on the device tunnel access check,
   rejection of trusted-header `Connection` nominations before upstream access,
   and preservation of WebSocket upgrade headers; they do not exercise TLS,
   OIDC login, or a full WebSocket handshake. See the
   [Compose validation commands](deployment-compose.md#contract-validation).
-- Wildcard device traffic is routed to FRPS HTTP vhost port.
+- Wildcard device traffic runs in an explicit `route`: Caddy deletes
+  client-supplied `X-Token-*` headers, AuthCrunch authenticates and injects
+  verified claims, and Caddy then calls the internal Phoenix FRP access endpoint
+  before routing to the FRPS HTTP vhost port. Phoenix requires remote-access
+  capability for the device ID encoded in the requested FRP hostname. Caddy
+  forwards no device scope; Phoenix applies only its own device grants (see the
+  operator scope contract in [Contracts](../reference/contracts.md)).
 - FRPS dashboard traffic is routed through `frp-admin.<base-domain>`.
 - TLS certificate issuance calls Phoenix `GET /api/v1/check_domain` to approve domains.
   Device hosts use the normalized device UUID, with an optional route suffix such

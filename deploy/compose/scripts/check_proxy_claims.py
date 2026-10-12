@@ -62,10 +62,11 @@ class EchoHandler(BaseHTTPRequestHandler):
         the request upstream. The do_POST alias uses this same handler; no
         application authentication runs here because this tests the proxy boundary.
         """
-        self.server.requests.put((self.command, self.path))
+        headers = {k.lower(): v for k, v in self.headers.items()}
+        self.server.requests.put((self.command, self.path, headers))
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         payload = json.dumps({
-            "headers": {k.lower(): v for k, v in self.headers.items()},
+            "headers": headers,
             "path": self.path,
             "body": body.decode(),
         }).encode()
@@ -124,12 +125,14 @@ def local_config(caddy, filename, backend_port, listen_port):
     config = json.loads(adapted.stdout)
     # Keep the adapted Nixstasis handlers and policy intact. Only replace external
     # listeners/upstreams and remove unused TLS/OIDC services for this local test.
+    # Keep the adapted route order: the Nixstasis host must win over the wildcard.
     routes = [route for server in config["apps"]["http"]["servers"].values()
               for route in server["routes"]
-              if any("nixstasis.proxy.test" in match.get("host", [])
-                     for match in route.get("match", []))]
-    if len(routes) != 1:
-        raise AssertionError("Expected exactly one Nixstasis host route")
+              if any(host in match.get("host", [])
+                     for match in route.get("match", [])
+                     for host in ["nixstasis.proxy.test", "*.proxy.test"])]
+    if len(routes) != 2:
+        raise AssertionError("Expected exactly one Nixstasis and one wildcard host route")
     config["admin"] = {"disabled": True}
     config["apps"].pop("tls", None)
     config["apps"]["http"]["servers"] = {"test": {
@@ -213,6 +216,7 @@ class ProxyClaimsTest(unittest.TestCase):
                         except OSError:
                             time.sleep(0.05)
                     self.exercise_requests(port, scoped)
+                    self.exercise_device_tunnel(port, backend, scoped)
                     self.exercise_rejected_connections(port, backend)
                 finally:
                     process.terminate()
@@ -223,7 +227,7 @@ class ProxyClaimsTest(unittest.TestCase):
                         process.wait()
 
     def request(self, port, method, path, authenticated=False, extra_headers=(),
-                scoped=False):
+                scoped=False, host="nixstasis.proxy.test"):
         """Send forged claim headers and return the proxy's status and body bytes.
 
         authenticated adds a genuine signed viewer token alongside the forged
@@ -234,7 +238,7 @@ class ProxyClaimsTest(unittest.TestCase):
         always close the local HTTP connection.
         """
         headers = dict(FORGED_HEADERS)
-        headers["Host"] = "nixstasis.proxy.test"
+        headers["Host"] = host
         if authenticated:
             headers["Authorization"] = f"Bearer {signed_token(scoped)}"
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
@@ -305,6 +309,44 @@ class ProxyClaimsTest(unittest.TestCase):
         self.assertNotIn("x-token-device-ids", headers)
         self.assertEqual(headers["x-token-user-roles"], "nixstasis/viewer")
         self.assertEqual(headers["x-nixstasis-proxy-token"], PROXY_TOKEN)
+
+    def exercise_device_tunnel(self, port, backend, scoped):
+        """Assert that device tunnel hosts authorize before asking Phoenix.
+
+        The Phoenix access check must see only AuthCrunch-verified claims, never
+        forged client claims or device scope, and anonymous requests must be
+        rejected before either the access check or FRPS is reached.
+        """
+        tunnel_host = f"atom-{DEVICE_ID.replace('-', '')}.proxy.test"
+
+        def drain():
+            """Return the upstream arrivals recorded since the previous drain."""
+            arrivals = []
+            while not backend.requests.empty():
+                arrivals.append(backend.requests.get())
+            return arrivals
+
+        drain()
+        status, body = self.request(port, "GET", "/", authenticated=True, scoped=scoped,
+                                    host=tunnel_host)
+        self.assertEqual(status, 200, body)
+        checks = [headers for _method, path, headers in drain()
+                  if path == "/internal/frp/access"]
+        self.assertEqual(len(checks), 1, "Phoenix access check was not called once")
+        check = checks[0]
+        claims = {k: v for k, v in check.items() if k.startswith("x-token-")}
+        self.assertEqual(claims, {
+            "x-token-subject": "trusted-viewer",
+            "x-token-user-name": "Trusted Viewer",
+            "x-token-user-email": "viewer@example.test",
+            "x-token-user-roles": "nixstasis/viewer",
+        })
+        self.assertEqual(check["x-nixstasis-proxy-token"], PROXY_TOKEN)
+        self.assertEqual(check["x-nixstasis-requested-host"], tunnel_host)
+
+        status, _body = self.request(port, "GET", "/", host=tunnel_host)
+        self.assertIn(status, [302, 303, 401, 403])
+        self.assertEqual(drain(), [], "Anonymous tunnel request reached an upstream")
 
     def exercise_rejected_connections(self, port, backend):
         """Assert that trusted-header Connection nominations never reach the backend.

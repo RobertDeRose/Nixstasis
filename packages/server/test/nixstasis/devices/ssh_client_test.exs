@@ -212,6 +212,11 @@ defmodule Nixstasis.Devices.SshClientTest do
 
     assert_receive {:ssh_output, "ready\n"}, 1_000
 
+    initial_commands = File.read!(log_path)
+    SshClient.resize(pid, 1_001, 48)
+    _ = :sys.get_state(pid)
+    assert File.read!(log_path) == initial_commands
+
     SshClient.resize(pid, 120, 48)
     _ = :sys.get_state(pid)
 
@@ -233,6 +238,232 @@ defmodule Nixstasis.Devices.SshClientTest do
     GenServer.stop(pid)
   end
 
+  test "coalesces resize bursts and runs only one resize subprocess at a time" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-resize-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+
+    env_path = Path.join(temp_dir, "env")
+    log_path = Path.join(temp_dir, "resize.log")
+    lock_path = Path.join(temp_dir, "resize.lock")
+
+    File.write!(env_path, """
+    #!/bin/sh
+    case "$*" in
+      *'tty_path=$(cat'*)
+        if mkdir '#{lock_path}' 2>/dev/null; then
+          printf 'resize-start %s\n' "$*" >> '#{log_path}'
+          sleep 0.2
+          printf 'resize-end %s\n' "$*" >> '#{log_path}'
+          rmdir '#{lock_path}'
+        else
+          printf 'resize-overlap %s\n' "$*" >> '#{log_path}'
+        fi
+        exit 0
+        ;;
+      *)
+        printf 'ready\n'
+        sleep 30
+        ;;
+    esac
+    """)
+
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color"
+    )
+
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    SshClient.resize(pid, 121, 41)
+
+    for columns <- 122..160 do
+      SshClient.resize(pid, columns, 41)
+    end
+
+    _ = :sys.get_state(pid)
+
+    log =
+      eventually_read!(
+        log_path,
+        fn value ->
+          Regex.match?(~r/^resize-end .*stty rows 41 cols 160 /m, value)
+        end,
+        200
+      )
+
+    refute log =~ "resize-overlap"
+    assert length(Regex.scan(~r/^resize-start /m, log)) == 2
+    assert log =~ "stty rows 41 cols 121"
+    assert log =~ "stty rows 41 cols 160"
+  end
+
+  @tag :capture_log
+  test "a crashed resize worker does not suppress a retry of the same dimensions" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-resize-crash-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+
+    env_path = Path.join(temp_dir, "env")
+    log_path = Path.join(temp_dir, "resize.log")
+
+    env_script = """
+    #!/bin/sh
+    case "$*" in
+      *'tty_path=$(cat'*) printf 'resize %s\n' "$*" >> '#{log_path}'; exit 0 ;;
+      *) printf 'ready\n'; sleep 30 ;;
+    esac
+    """
+
+    File.write!(env_path, env_script)
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color"
+    )
+
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    # Removing the executable makes System.cmd/3 raise inside the worker.
+    File.rm!(env_path)
+    SshClient.resize(pid, 121, 41)
+    await_resize_idle!(pid)
+
+    File.write!(env_path, env_script)
+    File.chmod!(env_path, 0o700)
+    SshClient.resize(pid, 121, 41)
+
+    log = eventually_read!(log_path, &(&1 =~ "stty rows 41 cols 121"))
+    assert log =~ "stty rows 41 cols 121"
+  end
+
+  @tag :capture_log
+  test "a stalled resize worker times out and releases the resize slot" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-resize-timeout-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+
+    env_path = Path.join(temp_dir, "env")
+    log_path = Path.join(temp_dir, "resize.log")
+
+    # The first resize stalls like an unresponsive SSH connection.
+    File.write!(env_path, """
+    #!/bin/sh
+    case "$*" in
+      *'cols 121 <'*) printf 'stalled %s\n' "$*" >> '#{log_path}'; exec sleep 2 ;;
+      *'tty_path=$(cat'*) printf 'resize %s\n' "$*" >> '#{log_path}'; exit 0 ;;
+      *) printf 'ready\n'; sleep 30 ;;
+    esac
+    """)
+
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color",
+      resize_timeout_ms: 100
+    )
+
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    SshClient.resize(pid, 121, 41)
+    _ = eventually_read!(log_path, &(&1 =~ "stalled "))
+    SshClient.resize(pid, 130, 41)
+
+    log = eventually_read!(log_path, &(&1 =~ "stty rows 41 cols 130"), 100)
+    assert log =~ "stty rows 41 cols 130"
+  end
+
   defp restore_env(key, nil), do: Application.delete_env(:nixstasis, key)
   defp restore_env(key, value), do: Application.put_env(:nixstasis, key, value)
 
@@ -252,4 +483,20 @@ defmodule Nixstasis.Devices.SshClientTest do
   end
 
   defp eventually_read!(path, _predicate, 0), do: File.read!(path)
+  defp await_resize_idle!(pid, attempts \\ 100)
+
+  defp await_resize_idle!(pid, attempts) when attempts > 0 do
+    case :sys.get_state(pid) do
+      %{resize_task: nil} ->
+        :ok
+
+      _state ->
+        receive do
+        after
+          10 -> await_resize_idle!(pid, attempts - 1)
+        end
+    end
+  end
+
+  defp await_resize_idle!(_pid, 0), do: flunk("resize worker did not exit")
 end
