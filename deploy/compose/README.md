@@ -322,6 +322,15 @@ It does not require the full stack to be running or publish service ports. Packa
 installation requires network access. Do not execute the exported Linux Buildx
 binary directly on macOS; the existing Linux CI workflow is unchanged.
 
+Confirm the pinned frps binary accepts the `frps/frps.toml` template. The script
+fills its placeholders with dummy values and runs `frps verify` in the image; the
+FRPS image workflow runs the same check:
+
+```sh
+mise run deploy:dev -- build frps
+deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
+```
+
 Validate production deployment inputs separately:
 
 ```sh

@@ -28,6 +28,7 @@
 - `deploy/compose/scripts/validate_stack.sh`
 - `deploy/compose/scripts/test_validate_stack.py`
 - `deploy/compose/scripts/check_proxy_claims.py`
+- `deploy/compose/scripts/check_frps_config.sh`
 - `prod.env`
 
 ## Public Interfaces
@@ -292,6 +293,18 @@ that exported binary directly on macOS. The existing Linux CI workflow is unchan
 The Caddy image workflow requires these behavior checks before publishing. They
 use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
 outside their scope.
+
+To confirm the pinned frps binary accepts the Compose `frps.toml` template, fill
+its placeholders with dummy values and run `frps verify` in the built image:
+
+```sh
+mise run deploy:dev -- build frps
+deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
+```
+
+The FRPS image workflow runs the same check against the image it builds. It
+catches structural mistakes that text searches miss, such as a top-level key
+placed after a `[[httpPlugins]]` table, which frps rejects at startup.
 
 Traceable references:
 
