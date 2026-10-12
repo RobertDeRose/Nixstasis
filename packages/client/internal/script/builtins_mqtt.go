@@ -12,6 +12,10 @@ import (
 	"go.starlark.net/starlark"
 )
 
+// pubAndGetBuiltin publishes on an allowed concrete topic and waits for a
+// matching reply. Calls are serialized to protect shared subscriptions; no reply
+// within five seconds returns None, and context cancellation returns ErrTimeout.
+//
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	ctx := runtimeContext(thread)
@@ -52,7 +56,7 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 	if !topicAllowed(replyTopic, r.config.MQTTSubscribeTopics) {
 		return nil, fmt.Errorf("subscribe topic is not allowed: %s", replyTopic)
 	}
-	acceptCriteria, err := parseAcceptCriteria(accept)
+	acceptCriteria, err := parseAcceptCriteria(ctx, accept)
 	if err != nil {
 		return nil, err
 	}
@@ -113,25 +117,26 @@ func runtimeContext(thread *starlark.Thread) context.Context {
 	return ctx
 }
 
-func parseAcceptCriteria(accept *starlark.Dict) (map[string]any, error) {
+// parseAcceptCriteria converts optional reply filters using bounded native
+// conversion and validates top-level JSON field names. A nil dictionary means
+// no filtering; conversion and key validation failures return an error.
+func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string]any, error) {
 	if accept == nil {
 		return nil, nil
 	}
-	criteria := make(map[string]any, accept.Len())
-	for _, item := range accept.Items() {
-		field, ok := item[0].(starlark.String)
-		if !ok {
-			return nil, fmt.Errorf("accept keys must be strings")
-		}
-		name := string(field)
+
+	converted, err := starlarkValueToGo(ctx, accept)
+	if err != nil {
+		return nil, fmt.Errorf("accept criteria: %w", err)
+	}
+	criteria, ok := converted.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("accept criteria must be a dict")
+	}
+	for name := range criteria {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, ".[]") {
 			return nil, fmt.Errorf("accept keys must be non-empty top-level JSON field names")
 		}
-		value, err := starlarkValueToGo(item[1])
-		if err != nil {
-			return nil, fmt.Errorf("accept value for %s: %w", name, err)
-		}
-		criteria[name] = value
 	}
 	return criteria, nil
 }
@@ -185,12 +190,18 @@ func topicAllowed(topic string, patterns []string) bool {
 	return false
 }
 
+// mqttTopicMatch matches a concrete topic against an allowlist pattern,
+// supporting + for one level and a final # for remaining levels. As in the
+// MQTT specification, a leading wildcard never matches a $-prefixed topic.
 func mqttTopicMatch(pattern, topic string) bool {
-	if pattern == "" || topic == "" {
+	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
 	}
 	patternParts := strings.Split(pattern, "/")
 	topicParts := strings.Split(topic, "/")
+	if strings.HasPrefix(topic, "$") && (patternParts[0] == "+" || patternParts[0] == "#") {
+		return false
+	}
 	for i, part := range patternParts {
 		if part == "#" {
 			return i == len(patternParts)-1
@@ -203,6 +214,12 @@ func mqttTopicMatch(pattern, topic string) bool {
 		}
 	}
 	return len(patternParts) == len(topicParts)
+}
+
+// mqttTopicNameIsConcrete reports whether a topic is nonempty and contains
+// neither MQTT wildcard character (+ or #).
+func mqttTopicNameIsConcrete(topic string) bool {
+	return topic != "" && !strings.ContainsAny(topic, "+#")
 }
 
 func (r *Runtime) connectMQTT() (mqtt.Client, error) {

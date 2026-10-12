@@ -112,6 +112,8 @@ Traceable references:
   when the client runtime configuration maps a requested command name to an
   absolute allowlisted executable path. Non-empty argument vectors must also match
   an exact client-local `runtime.exec_command_args` entry for that executable path; server policy cannot expand it.
+  Combined stdout and stderr is capped at 256 KiB per call; a command that writes more
+  is stopped and the call fails instead of returning truncated output.
 - The shipped command map excludes generic `cat`. File-backed diagnostics use the separate
   `read_file` capability. It accepts only
   exact locally configured `runtime.read_files` paths, caps each read at 64 KiB,
