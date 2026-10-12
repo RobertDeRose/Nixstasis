@@ -35,12 +35,10 @@ Run these from the repository root when changing deployment inputs or validating
 a production `.env` file:
 
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
 deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 
-`check_runtime_contract.sh` validates repository contract drift. `validate_stack.sh`
-validates the operator production `.env`, requires
+`validate_stack.sh` validates the operator production `.env`, requires
 `CADDY_CONFIG=./caddy/Caddyfile`, checks the production Caddy policy shape and
 rendered stack, then runs Docker Compose build validation. It requires a working
 Docker daemon.

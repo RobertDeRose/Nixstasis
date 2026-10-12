@@ -294,10 +294,11 @@ stdout. Use
 
 ## Contract Validation
 
-Run the static runtime checks from the repository root:
+Run the stack validation tests from the repository root. `mise run check` also
+runs them whenever files under `deploy/compose/` change:
 
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
+python3 deploy/compose/scripts/test_validate_stack.py
 ```
 
 For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
@@ -310,8 +311,7 @@ mise run deploy:dev -- run --rm --no-deps \
   --volume "$PWD:/workspace:ro" \
   --workdir /workspace \
   caddy -c 'apk add --no-cache python3 &&
-    CADDY_BIN=/usr/bin/caddy \
-    sh deploy/compose/scripts/check_runtime_contract.sh'
+    python3 deploy/compose/scripts/check_proxy_claims.py --caddy /usr/bin/caddy'
 ```
 
 The development stack already runs Caddy in a container. This check uses a separate

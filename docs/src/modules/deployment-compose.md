@@ -25,8 +25,9 @@
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `.mise/tasks/deploy/dev.sh`
 - `.mise/tasks/deploy/dev/seed.sh`
-- `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
+- `deploy/compose/scripts/test_validate_stack.py`
+- `deploy/compose/scripts/check_proxy_claims.py`
 - `prod.env`
 
 ## Public Interfaces
@@ -261,10 +262,11 @@
 
 ## Contract Validation
 
-Run the static runtime checks from the repository root:
+Run the stack validation tests from the repository root. `mise run check` also
+runs them whenever files under `deploy/compose/` change:
 
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
+python3 deploy/compose/scripts/test_validate_stack.py
 ```
 
 For executable production/laptop claim-boundary checks on macOS or Linux, use
@@ -277,8 +279,7 @@ mise run deploy:dev -- run --rm --no-deps \
   --volume "$PWD:/workspace:ro" \
   --workdir /workspace \
   caddy -c 'apk add --no-cache python3 &&
-    CADDY_BIN=/usr/bin/caddy \
-    sh deploy/compose/scripts/check_runtime_contract.sh'
+    python3 deploy/compose/scripts/check_proxy_claims.py --caddy /usr/bin/caddy'
 ```
 
 The development stack already runs Caddy in a container. These checks use a
@@ -290,11 +291,11 @@ that exported binary directly on macOS. The existing Linux CI workflow is unchan
 
 The Caddy image workflow requires these behavior checks before publishing. They
 use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
-outside their scope. Without `CADDY_BIN`, only the existing static checks run.
+outside their scope.
 
 Traceable references:
 
 - `deploy/compose/docker-compose.yml:1-129`
 - `deploy/compose/README.md:1-117`
-- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/check_proxy_claims.py`
 - `docs/src/operations/index.md`

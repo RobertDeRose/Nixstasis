@@ -12,7 +12,6 @@ references in `.env`; do not use mutable tags for production service images.
 4. Run static validation:
 
    ```sh
-   deploy/compose/scripts/check_runtime_contract.sh
    deploy/compose/scripts/validate_stack.sh deploy/compose/.env
    ```
 
