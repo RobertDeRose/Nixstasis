@@ -167,13 +167,17 @@ defmodule Nixstasis.Devices.SshClient do
   @impl true
   def handle_info(
         {:DOWN, ref, :process, pid, reason},
-        %{resize_task: {pid, ref}} = state
+        %{resize_task: {pid, ref, previous_size}} = state
       ) do
-    if reason not in [:normal, :shutdown] do
-      Logger.warning("Terminal resize worker exited unexpectedly: #{inspect(reason)}")
-    end
-
-    state = %{state | resize_task: nil}
+    # A crashed worker did not apply its size, so restore the last applied size
+    # to keep a retry of the same dimensions from being skipped.
+    state =
+      if reason in [:normal, :shutdown] do
+        %{state | resize_task: nil}
+      else
+        Logger.warning("Terminal resize worker exited unexpectedly: #{inspect(reason)}")
+        %{state | resize_task: nil, size: previous_size}
+      end
 
     case state.pending_resize do
       nil ->
@@ -275,7 +279,7 @@ defmodule Nixstasis.Devices.SshClient do
         resize_remote_tty(state, columns, rows)
       end)
 
-    %{state | resize_task: {pid, ref}, size: {columns, rows}}
+    %{state | resize_task: {pid, ref, state.size}, size: {columns, rows}}
   end
 
   defp resize_remote_tty(state, columns, rows) do
@@ -295,7 +299,7 @@ defmodule Nixstasis.Devices.SshClient do
 
   defp stop_resize_task(nil), do: :ok
 
-  defp stop_resize_task({pid, ref}) do
+  defp stop_resize_task({pid, ref, _previous_size}) do
     Process.demonitor(ref, [:flush])
 
     if Process.alive?(pid) do

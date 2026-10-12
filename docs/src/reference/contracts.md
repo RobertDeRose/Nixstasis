@@ -163,7 +163,8 @@ channel debounces resize bursts and forwards only the newest dimensions. The
 server-side SSH client additionally permits only one remote resize command at a
 time; while one is running, repeated resize requests are collapsed to the newest
 requested size. This prevents resize bursts from creating an unbounded number
-of SSH subprocesses.
+of SSH subprocesses. If a resize command crashes, the client keeps the last
+applied size, so a retry of the same dimensions still runs.
 
 ### `ssh_revoke`
 
