@@ -194,7 +194,7 @@ defmodule Mix.Tasks.E2e.ExportStaticTest do
     refute Enum.any?(manifest["runs"], &(&1["full_commit_sha"] == "eeeeeeeeeeeeeee5"))
   end
 
-  test "renders untrusted static export values only through text-safe DOM sinks", %{
+  test "keeps untrusted static export values out of generated HTML", %{
     reports_dir: reports_dir,
     logs_dir: logs_dir,
     pages_dir: pages_dir
