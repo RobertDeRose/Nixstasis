@@ -23,9 +23,14 @@ type mqttReply struct {
 	err     error
 }
 
-// pubAndGetBuiltin publishes on an allowed concrete topic and waits for a
-// matching reply. Calls are serialized to protect shared subscriptions; no reply
-// within five seconds returns None, and context cancellation returns ErrTimeout.
+// pubAndGetBuiltin implements pub_and_get(topic, msg, reply_topic?, accept?).
+// It publishes msg on topic and returns the first matching reply on reply_topic
+// (default: topic) as a string. Both topics must be concrete and match the
+// configured publish and subscribe allowlists, and accept filters JSON replies
+// by top-level field values. When the topics are equal, an exact echo of msg is
+// ignored. Calls are serialized to protect shared subscriptions. A reply larger
+// than maxMQTTReplyBytes fails the call; no reply within five seconds returns
+// None, and context cancellation returns ErrTimeout.
 //
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -165,8 +170,12 @@ func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string
 }
 
 // responseMatchesAccept enforces the reply size ceiling and reports whether a
-// reply satisfies the accept criteria. Malformed JSON is a non-match, not an
-// error, so the call keeps waiting for a valid reply.
+// reply satisfies the accept criteria. A reply larger than maxMQTTReplyBytes
+// returns an error before any decoding. With no criteria every bounded reply
+// matches; otherwise the reply must be a JSON object whose named top-level
+// fields are all present and equal, and numeric criteria also match equal JSON
+// numbers. Malformed JSON is a non-match, not an error, so the call keeps
+// waiting for a valid reply.
 func responseMatchesAccept(payload []byte, accept map[string]any) (bool, error) {
 	if len(payload) > maxMQTTReplyBytes {
 		return false, fmt.Errorf("mqtt reply payload exceeded %d-byte limit", maxMQTTReplyBytes)

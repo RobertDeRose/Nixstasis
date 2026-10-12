@@ -39,6 +39,8 @@ def main():
 	}
 }
 
+// TestParseStaryContentAcceptsSourceAtLimit verifies that valid source of
+// exactly maxStarySourceBytes parses.
 func TestParseStaryContentAcceptsSourceAtLimit(t *testing.T) {
 	content := staryContentOfSize(t, maxStarySourceBytes)
 
@@ -47,6 +49,9 @@ func TestParseStaryContentAcceptsSourceAtLimit(t *testing.T) {
 	}
 }
 
+// TestParseStaryContentRejectsOversizedSource verifies that source one byte
+// over the limit fails with errStarySourceTooLarge and reports both the observed
+// size and the limit.
 func TestParseStaryContentRejectsOversizedSource(t *testing.T) {
 	content := staryContentOfSize(t, maxStarySourceBytes+1)
 
@@ -59,6 +64,8 @@ func TestParseStaryContentRejectsOversizedSource(t *testing.T) {
 	}
 }
 
+// TestParseStaryFileRejectsOversizedSource verifies that the bounded file
+// reader rejects a file one byte over the limit.
 func TestParseStaryFileRejectsOversizedSource(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "oversized.stary")
 	content := staryContentOfSize(t, maxStarySourceBytes+1)
@@ -90,6 +97,9 @@ func TestCompileSchema(t *testing.T) {
 	}
 }
 
+// staryContentOfSize returns valid stary source padded with a trailing Starlark
+// comment to exactly size bytes. It fails the test when size is smaller than the
+// unpadded source.
 func staryContentOfSize(t *testing.T, size int) string {
 	t.Helper()
 

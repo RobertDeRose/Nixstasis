@@ -143,10 +143,13 @@ type fakeMQTTClient struct {
 	unsubscribed []string
 }
 
+// IsConnected reports a live connection so connectMQTT reuses the fake.
 func (c *fakeMQTTClient) IsConnected() bool { return true }
 
+// Disconnect does nothing because the fake holds no connection.
 func (c *fakeMQTTClient) Disconnect(uint) {}
 
+// Subscribe records callback as the reply handler and completes immediately.
 func (c *fakeMQTTClient) Subscribe(_ string, _ byte, callback mqtt.MessageHandler) mqtt.Token {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -154,6 +157,8 @@ func (c *fakeMQTTClient) Subscribe(_ string, _ byte, callback mqtt.MessageHandle
 	return completedToken{}
 }
 
+// Publish synchronously delivers the configured reply to the handler recorded
+// by Subscribe, which must run first, and completes immediately.
 func (c *fakeMQTTClient) Publish(string, byte, bool, any) mqtt.Token {
 	c.mu.Lock()
 	handler := c.handler
@@ -162,6 +167,7 @@ func (c *fakeMQTTClient) Publish(string, byte, bool, any) mqtt.Token {
 	return completedToken{}
 }
 
+// Unsubscribe records topics for cleanup assertions and completes immediately.
 func (c *fakeMQTTClient) Unsubscribe(topics ...string) mqtt.Token {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -169,6 +175,8 @@ func (c *fakeMQTTClient) Unsubscribe(topics ...string) mqtt.Token {
 	return completedToken{}
 }
 
+// unsubscribedTopics returns a copy of the topics passed to Unsubscribe, in
+// call order.
 func (c *fakeMQTTClient) unsubscribedTopics() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -181,17 +189,25 @@ type fakeMQTTMessage struct {
 	payload []byte
 }
 
+// Payload returns the fixed reply bytes.
 func (m fakeMQTTMessage) Payload() []byte { return m.payload }
 
 type completedToken struct{}
 
-func (completedToken) Wait() bool                     { return true }
+// Wait reports that the operation already completed.
+func (completedToken) Wait() bool { return true }
+
+// WaitTimeout reports completion without waiting.
 func (completedToken) WaitTimeout(time.Duration) bool { return true }
+
+// Done returns an already-closed channel.
 func (completedToken) Done() <-chan struct{} {
 	done := make(chan struct{})
 	close(done)
 	return done
 }
+
+// Error reports that the operation succeeded.
 func (completedToken) Error() error { return nil }
 
 // TestAcceptCriteriaMatchesOnlyExpectedKeyValues verifies that all requested
@@ -226,8 +242,8 @@ func TestAcceptCriteriaMatchesOnlyExpectedKeyValues(t *testing.T) {
 	}
 }
 
-// TestResponseMatchesAcceptIgnoresMalformedReplies verifies that malformed
-// replies do not match accept criteria and do not fail the call.
+// TestResponseMatchesAcceptIgnoresMalformedReplies verifies that malformed JSON
+// and non-object replies do not match accept criteria and do not fail the call.
 func TestResponseMatchesAcceptIgnoresMalformedReplies(t *testing.T) {
 	for _, payload := range []string{`{`, `not JSON`, `["ok"]`, `{"status":"ok","broken":}`} {
 		t.Run(payload, func(t *testing.T) {
@@ -240,7 +256,8 @@ func TestResponseMatchesAcceptIgnoresMalformedReplies(t *testing.T) {
 }
 
 // TestResponseMatchesAcceptBoundsReplyPayload verifies the inclusive 1 MiB
-// MQTT reply ceiling.
+// MQTT reply ceiling without accept criteria: a reply of exactly
+// maxMQTTReplyBytes matches, and one byte more fails with the size error.
 func TestResponseMatchesAcceptBoundsReplyPayload(t *testing.T) {
 	for _, test := range []struct {
 		name    string
@@ -273,7 +290,8 @@ func TestResponseMatchesAcceptBoundsReplyPayload(t *testing.T) {
 }
 
 // TestResponseMatchesAcceptRejectsOversizedJSONBeforeDecode verifies that the
-// size ceiling applies before accept-criteria JSON decoding.
+// size ceiling applies before accept-criteria JSON decoding, even when the
+// oversized reply would otherwise match.
 func TestResponseMatchesAcceptRejectsOversizedJSONBeforeDecode(t *testing.T) {
 	payload := append([]byte(`{"status":"ok","padding":"`), []byte(strings.Repeat("x", maxMQTTReplyBytes))...)
 	payload = append(payload, []byte(`"}`)...)

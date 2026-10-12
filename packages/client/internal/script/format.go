@@ -17,7 +17,10 @@ const maxStarySourceBytes = 1 << 20
 
 var errStarySourceTooLarge = errors.New("stary source exceeds maximum size")
 
-// ParseStaryFile reads a stary file from disk and returns its front-matter and body.
+// ParseStaryFile reads the stary file at path and parses it with
+// ParseStaryContent. The file is read through a limit+1 reader, so a file larger
+// than maxStarySourceBytes fails with errStarySourceTooLarge without reading the
+// remainder into memory.
 func ParseStaryFile(path string) (FrontMatter, string, error) {
 	file, err := os.Open(path) // #nosec G304 -- path is provided by the caller for script loading.
 	if err != nil {
@@ -36,7 +39,10 @@ func ParseStaryFile(path string) (FrontMatter, string, error) {
 	return ParseStaryContent(string(data))
 }
 
-// ParseStaryContent parses raw stary content into front-matter and body.
+// ParseStaryContent splits raw stary content into YAML front-matter and a
+// Starlark body. Content larger than maxStarySourceBytes fails with
+// errStarySourceTooLarge before any parsing. The front-matter must be delimited
+// by --- lines and declare a non-empty name and a schema.
 func ParseStaryContent(content string) (FrontMatter, string, error) {
 	if len(content) > maxStarySourceBytes {
 		return FrontMatter{}, "", starySourceTooLargeError(len(content))
@@ -62,6 +68,9 @@ func ParseStaryContent(content string) (FrontMatter, string, error) {
 	return fm, body, nil
 }
 
+// starySourceTooLargeError wraps errStarySourceTooLarge with the observed size
+// and the limit. For file-backed sources the observed size is capped at the
+// limit plus one byte because the read stops there.
 func starySourceTooLargeError(size int) error {
 	return fmt.Errorf("%w: %d bytes exceeds %d-byte limit", errStarySourceTooLarge, size, maxStarySourceBytes)
 }

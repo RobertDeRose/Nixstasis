@@ -113,6 +113,13 @@ func (c *Client) doDeviceJSON(ctx context.Context, method, endpoint string, reqB
 	return c.doJSONWithBearer(ctx, method, endpoint, c.apiKey, reqBody, respBody, expectedStatuses...)
 }
 
+// doJSONWithBearer sends one JSON API request and decodes the response into
+// respBody. A non-nil reqBody is marshaled as the JSON request body, and a
+// non-empty bearerToken is sent in the Authorization header. The response status
+// must be one of expectedStatuses. When respBody is non-nil, the body is read up
+// to maxAPIResponseBytes; a larger body fails before decoding, and an empty or
+// whitespace-only body leaves respBody unchanged. Transport errors omit the
+// request URL.
 func (c *Client) doJSONWithBearer(ctx context.Context, method, endpoint, bearerToken string, reqBody, respBody any, expectedStatuses ...int) error {
 	var bodyReader io.Reader
 	if reqBody != nil {

@@ -68,6 +68,9 @@ func TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported(t *testing.T) 
 	}
 }
 
+// TestGivenOversizedServerScriptPayload_WhenExecuteBatch_ThenRejectsBeforeParsing
+// verifies that install_script and run_script payloads one byte over the Stary
+// source limit fail with the source-size error instead of being parsed.
 func TestGivenOversizedServerScriptPayload_WhenExecuteBatch_ThenRejectsBeforeParsing(t *testing.T) {
 	handler := NewHandler(t.TempDir())
 	base := "---\nname: oversized\nversion: \"1\"\nschema:\n  type: object\n---\n\ndef main():\n    return {}\n#"
