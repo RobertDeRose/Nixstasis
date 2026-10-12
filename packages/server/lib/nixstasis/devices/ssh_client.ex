@@ -8,6 +8,16 @@ defmodule Nixstasis.Devices.SshClient do
   alias Nixstasis.Devices.SshHostKey
 
   @max_terminal_dimension 1_000
+  @default_resize_timeout_ms 15_000
+  # Bounds the separate resize connection so a stalled one exits on its own.
+  @resize_ssh_options [
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=5",
+    "-o",
+    "ServerAliveCountMax=2"
+  ]
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
@@ -167,30 +177,30 @@ defmodule Nixstasis.Devices.SshClient do
   @impl true
   def handle_info(
         {:DOWN, ref, :process, pid, reason},
-        %{resize_task: {pid, ref, previous_size}} = state
+        %{resize_task: {pid, ref, previous_size, timer}} = state
       ) do
+    Process.cancel_timer(timer)
+
     # A crashed worker did not apply its size, so restore the last applied size
     # to keep a retry of the same dimensions from being skipped.
-    state =
-      if reason in [:normal, :shutdown] do
-        %{state | resize_task: nil}
-      else
-        Logger.warning("Terminal resize worker exited unexpectedly: #{inspect(reason)}")
-        %{state | resize_task: nil, size: previous_size}
-      end
-
-    case state.pending_resize do
-      nil ->
-        {:noreply, state}
-
-      size when size == state.size ->
-        {:noreply, %{state | pending_resize: nil}}
-
-      {columns, rows} ->
-        state = %{state | pending_resize: nil}
-        {:noreply, start_resize_task(state, columns, rows)}
+    if reason in [:normal, :shutdown] do
+      finish_resize_task(state, state.size)
+    else
+      Logger.warning("Terminal resize worker exited unexpectedly: #{inspect(reason)}")
+      finish_resize_task(state, previous_size)
     end
   end
+
+  # A stalled resize connection must not hold the single worker slot forever.
+  def handle_info({:resize_timeout, ref}, %{resize_task: {pid, ref, previous_size, _timer}} = state) do
+    Logger.warning("Terminal resize worker timed out")
+    Process.demonitor(ref, [:flush])
+    Process.exit(pid, :kill)
+    finish_resize_task(state, previous_size)
+  end
+
+  # The timer can fire after its worker already finished; ignore it then.
+  def handle_info({:resize_timeout, _stale_ref}, state), do: {:noreply, state}
 
   @impl true
   def handle_info({port, {:data, data}}, %{port: port} = state) do
@@ -239,29 +249,30 @@ defmodule Nixstasis.Devices.SshClient do
     end
   end
 
-  defp ssh_args(device_id, key_path, known_hosts_path, executables, remote_command) do
+  defp ssh_args(device_id, key_path, known_hosts_path, executables, remote_command, extra_options \\ []) do
     {frp_host, frp_port} = frp_endpoint()
     proxy_cmd = "#{executables.proxy} --proxy-type http --proxy #{frp_host}:#{frp_port} %h %p"
 
-    [
-      "-i",
-      key_path,
-      "-o",
-      "ProxyCommand=#{proxy_cmd}",
-      "-o",
-      "StrictHostKeyChecking=yes",
-      "-o",
-      "HostKeyAlgorithms=ssh-ed25519",
-      "-o",
-      "UserKnownHostsFile=#{known_hosts_path}",
-      "-o",
-      "GlobalKnownHostsFile=/dev/null",
-      "-o",
-      "LogLevel=ERROR",
-      "-tt",
-      "#{ssh_user()}@#{ssh_host(device_id)}",
-      remote_command
-    ]
+    extra_options ++
+      [
+        "-i",
+        key_path,
+        "-o",
+        "ProxyCommand=#{proxy_cmd}",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "HostKeyAlgorithms=ssh-ed25519",
+        "-o",
+        "UserKnownHostsFile=#{known_hosts_path}",
+        "-o",
+        "GlobalKnownHostsFile=/dev/null",
+        "-o",
+        "LogLevel=ERROR",
+        "-tt",
+        "#{ssh_user()}@#{ssh_host(device_id)}",
+        remote_command
+      ]
   end
 
   defp remote_shell_command(tty_path, columns, rows) do
@@ -279,7 +290,30 @@ defmodule Nixstasis.Devices.SshClient do
         resize_remote_tty(state, columns, rows)
       end)
 
-    %{state | resize_task: {pid, ref, state.size}, size: {columns, rows}}
+    timer = Process.send_after(self(), {:resize_timeout, ref}, resize_timeout_ms())
+    %{state | resize_task: {pid, ref, state.size, timer}, size: {columns, rows}}
+  end
+
+  defp finish_resize_task(state, size) do
+    state = %{state | resize_task: nil, size: size}
+
+    case state.pending_resize do
+      nil ->
+        {:noreply, state}
+
+      pending when pending == state.size ->
+        {:noreply, %{state | pending_resize: nil}}
+
+      {columns, rows} ->
+        state = %{state | pending_resize: nil}
+        {:noreply, start_resize_task(state, columns, rows)}
+    end
+  end
+
+  defp resize_timeout_ms do
+    :nixstasis
+    |> Application.get_env(:ssh_client, [])
+    |> Keyword.get(:resize_timeout_ms, @default_resize_timeout_ms)
   end
 
   defp resize_remote_tty(state, columns, rows) do
@@ -289,7 +323,8 @@ defmodule Nixstasis.Devices.SshClient do
         state.key_path,
         state.known_hosts_path,
         state.executables,
-        remote_resize_command(state.tty_path, columns, rows)
+        remote_resize_command(state.tty_path, columns, rows),
+        @resize_ssh_options
       )
 
     System.cmd(state.executables.env, ["TERM=#{terminal_type()}", state.executables.ssh | args], stderr_to_stdout: true)
@@ -299,7 +334,8 @@ defmodule Nixstasis.Devices.SshClient do
 
   defp stop_resize_task(nil), do: :ok
 
-  defp stop_resize_task({pid, ref, _previous_size}) do
+  defp stop_resize_task({pid, ref, _previous_size, timer}) do
+    Process.cancel_timer(timer)
     Process.demonitor(ref, [:flush])
 
     if Process.alive?(pid) do

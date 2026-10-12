@@ -287,17 +287,21 @@ defmodule Nixstasis.Devices.SshClientTest do
       terminal_type: "xterm-256color"
     )
 
-    {:ok, pid} =
-      SshClient.start_link(
-        device_id: "11111111-2222-3333-4444-555555555555",
-        private_key: "test-only-sensitive-key-material",
-        host_key: @host_key,
-        channel_pid: self(),
-        columns: 100,
-        rows: 40,
-        ssh_executable: "sh",
-        proxy_executable: "sh",
-        env_executable: env_path
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
       )
 
     assert_receive {:ssh_output, "ready\n"}, 1_000
@@ -323,8 +327,6 @@ defmodule Nixstasis.Devices.SshClientTest do
     assert length(Regex.scan(~r/^resize-start /m, log)) == 2
     assert log =~ "stty rows 41 cols 121"
     assert log =~ "stty rows 41 cols 160"
-
-    GenServer.stop(pid)
   end
 
   @tag :capture_log
@@ -364,17 +366,21 @@ defmodule Nixstasis.Devices.SshClientTest do
       terminal_type: "xterm-256color"
     )
 
-    {:ok, pid} =
-      SshClient.start_link(
-        device_id: "11111111-2222-3333-4444-555555555555",
-        private_key: "test-only-sensitive-key-material",
-        host_key: @host_key,
-        channel_pid: self(),
-        columns: 100,
-        rows: 40,
-        ssh_executable: "sh",
-        proxy_executable: "sh",
-        env_executable: env_path
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
       )
 
     assert_receive {:ssh_output, "ready\n"}, 1_000
@@ -390,8 +396,72 @@ defmodule Nixstasis.Devices.SshClientTest do
 
     log = eventually_read!(log_path, &(&1 =~ "stty rows 41 cols 121"))
     assert log =~ "stty rows 41 cols 121"
+  end
 
-    GenServer.stop(pid)
+  @tag :capture_log
+  test "a stalled resize worker times out and releases the resize slot" do
+    previous_ssh_client = Application.get_env(:nixstasis, :ssh_client)
+
+    temp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "nixstasis-ssh-resize-timeout-test-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(temp_dir)
+
+    env_path = Path.join(temp_dir, "env")
+    log_path = Path.join(temp_dir, "resize.log")
+
+    # The first resize stalls like an unresponsive SSH connection.
+    File.write!(env_path, """
+    #!/bin/sh
+    case "$*" in
+      *'cols 121 <'*) printf 'stalled %s\n' "$*" >> '#{log_path}'; exec sleep 2 ;;
+      *'tty_path=$(cat'*) printf 'resize %s\n' "$*" >> '#{log_path}'; exit 0 ;;
+      *) printf 'ready\n'; sleep 30 ;;
+    esac
+    """)
+
+    File.chmod!(env_path, 0o700)
+
+    on_exit(fn ->
+      restore_env(:ssh_client, previous_ssh_client)
+      File.rm_rf(temp_dir)
+    end)
+
+    Application.put_env(:nixstasis, :ssh_client,
+      frp_host: "frps.test",
+      frp_port: 2222,
+      terminal_type: "xterm-256color",
+      resize_timeout_ms: 100
+    )
+
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           columns: 100,
+           rows: 40,
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
+      )
+
+    assert_receive {:ssh_output, "ready\n"}, 1_000
+
+    SshClient.resize(pid, 121, 41)
+    _ = eventually_read!(log_path, &(&1 =~ "stalled "))
+    SshClient.resize(pid, 130, 41)
+
+    log = eventually_read!(log_path, &(&1 =~ "stty rows 41 cols 130"), 100)
+    assert log =~ "stty rows 41 cols 130"
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:nixstasis, key)

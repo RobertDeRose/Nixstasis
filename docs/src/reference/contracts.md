@@ -164,7 +164,9 @@ server-side SSH client additionally permits only one remote resize command at a
 time; while one is running, repeated resize requests are collapsed to the newest
 requested size. This prevents resize bursts from creating an unbounded number
 of SSH subprocesses. If a resize command crashes, the client keeps the last
-applied size, so a retry of the same dimensions still runs.
+applied size, so a retry of the same dimensions still runs. Each resize command
+has a 15-second deadline and SSH connect and keepalive limits; a command that
+stalls past the deadline is killed and the newest pending size runs next.
 
 ### `ssh_revoke`
 
