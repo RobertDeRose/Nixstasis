@@ -29,8 +29,11 @@ type mqttReply struct {
 // configured publish and subscribe allowlists, and accept filters JSON replies
 // by top-level field values. When the topics are equal, an exact echo of msg is
 // ignored. Calls are serialized to protect shared subscriptions. A reply larger
-// than maxMQTTReplyBytes fails the call; no reply within five seconds returns
-// None, and context cancellation returns ErrTimeout.
+// than maxMQTTReplyBytes fails the call, and no reply within five seconds
+// returns None. Context cancellation returns ErrTimeout when observed before
+// broker work starts or while waiting for the reply. The connect, subscribe, and
+// publish waits use fixed timeouts instead, so cancellation during one of them
+// may return that operation's error.
 //
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
