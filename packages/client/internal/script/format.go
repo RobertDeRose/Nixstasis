@@ -19,8 +19,9 @@ var errStarySourceTooLarge = errors.New("stary source exceeds maximum size")
 
 // ParseStaryFile reads the stary file at path and parses it with
 // ParseStaryContent. The file is read through a limit+1 reader, so a file larger
-// than maxStarySourceBytes fails with errStarySourceTooLarge without reading the
-// remainder into memory.
+// than maxStarySourceBytes (1 MiB) fails with errStarySourceTooLarge without
+// reading the remainder into memory. File open and read errors are wrapped;
+// ParseStaryContent errors are returned unchanged.
 func ParseStaryFile(path string) (FrontMatter, string, error) {
 	file, err := os.Open(path) // #nosec G304 -- path is provided by the caller for script loading.
 	if err != nil {
@@ -40,9 +41,12 @@ func ParseStaryFile(path string) (FrontMatter, string, error) {
 }
 
 // ParseStaryContent splits raw stary content into YAML front-matter and a
-// Starlark body. Content larger than maxStarySourceBytes fails with
-// errStarySourceTooLarge before any parsing. The front-matter must be delimited
-// by --- lines and declare a non-empty name and a schema.
+// Starlark body. Content larger than maxStarySourceBytes (1 MiB) fails with
+// errStarySourceTooLarge before any parsing. The front-matter must start with
+// --- and end with a --- line, and declare a non-blank name and a schema.
+// Missing delimiters or required fields return an error; YAML decoding errors
+// are wrapped. The body is returned with leading line breaks removed, without
+// validating the Starlark or compiling the schema.
 func ParseStaryContent(content string) (FrontMatter, string, error) {
 	if len(content) > maxStarySourceBytes {
 		return FrontMatter{}, "", starySourceTooLargeError(len(content))
