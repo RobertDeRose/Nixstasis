@@ -1,10 +1,13 @@
 package script
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"go.starlark.net/starlark"
 )
 
@@ -103,6 +106,93 @@ def main():
 		t.Fatalf("expected capability error, got %v", err)
 	}
 }
+
+// TestPubAndGetReturnsOversizedReplyError verifies that an oversized reply
+// delivered to the subscription handler fails the call and still unsubscribes.
+func TestPubAndGetReturnsOversizedReplyError(t *testing.T) {
+	client := &fakeMQTTClient{reply: make([]byte, maxMQTTReplyBytes+1)}
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:             5 * time.Second,
+		MQTTBroker:          "tcp://127.0.0.1:1",
+		MQTTPublishTopics:   []string{"request/+"},
+		MQTTSubscribeTopics: []string{"reply/+"},
+	})
+	runtime.mqttClient = client
+
+	_, err := runtime.Execute(t.Context(), "test.star", `
+def main():
+    return {"out": pub_and_get(topic="request/device-1", msg="ping", reply_topic="reply/device-1")}
+`)
+	if err == nil || !strings.Contains(err.Error(), "mqtt reply payload exceeded 1048576-byte limit") {
+		t.Fatalf("expected MQTT reply size error, got %v", err)
+	}
+	if got := client.unsubscribedTopics(); !slices.Equal(got, []string{"reply/device-1"}) {
+		t.Fatalf("unsubscribed topics = %v, want [reply/device-1]", got)
+	}
+}
+
+// fakeMQTTClient delivers a fixed reply to the subscribed handler on publish.
+// Unimplemented mqtt.Client methods panic through the nil embedded interface.
+type fakeMQTTClient struct {
+	mqtt.Client
+
+	reply []byte
+
+	mu           sync.Mutex
+	handler      mqtt.MessageHandler
+	unsubscribed []string
+}
+
+func (c *fakeMQTTClient) IsConnected() bool { return true }
+
+func (c *fakeMQTTClient) Disconnect(uint) {}
+
+func (c *fakeMQTTClient) Subscribe(_ string, _ byte, callback mqtt.MessageHandler) mqtt.Token {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.handler = callback
+	return completedToken{}
+}
+
+func (c *fakeMQTTClient) Publish(string, byte, bool, any) mqtt.Token {
+	c.mu.Lock()
+	handler := c.handler
+	c.mu.Unlock()
+	handler(c, fakeMQTTMessage{payload: c.reply})
+	return completedToken{}
+}
+
+func (c *fakeMQTTClient) Unsubscribe(topics ...string) mqtt.Token {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.unsubscribed = append(c.unsubscribed, topics...)
+	return completedToken{}
+}
+
+func (c *fakeMQTTClient) unsubscribedTopics() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.unsubscribed)
+}
+
+type fakeMQTTMessage struct {
+	mqtt.Message
+
+	payload []byte
+}
+
+func (m fakeMQTTMessage) Payload() []byte { return m.payload }
+
+type completedToken struct{}
+
+func (completedToken) Wait() bool                     { return true }
+func (completedToken) WaitTimeout(time.Duration) bool { return true }
+func (completedToken) Done() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+func (completedToken) Error() error { return nil }
 
 // TestAcceptCriteriaMatchesOnlyExpectedKeyValues verifies that all requested
 // fields must match while extra response fields remain accepted.
