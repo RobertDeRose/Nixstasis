@@ -43,7 +43,8 @@ func ParseStaryFile(path string) (FrontMatter, string, error) {
 // ParseStaryContent splits raw stary content into YAML front-matter and a
 // Starlark body. Content larger than maxStarySourceBytes (1 MiB) fails with
 // errStarySourceTooLarge before any parsing. The front-matter must start with
-// --- and end with a --- line, and declare a non-blank name and a schema.
+// --- (after an optional UTF-8 byte order mark) and end with a --- line, and
+// declare a non-blank name and a schema.
 // Missing delimiters or required fields return an error; YAML decoding errors
 // are wrapped. The body is returned with leading line breaks removed, without
 // validating the Starlark or compiling the schema.
