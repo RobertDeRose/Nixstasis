@@ -20,10 +20,14 @@ func TestMQTTTopicRestrictions(t *testing.T) {
 	if topicAllowed("devices/device-1/response", allowed) {
 		t.Fatalf("expected unmatched topic to be rejected")
 	}
+	if !topicAllowed("$SYS/broker/clients", []string{"$SYS/#"}) {
+		t.Fatalf("expected explicit $-prefixed pattern to allow system topic")
+	}
 }
 
 // TestMQTTTopicRestrictionsRejectRequestedWildcards verifies that allowlist
-// patterns never authorize wildcard characters in requested topics.
+// patterns never authorize wildcard characters in requested topics, and that
+// leading wildcards never authorize $-prefixed system topics.
 func TestMQTTTopicRestrictionsRejectRequestedWildcards(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -50,12 +54,22 @@ func TestMQTTTopicRestrictionsRejectRequestedWildcards(t *testing.T) {
 			topic:   "reply/device+1",
 			allowed: []string{"reply/#"},
 		},
+		{
+			name:    "leading multi-level wildcard does not authorize system topics",
+			topic:   "$SYS/broker/clients",
+			allowed: []string{"#"},
+		},
+		{
+			name:    "leading single-level wildcard does not authorize system topics",
+			topic:   "$SYS/broker",
+			allowed: []string{"+/broker"},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if topicAllowed(test.topic, test.allowed) {
-				t.Fatalf("expected requested wildcard topic %q to be rejected", test.topic)
+				t.Fatalf("expected requested topic %q to be rejected", test.topic)
 			}
 		})
 	}

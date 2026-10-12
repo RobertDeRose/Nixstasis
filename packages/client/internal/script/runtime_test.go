@@ -113,15 +113,34 @@ def main():
 	}
 }
 
+// nestedStarlarkContainers wraps a scalar leaf in levels alternating lists
+// and dicts, so both container kinds count toward the depth limit.
+func nestedStarlarkContainers(levels int) starlark.Value {
+	var value starlark.Value = starlark.None
+	for i := range levels {
+		if i%2 == 0 {
+			value = starlark.NewList([]starlark.Value{value})
+			continue
+		}
+		dict := starlark.NewDict(1)
+		_ = dict.SetKey(starlark.String("k"), value)
+		value = dict
+	}
+	return value
+}
+
+// TestStarlarkValueToGoAcceptsNestingAtLimit verifies that exactly the
+// documented number of nested containers converts.
+func TestStarlarkValueToGoAcceptsNestingAtLimit(t *testing.T) {
+	if _, err := starlarkValueToGo(t.Context(), nestedStarlarkContainers(maxStarlarkConversionDepth)); err != nil {
+		t.Fatalf("expected %d nested containers to convert: %v", maxStarlarkConversionDepth, err)
+	}
+}
+
 // TestStarlarkValueToGoRejectsExcessiveNesting verifies that conversion stops
 // when a nested value exceeds the depth limit.
 func TestStarlarkValueToGoRejectsExcessiveNesting(t *testing.T) {
-	var value starlark.Value = starlark.None
-	for range maxStarlarkConversionDepth + 1 {
-		value = starlark.NewList([]starlark.Value{value})
-	}
-
-	_, err := starlarkValueToGo(t.Context(), value)
+	_, err := starlarkValueToGo(t.Context(), nestedStarlarkContainers(maxStarlarkConversionDepth+1))
 	if err == nil || !strings.Contains(err.Error(), "maximum nesting depth") {
 		t.Fatalf("expected nesting depth error, got %v", err)
 	}

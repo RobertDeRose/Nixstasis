@@ -185,14 +185,11 @@ func starlarkValueToGo(ctx context.Context, value starlark.Value) (any, error) {
 	return converter.convert(value, 0)
 }
 
-// convert dispatches one value after checking cancellation, nesting depth,
-// and the node budget. depth is zero for the root value.
+// convert dispatches one value after checking cancellation and the node
+// budget. depth counts the containers enclosing value, so the root is zero.
 func (c *starlarkConverter) convert(value starlark.Value, depth int) (any, error) {
 	if err := c.checkContext(); err != nil {
 		return nil, err
-	}
-	if depth > maxStarlarkConversionDepth {
-		return nil, fmt.Errorf("starlark conversion exceeds maximum nesting depth of %d", maxStarlarkConversionDepth)
 	}
 	if err := c.consumeNodes(1); err != nil {
 		return nil, err
@@ -204,7 +201,11 @@ func (c *starlarkConverter) convert(value starlark.Value, depth int) (any, error
 	case starlark.Bool:
 		return c.convertScalar(bool(v), 5)
 	case starlark.String:
-		return c.convertString(string(v))
+		converted, err := c.convertStringValue(string(v))
+		if err != nil {
+			return nil, err
+		}
+		return converted, nil
 	case starlark.Int:
 		i, ok := v.Int64()
 		if !ok {
@@ -216,12 +217,6 @@ func (c *starlarkConverter) convert(value starlark.Value, depth int) (any, error
 	case *starlark.List:
 		return c.convertList(v, depth)
 	case starlark.Tuple:
-		if err := c.reserveNodes(len(v)); err != nil {
-			return nil, err
-		}
-		if err := c.consumeOutputBytes(containerOutputOverhead(len(v))); err != nil {
-			return nil, err
-		}
 		return c.convertIterable(len(v), v.Iterate(), depth)
 	case *starlark.Dict:
 		return c.convertDict(v, depth)
@@ -244,12 +239,6 @@ func (c *starlarkConverter) convertList(value *starlark.List, depth int) ([]any,
 	if _, ok := c.activeLists[value]; ok {
 		return nil, fmt.Errorf("starlark conversion contains cyclic list")
 	}
-	if err := c.reserveNodes(value.Len()); err != nil {
-		return nil, err
-	}
-	if err := c.consumeOutputBytes(containerOutputOverhead(value.Len())); err != nil {
-		return nil, err
-	}
 	c.activeLists[value] = struct{}{}
 	defer delete(c.activeLists, value)
 	return c.convertIterable(value.Len(), value.Iterate(), depth)
@@ -258,6 +247,9 @@ func (c *starlarkConverter) convertList(value *starlark.List, depth int) ([]any,
 // convertDict converts a dictionary with string keys to a Go map, rejecting
 // cycles and charging both keys and values against the conversion budgets.
 func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[string]any, error) {
+	if err := checkContainerDepth(depth); err != nil {
+		return nil, err
+	}
 	if _, ok := c.activeDicts[value]; ok {
 		return nil, fmt.Errorf("starlark conversion contains cyclic dict")
 	}
@@ -273,9 +265,6 @@ func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[st
 
 	res := make(map[string]any, value.Len())
 	for _, item := range value.Items() {
-		if err := c.checkContext(); err != nil {
-			return nil, err
-		}
 		if err := c.consumeNodes(1); err != nil {
 			return nil, err
 		}
@@ -296,17 +285,23 @@ func (c *starlarkConverter) convertDict(value *starlark.Dict, depth int) (map[st
 	return res, nil
 }
 
-// convertIterable collects converted elements at the next nesting depth and
-// always releases the iterator. The caller checks capacity and charges container
-// overhead before calling it.
+// convertIterable checks capacity, charges container overhead, and collects
+// converted elements at the next nesting depth. It always releases the
+// iterator; convert checks cancellation for each element.
 func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, depth int) ([]any, error) {
 	defer iter.Done()
+	if err := checkContainerDepth(depth); err != nil {
+		return nil, err
+	}
+	if err := c.reserveNodes(size); err != nil {
+		return nil, err
+	}
+	if err := c.consumeOutputBytes(containerOutputOverhead(size)); err != nil {
+		return nil, err
+	}
 	res := make([]any, 0, size)
 	var val starlark.Value
 	for iter.Next(&val) {
-		if err := c.checkContext(); err != nil {
-			return nil, err
-		}
 		converted, err := c.convert(val, depth+1)
 		if err != nil {
 			return nil, err
@@ -316,13 +311,13 @@ func (c *starlarkConverter) convertIterable(size int, iter starlark.Iterator, de
 	return res, nil
 }
 
-// convertString returns a size-checked string as a native Go value.
-func (c *starlarkConverter) convertString(value string) (any, error) {
-	converted, err := c.convertStringValue(value)
-	if err != nil {
-		return nil, err
+// checkContainerDepth limits nesting to maxStarlarkConversionDepth containers,
+// counting the root container as the first level.
+func checkContainerDepth(depth int) error {
+	if depth >= maxStarlarkConversionDepth {
+		return fmt.Errorf("starlark conversion exceeds maximum nesting depth of %d", maxStarlarkConversionDepth)
 	}
-	return converted, nil
+	return nil
 }
 
 // convertStringValue enforces the per-string byte limit and charges the

@@ -191,13 +191,17 @@ func topicAllowed(topic string, patterns []string) bool {
 }
 
 // mqttTopicMatch matches a concrete topic against an allowlist pattern,
-// supporting + for one level and a final # for remaining levels.
+// supporting + for one level and a final # for remaining levels. As in the
+// MQTT specification, a leading wildcard never matches a $-prefixed topic.
 func mqttTopicMatch(pattern, topic string) bool {
 	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
 	}
 	patternParts := strings.Split(pattern, "/")
 	topicParts := strings.Split(topic, "/")
+	if strings.HasPrefix(topic, "$") && (patternParts[0] == "+" || patternParts[0] == "#") {
+		return false
+	}
 	for i, part := range patternParts {
 		if part == "#" {
 			return i == len(patternParts)-1
