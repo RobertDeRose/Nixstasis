@@ -203,15 +203,19 @@ defmodule Nixstasis.Devices.SshClientTest do
       terminal_type: "xterm-256color"
     )
 
-    {:ok, pid} =
-      SshClient.start_link(
-        device_id: "11111111-2222-3333-4444-555555555555",
-        private_key: "test-only-sensitive-key-material",
-        host_key: @host_key,
-        channel_pid: self(),
-        ssh_executable: "sh",
-        proxy_executable: "sh",
-        env_executable: env_path
+    pid =
+      start_supervised!(
+        {SshClient,
+         [
+           device_id: "11111111-2222-3333-4444-555555555555",
+           private_key: "test-only-sensitive-key-material",
+           host_key: @host_key,
+           channel_pid: self(),
+           ssh_executable: "sh",
+           proxy_executable: "sh",
+           env_executable: env_path
+         ]},
+        restart: :temporary
       )
 
     assert_receive {:ssh_output, "ready\n"}, 1_000
@@ -225,6 +229,7 @@ defmodule Nixstasis.Devices.SshClientTest do
     assert permission_bits(state.known_hosts_path) == 0o600
     assert File.read!(state.key_path) == "test-only-sensitive-key-material"
 
+    # Mirror TerminalChannel: an explicit stop runs terminate/2 cleanup.
     GenServer.stop(pid)
     refute File.exists?(state.temp_dir)
   end
