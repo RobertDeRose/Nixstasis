@@ -111,7 +111,7 @@ defmodule Nixstasis.MixProject do
         "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
       precommit: [
-        "compile --no-optional-deps --warning-as-errors",
+        "compile --no-optional-deps --warnings-as-errors",
         "deps.unlock --unused",
         "format",
         "test"

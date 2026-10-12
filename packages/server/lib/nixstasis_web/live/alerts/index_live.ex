@@ -467,7 +467,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       <div :if={@alerts_tab == "rules"} class="mt-2 ui-card-panel">
         <div class="card-body p-0">
           <div class="grid grid-cols-1 gap-3 border-b border-base-300 p-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <form phx-change="update_rule_filters" class="w-full">
+            <form id="alert-rule-filters" phx-change="update_rule_filters" class="w-full">
               <label class="ui-label-strong">
                 Filter rules
               </label>

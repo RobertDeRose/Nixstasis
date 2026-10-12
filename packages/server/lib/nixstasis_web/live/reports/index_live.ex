@@ -480,7 +480,7 @@ defmodule NixstasisWeb.ReportLive.Index do
       </div>
 
       <div class="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,420px)_minmax(320px,1fr)_auto] lg:items-start">
-        <form phx-change="filter_reports" class="w-full">
+        <form id="report-list-filters" phx-change="filter_reports" class="w-full">
           <label class="ui-label-strong">Filter by report name</label>
           <input
             type="text"
@@ -499,7 +499,7 @@ defmodule NixstasisWeb.ReportLive.Index do
           <label class="ui-label-strong">
             Filter by included schema fields
           </label>
-          <form phx-change="add_field_filter_select" class="w-full">
+          <form id="report-field-filter-select" phx-change="add_field_filter_select" class="w-full">
             <select name="field" class="ui-select-sm">
               <option value="">Select a schema field…</option>
               <option
