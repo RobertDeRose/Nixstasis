@@ -456,6 +456,16 @@ defmodule NixstasisWeb.ReportLive.Index do
     report_index_path(sort_by, sort_dir, filters, page)
   end
 
+  @doc """
+  Renders the report list page.
+
+  Shows a create link for report managers, notices when saved view preferences
+  are unavailable or were reset, the name filter and schema-field filter forms,
+  the result summary with pagination, and the sortable report table whose rows
+  link to each report, with edit and delete actions for managers. The report
+  form modal appears for the new/edit actions and the delete confirmation modal
+  when a report is pending deletion.
+  """
   def render(assigns) do
     ~H"""
     <div class="ui-page-shell">

@@ -88,6 +88,9 @@ defmodule Nixstasis.MixProject do
   #     $ mix setup
   #
   # See the documentation for `Mix` for more info on aliases.
+  #
+  # `precommit` mirrors the repository hooks: compile with warnings as errors,
+  # prune unused lock entries, format, and run the test suite.
   defp aliases do
     [
       setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],

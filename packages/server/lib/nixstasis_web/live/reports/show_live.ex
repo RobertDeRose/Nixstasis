@@ -357,6 +357,15 @@ defmodule NixstasisWeb.ReportLive.Show do
     socket.assigns[:can_view_reports] == true
   end
 
+  @doc """
+  Renders the report detail page.
+
+  Shows notices when saved view preferences are unavailable or were reset, the
+  report name with a back link and an edit link for report managers, the column,
+  operator, and value filter form with a clear button, and the result table with
+  one sortable column per report field. An empty result set renders a no-data
+  message instead of rows.
+  """
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-6xl">

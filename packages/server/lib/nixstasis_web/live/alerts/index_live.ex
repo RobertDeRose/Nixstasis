@@ -401,6 +401,16 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
+  @doc """
+  Renders the alerts page for the selected tab.
+
+  The header offers an add-rule link on the rules tab to rule managers, and the
+  tab buttons switch between active alerts and rules. The active tab lists the
+  loaded alerts. The rules tab shows the rule filter form, the result summary
+  with pagination, and the sortable rule table, with per-row actions for
+  managers. Managers also see the new/edit rule modal, the delete confirmation,
+  and the discard-changes confirmation when those states are set.
+  """
   def render(assigns) do
     ~H"""
     <div class="ui-page-shell">
