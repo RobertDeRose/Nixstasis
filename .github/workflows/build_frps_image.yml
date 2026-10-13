@@ -68,14 +68,9 @@ jobs:
         run: deploy/compose/scripts/check_frps_config.sh "$FRPS_IMAGE"
       - name: Push verified frps image
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # ratchet:docker/build-push-action@v7.4.0
-        with:
-          context: packages/frp
-          file: packages/frp/Dockerfile
-          build-args: |
-            FRP_VERSION=${{ env.FRP_VERSION }}
-            FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
-            FRP_LINUX_ARM64_SHA256=${{ env.FRP_LINUX_ARM64_SHA256 }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+        env:
+          FRPS_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          for tag in $FRPS_TAGS; do
+            docker push "$tag"
+          done
