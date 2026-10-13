@@ -121,12 +121,13 @@ Define operator-visible checks for:
 - Device heartbeat freshness.
 - E2E retention health.
 - Remote access availability from UI request through FRP and terminal startup.
-- Runtime contract drift via `deploy/compose/scripts/check_runtime_contract.sh`
-  and Compose render validation via `deploy/compose/scripts/validate_stack.sh`.
+- Compose render validation via `deploy/compose/scripts/validate_stack.sh`,
+  proxy claim behavior via `deploy/compose/scripts/check_proxy_claims.py`, and
+  FRPS config parsing via `deploy/compose/scripts/check_frps_config.sh`.
 
 Where possible, link to existing scripts such as
-`deploy/compose/scripts/check_runtime_contract.sh` instead of duplicating
-contract assertions.
+`deploy/compose/scripts/validate_stack.sh` instead of duplicating contract
+assertions.
 
 ### Incident Response
 
@@ -177,8 +178,9 @@ PostgreSQL support unless those capabilities are implemented separately.
 
 - `deploy/compose/docker-compose.yml`
 - `deploy/compose/.env.example`
-- `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
+- `deploy/compose/scripts/check_proxy_claims.py`
+- `deploy/compose/scripts/check_frps_config.sh`
 - `deploy/compose/README.md`
 - `docs/src/SUMMARY.md`
 - `docs/src/modules/deployment-compose.md`
@@ -190,6 +192,6 @@ PostgreSQL support unless those capabilities are implemented separately.
 - Validate links and navigation for the new operations content.
 - Where practical, exercise backup/restore against a disposable Compose stack.
 - Run runtime contract checks before and after documented secret rotation steps.
-- Run `deploy/compose/scripts/check_runtime_contract.sh` and
-  `deploy/compose/scripts/validate_stack.sh` when runbook changes touch runtime
-  contract or Compose input guidance.
+- Run `deploy/compose/scripts/validate_stack.sh` and the proxy claim and FRPS
+  config checks when runbook changes touch runtime contract or Compose input
+  guidance.

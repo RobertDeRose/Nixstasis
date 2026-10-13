@@ -43,7 +43,8 @@ Compose guidance and public certificate behavior remain distinct from laptop val
 
 Legacy delivery evidence records runtime-contract checks, Compose stack validation, local TLS approval checks, managed
 client registration and polling, and LiveView terminal lifecycle coverage. The implementation is corroborated by
-`deploy/compose/README.md`, `deploy/compose/scripts/check_runtime_contract.sh`, and server terminal tests.
+`deploy/compose/README.md`, the stack validation tests in `deploy/compose/scripts/test_validate_stack.py`, and
+server terminal tests.
 
 ## Design Reconciliation
 

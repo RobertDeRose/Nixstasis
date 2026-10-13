@@ -145,7 +145,7 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/.env.example`
 - `deploy/compose/README.md`
-- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/check_proxy_claims.py`
 - `deploy/compose/scripts/validate_stack.sh`
 - `docs/src/architecture.md`
 - `docs/src/modules/deployment-compose.md`
@@ -176,7 +176,7 @@ Prefer a small Phoenix authorization boundary over scattered LiveView conditiona
 - Add tests proving malformed or missing production AuthCrunch claims do not grant
   privileged permissions.
 - Confirm direct device runtime API auth remains unchanged.
-- Run `deploy/compose/scripts/check_runtime_contract.sh` if Compose AuthCrunch
+- Run `deploy/compose/scripts/check_proxy_claims.py` if Compose AuthCrunch
   contract inputs or Caddy behavior change.
 - Run `deploy/compose/scripts/validate_stack.sh deploy/compose/.env.example` when
   Compose validation changes and Docker is available; otherwise document why it is
