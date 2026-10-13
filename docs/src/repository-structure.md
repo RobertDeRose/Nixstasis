@@ -61,7 +61,7 @@
 - `packages/caddy`:
   - Caddy Dockerfile and build script for Caddy with the AuthCrunch plugin.
 - `packages/frp`:
-  - FRP image/package build assets and Dockerfile.
+  - FRP image/package build assets, Dockerfile, and the FRPS config renderer.
 - `packages/shared/e2e_log_viewer`:
   - Shared static E2E log viewer assets.
 

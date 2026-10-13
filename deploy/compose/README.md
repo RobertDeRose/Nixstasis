@@ -294,8 +294,9 @@ stdout. Use
 
 ## Contract Validation
 
-Run the stack validation tests from the repository root. `mise run check` also
-runs them whenever files under `deploy/compose/` change:
+Run the stack validation tests from the repository root. `mise run check` runs
+them as well, and the pre-commit hook runs them whenever staged files under
+`deploy/compose/` change:
 
 ```sh
 python3 deploy/compose/scripts/test_validate_stack.py
@@ -323,8 +324,9 @@ installation requires network access. Do not execute the exported Linux Buildx
 binary directly on macOS; the existing Linux CI workflow is unchanged.
 
 Confirm the pinned frps binary accepts the `frps/frps.toml` template. The script
-fills its placeholders with dummy values and runs `frps verify` in the image; the
-FRPS image workflow runs the same check before it publishes the image:
+renders it with the image's own `frps-render-config.sh` using dummy values and
+runs `frps verify` in the image; the FRPS image workflow runs the same check
+before it publishes the image:
 
 ```sh
 mise run deploy:dev -- build frps

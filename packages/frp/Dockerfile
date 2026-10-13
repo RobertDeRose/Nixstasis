@@ -13,6 +13,7 @@ RUN apt-get update && \
 
 COPY bin/download_frp.sh /usr/local/bin/download_frp.sh
 COPY bin/frps-entrypoint.sh /usr/local/bin/frps-entrypoint.sh
+COPY bin/frps-render-config.sh /usr/local/bin/frps-render-config.sh
 
 RUN arch="$(dpkg --print-architecture)" && \
     case "$arch" in \

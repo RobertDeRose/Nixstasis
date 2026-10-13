@@ -18,6 +18,7 @@
 - `deploy/compose/frps/frps.toml`
 - `deploy/compose/docker-compose.yml`
 - `packages/frp/Dockerfile`
+- `packages/frp/bin/frps-render-config.sh`
 - `packages/client/internal/frp/manager.go`
 - `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
 - `packages/server/lib/nixstasis/devices/ssh_client.ex`
@@ -107,8 +108,12 @@ Traceable references:
 - `deploy/compose/frps/frps.toml`: the FRPS server settings and the
   `nixstasis-device-authorization` entry in `[[httpPlugins]]`, which sends
   Login/NewProxy to Phoenix for lease validation.
-- `deploy/compose/docker-compose.yml`: the `frps` service, which renders the
-  config template and keeps the HTTP vhost port internal to Compose.
+- `packages/frp/bin/frps-render-config.sh`: the renderer shipped in the FRPS
+  image, which fills the `frps.toml` template from the service environment and
+  rejects any placeholder it does not know.
+- `deploy/compose/docker-compose.yml`: the `frps` service, which runs that
+  renderer before starting frps and keeps the HTTP vhost port internal to
+  Compose.
 - `packages/client/internal/frp/manager.go`: `Manager.Start`, which resolves the
   route profile, renders `frpc.toml`, writes the root-only environment file, and
   launches the transient systemd unit.

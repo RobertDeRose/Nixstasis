@@ -179,6 +179,7 @@
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/frps/frps.toml`
 - `packages/frp/bin/download_frp.sh`
+- `packages/frp/bin/frps-render-config.sh`
 
 ### External
 
@@ -207,8 +208,13 @@
   paths are not part of the supported deployment contract.
 - Release image references are pinned in Compose configuration; local development
   builds images locally with `dev` tags.
-- `packages/frp` currently provides FRPS image build assets and the shared FRP
-  binary acquisition script used by server/client packaging flows.
+- `packages/frp` currently provides FRPS image build assets, the shared FRP
+  binary acquisition script used by server/client packaging flows, and the
+  `frps-render-config.sh` renderer that fills the Compose `frps.toml` template.
+  The `frps` service runs that renderer with the operator's environment before
+  starting frps; the CI config check runs the same renderer with dummy values,
+  so a placeholder the renderer does not know fails in CI instead of reaching
+  frps as a literal string.
 - E2E endpoints are disabled by default in production. Enabling them with `NIXSTASIS_E2E_ENABLED=true` also requires a dedicated `NIXSTASIS_E2E_RUNNER_ID` and 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN`; browser/AuthCrunch roles alone cannot access `/e2e`.
 - Development laptop mode uses the same single `docker-compose.yml` with a
   tracked `dev.env` file passed via `docker compose --env-file dev.env`.
@@ -263,8 +269,9 @@
 
 ## Contract Validation
 
-Run the stack validation tests from the repository root. `mise run check` also
-runs them whenever files under `deploy/compose/` change:
+Run the stack validation tests from the repository root. `mise run check` runs
+them as well, and the pre-commit hook runs them whenever staged files under
+`deploy/compose/` change:
 
 ```sh
 python3 deploy/compose/scripts/test_validate_stack.py
@@ -294,8 +301,9 @@ The Caddy image workflow requires these behavior checks before publishing. They
 use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
 outside their scope.
 
-To confirm the pinned frps binary accepts the Compose `frps.toml` template, fill
-its placeholders with dummy values and run `frps verify` in the built image:
+To confirm the pinned frps binary accepts the Compose `frps.toml` template,
+render it with the image's own `frps-render-config.sh` using dummy values and
+run `frps verify` in the built image:
 
 ```sh
 mise run deploy:dev -- build frps
@@ -309,7 +317,9 @@ after a `[[httpPlugins]]` table, which frps rejects at startup.
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml:1-129`
-- `deploy/compose/README.md:1-117`
+- `deploy/compose/docker-compose.yml`: the `nixstasis`, `caddy`, `frps`,
+  `postgres`, and `client` services and their environment wiring.
+- `deploy/compose/README.md`: the Services, Quick Start, Production, and
+  Environment Files sections.
 - `deploy/compose/scripts/check_proxy_claims.py`
 - `docs/src/operations/index.md`
