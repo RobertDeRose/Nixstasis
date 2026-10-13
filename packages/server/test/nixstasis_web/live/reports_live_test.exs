@@ -1059,7 +1059,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "reports index filters by fuzzy name and selected schema-field chips", %{conn: conn, permissions: permissions} do
-    _cpu =
+    cpu =
       report_fixture(%{
         "name" => "CPU Health",
         "config" => %{
@@ -1069,7 +1069,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    _temp =
+    temp =
       report_fixture(%{
         "name" => "Temp Trends",
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
@@ -1085,15 +1085,16 @@ defmodule NixstasisWeb.ReportsLiveTest do
     refute html2 =~ "Temp Trends"
 
     {:ok, view, _html} = live(conn, ~p"/reports")
+    assert has_element?(view, "#report-#{cpu.id}", "CPU Health")
+    assert has_element?(view, "#report-#{temp.id}", "Temp Trends")
 
-    form_html =
-      view
-      |> element("#report-list-filters")
-      |> render_change(%{"filters" => %{"name" => "hea"}})
+    view
+    |> element("#report-list-filters")
+    |> render_change(%{"filters" => %{"name" => "hea"}})
 
     assert assert_patch(view) =~ "hea"
-    assert form_html =~ "CPU Health"
-    refute form_html =~ "Temp Trends"
+    assert has_element?(view, "#report-#{cpu.id}", "CPU Health")
+    refute has_element?(view, "#report-#{temp.id}")
   end
 
   test "schema-field filter supports multiple selections and ignores duplicates", %{

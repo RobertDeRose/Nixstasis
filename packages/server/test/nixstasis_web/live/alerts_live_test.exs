@@ -1081,7 +1081,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
   end
 
   test "rule filter form patches the query into the rules route", %{conn: conn} do
-    {:ok, _needle} =
+    {:ok, needle} =
       Domain.create_rule(%{
         name: "Needle Rule",
         product_name: "alert-schema-product",
@@ -1090,7 +1090,7 @@ defmodule NixstasisWeb.AlertsLiveTest do
         threshold_value: "75"
       })
 
-    {:ok, _other} =
+    {:ok, other} =
       Domain.create_rule(%{
         name: "Other Rule",
         product_name: "alert-schema-product",
@@ -1100,15 +1100,16 @@ defmodule NixstasisWeb.AlertsLiveTest do
       })
 
     {:ok, view, _html} = live(conn, ~p"/alerts/rules")
+    assert has_element?(view, "#alert-rule-#{needle.id}", "Needle Rule")
+    assert has_element?(view, "#alert-rule-#{other.id}", "Other Rule")
 
-    filtered_html =
-      view
-      |> element("#alert-rule-filters")
-      |> render_change(%{"filters" => %{"query" => "Needle"}})
+    view
+    |> element("#alert-rule-filters")
+    |> render_change(%{"filters" => %{"query" => "Needle"}})
 
     assert assert_patch(view) =~ "Needle"
-    assert filtered_html =~ "Needle Rule"
-    refute filtered_html =~ "Other Rule"
+    assert has_element?(view, "#alert-rule-#{needle.id}", "Needle Rule")
+    refute has_element?(view, "#alert-rule-#{other.id}")
   end
 
   test "rules table presents one readable condition column", %{conn: conn} do

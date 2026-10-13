@@ -584,7 +584,7 @@ defmodule NixstasisWeb.ReportLive.Index do
             </tr>
           </thead>
           <tbody>
-            <tr :for={row <- @reports}>
+            <tr :for={row <- @reports} id={"report-#{row["id"]}"}>
               <td class="w-1/2 min-w-[20rem]">
                 <div class="flex items-center gap-2">
                   <button

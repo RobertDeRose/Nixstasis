@@ -539,7 +539,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                 </tr>
               </thead>
               <tbody>
-                <tr :for={rule <- @rules}>
+                <tr :for={rule <- @rules} id={"alert-rule-#{rule.id}"}>
                   <td class="w-[45%] min-w-[16rem]">
                     <div class="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2">
                       <%= if rule.edit_disabled_reason do %>
