@@ -146,10 +146,16 @@ Observable error paths:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/devices.ex:265-348`
-- `packages/client/cmd/nixstasis/poll.go:198-249`
-- `packages/client/internal/commands/handler.go:27-230`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
+- `packages/server/lib/nixstasis/devices.ex`: `pop_pending_commands/1`, which
+  claims queued commands, and `acknowledge_command_results/2`, which records
+  posted results.
+- `packages/client/cmd/nixstasis/poll.go`: `handleCommandResponses` and
+  `hydrateCommandPayloads`, which fetch deferred payloads, execute delivered
+  commands, and post results.
+- `packages/client/internal/commands/handler.go`: `Handler.ExecuteBatch` and
+  `executeOne`, which dispatch each supported command type.
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`:
+  `command_results/2`, which validates and acknowledges posted results.
 
 ## Remote Access Through FRP
 
@@ -209,11 +215,17 @@ sequenceDiagram
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:13-31`
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:93-145`
-- `packages/client/cmd/nixstasis/poll.go:138-154`
-- `packages/client/internal/frp/manager.go:47-169`
-- `deploy/compose/caddy/Caddyfile:68-75`
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`:
+  `handle_params/3` and `setup_device_view/3`, which open the remote-access
+  lease for an online device.
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`: `terminate/2`
+  and `maybe_close_remote_access_lease/2`, which close the lease on exit.
+- `packages/client/cmd/nixstasis/poll.go`: `pollOnce` and `startFRP`, which
+  apply the heartbeat remote-access token and profile to FRPC.
+- `packages/client/internal/frp/manager.go`: `Manager.Start` and
+  `Manager.Stop`, which run FRPC as a transient systemd unit.
+- `deploy/compose/caddy/Caddyfile`: the `*.{$BASE_DOMAIN}` site block, which
+  proxies wildcard device hosts to FRPS.
 
 ## Browser Terminal Session
 
@@ -292,10 +304,17 @@ The exact command payload and cleanup contract is documented in
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:98-200`
-- `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
-- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-113`
-- `packages/server/lib/nixstasis/devices/ssh_client.ex:17-94`
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`: the
+  `handle_event("start_ssh_session", ...)` clause and `start_ssh_session/1`,
+  which queue `ssh_authorize`; the `handle_info/2` terminal authorization
+  check and `activate_terminal_socket/1`, which activate the terminal socket
+  token after the device reports success.
+- `packages/server/lib/nixstasis_web/channels/user_socket.ex`: `connect/3`,
+  which verifies the terminal socket token.
+- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`: `join/3`,
+  which resolves the session ref and starts the SSH client.
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`: `init/1` and
+  `start_ssh_port/7`, which write key material and open the `ssh` Port.
 - `packages/client/internal/sshauth/store.go`
 - `packages/client/internal/sshauth/ipc.go`
 - `packages/client/cmd/nixstasis/ssh_authorized_keys.go`
@@ -320,7 +339,8 @@ Observable event sets:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:30-45`
+- `packages/server/lib/nixstasis_web/router.ex`: the `/` scope under the
+  `:browser` pipeline, which declares the LiveView routes.
 - `packages/server/lib/nixstasis_web/live/device_live/index.ex`
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex`
 - `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
@@ -375,9 +395,16 @@ Observable error paths:
 
 Traceable references:
 
-- `README.md:96-135`
-- `packages/server/lib/nixstasis/e2e.ex:61-100`
-- `packages/server/lib/nixstasis/e2e.ex:201-227`
-- `packages/server/lib/nixstasis/e2e.ex:320-407`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:19-62`
-- `packages/server/lib/nixstasis/e2e/retention_worker.ex:25-40`
+- `README.md`: the E2E Tests (Client ↔ Server) section, including Contract
+  Rules (Server-Enforced).
+- `packages/server/lib/nixstasis/e2e.ex`: `create_run/1`, which validates
+  the request and maps failures to error reasons.
+- `packages/server/lib/nixstasis/e2e.ex`: `fetch_result_log/2`, which serves
+  a journey log or reports it unavailable.
+- `packages/server/lib/nixstasis/e2e.ex`: `create_new_run/3`,
+  `validate_preconditions/1`, and `persist_run/3`, which acquire the
+  environment lock, run the seed script, and persist run rows.
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`:
+  `create/2`, which maps run-creation outcomes to HTTP status codes.
+- `packages/server/lib/nixstasis/e2e/retention_worker.ex`: the
+  `handle_info(:prune_retention, ...)` clause, which prunes old runs and logs.

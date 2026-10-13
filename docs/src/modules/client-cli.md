@@ -138,11 +138,12 @@ files are placed and how host-level service management is handled.
 
 Traceable references:
 
-- `packages/client/README.md:136-214`
+- `packages/client/README.md`: the Configuration and Packaging And
+  Installation sections.
 - `packages/client/build/root-dir/usr/share/nixstasis/config.example.yaml`
 - `packages/client/build/root-dir/usr/share/nixstasis/frpc.toml`
 - `packages/client/build/makeself/entrypoint.sh`
-- `flake.nix:50-78`
+- `flake.nix`: the `nixstasis-client` package built with `buildGoModule`.
 
 ## Dependencies
 
@@ -170,7 +171,11 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/main.go:20-98`
-- `packages/client/cmd/nixstasis/register.go:16-93`
-- `packages/client/cmd/nixstasis/poll.go:21-249`
-- `packages/client/cmd/nixstasis/script.go:5-12`
+- `packages/client/cmd/nixstasis/main.go`: `rootCmd` and `runMain`, the Cobra
+  entrypoint.
+- `packages/client/cmd/nixstasis/register.go`: `registerCmd` and
+  `runRegisterWithClient`, the registration command.
+- `packages/client/cmd/nixstasis/poll.go`: `pollCmd`, `runPoll`, and
+  `pollOnce`, the heartbeat loop.
+- `packages/client/cmd/nixstasis/script.go`: `scriptCmd`, the script command
+  group.

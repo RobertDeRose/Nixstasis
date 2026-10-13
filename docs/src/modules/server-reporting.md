@@ -88,6 +88,9 @@
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/reporting.ex:1-200`
-- `packages/server/lib/nixstasis/domain.ex:52-58`
-- `packages/server/lib/nixstasis_web/router.ex:41-44`
+- `packages/server/lib/nixstasis/reporting.ex`: `Nixstasis.Reporting`, the
+  custom-report context.
+- `packages/server/lib/nixstasis/domain.ex`: the `/custom_reports` base route
+  in the `json_api` block.
+- `packages/server/lib/nixstasis_web/router.ex`: the `/reports/:id/results`
+  route in the `/api/v1` scope.

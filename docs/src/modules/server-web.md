@@ -245,7 +245,11 @@ remains a Caddy-only ingress workflow boundary.
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:1-117`
-- `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
-- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-113`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-62`
+- `packages/server/lib/nixstasis_web/router.ex`: `NixstasisWeb.Router`, which
+  declares every pipeline and scope.
+- `packages/server/lib/nixstasis_web/channels/user_socket.ex`: `connect/3`,
+  which verifies the terminal socket token.
+- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`: `join/3`,
+  which resolves the session ref and starts the SSH client.
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`:
+  `create/2`, which reads `X-E2E-Protocol-Version` on run creation.

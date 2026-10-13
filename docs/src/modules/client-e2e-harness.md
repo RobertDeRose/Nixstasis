@@ -65,8 +65,8 @@
 
 Traceable references:
 
-- `README.md:53-225`
-- `packages/client/README.md:42-114`
+- `README.md`: the E2E Tests (Client ↔ Server) section.
+- `packages/client/README.md`: the E2E Testing section.
 - `packages/client/internal/e2e/api.go`
 - `packages/client/internal/e2e/runner.go`
 - `packages/client/internal/e2e/journey_executor.go`

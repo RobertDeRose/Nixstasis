@@ -29,5 +29,6 @@ observable from repository files. It does not prescribe changes.
 
 Traceable references:
 
-- `README.md:341-350`
-- `deploy/compose/caddy/Caddyfile:32-38`
+- `README.md`: the FRP (Fast Reverse Proxy) section.
+- `deploy/compose/caddy/Caddyfile`: the `transform user` role mappings in the
+  `nixstasis_portal` authentication portal.

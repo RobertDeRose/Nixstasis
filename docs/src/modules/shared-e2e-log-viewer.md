@@ -41,6 +41,7 @@
 
 Traceable references:
 
-- `README.md:187-203`
+- `README.md`: the CI + GitHub Pages section, which documents that the root
+  `index.html` loads `runs.json` client-side.
 - `packages/shared/e2e_log_viewer/viewer.js`
 - `packages/shared/e2e_log_viewer/viewer.css`

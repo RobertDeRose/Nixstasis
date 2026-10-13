@@ -15,11 +15,17 @@
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/application.ex:10-29`
-- `packages/server/lib/nixstasis/monitoring/offline_checker.ex:13-31`
-- `packages/server/lib/nixstasis/e2e/retention_worker.ex:14-50`
-- `packages/server/lib/nixstasis/monitoring/telemetry_retention_worker.ex:1-50`
-- `packages/server/lib/nixstasis/devices/ssh_client.ex:9-94`
+- `packages/server/lib/nixstasis/application.ex`: `start/2`, which builds the
+  supervised children list.
+- `packages/server/lib/nixstasis/monitoring/offline_checker.ex`:
+  `schedule_check/0`, which sends `:check` every `@interval`.
+- `packages/server/lib/nixstasis/e2e/retention_worker.ex`: `schedule_prune/1`,
+  which sends `:prune_retention` on the configured interval.
+- `packages/server/lib/nixstasis/monitoring/telemetry_retention_worker.ex`:
+  `schedule_prune/1`, which sends `:prune_retention` on the configured
+  interval.
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`: `start_ssh_port/7`,
+  which opens the OS `ssh` process through a Port.
 
 ### Go Runtime
 
@@ -38,10 +44,14 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/main.go:20-98`
-- `packages/client/cmd/nixstasis/poll.go:35-83`
-- `packages/client/internal/script/executor.go:23-48`
-- `packages/client/internal/commands/handler.go:27-76`
+- `packages/client/cmd/nixstasis/main.go`: `rootCmd`, `runMain`, and
+  `shouldSkipConfig`, which wire the Cobra root command and flight recorder.
+- `packages/client/cmd/nixstasis/poll.go`: `runPoll`, which drives the
+  polling loop around `pollOnce`.
+- `packages/client/internal/script/executor.go`: `ExecuteScripts`, which runs
+  scripts under a `sync.WaitGroup`.
+- `packages/client/internal/commands/handler.go`: `ExecuteBatch`, which runs
+  commands concurrently unless `commandRequiresSerial` applies.
 - `packages/client/internal/frp/manager.go`
 - `packages/client/cmd/nixstasis/frp_session.go`
 
@@ -80,9 +90,12 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/internal/script/runtime.go:20-47`
-- `packages/client/internal/script/runtime.go:73-128`
-- `packages/client/internal/script/runtime.go:130-179`
+- `packages/client/internal/script/runtime.go`: `ErrTimeout`,
+  `defaultMaxStarlarkExecutionSteps`, and the `Runtime` struct.
+- `packages/client/internal/script/runtime.go`: `NewRuntime`, which applies
+  the default `RuntimeConfig.Timeout`.
+- `packages/client/internal/script/runtime.go`: `Execute`, which looks up
+  `main()`, applies the step budget, and cancels the thread on timeout.
 - `packages/client/internal/script/builtins_exec.go`
 - `packages/client/internal/script/builtins_mqtt.go`
 
@@ -103,8 +116,10 @@ Traceable references:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:22-79`
-- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:7-27`
+- `packages/server/lib/nixstasis_web/router.ex`: the `/api/json`, `/api/v1`,
+  `/_nixstasis/laptop`, and `/e2e` scopes.
+- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`:
+  `check_domain/2`, which approves or denies Caddy domain asks.
 
 ### Script Execution
 
@@ -128,10 +143,14 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/internal/script/executor.go:50-93`
-- `packages/client/internal/script/runtime.go:40-44`
-- `packages/client/internal/commands/handler.go:132-187`
-- `packages/client/cmd/nixstasis/poll.go:105-126`
+- `packages/client/internal/script/executor.go`: `executeScript`, which runs
+  one script through the Starlark runtime.
+- `packages/client/internal/script/runtime.go`: the `Runtime` struct, which
+  holds the configured builtins.
+- `packages/client/internal/commands/handler.go`: `executeOne` and
+  `installScript`, which dispatch commands and validate installed scripts.
+- `packages/client/cmd/nixstasis/poll.go`: `pollOnce`, which builds the
+  telemetry payload from script results.
 
 ### External Access Through FRP
 
@@ -199,21 +218,27 @@ Traceable references:
 
 Traceable references:
 
-- `deploy/compose/caddy/Caddyfile:8-10`
-- `deploy/compose/caddy/Caddyfile:50-57`
-- `deploy/compose/docker-compose.yml:14-31`
+- `deploy/compose/caddy/Caddyfile`: the global `on_demand_tls` `ask`
+  directive.
+- `deploy/compose/caddy/Caddyfile`: the `@device_*` matchers and handlers in
+  the `nixstasis.{$BASE_DOMAIN}` site `route` block.
+- `deploy/compose/docker-compose.yml`: the `nixstasis` service `ports`
+  mapping.
 
 ### Client to Server
 
 - The Go client uses HTTP JSON requests to the configured `api.url`.
-- Default client API URL is `http://localhost:4000`.
+- Default client API URL is `https://localhost:4000`.
 - Packaged configuration documentation uses `https://nixstasis.example.com` as the public Caddy host.
 
 Traceable references:
 
-- `packages/client/internal/config/config.go:62-64`
-- `packages/client/README.md:115-128`
-- `packages/client/internal/transport/client.go:27-35`
+- `packages/client/internal/config/config.go`: `setDefaults`, which sets the
+  `api.url` default.
+- `packages/client/README.md`: the Configuration section, which documents
+  `api.url`.
+- `packages/client/internal/transport/client.go`: the `Client` struct and
+  `NewClient`, which hold the configured base URL.
 
 ### Internal Services
 
@@ -229,5 +254,6 @@ procedures for these services are documented in
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml:1-129`
-- `deploy/compose/README.md:1-117`
+- `deploy/compose/docker-compose.yml`: the `nixstasis`, `postgres`, and `frps`
+  services.
+- `deploy/compose/README.md`: the Services and Production sections.

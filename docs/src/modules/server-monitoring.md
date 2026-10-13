@@ -137,6 +137,11 @@ save until the device schemas are reconciled.
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/monitoring.ex:15-148`
-- `packages/server/lib/nixstasis/monitoring/offline_checker.ex:1-32`
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
+- `packages/server/lib/nixstasis/monitoring.ex`: `heartbeat/2` and
+  `heartbeat_response_data/2`, which process a heartbeat and build its
+  response.
+- `packages/server/lib/nixstasis/monitoring/offline_checker.ex`:
+  `Nixstasis.Monitoring.OfflineChecker`, the periodic offline sweep.
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`:
+  `create/2`, which authenticates the device and calls
+  `Monitoring.heartbeat/2`.

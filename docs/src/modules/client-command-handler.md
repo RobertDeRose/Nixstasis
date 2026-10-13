@@ -70,6 +70,9 @@
 
 Traceable references:
 
-- `packages/client/internal/commands/handler.go:17-230`
-- `packages/client/cmd/nixstasis/poll.go:198-249`
-- `packages/client/internal/transport/client.go:140-212`
+- `packages/client/internal/commands/handler.go`: `Handler`, `ExecuteBatch`,
+  and `executeOne`, bounded by `commandTimeout`.
+- `packages/client/cmd/nixstasis/poll.go`: `handleCommandResponses` and
+  `hydrateCommandPayloads`, the command dispatch and result reporting.
+- `packages/client/internal/transport/client.go`: `SendCommandResults` and
+  `FetchCommandPayload`, the command transport calls.

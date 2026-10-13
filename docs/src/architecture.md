@@ -160,14 +160,22 @@ Caddy admits browser traffic.
 
 Traceable references:
 
-- `deploy/compose/caddy/Caddyfile:42-75`
-- `deploy/compose/docker-compose.yml:1-90`
-- `packages/client/internal/transport/client.go:84-212`
-- `packages/client/cmd/nixstasis/poll.go:128-154`
-- `packages/server/lib/nixstasis_web/router.ex:50-79`
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:57-80`
-- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-50`
-- `packages/server/lib/nixstasis/devices/ssh_client.ex:26-63`
+- `deploy/compose/caddy/Caddyfile`: the `nixstasis.{$BASE_DOMAIN}` site
+  `route` block and the `authorization policy entra_policy` block.
+- `deploy/compose/docker-compose.yml`: the `nixstasis`, `caddy`, and `frps`
+  services.
+- `packages/client/internal/transport/client.go`: `doJSONWithBearer` and
+  `RegisterDevice`, which issue the client HTTP requests.
+- `packages/client/cmd/nixstasis/poll.go`: `pollOnce`, which sends the
+  heartbeat and handles returned commands.
+- `packages/server/lib/nixstasis_web/router.ex`: the `/` browser scope and
+  the `/api/v1` scope.
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`:
+  `start_ssh_session/1`, which creates the browser terminal session.
+- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`: `join/3`,
+  which authorizes the terminal and starts the SSH client.
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`: the public API
+  (`send_data/2`, `resize/3`, `ssh_host/1`, and `frp_endpoint/0`).
 
 ## System Boundaries
 
@@ -197,10 +205,15 @@ Traceable references:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/application.ex:9-29`
-- `packages/server/lib/nixstasis/monitoring/offline_checker.ex:1-32`
-- `packages/server/lib/nixstasis/e2e/retention_worker.ex:1-51`
-- `packages/server/lib/nixstasis/devices/ssh_client.ex:1-125`
+- `packages/server/lib/nixstasis/application.ex`: `start/2`, which builds the
+  supervised children list.
+- `packages/server/lib/nixstasis/monitoring/offline_checker.ex`: the
+  `OfflineChecker` GenServer callbacks (`init/1`, `handle_info/2`).
+- `packages/server/lib/nixstasis/e2e/retention_worker.ex`: the
+  `RetentionWorker` GenServer callbacks (`init/1`, `handle_info/2`).
+- `packages/server/lib/nixstasis/devices/ssh_client.ex`: the `SshClient`
+  GenServer callbacks (`init/1`, `handle_cast/2`, `handle_info/2`,
+  `terminate/2`).
 
 ### LiveView Interaction Model
 
@@ -215,7 +228,7 @@ Traceable references:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:4-11`
+- `packages/server/lib/nixstasis_web/router.ex`: the `:browser` pipeline.
 - `packages/server/lib/nixstasis_web/live/device_live/index.ex`
 - `packages/server/lib/nixstasis_web/live/device_live/show.ex`
 - `packages/server/lib/nixstasis_web/live/alerts/index_live.ex`
@@ -234,7 +247,8 @@ Traceable references:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/domain.ex:1-122`
+- `packages/server/lib/nixstasis/domain.ex`: the `json_api` `routes` block
+  and the `resources` block with its `define` calls.
 - `packages/server/lib/nixstasis/devices.ex`
 - `packages/server/lib/nixstasis/monitoring.ex`
 - `packages/server/lib/nixstasis/reporting.ex`
