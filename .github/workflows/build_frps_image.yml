@@ -50,10 +50,13 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
       - name: Build frps image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # ratchet:docker/build-push-action@v7.4.0
         with:
           context: packages/frp
           file: packages/frp/Dockerfile
+          cache-from: type=gha,version=2,scope=frps-image
+          cache-to: type=gha,version=2,scope=frps-image,mode=max,ignore-error=true
           build-args: |
             FRP_VERSION=${{ env.FRP_VERSION }}
             FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
@@ -67,10 +70,28 @@ jobs:
           FRPS_IMAGE: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
         run: deploy/compose/scripts/check_frps_config.sh "$FRPS_IMAGE"
       - name: Push verified frps image
+        id: push
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # ratchet:docker/build-push-action@v7.4.0
+        with:
+          context: packages/frp
+          file: packages/frp/Dockerfile
+          cache-from: type=gha,version=2,scope=frps-image
+          build-args: |
+            FRP_VERSION=${{ env.FRP_VERSION }}
+            FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
+            FRP_LINUX_ARM64_SHA256=${{ env.FRP_LINUX_ARM64_SHA256 }}
+          push: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Confirm the published image is the verified image
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
         env:
-          FRPS_TAGS: ${{ steps.meta.outputs.tags }}
+          VERIFIED_IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          PUBLISHED_IMAGE_ID: ${{ steps.push.outputs.imageid }}
         run: |
-          for tag in $FRPS_TAGS; do
-            docker push "$tag"
-          done
+          if [ -z "$VERIFIED_IMAGE_ID" ] || [ "$VERIFIED_IMAGE_ID" != "$PUBLISHED_IMAGE_ID" ]; then
+            echo "published image $PUBLISHED_IMAGE_ID is not the verified image $VERIFIED_IMAGE_ID" >&2
+            exit 1
+          fi

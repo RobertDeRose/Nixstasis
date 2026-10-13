@@ -333,7 +333,8 @@ binary directly on macOS; the existing Linux CI workflow is unchanged.
 Confirm the pinned frps binary accepts the `frps/frps.toml` template. The script
 renders it with the image's own `frps-render-config.sh` using dummy values and
 runs `frps verify` in the image; the FRPS image workflow runs the same check
-before it publishes the image:
+before it publishes the image, and fails the release if the published image ID
+differs from the verified one:
 
 ```sh
 mise run deploy:dev -- build frps
