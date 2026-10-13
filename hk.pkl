@@ -117,8 +117,8 @@ local linters = new Mapping<String, Step> {
     check = "python3 deploy/compose/scripts/test_validate_stack.py"
   }
   ["frps-render"] = new Step {
-    glob = List("packages/frp/**")
-    check = "python3 packages/frp/bin/test_frps_render_config.py"
+    glob = List("packages/frp/**", "deploy/compose/frps/**")
+    check = "uv run packages/frp/bin/test_frps_render_config.py"
   }
   ["docs"] = new Step {
     glob = List("docs/src/**/*.md", "docs/book.toml", "scripts/check-docs.py")

@@ -279,10 +279,11 @@ python3 deploy/compose/scripts/test_validate_stack.py
 
 The tunnel config renderer has its own tests, which run the script against
 the real template with awkward credentials and parse the result as TOML. The
-pre-commit hook runs them whenever staged files under `packages/frp/` change:
+pre-commit hook runs them whenever staged files under `packages/frp/` or
+`deploy/compose/frps/` change:
 
 ```sh
-python3 packages/frp/bin/test_frps_render_config.py
+uv run packages/frp/bin/test_frps_render_config.py
 ```
 
 For executable production/laptop claim-boundary checks on macOS or Linux, use
