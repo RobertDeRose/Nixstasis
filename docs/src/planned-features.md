@@ -360,7 +360,7 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - `packages/client/cmd/nixstasis/poll.go`
 - `packages/client/internal/frp/manager.go`
 - `deploy/compose/frps/frps.toml`
-- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/check_frps_config.sh`
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/deployment-compose.md`
 - Suggested validation:
@@ -561,7 +561,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - `packages/server/lib/nixstasis/devices/ssh_client.ex`
 - `packages/server/lib/nixstasis_web/controllers/heartbeat_json.ex`
 - `deploy/compose/docker-compose.yml`
-- `deploy/compose/scripts/check_runtime_contract.sh`
 - `docs/src/modules/deployment-compose.md`
 - `docs/src/modules/edge-frp.md`
 - Suggested validation:
@@ -798,7 +797,7 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - Operations navigation is linked from `docs/src/SUMMARY.md`.
 - Dependencies:
 - `deploy/compose/docker-compose.yml`
-- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/scripts/validate_stack.sh`
 - `deploy/compose/README.md`
 - `docs/src/modules/deployment-compose.md`
 - `docs/src/runtime-boundaries.md`
