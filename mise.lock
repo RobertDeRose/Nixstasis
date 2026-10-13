@@ -196,7 +196,7 @@ specifiers = ["21.2.3"]
 
 [[tools."npm:@contextlint/cli"]]
 version = "1.1.1"
-aube = { path = ".mise/locks/npm-contextlint-cli/1.1.1~091f4966", digest = "sha256:d190a21ac9bf385a777aafe01ea54d43270bb9ec5defab6f5a5390d784a35c53" }
+aube = { path = ".mise/locks/npm-contextlint-cli/1.1.1~091f4966", digest = "sha256:f0da76f11020fa9fc0b7dae593ecdd9c58c09ec619aa15b8ab27ffa3f58e3fd5" }
 backend = "npm:@contextlint/cli"
 specifiers = ["latest"]
 
