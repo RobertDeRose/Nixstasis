@@ -54,6 +54,8 @@
 ## Client-Server Interaction Details
 
 - Heartbeat controller passes client telemetry and connection status into `Monitoring.heartbeat/2`.
+- The telemetry `update` action is non-atomic so the payload-limit validation
+  runs in Elixir before persistence instead of inside the database update.
 - `Monitoring.heartbeat/2` validates normalized telemetry before any heartbeat side
   effect, then updates device `last_seen_at`, persists telemetry, evaluates rules,
   and returns queued commands to the client. A concurrent SSH host-key enrollment

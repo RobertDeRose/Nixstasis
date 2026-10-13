@@ -47,9 +47,11 @@ This feature is seeded from `docs/src/planned-features.md` entry
   provider-specific OIDC groups into `nixstasis/*` roles, and applies an
   `entra_policy` that allows `AUTHORIZED_ROLES` and `AUTHORIZED_GROUPS`, verifies
   `JWT_KEY`, validates bearer headers, and injects headers with claims.
-- Public browser hosts `nixstasis.<base-domain>`, `frp-admin.<base-domain>`, and
-  wildcard device hosts are protected by Caddy `authorize with entra_policy`,
-  except for the Go client device protocol routes on `nixstasis.<base-domain>`.
+- Public browser hosts `nixstasis.<base-domain>` and wildcard device hosts are
+  protected by Caddy `authorize with entra_policy`, except for the Go client
+  device protocol routes on `nixstasis.<base-domain>`. The FRPS dashboard host
+  `frp-admin.<base-domain>` uses the dedicated `frp_admin_policy`, which admits
+  only the `nixstasis/admin` role and injects no claim headers.
   Those device protocol routes bypass AuthCrunch at Caddy and authenticate in
   Phoenix with registration-issued device credentials where applicable.
 - Phoenix browser routes use `NixstasisWeb.Plugs.DevicePermissions`, which maps

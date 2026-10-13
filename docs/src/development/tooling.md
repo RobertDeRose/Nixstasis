@@ -33,9 +33,6 @@ message stays unchanged. Run `cog changelog`
 to preview the concise user-facing changelog. The hk policy uses native built-in steps whenever their behavior matches;
 hk's file locking coordinates independent steps. No dependency chain serializes unrelated checks.
 
-The server explicitly includes the pure-Elixir `simple_sat` solver for Ash policy verification. Telemetry updates run
-non-atomically so the payload-limit validation executes before persistence.
-
 Documentation tooling pins mdBook to the version used by the released `mdbook-mermaid` fork; upgrade those tools
 together. Rumdl owns nested-list indentation checks because mdbook-lint loses nesting context after comments and wrapped
 list items. The `devlop` npm package name is an intentional spelling in generated tool locks and must not be corrected

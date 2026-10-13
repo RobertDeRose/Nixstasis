@@ -96,6 +96,8 @@ metadata payloads.
 ### External
 
 - Ash
+- `simple_sat`, the pure-Elixir SAT solver that Ash's policy authorizer needs to
+  evaluate the device read and action policies
 - AshPhoenix
 - Ecto/PostgreSQL
 - Elixir Port for `ssh`
