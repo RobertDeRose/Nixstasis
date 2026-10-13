@@ -156,8 +156,9 @@ Traceable references:
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml`: the `caddy`, `frps`, and `client`
-  services and the ports each one publishes.
+- `deploy/compose/docker-compose.yml`: the `caddy` and `frps` services and
+  the ports each one publishes, plus the `client` simulator service, which
+  publishes none.
 - `deploy/compose/frps/frps.toml`: the FRPS transport ports and the
   `[[httpPlugins]]` entry that gates Login/NewProxy through Phoenix.
 - `deploy/compose/caddy/Caddyfile`: the `*.{$BASE_DOMAIN}` site, which

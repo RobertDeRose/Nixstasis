@@ -37,7 +37,9 @@ The deployment-wide FRPS client secret has been removed. Device credentials are 
 ## Validation Evidence
 
 Client polling and transport tests cover token-present and token-absent behavior; server controller tests cover
-signed credential and cross-device proxy rejection; the Compose runtime-contract check verifies the FRPS plugin wiring.
+signed credential and cross-device proxy rejection; the FRPS config check in
+`deploy/compose/scripts/check_frps_config.sh` renders the Compose `frps.toml` template, plugin entry included, and
+verifies it with the pinned frps binary.
 
 ## Design Reconciliation
 

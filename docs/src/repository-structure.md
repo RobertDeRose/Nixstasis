@@ -57,7 +57,7 @@
 - `deploy/compose`:
   - Supported server deployment path.
   - Defines Compose services for `nixstasis`, `caddy`, `frps`, and optional `postgres`.
-  - Includes runtime contract validation and Compose rendering scripts.
+  - Includes the Compose stack validation, proxy claim, and FRPS config check scripts.
 - `packages/caddy`:
   - Caddy Dockerfile and build script for Caddy with the AuthCrunch plugin.
 - `packages/frp`:
