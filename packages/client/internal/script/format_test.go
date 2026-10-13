@@ -64,11 +64,12 @@ func TestParseStaryContentRejectsOversizedSource(t *testing.T) {
 	}
 }
 
-// TestParseStaryFileRejectsOversizedSource verifies that the bounded file
-// reader rejects a file one byte over the limit.
+// TestParseStaryFileRejectsOversizedSource verifies that the file reader
+// rejects a file over the limit and reports the file's actual size rather than
+// the bounded read length.
 func TestParseStaryFileRejectsOversizedSource(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "oversized.stary")
-	content := staryContentOfSize(t, maxStarySourceBytes+1)
+	content := staryContentOfSize(t, maxStarySourceBytes+4096)
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
@@ -76,6 +77,9 @@ func TestParseStaryFileRejectsOversizedSource(t *testing.T) {
 	_, _, err := ParseStaryFile(path)
 	if !errors.Is(err, errStarySourceTooLarge) {
 		t.Fatalf("ParseStaryFile() error = %v, want errStarySourceTooLarge", err)
+	}
+	if !strings.Contains(err.Error(), "1052672 bytes exceeds 1048576-byte limit") {
+		t.Fatalf("ParseStaryFile() error = %q, want the actual file size", err)
 	}
 }
 
