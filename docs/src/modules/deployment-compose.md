@@ -302,9 +302,10 @@ mise run deploy:dev -- build frps
 deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
 ```
 
-The FRPS image workflow runs the same check against the image it builds. It
-catches structural mistakes that text searches miss, such as a top-level key
-placed after a `[[httpPlugins]]` table, which frps rejects at startup.
+The FRPS image workflow runs the same check against the image it builds, and
+release runs publish the image only after the check passes. It catches
+structural mistakes that text searches miss, such as a top-level key placed
+after a `[[httpPlugins]]` table, which frps rejects at startup.
 
 Traceable references:
 
