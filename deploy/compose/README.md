@@ -302,6 +302,13 @@ them as well, and the pre-commit hook runs them whenever staged files under
 python3 deploy/compose/scripts/test_validate_stack.py
 ```
 
+The `frps-render-config.sh` renderer in `packages/frp` has its own tests, run
+by the pre-commit hook whenever staged files under `packages/frp/` change:
+
+```sh
+python3 packages/frp/bin/test_frps_render_config.py
+```
+
 For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
 use Docker and the repository-built Caddy image in a disposable Compose container:
 

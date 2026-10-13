@@ -34,8 +34,23 @@ for port_name in FRPS_BIND_PORT FRPS_DASHBOARD_PORT FRPS_TCPMUX_PORT FRPS_HTTP_P
   esac
 done
 
+newline=$(printf '\nx')
+newline=${newline%x}
+for name in FRPS_DASHBOARD_USER FRPS_DASHBOARD_PASSWORD BASE_DOMAIN; do
+  eval "value=\${$name}"
+  case "$value" in
+    *"$newline"*)
+      echo "$name must not contain a newline" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Encode a value as the body of a TOML basic string, then escape the result
+# for use as a sed replacement. TOML needs backslash and double quote escaped;
+# sed needs backslash, slash, and ampersand escaped in the replacement text.
 escape() {
-  printf '%s' "$1" | sed 's/[\/&]/\\&/g'
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | sed 's/[\/&\\]/\\&/g'
 }
 
 escaped_frps_dashboard_user=$(escape "$FRPS_DASHBOARD_USER")
@@ -52,7 +67,7 @@ sed \
   -e "s/__BASE_DOMAIN__/${escaped_base_domain}/g" \
   "$template" > "$output"
 
-if grep -nE '__[A-Z_]+__' "$output" >&2; then
+if grep -nE '__[A-Z0-9_]+__' "$output" >&2; then
   echo "$template has placeholders this renderer does not fill" >&2
   exit 1
 fi
