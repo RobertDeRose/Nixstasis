@@ -95,9 +95,9 @@ configured.
 | `docs:serve`             | Serve mdBook on port 3000 by default or a supplied port.              |
 
 Linux is the supported runtime, release, and packaging-validation platform.
-The committed tooling lock also includes `macos-x64` and `macos-arm64` alongside
-`linux-x64` and `linux-arm64`; those tool downloads do not establish macOS product
-or packaging support. From `packages/client`, `mise run test:packaging` requires
+The committed tooling lock covers `linux-x64`, `linux-arm64`, and `macos-arm64`;
+Intel macOS is not locked, and the `macos-arm64` tool downloads do not establish
+macOS product or packaging support. From `packages/client`, `mise run test:packaging` requires
 Linux and GNU `stat`. macOS and Windows compatibility is not part of that contract.
 
 The mise environment routes hooks through mise with `HK_MISE=1` and sets `GIT_CONFIG_PARAMETERS="'merge.ff=only'"`, so
