@@ -96,7 +96,7 @@ jobs:
         # which is the image ID the verify step ran against.
         run: |
           set -eu
-          repo="${PUBLISHED_TAG%%:*}"
+          repo="${PUBLISHED_TAG%:*}"
           [ -n "$VERIFIED_IMAGE_ID" ] || { echo "verified image ID is empty" >&2; exit 1; }
           checked=0
           for manifest in $(docker buildx imagetools inspect "$repo@$PUBLISHED_DIGEST" --raw |

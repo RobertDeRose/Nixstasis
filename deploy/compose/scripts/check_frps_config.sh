@@ -14,7 +14,7 @@ if [ "$#" -ne 1 ]; then
   exit 64
 fi
 
-docker run --rm \
+docker run --rm --pull never \
   -v "$TEMPLATE:/etc/frp/frps.toml.template:ro" \
   -e FRPS_DASHBOARD_USER=ci \
   -e FRPS_DASHBOARD_PASSWORD=ci \
