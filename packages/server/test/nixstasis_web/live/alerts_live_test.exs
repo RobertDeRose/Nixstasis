@@ -1080,6 +1080,37 @@ defmodule NixstasisWeb.AlertsLiveTest do
     refute literal_html =~ "Literal 100x Rule"
   end
 
+  test "rule filter form patches the query into the rules route", %{conn: conn} do
+    {:ok, _needle} =
+      Domain.create_rule(%{
+        name: "Needle Rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    {:ok, _other} =
+      Domain.create_rule(%{
+        name: "Other Rule",
+        product_name: "alert-schema-product",
+        condition_field: "status",
+        operator: "is",
+        threshold_value: "ok"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
+
+    filtered_html =
+      view
+      |> element("#alert-rule-filters")
+      |> render_change(%{"filters" => %{"query" => "Needle"}})
+
+    assert assert_patch(view) =~ "Needle"
+    assert filtered_html =~ "Needle Rule"
+    refute filtered_html =~ "Other Rule"
+  end
+
   test "rules table presents one readable condition column", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{

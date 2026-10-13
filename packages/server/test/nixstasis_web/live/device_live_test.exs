@@ -599,7 +599,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       routed_params = Map.delete(routed_params, "product")
       assert_patch(view, ~p"/devices?#{routed_params}")
 
-      view |> element("form[phx-change='search']") |> render_change(%{"search" => "31:31:31"})
+      view |> element("#device-search") |> render_change(%{"search" => "31:31:31"})
       routed_params = Map.put(routed_params, "search", "31:31:31")
       assert_patch(view, ~p"/devices?#{routed_params}")
 

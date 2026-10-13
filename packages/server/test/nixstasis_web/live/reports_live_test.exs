@@ -1083,6 +1083,17 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, _view, html2} = live(conn, ~p"/reports?filters[field_queries][]=cpu.usage")
     assert html2 =~ "CPU Health"
     refute html2 =~ "Temp Trends"
+
+    {:ok, view, _html} = live(conn, ~p"/reports")
+
+    form_html =
+      view
+      |> element("#report-list-filters")
+      |> render_change(%{"filters" => %{"name" => "hea"}})
+
+    assert assert_patch(view) =~ "hea"
+    assert form_html =~ "CPU Health"
+    refute form_html =~ "Temp Trends"
   end
 
   test "schema-field filter supports multiple selections and ignores duplicates", %{
@@ -1112,12 +1123,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Temp and Humidity"
@@ -1125,7 +1136,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp and Humidity"
@@ -1154,12 +1165,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Temp and Humidity Reset"
@@ -1210,7 +1221,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp Autocomplete"
@@ -1223,7 +1234,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Humidity Autocomplete"
@@ -1245,7 +1256,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp No Duplicate"
@@ -1464,7 +1475,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "temp", "operator" => ">", "value" => "25"}
       })
       |> render_change()
@@ -1527,7 +1538,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "room_temp", "operator" => ">", "value" => "50"}
       })
       |> render_change()
@@ -1719,7 +1730,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "temp", "operator" => "is", "value" => ""}
       })
       |> render_change()
