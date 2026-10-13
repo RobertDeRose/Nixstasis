@@ -294,10 +294,20 @@ stdout. Use
 
 ## Contract Validation
 
-Run the static runtime checks from the repository root:
+Run the stack validation tests from the repository root. `mise run check` runs
+them as well, and the pre-commit hook runs them whenever staged files under
+`deploy/compose/` change:
 
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
+python3 deploy/compose/scripts/test_validate_stack.py
+```
+
+The `frps-render-config.sh` renderer in `packages/frp` has its own tests, run
+by the pre-commit hook whenever staged files under `packages/frp/` or
+`deploy/compose/frps/` change:
+
+```sh
+uv run packages/frp/bin/test_frps_render_config.py
 ```
 
 For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
@@ -310,8 +320,7 @@ mise run deploy:dev -- run --rm --no-deps \
   --volume "$PWD:/workspace:ro" \
   --workdir /workspace \
   caddy -c 'apk add --no-cache python3 &&
-    CADDY_BIN=/usr/bin/caddy \
-    sh deploy/compose/scripts/check_runtime_contract.sh'
+    python3 deploy/compose/scripts/check_proxy_claims.py --caddy /usr/bin/caddy'
 ```
 
 The development stack already runs Caddy in a container. This check uses a separate
@@ -321,6 +330,17 @@ starts its own Caddy processes and echo upstream on container-local loopback por
 It does not require the full stack to be running or publish service ports. Package
 installation requires network access. Do not execute the exported Linux Buildx
 binary directly on macOS; the existing Linux CI workflow is unchanged.
+
+Confirm the pinned frps binary accepts the `frps/frps.toml` template. The script
+renders it with the image's own `frps-render-config.sh` using dummy values and
+runs `frps verify` in the image; the FRPS image workflow runs the same check
+before it publishes the image, and fails the release if the published image ID
+differs from the verified one:
+
+```sh
+mise run deploy:dev -- build frps
+deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
+```
 
 Validate production deployment inputs separately:
 

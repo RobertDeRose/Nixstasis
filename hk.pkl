@@ -112,6 +112,14 @@ local linters = new Mapping<String, Step> {
     glob = List("README.md", "docs/**/*.md", "contextlint.config.json")
     check = "contextlint lint {{ files }}"
   }
+  ["compose-stack"] = new Step {
+    glob = List("deploy/compose/**")
+    check = "python3 deploy/compose/scripts/test_validate_stack.py"
+  }
+  ["frps-render"] = new Step {
+    glob = List("packages/frp/**", "deploy/compose/frps/**")
+    check = "uv run packages/frp/bin/test_frps_render_config.py"
+  }
   ["docs"] = new Step {
     glob = List("docs/src/**/*.md", "docs/book.toml", "scripts/check-docs.py")
     check = "uv run scripts/check-docs.py && mdbook build docs"

@@ -12,7 +12,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY bin/download_frp.sh /usr/local/bin/download_frp.sh
-COPY bin/frps-entrypoint.sh /usr/local/bin/frps-entrypoint.sh
 
 RUN arch="$(dpkg --print-architecture)" && \
     case "$arch" in \
@@ -27,6 +26,10 @@ RUN arch="$(dpkg --print-architecture)" && \
       /usr/local/bin/download_frp.sh && \
     install -m 0755 /tmp/frp-bin/frps /usr/local/bin/frps && \
     rm -rf /tmp/frp-bin
+
+# Copied after the download so editing a script does not refetch the binary.
+COPY bin/frps-entrypoint.sh /usr/local/bin/frps-entrypoint.sh
+COPY bin/frps-render-config.sh /usr/local/bin/frps-render-config.sh
 
 EXPOSE 7000 8080 8081 2022
 

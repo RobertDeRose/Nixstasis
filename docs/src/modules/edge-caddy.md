@@ -95,7 +95,7 @@ same Nixstasis role contract.
   Phoenix enforces the device credential contract for those runtime calls.
   Generated device listing remains operator-authenticated.
 - The Caddy image workflow runs real signed-JWT proxy checks for both production
-  and laptop configurations through `check_runtime_contract.sh` with `CADDY_BIN`.
+  and laptop configurations through `deploy/compose/scripts/check_proxy_claims.py`.
   These use loopback HTTP and an echo upstream, checking device claim removal,
   operator claim injection, optional scope injection, proxy-token overwrite,
   verified-only claims on the device tunnel access check,

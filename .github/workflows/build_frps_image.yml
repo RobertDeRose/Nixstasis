@@ -32,8 +32,6 @@ jobs:
         run: cat prod.env >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # ratchet:docker/setup-buildx-action@v4.4.1
-      - name: Validate runtime contract
-        run: deploy/compose/scripts/check_runtime_contract.sh
       - name: Log in to GHCR
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # ratchet:docker/login-action@v4.6.0
@@ -51,15 +49,64 @@ jobs:
             type=sha
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-      - name: Build and optionally push frps image
+      - name: Build frps image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # ratchet:docker/build-push-action@v7.4.0
         with:
           context: packages/frp
           file: packages/frp/Dockerfile
+          cache-from: type=gha,version=2,scope=frps-image
+          cache-to: type=gha,version=2,scope=frps-image,mode=max,ignore-error=true
           build-args: |
             FRP_VERSION=${{ env.FRP_VERSION }}
             FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
             FRP_LINUX_ARM64_SHA256=${{ env.FRP_LINUX_ARM64_SHA256 }}
-          push: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+          load: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Verify Compose FRPS config
+        env:
+          FRPS_IMAGE: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+        run: deploy/compose/scripts/check_frps_config.sh "$FRPS_IMAGE"
+      - name: Push verified frps image
+        id: push
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # ratchet:docker/build-push-action@v7.4.0
+        with:
+          context: packages/frp
+          file: packages/frp/Dockerfile
+          cache-from: type=gha,version=2,scope=frps-image
+          build-args: |
+            FRP_VERSION=${{ env.FRP_VERSION }}
+            FRP_LINUX_AMD64_SHA256=${{ env.FRP_LINUX_AMD64_SHA256 }}
+            FRP_LINUX_ARM64_SHA256=${{ env.FRP_LINUX_ARM64_SHA256 }}
+          push: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Confirm the published image is the verified image
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
+        env:
+          VERIFIED_IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          PUBLISHED_TAG: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          PUBLISHED_DIGEST: ${{ steps.push.outputs.digest }}
+        # The push produces an OCI index holding the platform image plus an
+        # attestation manifest, so compare the platform image's config digest,
+        # which is the image ID the verify step ran against.
+        run: |
+          set -eu
+          repo="${PUBLISHED_TAG%:*}"
+          [ -n "$VERIFIED_IMAGE_ID" ] || { echo "verified image ID is empty" >&2; exit 1; }
+          checked=0
+          for manifest in $(docker buildx imagetools inspect "$repo@$PUBLISHED_DIGEST" --raw |
+              jq -r '.manifests[] | select(.platform.architecture != "unknown") | .digest'); do
+            published=$(docker buildx imagetools inspect "$repo@$manifest" --raw | jq -r '.config.digest')
+            if [ "$published" != "$VERIFIED_IMAGE_ID" ]; then
+              echo "published image $published is not the verified image $VERIFIED_IMAGE_ID" >&2
+              exit 1
+            fi
+            checked=$((checked + 1))
+          done
+          [ "$checked" -gt 0 ] || { echo "no platform image found in $PUBLISHED_DIGEST" >&2; exit 1; }
+          echo "published image matches verified image $VERIFIED_IMAGE_ID"

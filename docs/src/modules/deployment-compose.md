@@ -25,8 +25,10 @@
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `.mise/tasks/deploy/dev.sh`
 - `.mise/tasks/deploy/dev/seed.sh`
-- `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
+- `deploy/compose/scripts/test_validate_stack.py`
+- `deploy/compose/scripts/check_proxy_claims.py`
+- `deploy/compose/scripts/check_frps_config.sh`
 - `prod.env`
 
 ## Public Interfaces
@@ -177,6 +179,7 @@
 - `deploy/compose/caddy/Caddyfile`
 - `deploy/compose/frps/frps.toml`
 - `packages/frp/bin/download_frp.sh`
+- `packages/frp/bin/frps-render-config.sh`
 
 ### External
 
@@ -205,8 +208,13 @@
   paths are not part of the supported deployment contract.
 - Release image references are pinned in Compose configuration; local development
   builds images locally with `dev` tags.
-- `packages/frp` currently provides FRPS image build assets and the shared FRP
-  binary acquisition script used by server/client packaging flows.
+- `packages/frp` currently provides FRPS image build assets, the shared FRP
+  binary acquisition script used by server/client packaging flows, and the
+  `frps-render-config.sh` renderer that fills the Compose `frps.toml` template.
+  The `frps` service runs that renderer with the operator's environment before
+  starting frps; the CI config check runs the same renderer with dummy values,
+  so a template variable the renderer does not know fails in CI instead of
+  reaching frps as a literal string.
 - E2E endpoints are disabled by default in production. Enabling them with `NIXSTASIS_E2E_ENABLED=true` also requires a dedicated `NIXSTASIS_E2E_RUNNER_ID` and 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN`; browser/AuthCrunch roles alone cannot access `/e2e`.
 - Development laptop mode uses the same single `docker-compose.yml` with a
   tracked `dev.env` file passed via `docker compose --env-file dev.env`.
@@ -261,10 +269,21 @@
 
 ## Contract Validation
 
-Run the static runtime checks from the repository root:
+Run the stack validation tests from the repository root. `mise run check` runs
+them as well, and the pre-commit hook runs them whenever staged files under
+`deploy/compose/` change:
 
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
+python3 deploy/compose/scripts/test_validate_stack.py
+```
+
+The tunnel config renderer has its own tests, which run the script against
+the real template with awkward credentials and parse the result as TOML. The
+pre-commit hook runs them whenever staged files under `packages/frp/` or
+`deploy/compose/frps/` change:
+
+```sh
+uv run packages/frp/bin/test_frps_render_config.py
 ```
 
 For executable production/laptop claim-boundary checks on macOS or Linux, use
@@ -277,8 +296,7 @@ mise run deploy:dev -- run --rm --no-deps \
   --volume "$PWD:/workspace:ro" \
   --workdir /workspace \
   caddy -c 'apk add --no-cache python3 &&
-    CADDY_BIN=/usr/bin/caddy \
-    sh deploy/compose/scripts/check_runtime_contract.sh'
+    python3 deploy/compose/scripts/check_proxy_claims.py --caddy /usr/bin/caddy'
 ```
 
 The development stack already runs Caddy in a container. These checks use a
@@ -290,11 +308,29 @@ that exported binary directly on macOS. The existing Linux CI workflow is unchan
 
 The Caddy image workflow requires these behavior checks before publishing. They
 use loopback HTTP, signed test JWTs, and an echo upstream; TLS and OIDC login are
-outside their scope. Without `CADDY_BIN`, only the existing static checks run.
+outside their scope.
+
+To confirm the pinned frps binary accepts the Compose `frps.toml` template,
+render it with the image's own `frps-render-config.sh` using dummy values and
+run `frps verify` in the built image:
+
+```sh
+mise run deploy:dev -- build frps
+deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
+```
+
+The FRPS image workflow runs the same check against the image it builds. It
+catches structural mistakes that text searches miss, such as a top-level key
+placed after a `[[httpPlugins]]` table, which frps rejects at startup. Release
+runs publish only after the check passes: the publish step rebuilds from the
+layer cache with provenance attached, then fails if the published image ID
+differs from the verified one.
 
 Traceable references:
 
-- `deploy/compose/docker-compose.yml:1-129`
-- `deploy/compose/README.md:1-117`
-- `deploy/compose/scripts/check_runtime_contract.sh`
+- `deploy/compose/docker-compose.yml`: the `nixstasis`, `caddy`, `frps`,
+  `postgres`, and `client` services and their environment wiring.
+- `deploy/compose/README.md`: the Services, Quick Start, Production, and
+  Environment Files sections.
+- `deploy/compose/scripts/check_proxy_claims.py`
 - `docs/src/operations/index.md`

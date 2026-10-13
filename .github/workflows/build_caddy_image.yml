@@ -50,10 +50,8 @@ jobs:
             CADDY_BUILDER_IMAGE_DIGEST=${{ env.CADDY_BUILDER_IMAGE_DIGEST }}
             CADDY_RUNNER_IMAGE_DIGEST=${{ env.CADDY_RUNNER_IMAGE_DIGEST }}
           outputs: type=local,dest=${{ runner.temp }}/caddy-proxy-test
-      - name: Validate runtime and proxy claim contracts
-        env:
-          CADDY_BIN: ${{ runner.temp }}/caddy-proxy-test/caddy
-        run: deploy/compose/scripts/check_runtime_contract.sh
+      - name: Validate proxy claim boundary
+        run: python3 deploy/compose/scripts/check_proxy_claims.py --caddy "${{ runner.temp }}/caddy-proxy-test/caddy"
       - name: Log in to GHCR
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # ratchet:docker/login-action@v4.6.0

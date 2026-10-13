@@ -186,8 +186,8 @@ there is a concrete implementation need beyond documenting validation steps.
 - `deploy/compose/caddy/Caddyfile.laptop`
 - `deploy/compose/frps/frps.toml`
 - `.mise/tasks/deploy/dev.sh`
-- `deploy/compose/scripts/check_runtime_contract.sh`
 - `deploy/compose/scripts/validate_stack.sh`
+- `deploy/compose/scripts/check_frps_config.sh`
 - `packages/client/Dockerfile`
 - `packages/server/Dockerfile`
 - `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`
