@@ -357,6 +357,15 @@ defmodule NixstasisWeb.ReportLive.Show do
     socket.assigns[:can_view_reports] == true
   end
 
+  @doc """
+  Renders the report detail page.
+
+  Shows notices when saved view preferences are unavailable or were reset, the
+  report name with a back link and an edit link for report managers, the column,
+  operator, and value filter form with a clear button, and the result table with
+  one sortable column per report field. An empty result set renders a no-data
+  message instead of rows.
+  """
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-6xl">
@@ -382,7 +391,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         </div>
       </div>
 
-      <form phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
+      <form id="report-result-filters" phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
         <select name="filter[column]" class="ui-select-sm-plain" value={@filter_column}>
           <option :for={field <- @fields} value={field_key(field)} selected={@filter_column == field_key(field)}>
             {field_key(field)}

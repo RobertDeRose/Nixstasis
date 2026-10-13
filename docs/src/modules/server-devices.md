@@ -96,6 +96,8 @@ metadata payloads.
 ### External
 
 - Ash
+- `simple_sat`, the pure-Elixir SAT solver that Ash's policy authorizer needs to
+  evaluate the device read and action policies
 - AshPhoenix
 - Ecto/PostgreSQL
 - Elixir Port for `ssh`
@@ -129,8 +131,8 @@ metadata payloads.
 - Browser terminal token activation is gated on an OK `ssh_authorize` command
   result from the device. The channel requires the matching command ID and
   session binding before starting SSH.
-- Server queues an idempotent `ssh_revoke` command (`content_type:
-  application/vnd.nixstasis.ssh-revoke+json;version=1`) on terminal close,
+- Server queues an idempotent `ssh_revoke` command with content type
+  `application/vnd.nixstasis.ssh-revoke+json;version=1` on terminal close,
   offline/lease expiry, queue failure, failed join, or other cleanup paths as a
   best-effort early invalidation signal. The complete wire contract is in
   [API & Runtime Contracts](../reference/contracts.md#browser-terminal-ssh-authorization-contract).

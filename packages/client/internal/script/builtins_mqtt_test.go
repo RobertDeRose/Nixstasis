@@ -131,12 +131,35 @@ def main():
 	}
 }
 
+// TestPubAndGetReportsSubscribeTimeout verifies that a subscribe that never
+// completes fails with a timeout error instead of wrapping a nil error.
+func TestPubAndGetReportsSubscribeTimeout(t *testing.T) {
+	client := &fakeMQTTClient{subscribeToken: pendingToken{}}
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:             5 * time.Second,
+		MQTTBroker:          "tcp://127.0.0.1:1",
+		MQTTPublishTopics:   []string{"request/+"},
+		MQTTSubscribeTopics: []string{"reply/+"},
+	})
+	runtime.mqttClient = client
+
+	_, err := runtime.Execute(t.Context(), "test.star", `
+def main():
+    return {"out": pub_and_get(topic="request/device-1", msg="ping", reply_topic="reply/device-1")}
+`)
+	if err == nil || !strings.Contains(err.Error(), "subscribe timed out after 3s") {
+		t.Fatalf("expected subscribe timeout error, got %v", err)
+	}
+}
+
 // fakeMQTTClient delivers a fixed reply to the subscribed handler on publish.
 // Unimplemented mqtt.Client methods panic through the nil embedded interface.
 type fakeMQTTClient struct {
 	mqtt.Client
 
 	reply []byte
+	// subscribeToken, when set, replaces the completed token Subscribe returns.
+	subscribeToken mqtt.Token
 
 	mu           sync.Mutex
 	handler      mqtt.MessageHandler
@@ -154,6 +177,9 @@ func (c *fakeMQTTClient) Subscribe(_ string, _ byte, callback mqtt.MessageHandle
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.handler = callback
+	if c.subscribeToken != nil {
+		return c.subscribeToken
+	}
 	return completedToken{}
 }
 
@@ -209,6 +235,21 @@ func (completedToken) Done() <-chan struct{} {
 
 // Error reports that the operation succeeded.
 func (completedToken) Error() error { return nil }
+
+// pendingToken models an MQTT operation the broker never completes.
+type pendingToken struct{}
+
+// Wait blocks forever in the real client; the fake reports no completion.
+func (pendingToken) Wait() bool { return false }
+
+// WaitTimeout reports that the timeout elapsed without completion.
+func (pendingToken) WaitTimeout(time.Duration) bool { return false }
+
+// Done returns a channel that never closes.
+func (pendingToken) Done() <-chan struct{} { return make(chan struct{}) }
+
+// Error reports no error because the operation never finished.
+func (pendingToken) Error() error { return nil }
 
 // TestAcceptCriteriaMatchesOnlyExpectedKeyValues verifies that all requested
 // fields must match while extra response fields remain accepted.

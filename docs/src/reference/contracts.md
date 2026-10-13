@@ -199,7 +199,9 @@ locked `nixstasis-ssh-authority` account to run the helper.
 ## Browser Authorization Contract
 
 - Caddy/AuthCrunch is the production browser authentication and authorization
-  edge. Protected production hosts keep `authorize with entra_policy`.
+  edge. Protected production hosts keep `authorize with entra_policy`, except
+  `frp-admin.<base-domain>`, which uses the dedicated `frp_admin_policy` that
+  admits only the `nixstasis/admin` role and injects no claim headers.
 - Production and laptop Nixstasis hosts remove client-supplied `X-Token-*`
   headers before AuthCrunch authorization. Device runtime paths carry no operator
   claims; operator paths retain the verified claims injected after sanitation.

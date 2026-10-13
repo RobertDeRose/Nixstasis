@@ -32,8 +32,8 @@ type mqttReply struct {
 // than maxMQTTReplyBytes fails the call, and no reply within five seconds
 // returns None. Context cancellation returns ErrTimeout when observed before
 // broker work starts or while waiting for the reply. The connect, subscribe, and
-// publish waits use fixed timeouts instead, so cancellation during one of them
-// may return that operation's error.
+// publish waits use fixed timeouts instead and fail with that operation's error,
+// or with a timeout error when the broker never completes it.
 //
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -112,16 +112,16 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 		}
 	}
 
-	if token := client.Subscribe(replyTopic, 0, handler); !token.WaitTimeout(3*time.Second) || token.Error() != nil {
-		return nil, fmt.Errorf("subscribe failed: %w", token.Error())
+	if err := awaitToken(client.Subscribe(replyTopic, 0, handler), "subscribe", 3*time.Second); err != nil {
+		return nil, err
 	}
 	defer func() {
 		token := client.Unsubscribe(replyTopic)
 		token.WaitTimeout(2 * time.Second)
 	}()
 
-	if token := client.Publish(topic, 0, false, msg); !token.WaitTimeout(3*time.Second) || token.Error() != nil {
-		return nil, fmt.Errorf("publish failed: %w", token.Error())
+	if err := awaitToken(client.Publish(topic, 0, false, msg), "publish", 3*time.Second); err != nil {
+		return nil, err
 	}
 
 	select {
@@ -263,6 +263,20 @@ func mqttTopicNameIsConcrete(topic string) bool {
 	return topic != "" && !strings.ContainsAny(topic, "+#")
 }
 
+// awaitToken waits up to timeout for an MQTT operation to complete. It returns
+// the operation's error when it failed, a timeout error when it did not
+// complete in time, and nil when it succeeded.
+func awaitToken(token mqtt.Token, operation string, timeout time.Duration) error {
+	completed := token.WaitTimeout(timeout)
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("%s failed: %w", operation, err)
+	}
+	if !completed {
+		return fmt.Errorf("%s timed out after %s", operation, timeout)
+	}
+	return nil
+}
+
 func (r *Runtime) connectMQTT() (mqtt.Client, error) {
 	r.mqttMu.Lock()
 	defer r.mqttMu.Unlock()
@@ -280,9 +294,9 @@ func (r *Runtime) connectMQTT() (mqtt.Client, error) {
 	opts.SetClientID(fmt.Sprintf("nixstasis-stary-%d-%d", time.Now().UnixNano(), r.mqttSeq.Add(1)))
 
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); !token.WaitTimeout(5*time.Second) || token.Error() != nil {
+	if err := awaitToken(client.Connect(), "mqtt connect", 5*time.Second); err != nil {
 		r.mqttFailures++
-		return nil, fmt.Errorf("mqtt connect failed: %w", token.Error())
+		return nil, err
 	}
 
 	r.mqttFailures = 0

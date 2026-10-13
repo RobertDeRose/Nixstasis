@@ -121,7 +121,7 @@ type result struct {
 // Observed context cancellation is reported as ErrTimeout.
 func (r *Runtime) Execute(ctx context.Context, scriptPath, body string) (map[string]any, error) {
 	if len(body) > maxStarySourceBytes {
-		return nil, starySourceTooLargeError(len(body))
+		return nil, starySourceTooLargeError(int64(len(body)))
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, r.config.Timeout)

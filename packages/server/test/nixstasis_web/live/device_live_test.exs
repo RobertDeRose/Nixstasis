@@ -599,7 +599,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       routed_params = Map.delete(routed_params, "product")
       assert_patch(view, ~p"/devices?#{routed_params}")
 
-      view |> element("form[phx-change='search']") |> render_change(%{"search" => "31:31:31"})
+      view |> element("#device-search") |> render_change(%{"search" => "31:31:31"})
       routed_params = Map.put(routed_params, "search", "31:31:31")
       assert_patch(view, ~p"/devices?#{routed_params}")
 
@@ -1629,6 +1629,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
   end
 
+  # Polls the rendered view up to `attempts` times, 5 ms apart, until `text`
+  # appears. Returns false when it never does.
   defp eventually_rendered?(view, text, attempts \\ 20)
 
   defp eventually_rendered?(view, text, attempts) when attempts > 0 do
@@ -1642,8 +1644,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp eventually_rendered?(_view, _text, 0), do: false
 
-  defp eventually_cleared?(view, attempts \\ 20)
-
+  # Polls the rendered view up to `attempts` times, 5 ms apart, until the
+  # "Device created successfully" flash is gone. Returns false if it persists.
   defp eventually_cleared?(view, attempts) when attempts > 0 do
     if render(view) =~ "Device created successfully" do
       Process.sleep(5)

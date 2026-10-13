@@ -88,6 +88,9 @@ defmodule Nixstasis.MixProject do
   #     $ mix setup
   #
   # See the documentation for `Mix` for more info on aliases.
+  #
+  # `precommit` mirrors the repository hooks: compile with warnings as errors,
+  # prune unused lock entries, format, and run the test suite.
   defp aliases do
     [
       setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],
@@ -111,7 +114,7 @@ defmodule Nixstasis.MixProject do
         "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
       precommit: [
-        "compile --no-optional-deps --warning-as-errors",
+        "compile --no-optional-deps --warnings-as-errors",
         "deps.unlock --unused",
         "format",
         "test"

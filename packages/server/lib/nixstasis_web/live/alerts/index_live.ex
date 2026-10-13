@@ -401,6 +401,16 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
+  @doc """
+  Renders the alerts page for the selected tab.
+
+  The header offers an add-rule link on the rules tab to rule managers, and the
+  tab buttons switch between active alerts and rules. The active tab lists the
+  loaded alerts. The rules tab shows the rule filter form, the result summary
+  with pagination, and the sortable rule table, with per-row actions for
+  managers. Managers also see the new/edit rule modal, the delete confirmation,
+  and the discard-changes confirmation when those states are set.
+  """
   def render(assigns) do
     ~H"""
     <div class="ui-page-shell">
@@ -467,7 +477,7 @@ defmodule NixstasisWeb.AlertLive.Index do
       <div :if={@alerts_tab == "rules"} class="mt-2 ui-card-panel">
         <div class="card-body p-0">
           <div class="grid grid-cols-1 gap-3 border-b border-base-300 p-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <form phx-change="update_rule_filters" class="w-full">
+            <form id="alert-rule-filters" phx-change="update_rule_filters" class="w-full">
               <label class="ui-label-strong">
                 Filter rules
               </label>
@@ -529,7 +539,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                 </tr>
               </thead>
               <tbody>
-                <tr :for={rule <- @rules}>
+                <tr :for={rule <- @rules} id={"alert-rule-#{rule.id}"}>
                   <td class="w-[45%] min-w-[16rem]">
                     <div class="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2">
                       <%= if rule.edit_disabled_reason do %>
