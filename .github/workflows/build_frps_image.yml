@@ -89,9 +89,24 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.push)
         env:
           VERIFIED_IMAGE_ID: ${{ steps.build.outputs.imageid }}
-          PUBLISHED_IMAGE_ID: ${{ steps.push.outputs.imageid }}
+          PUBLISHED_TAG: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          PUBLISHED_DIGEST: ${{ steps.push.outputs.digest }}
+        # The push produces an OCI index holding the platform image plus an
+        # attestation manifest, so compare the platform image's config digest,
+        # which is the image ID the verify step ran against.
         run: |
-          if [ -z "$VERIFIED_IMAGE_ID" ] || [ "$VERIFIED_IMAGE_ID" != "$PUBLISHED_IMAGE_ID" ]; then
-            echo "published image $PUBLISHED_IMAGE_ID is not the verified image $VERIFIED_IMAGE_ID" >&2
-            exit 1
-          fi
+          set -eu
+          repo="${PUBLISHED_TAG%%:*}"
+          [ -n "$VERIFIED_IMAGE_ID" ] || { echo "verified image ID is empty" >&2; exit 1; }
+          checked=0
+          for manifest in $(docker buildx imagetools inspect "$repo@$PUBLISHED_DIGEST" --raw |
+              jq -r '.manifests[] | select(.platform.architecture != "unknown") | .digest'); do
+            published=$(docker buildx imagetools inspect "$repo@$manifest" --raw | jq -r '.config.digest')
+            if [ "$published" != "$VERIFIED_IMAGE_ID" ]; then
+              echo "published image $published is not the verified image $VERIFIED_IMAGE_ID" >&2
+              exit 1
+            fi
+            checked=$((checked + 1))
+          done
+          [ "$checked" -gt 0 ] || { echo "no platform image found in $PUBLISHED_DIGEST" >&2; exit 1; }
+          echo "published image matches verified image $VERIFIED_IMAGE_ID"
