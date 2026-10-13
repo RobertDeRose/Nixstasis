@@ -110,7 +110,7 @@ Traceable references:
   Login/NewProxy to Phoenix for lease validation.
 - `packages/frp/bin/frps-render-config.sh`: the renderer shipped in the FRPS
   image, which fills the `frps.toml` template from the service environment and
-  rejects any placeholder it does not know.
+  rejects any template variable it does not know.
 - `deploy/compose/docker-compose.yml`: the `frps` service, which runs that
   renderer before starting frps and keeps the HTTP vhost port internal to
   Compose.

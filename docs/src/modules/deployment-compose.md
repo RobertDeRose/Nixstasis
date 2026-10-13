@@ -213,8 +213,8 @@
   `frps-render-config.sh` renderer that fills the Compose `frps.toml` template.
   The `frps` service runs that renderer with the operator's environment before
   starting frps; the CI config check runs the same renderer with dummy values,
-  so a placeholder the renderer does not know fails in CI instead of reaching
-  frps as a literal string.
+  so a template variable the renderer does not know fails in CI instead of
+  reaching frps as a literal string.
 - E2E endpoints are disabled by default in production. Enabling them with `NIXSTASIS_E2E_ENABLED=true` also requires a dedicated `NIXSTASIS_E2E_RUNNER_ID` and 32-byte-or-longer `NIXSTASIS_E2E_RUNNER_TOKEN`; browser/AuthCrunch roles alone cannot access `/e2e`.
 - Development laptop mode uses the same single `docker-compose.yml` with a
   tracked `dev.env` file passed via `docker compose --env-file dev.env`.
