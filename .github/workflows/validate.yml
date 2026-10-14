@@ -97,4 +97,6 @@ jobs:
           go-version-file: packages/client/go.mod
       - name: Run client tests
         working-directory: packages/client
-        run: go test ./...
+        # sshd only runs a root-owned AuthorizedKeysCommand, which the
+        # unprivileged runner cannot provide for the real-sshd test.
+        run: go test -tags no_sshd_integration ./...
