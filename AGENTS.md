@@ -5,6 +5,7 @@ Start here when working in this repository.
 ## Ground Rules
 
 - Prefer the smallest correct change.
+- All code should follow the principles of DRY, KISS, and YAGNI, and be designed with good separation of concerns.
 - Keep documentation and implementation aligned in the same unit of work.
 - Do not treat a task as complete if the code and docs-driven feature docs disagree.
 
