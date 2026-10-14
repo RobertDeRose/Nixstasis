@@ -1,11 +1,8 @@
 # Schema-Driven Builder Dropdowns
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-yju`
-- Status: delivered
-- Pull request: not created; merge was explicitly selected
-- Merge commit: `24999c01f811ebaf7c3de3b3344bac2689012367` (fast-forward delivery)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -87,15 +84,26 @@ task-completion evidence.
 The generated Ash JSON:API builder contracts and retained `/api/v1` wrappers
 remain documented in the client-server interface and builder API reference.
 
-## Validation Evidence
+## Test Coverage
 
-- Focused schema/builder/controller/alert/report tests: 108 tests, 0 failures.
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/reporting/query_builder_test.exs`: 11 tests, 0 failures.
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/monitoring test/nixstasis/monitoring/telemetry_seed_test.exs`: 28 tests, 0 failures.
-- Final feature commit `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit`: 642 tests, 0 failures.
-- `mise run check`, `uv run scripts/check-docs.py`, `mix ash.codegen --check`, `bash -n .mise/tasks/deploy/dev/seed.sh`, and `git diff --check` passed. Repository output retained 37 non-failing mdBook lint warnings.
-- The Compose server image rebuilt, `mise run deploy:dev -- up --clients 1` recreated the server, and the seed task passed first-run/repeat-run checks. After one legacy seeded event was removed through Compose RPC, the seed task reported one repaired event and the next run reported no duplicates.
-- Existing LiveView missing-form-ID warnings remain non-failing diagnostics.
+- `packages/server/test/nixstasis/schema_options_test.exs` and `packages/server/test/nixstasis/schema_options/`
+  (`builder_contract_test.exs`, `normalizer_test.exs`, `validator_test.exs`): schema option normalization,
+  validation, canonical identity, conflict handling, and bounded loading.
+- `packages/server/test/nixstasis/devices/schema_validator_test.exs`: device schema registration limits.
+- `packages/server/test/nixstasis_web/controllers/builder_schema_controller_test.exs`,
+  `builder_config_validation_controller_test.exs`, `builder_contract_json_api_test.exs`, and
+  `report_result_controller_test.exs`: generated Ash builder actions and `/api/v1` compatibility wrappers.
+- `packages/server/test/nixstasis/reporting/query_builder_test.exs`: selected-schema and all-schema report scoping and
+  empty-row handling.
+- `packages/server/test/nixstasis/monitoring/` alert rule tests and
+  `packages/server/test/nixstasis/monitoring/telemetry_seed_test.exs`: alert builder behavior and development seed
+  idempotency.
+- `packages/server/test/nixstasis_web/live/alerts_live_test.exs` and
+  `packages/server/test/nixstasis_web/live/reports_live_test.exs`: builder dropdowns, scope changes, invalidation,
+  and fail-closed saves.
+- `mix ash.codegen --check` and `mix precommit` in `packages/server`.
+- Manual dev-lab check: `mise run deploy:dev:seed` is idempotent across repeated runs and repairs partial telemetry
+  batches.
 
 ## Design Reconciliation
 
@@ -151,23 +159,3 @@ remain documented in the client-server interface and builder API reference.
 - `docs/src/development/tooling.md`
 - `docs/src/reference/openapi/builder-api.yaml`
 - `deploy/compose/README.md`
-
-The interface, OpenAPI, monitoring, web, tooling, and builder reference pages
-were reviewed against the delivered contracts; only the paths with required
-reader-facing reconciliation changes were edited in this close-out unit.
-
-## Audit Trail
-
-The reviewed design and graph were established in `01e4e39` and corrected in
-`16271f3`. Canonical conflict handling and option timing were delivered in
-`0447221` and `429ad21`; seed fixtures and report telemetry behavior followed in
-`e06ca06`, `bc71f03`, and `f291154`. Report unavailable-schema guidance,
-save revalidation, version-scoped types, all-version preservation, bounded
-option loading, empty projections, and bounded seed checks were delivered in
-`7f4dbee`, `5f5c5d1`, `a421cabc`, `39d40ab`, `b1ea569`, `259f2cf`, and `49b70e5`.
-
-Implementation and review findings are recorded in Beads. The implementation
-coordinator `nixstasis-yju.7`, documentation `.8`, validation `.9`, and holistic
-reviews `.10` and `.11` are closed with commit and validation evidence. The
-feature was fast-forwarded into `dev` at
-`24999c01f811ebaf7c3de3b3344bac2689012367`; no pull request was created.

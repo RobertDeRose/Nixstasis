@@ -1,12 +1,9 @@
 # Packaging and Deployment Migration
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-nmm`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `ce8c2aff454a735df9f16dec9795370f41f5a3fb`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,15 @@ mismatches before release or deployment.
 - [Deployment Compose](../../modules/deployment-compose.md)
 - `packages/client/README.md`
 
-## Validation Evidence
+## Test Coverage
 
-Compose rendering and runtime-contract checks validate server inputs and exposure. Client artifact verification checks
-binaries, FRPC, templates, units, versions, and installers. `deploy/compose/docker-compose.yml` is direct evidence.
+- `deploy/compose/scripts/validate_stack.sh` (tested by `deploy/compose/scripts/test_validate_stack.py`): Compose
+  rendering, required server settings, and port exposure.
+- `deploy/compose/scripts/check_frps_config.sh` and `deploy/compose/scripts/check_proxy_claims.py`: FRPS and proxy
+  configuration checks.
+- `packages/server/test/nixstasis_web/runtime_contract_test.exs`: server runtime-contract inputs.
+- `packages/client/build/bin/verify_artifacts.sh`: client binaries, bundled FRPC, templates, systemd units, versions,
+  and installers.
 
 ## Design Reconciliation
 
@@ -64,8 +66,3 @@ The migration did not preserve multiple competing server deployment authorities.
 - `deploy/compose/README.md`
 - `packages/client/README.md`
 - `docs/src/modules/deployment-compose.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-nmm`. Commit `ce8c2aff454a735df9f16dec9795370f41f5a3fb`
-directly established the Compose deployment foundation used by the delivered path.

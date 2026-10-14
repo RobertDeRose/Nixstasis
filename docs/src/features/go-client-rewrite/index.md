@@ -1,12 +1,9 @@
 # Go Client Rewrite
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-9oi`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `4ec70eaaf955c29538be7d8d832d53907486c99b`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,21 @@ credentials, and ships with systemd and multi-format Linux packaging.
 - [Client CLI](../../modules/client-cli.md)
 - [Client-Server Interface](../../client-server-interface.md)
 
-## Validation Evidence
+## Test Coverage
 
-The Go test suite covers CLI, identity, transport, command, script, FRP, SSH authorization, and E2E packages. Release
-verification covers archives and native installers. `packages/client/cmd/nixstasis/main.go` corroborates the CLI runtime.
+- `packages/client/cmd/nixstasis/*_test.go`: CLI subcommands and service entry point.
+- `packages/client/internal/config/*_test.go`: YAML configuration and environment overrides.
+- `packages/client/internal/identity/*_test.go`: device identity detection and persistence.
+- `packages/client/internal/transport/*_test.go`: registration, heartbeat, and protocol transport.
+- `packages/client/internal/commands/*_test.go` and `packages/client/internal/commandpolicy/*_test.go`: server
+  command handling and command policies.
+- `packages/client/internal/script/*_test.go`: Starlark telemetry scripts.
+- `packages/client/internal/frp/*_test.go`: FRPC lifecycle management.
+- `packages/client/internal/sshauth/*_test.go`: dynamic SSH authorization.
+- `packages/client/internal/e2e/*_test.go`: E2E journey support.
+- `go test ./...` in `packages/client` (`mise run test`).
+- `mise run release:check`, `mise run release:verify`, and `mise run test:packaging` in `packages/client`: release
+  archives and native installers.
 
 ## Design Reconciliation
 
@@ -63,8 +71,3 @@ No compatibility path retains the original shell client as a supported runtime.
 - `packages/client/README.md`
 - `docs/src/modules/client-*.md`
 - `docs/src/client-server-interface.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-9oi`. Commit `4ec70eaaf955c29538be7d8d832d53907486c99b`
-directly migrated the packaged CLI entry point and release shape.

@@ -6,8 +6,6 @@
 - Feature slug: `bounded-liveview-catalog-reads`
 - Design path: `docs/src/features/bounded-liveview-catalog-reads/design.md`
 - Implemented record: `docs/src/features/bounded-liveview-catalog-reads/index.md`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -207,7 +205,7 @@ Operators will see bounded, searchable pages rather than an entire catalog. Larg
 - `mix compile --no-optional-deps --warnings-as-errors`.
 - `mix ash.codegen --check`.
 - `MIX_ENV=test mix ecto.migrate` and migration/index checks.
-- `uv run scripts/check-docs.py` and `git diff --check`.
+- `mdbook build docs` and `git diff --check`.
 - Browser smoke checks for search, selection persistence, pagination, canonical alert routes, empty states, and over-limit errors.
 - Verify no full-catalog assigns or template loops remain via targeted source searches and query logs.
 
@@ -221,15 +219,14 @@ The implementation coordinator `nixstasis-mol-594` owned five parallel-first bou
 4. `nixstasis-mol-594.4` — SQL-scoped manual/catalog command-policy resolution, compatibility preview, category expansion, and over-limit guards.
 5. `nixstasis-mol-594.5` — final query indexes and measurement after query shapes stabilize.
 
-Tasks 1–4 proceeded independently after specification reconciliation. Task 5
-followed tasks 1–4 and their final query shapes. All implementation work passed
-through the lifecycle specification reconciliation and is closed.
+Tasks 1–4 proceed independently after specification reconciliation. Task 5
+follows tasks 1–4 and their final query shapes.
 
 ## Dependencies and Parallelism
 
 - The four surface tasks are independent and can be reviewed separately.
 - Query-index work follows the surface query shapes and should not introduce speculative indexes.
-- Close-out documentation and validation followed all implementation tasks and are complete.
+- Close-out documentation and validation follow all implementation tasks.
 - No external service or schema migration is required unless justified by final query plans.
 
 ## Rollout and Migration
@@ -255,7 +252,7 @@ This is unreleased software. Replace duplicate alert routes/modules directly; no
 ## Open Questions
 
 No implementation or product-policy question remains open. Query-plan details
-and exact index definitions are recorded as delivered implementation evidence.
+and exact index definitions are recorded in [Bounded catalog query evidence](query-evidence.md).
 
 ## Deferred Decisions
 
@@ -301,4 +298,3 @@ and exact index definitions are recorded as delivered implementation evidence.
 - `docs/src/modules/server-reporting.md`
 - `docs/src/modules/server-monitoring.md`
 - `docs/src/operations/command-policies.md`
-- Prior commits: `c8be60df`, `faaa7c84`, `52fbc2d`, `ebde27a8`, `97d57232`, `30d89b5d`, `4b0eaad2`, `3aab000a`, `688f0118`

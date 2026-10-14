@@ -1,11 +1,9 @@
 # AtomixOS Bootstrap Provisioning
 
-## Delivery Summary
+## References
 
-- Beads task: `nixstasis-4gg`
-- Status: delivered
-- Dependencies: `nixstasis-255`, `nixstasis-fss`
-- Pull request: none authorized or created
+- Beads feature root: `nixstasis-4gg`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -57,22 +55,16 @@ indeterminate and retain access until explicit withdrawal or lease expiry.
 - [Edge FRP](../../modules/edge-frp.md)
 - [Compose deployment](../../modules/deployment-compose.md)
 
-## Validation Evidence
+## Test Coverage
 
-Focused server tests cover artifact limits, authorization and approval gates,
-route submission, job polling, success, queue-conflict retry, ambiguous upload,
-lease expiry, indeterminate reconciliation, and withdrawal:
-
-```bash
-cd packages/server
-mise x -- mix test \
-  test/nixstasis/provisioning/artifact_test.exs \
-  test/nixstasis/provisioning_test.exs \
-  test/nixstasis_web/controllers/provisioning_controller_test.exs
-```
-
-The final repository validation evidence is recorded with Beads task
-`nixstasis-4gg` and the implementation commit.
+- `packages/server/test/nixstasis/provisioning/artifact_test.exs`: artifact size limits and SHA-256 tracking.
+- `packages/server/test/nixstasis/provisioning_test.exs`: authorization and approval gates, route submission, job
+  polling, success, queue-conflict retry, ambiguous upload, lease expiry, indeterminate reconciliation, and withdrawal.
+- `packages/server/test/nixstasis/provisioning/http_client_test.exs`: the 1 MiB receive budget on submission, error,
+  and polling responses before JSON decoding.
+- `packages/server/test/nixstasis/devices/remote_access_leases_test.exs`: durable provisioning-owned route leases.
+- `packages/server/test/nixstasis_web/controllers/provisioning_controller_test.exs`: the provisioning HTTP API.
+- `mix ash.codegen --check` guards the durable delivery resource and its migration.
 
 ## Design Reconciliation
 
@@ -88,8 +80,7 @@ The durable delivery resource adds an operator-facing status surface and
 retains the latest job events/result because AtomixOS reports progress through
 the job resource rather than through a second Nixstasis command protocol.
 
-PR #3's approved correction (`nixstasis-n01`) makes each delivery's route lease a
-durable authorization owned by its UUID. Withdrawal and resume after restart use
+Each delivery's route lease is a durable authorization owned by its UUID. Withdrawal and resume after restart use
 the original lease, never a replacement with a fresh expiry. Completion/withdrawal
 invalidates its credential independently of other operators' live leases.
 Provisioning takes profile precedence until it ends; remaining owners regain
@@ -97,8 +88,7 @@ their own profiles and expiries afterward.
 
 ### Deferred Work
 
-Human measurement of the broader 90-second usability target remains deferred;
-this task has no human observation evidence. AtomixOS post-provision re-apply
+Human measurement of the broader 90-second usability target remains deferred. AtomixOS post-provision re-apply
 remains outside this initial-bootstrap action.
 
 ### Rejected or Removed Scope
@@ -117,11 +107,3 @@ POST, or forwarding-URL follow behavior was added.
 - `docs/src/reference/contracts.md`
 - `docs/src/reference/openapi/device-api.yaml`
 - `deploy/compose/README.md`
-
-## Audit Trail
-
-The implementation is tracked by Beads issue `nixstasis-4gg`. Review and
-validation limitations are recorded in its notes; no independent Pi reviewer
-session was available. No push or pull request was authorized or performed for
-that original delivery. The later PR #3 lifecycle correction and its review and
-validation evidence are tracked separately by `nixstasis-n01`.

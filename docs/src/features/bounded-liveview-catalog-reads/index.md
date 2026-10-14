@@ -1,12 +1,8 @@
 # Bounded LiveView Catalog Reads
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-mol-iuv`
-- Implementation coordinator: `nixstasis-mol-594`
-- Status: delivered
-- Pull request: not created
-- Merge commit: `69e0e2c772c5f61a6afce8914adc6cb03e31b739` (fast-forward delivery)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -59,22 +55,29 @@ searches or policy selections when explicit result or resolution limits are reac
 - [Command Policies](../../operations/command-policies.md)
 - [Bounded catalog query evidence](query-evidence.md)
 
-## Validation Evidence
+## Test Coverage
 
-- `MIX_ENV=test mix test` — 713 tests, 0 failures.
-- `MIX_ENV=test mix test test/nixstasis/bounded_catalog_query_evidence_test.exs test/nixstasis_web/bounded_catalog_live_evidence_test.exs` — 8 tests, 0 failures.
-- `mise exec -- mix compile --no-optional-deps --warnings-as-errors` — passed.
-- `mise exec -- mix ash.codegen --check` — passed.
-- `uv run scripts/check-docs.py` — passed.
-- Pre-commit hooks, including formatting, docs build, markdown lint, and diff checks — passed.
+- `packages/server/test/nixstasis/bounded_catalog_query_evidence_test.exs`: installed ordering indexes, one-query
+  bounded device and report reads, bounded policy previews, and source-row rejection before materialization.
+- `packages/server/test/nixstasis_web/bounded_catalog_live_evidence_test.exs`: bounded rows and payload for the actual
+  `/alerts/rules` LiveView.
+- `packages/server/test/nixstasis_web/live/script_live_test.exs`: device picker search, 50-row limit, preserved
+  selections, and fail-closed device selections.
+- `packages/server/test/nixstasis_web/live/alerts_live_test.exs`: canonical `/alerts/rules` route, SQL filtering, and
+  pagination.
+- `packages/server/test/nixstasis/reporting/custom_report_list_test.exs` and
+  `packages/server/test/nixstasis_web/live/reports_live_test.exs`: report pagination, sorting, and compact summaries.
+- `packages/server/test/nixstasis/command_allowlists/policy_resolver_test.exs` and
+  `packages/server/test/nixstasis_web/live/command_policy_live_test.exs`: policy preview scoping and resolution limits.
+- `mix compile --no-optional-deps --warnings-as-errors` and `mix ash.codegen --check`.
+- [Bounded catalog query evidence](query-evidence.md) describes the asserted bounds and index coverage.
 
 ## Design Reconciliation
 
 ### Delivered as Designed
 
-All five implementation children delivered their reviewed scope: device picker and retry bounds,
-canonical alert rules, report pagination, policy/catalog preflight bounds, and final index/query
-measurement evidence.
+The feature delivered its designed scope: device picker and retry bounds, canonical alert rules,
+report pagination, policy/catalog preflight bounds, and final index/query measurement evidence.
 
 ### Intentional Changes
 
@@ -107,14 +110,3 @@ alert-rule rows, and does not introduce speculative policy/catalog indexes.
 - `docs/src/features/index.md`
 - `docs/src/SUMMARY.md`
 - `docs/src/planned-features.md`
-
-## Audit Trail
-
-- Design boundary and reconciled specification: `f1345ed`.
-- Policy resolution implementation: `d420a239`.
-- Report pagination implementation: `8371d1b7`.
-- Alert-rule catalog implementation: `42c21734`.
-- Device picker and retry implementation: `05b7e8b`'s predecessor `2b08e70`.
-- Index and query evidence implementation: `05b7e8b`.
-- Child beads `nixstasis-mol-594.1` through `.5` are closed with independent review evidence;
-  `.5` review explicitly approved after actual-path evidence tests resolved `EVIDENCE-CATALOG-001`.

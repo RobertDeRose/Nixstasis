@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Schema-Driven Builder Dropdowns
 
 ## Feature Name
@@ -55,8 +53,6 @@ state.
 
 - Beads feature root: `nixstasis-yju`
 - Feature slug: `schema-driven-builder-dropdowns`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -124,48 +120,29 @@ compatibility wrapper.
 Run normalizer, validator, JSON:API, controller compatibility, alert LiveView, report LiveView, authorization, conflict
 handling, and performance checks. Verify the two-second option-load target with bounded fixture sizes. Capture the
 90-second task-flow evidence only in a valid operator observation window; otherwise record the measurement as deferred
-without claiming a usability pass/fail.
+without claiming a usability pass/fail. Alert and report LiveView timing assertions measure option-service execution
+through the `duration_ms` telemetry against the 2,000 ms bound; they are not human task-completion measurements and do
+not alter the shared `load_time_ms` payload.
 
-### Report task-flow measurement record — 2026-08-05
+### Report task-flow measurement
 
 - Scenario: create a report, select a schema, choose a column, add a typed filter, and save it.
-- Participant/sample: no valid operator observation window was available for this implementation run.
-- Elapsed time and pass/fail: not recorded; the 90-second target is deferred rather than evaluated.
 - Limitation: automated LiveView/browser checks and synthetic timings are implementation evidence, not human-usability
   evidence. A future observation must record participant/sample details, procedure, elapsed time, and limitations before
   claiming a usability result.
 
-### Alert task-flow measurement record — 2026-08-05
+### Alert task-flow measurement
 
 - Scenario: open the alert rule builder, select a schema/version, choose a condition field, set an operator and
   threshold, and save the rule.
-- Participant/sample: no valid operator observation window was available for this implementation run.
-- Elapsed time and pass/fail: not recorded; the 90-second target is deferred rather than evaluated.
 - Limitation: automated LiveView/browser checks and synthetic timings are implementation evidence, not human-usability
   evidence. A future observation must record participant/sample details, procedure, elapsed time, and limitations before
   claiming a usability result.
 
-### Verification record — 2026-08-05
-
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix test test/nixstasis/schema_options_test.exs test/nixstasis/schema_options/builder_contract_test.exs test/nixstasis_web/controllers/builder_schema_controller_test.exs test/nixstasis_web/live/alerts_live_test.exs test/nixstasis_web/live/reports_live_test.exs`: 98 tests, 0 failures.
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit`: 627 tests, 0 failures; compile, dependency, format, and test checks passed.
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix ash.codegen --check`: passed; no Ash codegen drift.
-- `uv run scripts/check-docs.py`: passed. `mise run check`: passed, including server compile/format, Go checks, docs build, and repository linters.
-- Covered behavior includes canonical option loading, divergent-schema conflict blocking, selection invalidation, degraded empty/unavailable states, compatibility errors, and existing authorization regression coverage.
-- Limitations: LiveView test output contains pre-existing missing-form-ID warnings, and mdBook lint reports pre-existing warnings; neither produced a failing check. No browser automation or human-usability claim was substituted for operator observation.
-
-### Performance verification record — 2026-08-05
-
-- Alert and report LiveView timing assertions emitted actual monotonic `duration_ms` telemetry and passed the 2,000 ms bound in 95 focused tests with 0 failures.
-- `NIXSTASIS_DB_AUTOSTART=false mise x -- mix precommit` passed after instrumentation with 629 tests and 0 failures.
-- The assertion measures option-service execution only; it is not a human task-completion measurement and does not alter the shared `load_time_ms` payload.
-
 ## Implementation Decomposition
 
-Beads retains performance and close-out evidence. The migrated implementation children `.7.1` through `.7.34` and
-`.7.36` delivered the option, validation, alert/report integration, and contract slices. `.7.35`, `.7.37`, `.7.38`,
-and `.7.39` recorded performance, verification, and operator-observation evidence; all implementation and lifecycle
-children are closed. Do not duplicate those historical task boundaries with parallel implementation beads.
+Beads retains the implementation task breakdown for the option, validation, alert/report integration, and contract
+slices. Do not duplicate those historical task boundaries with parallel implementation beads.
 
 ## Dependencies and Parallelism
 

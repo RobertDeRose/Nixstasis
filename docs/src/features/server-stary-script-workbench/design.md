@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Server Stary Script Workbench
 
 ## Feature Name
@@ -11,10 +9,8 @@
 - Beads feature root: `nixstasis-kb6`
 - Design path: `docs/src/features/server-stary-script-workbench/design.md`
 - Implemented record: `docs/src/features/server-stary-script-workbench/index.md`
-- Base branch: `dev`
 - Implementation repository: `nixstasis`
 - Implementation path: repository root (`packages/server` and `packages/client`)
-- Status: delivered
 
 ## Specification Reconciliation
 
@@ -26,15 +22,11 @@
 - Audit events carry trusted actor identity for operator actions; device result
   ingestion remains device-authenticated and separately attributable.
 - Inline `run_script` payloads remain the compatibility baseline. Deferred
-  `run_script` hydration was completed in the Go poll loop and is covered by
-  the delivered compatibility tests.
+  `run_script` hydration is handled in the Go poll loop and is covered by
+  compatibility tests.
 - `ScriptVersion.rendered_content` is the immutable artifact boundary; validation
   runs must reference the version that produced the artifact and duplicate or
   failed validation paths must be deterministic.
-- The imported T001-T026 implementation records remain historical provenance;
-  corrective children `nixstasis-kb6.7.41` through `nixstasis-kb6.7.44` completed
-  the later authorization, audit, payload, and artifact-alignment work after
-  `nixstasis-kb6.6`.
 
 ## Goal
 
@@ -307,17 +299,17 @@ collection policy, while the in-process PubSub event is not durable.
 
 ## User-Facing Documentation Impact
 
-| Documentation concern      | Exact page                                                 | Create or update        | Planned change                                                                                                                     | Owning task       |
-|----------------------------|------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-| Development / operations   | `docs/src/operations/script-workbench.md`                  | Create                  | Document authoring, validation, target authorization, audit, rollout, retries, cancellation, and failure handling.                 | `nixstasis-kb6.8` |
-| Architecture               | `docs/src/modules/server-scripts.md`                       | Create                  | Document Phoenix authoring/orchestration, Ash persistence, command delivery, and the client execution boundary.                    | `nixstasis-kb6.8` |
-| Architecture               | `docs/src/architecture.md`                                 | Update                  | Add the server authoring/client execution boundary and script-workbench flow.                                                      | `nixstasis-kb6.8` |
-| Reference                  | `docs/src/client-server-interface.md`                      | Update                  | Document `run_script`, inline/deferred payloads, result envelopes, and retained `/api/v1` behavior when the contract is finalized. | `nixstasis-kb6.8` |
-| Reference                  | `docs/src/reference/contracts.md`                          | Update                  | Link the durable script command boundary and state that internal Ash records have no generic JSON:API routes.                      | `nixstasis-kb6.8` |
-| Reference                  | `docs/src/modules/client-command-handler.md`               | Update                  | Add `run_script`, test-only execution, deferred hydration, and failure behavior.                                                   | `nixstasis-kb6.8` |
-| Architecture               | `docs/src/modules/client-starlark-runtime.md`              | Update                  | Clarify that server-managed tests still use the Go runtime and preserve local safeguards.                                          | `nixstasis-kb6.8` |
-| Navigation                 | `docs/src/SUMMARY.md`                                      | Update                  | Register both new reader-facing pages and the implemented feature record.                                                          | `nixstasis-kb6.8` |
-| Implemented feature record | `docs/src/features/server-stary-script-workbench/index.md` | Create during close-out | Preserve delivered behavior, evidence, decisions, limitations, and audit history.                                                  | `nixstasis-kb6.8` |
+| Documentation concern      | Exact page                                                 | Create or update        | Planned change                                                                                                                     |
+|----------------------------|------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| Development / operations   | `docs/src/operations/script-workbench.md`                  | Create                  | Document authoring, validation, target authorization, audit, rollout, retries, cancellation, and failure handling.                 |
+| Architecture               | `docs/src/modules/server-scripts.md`                       | Create                  | Document Phoenix authoring/orchestration, Ash persistence, command delivery, and the client execution boundary.                    |
+| Architecture               | `docs/src/architecture.md`                                 | Update                  | Add the server authoring/client execution boundary and script-workbench flow.                                                      |
+| Reference                  | `docs/src/client-server-interface.md`                      | Update                  | Document `run_script`, inline/deferred payloads, result envelopes, and retained `/api/v1` behavior when the contract is finalized. |
+| Reference                  | `docs/src/reference/contracts.md`                          | Update                  | Link the durable script command boundary and state that internal Ash records have no generic JSON:API routes.                      |
+| Reference                  | `docs/src/modules/client-command-handler.md`               | Update                  | Add `run_script`, test-only execution, deferred hydration, and failure behavior.                                                   |
+| Architecture               | `docs/src/modules/client-starlark-runtime.md`              | Update                  | Clarify that server-managed tests still use the Go runtime and preserve local safeguards.                                          |
+| Navigation                 | `docs/src/SUMMARY.md`                                      | Update                  | Register both new reader-facing pages and the implemented feature record.                                                          |
+| Implemented feature record | `docs/src/features/server-stary-script-workbench/index.md` | Create during close-out | Preserve delivered behavior, evidence, decisions, limitations, and audit history.                                                  |
 
 ## Validation
 
@@ -438,25 +430,24 @@ and runtime tests; finish with a Compose browser smoke test and documentation va
 
 ## Implementation Decomposition
 
-The imported T001-T026 records remain closed historical provenance. The later
-bounded implementation children were also completed:
+The implementation decomposes into bounded, independently testable slices:
 
-- `nixstasis-kb6.7.41`: enforced device-scoped authorization at the script context boundary.
-- `nixstasis-kb6.7.42`: preserved trusted actor identity and documented the audit sink/retention boundary.
-- `nixstasis-kb6.7.43`: completed deferred `run_script` payload delivery and compatibility tests.
-- `nixstasis-kb6.7.44`: aligned immutable artifact rendering, validation-run/version relationships, duplicate-version behavior, and failed-validation records.
+- Device-scoped authorization at the script context boundary.
+- Trusted actor identity and the audit sink/retention boundary.
+- Deferred `run_script` payload delivery and compatibility tests.
+- Immutable artifact rendering, validation-run/version relationships, duplicate-version behavior, and failed-validation
+  records.
 
-Each child depended on `nixstasis-kb6.6` and was independently testable. Delivered slices include persistence, editor UI,
-baseline validation, immutable versions, inline test/deployment dispatch, result display, retry, cancellation, and live
-refresh.
+Earlier slices cover persistence, editor UI, baseline validation, immutable versions, inline test/deployment dispatch,
+result display, retry, cancellation, and live refresh.
 
 ## Dependencies and Parallelism
 
 All implementation children depended on specification reconciliation. Target
 authorization and audit identity were server-context work; deferred payloads
 spanned server transport and the Go command handler; artifact/validation
-alignment was server-domain work. They proceeded in parallel after `.6`, with
-compatibility and browser validation recorded through `.9` and close-out.
+alignment was server-domain work. They can proceed in parallel after specification
+reconciliation.
 
 ## Risks and Tradeoffs
 
@@ -470,9 +461,9 @@ remain rejected.
 
 ## Open Questions
 
-No unresolved design decision blocks the delivered feature. Browser smoke against
-a live Compose-managed client remains a validation limitation only when that lab
-is unavailable; it is not unfinished implementation work.
+No unresolved design decision blocks the feature. Browser smoke against a live
+Compose-managed client depends on that lab being available; it is not unfinished
+implementation work.
 
 ## Deferred Decisions
 

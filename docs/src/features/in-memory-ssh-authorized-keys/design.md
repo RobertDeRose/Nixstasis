@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # In-Memory SSH Authorized Keys
 
 ## Summary
@@ -441,8 +439,7 @@ socket permissions, account rules, or fail-closed behavior.
 ## Reconciliation Bookends
 
 - Before implementation, read package-level agent instructions for client/server
-  changes and confirm the active worktree is
-  `feat/in-memory-ssh-authorized-keys`.
+  changes.
 - Before implementation, reconcile that this feature spec was seeded from a
   planned feature entry that may not exist on the selected base branch; add or
   update the `docs/src/planned-features.md` entry before marking implementation
@@ -459,8 +456,6 @@ socket permissions, account rules, or fail-closed behavior.
 
 - Beads feature root: `nixstasis-bdv`
 - Feature slug: `in-memory-ssh-authorized-keys`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -480,12 +475,11 @@ closed. Client restart clears all ephemeral authorizations.
 ## Requirements
 
 The detailed runtime, helper, server, client, packaging, security, and compatibility requirements above remain
-authoritative. Corrective hardening, contract/documentation reconciliation, focused validation, and close-out evidence
-are complete and recorded in the implemented feature record.
+authoritative.
 
 ## Proposed Design
 
-The delivered implementation uses the helper, Unix socket, in-memory store, dynamic server payload, OpenSSH account
+The implementation uses the helper, Unix socket, in-memory store, dynamic server payload, OpenSSH account
 configuration, and packaging design documented above without reintroducing file-based fallback.
 
 ## Existing Context
@@ -537,7 +531,7 @@ listed in the validation plan above.
 ## Implementation Decomposition
 
 The imported implementation history remains beneath `nixstasis-bdv.7` as
-provenance. The corrective work was completed in the following bounded slices:
+provenance. The corrective work is divided into the following bounded slices:
 
 - `.7.74`: terminal acknowledgement gate and command/session binding.
 - `.7.75`: exception-safe terminal key cleanup and revoke lifecycle.
@@ -550,9 +544,7 @@ provenance. The corrective work was completed in the following bounded slices:
   checks, gated on the relevant corrective children.
 
 Each corrective child depended on `.6` and owned its implementation, tests, and
-bounded commit. The corrective children, focused validation children, and
-Compose/browser smoke evidence are closed; historical tasks were not reopened
-merely to rewrite provenance.
+bounded commit.
 
 ## Dependencies and Parallelism
 
@@ -576,8 +568,7 @@ rejected.
 
 ## Open Questions
 
-No product or validation question remains open. The implemented feature record
-contains the completed focused, packaging, real-sshd, and Compose/browser evidence.
+No product or validation question remains open.
 
 ## Deferred Decisions
 

@@ -1,12 +1,9 @@
 # Report View Improvements
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-0uj`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `2d54e315daef8c3021dce687acd4b1369b3e3015`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -33,10 +30,16 @@ exposing unavailable fields or blocking access.
 - [Server Reporting](../../modules/server-reporting.md)
 - [Client-Server Interface](../../client-server-interface.md)
 
-## Validation Evidence
+## Test Coverage
 
-Reporting context and LiveView tests cover sorting, all supported filter operators, stale preferences, permissions,
-empty states, explicit actions, and deletion confirmation. Reporting LiveViews are direct implementation evidence.
+- `packages/server/test/nixstasis/reporting_test.exs`: reporting context behavior, permissions, and saved view
+  preferences.
+- `packages/server/test/nixstasis/reporting/custom_report_list_test.exs`,
+  `packages/server/test/nixstasis/reporting/query_builder_test.exs`, and
+  `packages/server/test/nixstasis/reporting/table_filters_test.exs`: sorting, typed filter operators, and list
+  metadata.
+- `packages/server/test/nixstasis_web/live/reports_live_test.exs`: stale preferences, empty states, explicit actions,
+  and deletion confirmation.
 
 ## Design Reconciliation
 
@@ -60,8 +63,3 @@ The feature did not create a new reporting data model.
 
 - `docs/src/modules/server-reporting.md`
 - `docs/src/client-server-interface.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-0uj`. Commit `2d54e315daef8c3021dce687acd4b1369b3e3015`
-directly implemented persisted report view preferences in the corroborating LiveViews.

@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Packaging And Deployment Migration
 
 ## Feature Name

@@ -1,12 +1,9 @@
 # Dashboard Home
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-019`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `79c6439fe1ff0f2f98aa05e9012742a04f578ec7`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,11 @@ Debounced updates reduce refresh pressure during heartbeat bursts while retainin
 - [Server Web](../../modules/server-web.md)
 - [Server Monitoring](../../modules/server-monitoring.md)
 
-## Validation Evidence
+## Test Coverage
 
-Dashboard LiveView tests cover seeded counts, navigation, empty data, PubSub updates, unknown messages, and filter/count
-separation. `packages/server/lib/nixstasis_web/live/dashboard_live/index.ex` corroborates the delivered behavior.
+- `packages/server/test/nixstasis_web/live/dashboard_live_test.exs`: seeded counts, navigation, empty data, PubSub
+  updates, unknown messages, and filter/count separation.
+- `packages/server/test/nixstasis/devices/stats_test.exs`: dashboard device count aggregates.
 
 ## Design Reconciliation
 
@@ -63,8 +61,3 @@ The dashboard does not introduce a separate analytics store or connectivity mode
 - `docs/src/README.md`
 - `docs/src/modules/server-web.md`
 - `docs/src/modules/server-monitoring.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-019`. Commit `79c6439fe1ff0f2f98aa05e9012742a04f578ec7`
-directly reconciled device filtering and real-time dashboard counts.

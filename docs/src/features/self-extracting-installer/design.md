@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Self-Extracting Installer
 
 ## Feature Name

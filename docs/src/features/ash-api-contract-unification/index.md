@@ -1,11 +1,8 @@
 # Ash API Contract Unification
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-zf5`
-- Status: delivered
-- Pull request: not created; the completed implementation is present on `dev`
-- Delivery commit: `6efc2bf24272366e512c2f7fb2927765fd97ff8a` (recorded on `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -20,8 +17,8 @@ command-result acknowledgement, and deferred command-payload retrieval.
 The existing Go client remains on the compatible `/api/v1` transport. Generated
 routes share the same domain orchestration and preserve device authentication,
 status codes, response shapes, rate limits, telemetry, command delivery,
-replay, and payload behavior at original delivery. The October 2026 enrollment
-security reconciliation below adds credential requirements to both transports.
+replay, and payload behavior. The enrollment security reconciliation recorded under
+Intentional Changes adds credential requirements to both transports.
 
 ## User-Facing Behavior
 
@@ -58,8 +55,8 @@ Go client's boundary until a separately reviewed client migration.
 
 ## Operational Impact
 
-The original additive generated routes required no deployment migration, client
-upgrade, or new configuration. The subsequent enrollment security reconciliation
+The additive generated routes require no deployment migration, client upgrade, or
+new configuration. The enrollment security reconciliation
 requires a coordinated client/server upgrade: clients must persist an initial
 proof and proposed replacement before registration requests. Operators and integrators should use the
 committed generated OpenAPI for new Ash consumers and retain the bespoke
@@ -92,22 +89,24 @@ contracts remain bespoke by design. The internal `endpoint-inventory.md` and
 `contract-design.md` files preserve the implementation audit record but are not
 separate published navigation pages.
 
-## Validation Evidence
+## Test Coverage
 
-- Final server precommit: 576 tests, 0 failures.
-- Focused device-runtime, compatibility, and OpenAPI contract tests: 49 tests,
-  0 failures.
-- Go transport compatibility tests passed with
-  `mise x -- go test ./internal/transport`.
-- `mix ash.codegen --check`, generated OpenAPI regeneration, and static OpenAPI
-  equality checks passed.
-- `uv run scripts/check-docs.py` passed with 0 errors and 16 known legacy
-  warnings; `mdbook build docs`, focused Rumdl, YAML parsing, and
-  `git diff --check` passed.
-- Repository-wide `mise run check` remains limited by unavailable isolated
-  worktree Mix dependencies and unrelated repository Markdown/table/
-  formatter/typos debt. The untouched full client suite retains the known
-  slow-script warning test failure.
+- `packages/server/test/nixstasis_web/controllers/device_runtime_json_api_test.exs`: generated device-runtime
+  listing, registration, heartbeat, command-result, and payload actions, including bearer authentication and error
+  precedence.
+- `packages/server/test/nixstasis_web/controllers/builder_contract_json_api_test.exs` and
+  `packages/server/test/nixstasis/schema_options/builder_contract_test.exs`: generated builder contract actions.
+- `packages/server/test/nixstasis_web/controllers/device_controller_test.exs`,
+  `heartbeat_controller_test.exs`, and `device_command_controller_test.exs`: retained `/api/v1` compatibility
+  envelopes and statuses.
+- `packages/server/test/nixstasis_web/openapi_contract_test.exs`: generated OpenAPI contract.
+- `packages/server/test/nixstasis/devices/enrollment_test.exs`: enrollment proof verification, atomic rotation, and
+  retry recovery.
+- `packages/client/internal/transport/register_test.go`, `security_test.go`, and `client_runtime_test.go`, and
+  `packages/client/cmd/nixstasis/register_test.go`: Go client `/api/v1` transport compatibility and enrollment
+  recovery.
+- `mix ash.codegen --check`, and `mix openapi.generate` regeneration matching the committed
+  `packages/server/priv/static/openapi.yaml`.
 
 ## Design Reconciliation
 
@@ -133,6 +132,15 @@ separate published navigation pages.
 - The six script-workbench resources remain Ash-owned but have no generic
   JSON:API routes because CRUD would bypass workflow validation and audit
   boundaries.
+- Enrollment security reconciliation: registration uses client-prepared, durably
+  saved credentials so lost responses and process restarts can recover. Approved
+  exchanges verify proof, update only device-owned fields, and rotate the hash
+  atomically. A retry bearing the committed replacement returns the same runtime
+  token without mutation; a superseded proof cannot rotate again. Recovery files
+  take precedence over stale runtime identities. The Go transport, both E2E
+  registration callers, generated OpenAPI, bespoke device API reference, and
+  reader-facing enrollment documentation use this contract. No database migration
+  or plaintext server-side credential storage is required.
 
 ### Deferred Work
 
@@ -171,35 +179,3 @@ separate published navigation pages.
 - `docs/src/reference/openapi/builder-api.yaml`
 - `docs/src/features/server-stary-script-workbench/design.md`
 - `packages/server/priv/static/openapi.yaml`
-
-Existing E2E, reporting, and Compose pages were reviewed and retain their
-route-specific boundaries without requiring semantic changes.
-
-## Audit Trail
-
-The reviewed design and execution graph were committed in `3e16618`. Builder
-and generated-resource reconciliation followed in `5efcb71` and `be52a7b`.
-Device contract design and implementation were delivered through
-`fbd38b6`, `96b1a1d`, `c2be6df`, and `7fad4bc`.
-
-The implementation coordinator `nixstasis-zf5.7` closed after required children
-`.7.37` through `.7.42` passed acceptance. Child review artifacts and final
-implementation follow-up evidence are recorded in Beads and `/tmp` review
-artifacts. Close-out documentation and holistic delivery/drift reviews are
-recorded on `nixstasis-zf5.8` through `nixstasis-zf5.12`; delivery remains a
-separate explicit action.
-
-### October 2026 Enrollment Security Reconciliation
-
-Registration now uses client-prepared, durably saved credentials so lost responses
-and process restarts can recover. Approved exchanges verify proof, update only
-device-owned fields, and rotate the hash atomically. A retry bearing the committed
-replacement returns the same runtime token without mutation; a superseded proof
-cannot rotate again. Recovery files take precedence over stale runtime identities.
-
-The Go transport and both E2E registration callers, generated OpenAPI, bespoke
-device API reference, and reader-facing enrollment documentation use this contract.
-No database migration or plaintext server-side credential storage is required.
-Regression evidence is in `packages/server/test/nixstasis/devices/enrollment_test.exs`
-and `packages/client/cmd/nixstasis/register_test.go`, with retries also covered at
-both HTTP registration surfaces.

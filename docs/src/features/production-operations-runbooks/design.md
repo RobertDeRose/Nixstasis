@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Production Operations Runbooks Design
 
 ## Summary

@@ -1,12 +1,9 @@
 # AuthCrunch Role Contract
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-2ts`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `98d205ed5e93d6d4f37f98dc8be7640eefce737d`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,16 @@ limited to direct development and test traffic.
 - [Edge Caddy](../../modules/edge-caddy.md)
 - [Client-Server Interface](../../client-server-interface.md)
 
-## Validation Evidence
+## Test Coverage
 
-Permission, plug, controller, and LiveView tests cover normalized roles, scoped access, malformed claims, and denied
-operations. `packages/server/lib/nixstasis_web/permissions.ex` is the central corroborating implementation.
+- `packages/server/test/nixstasis_web/permissions_test.exs`: normalized role-to-capability mapping.
+- `packages/server/test/nixstasis_web/operator_context_test.exs`: trusted role-claim parsing, scoped access, and
+  malformed-claim handling.
+- `packages/server/test/nixstasis_web/plugs/device_permissions_test.exs`: plug-level denial of insufficient roles.
+- Controller tests under `packages/server/test/nixstasis_web/controllers/` (for example
+  `device_scope_json_api_test.exs`, `system_setting_json_api_test.exs`, and `script_json_api_test.exs`): denied
+  operations for viewer, operator, and admin claims.
+- LiveView tests under `packages/server/test/nixstasis_web/live/`: role-gated UI actions.
 
 ## Design Reconciliation
 
@@ -63,8 +66,3 @@ The feature did not replace AuthCrunch or merge browser, device, E2E, and termin
 - `docs/src/modules/edge-caddy.md`
 - `docs/src/client-server-interface.md`
 - `deploy/compose/README.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-2ts`. Commit `98d205ed5e93d6d4f37f98dc8be7640eefce737d`
-directly closed role-permission gaps in the central Phoenix permission implementation.

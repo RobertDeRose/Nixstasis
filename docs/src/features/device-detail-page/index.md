@@ -1,12 +1,9 @@
 # Device Detail Page
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-7ji`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `f47fde36e19b034d3d5805a6f76db3e7917284c7`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,12 @@ session state reduce abandoned access.
 - [Server Web](../../modules/server-web.md)
 - [Runtime Boundaries](../../runtime-boundaries.md)
 
-## Validation Evidence
+## Test Coverage
 
-Device LiveView tests cover filtered navigation, authorization, tabs, PCP presentation, terminal lifecycle, and recovery
-states. `packages/server/lib/nixstasis_web/live/device_live/show.ex` is direct implementation evidence.
+- `packages/server/test/nixstasis_web/live/device_live_test.exs`: filtered navigation, authorization, tabs, PCP
+  presentation, terminal lifecycle, and recovery states.
+- `packages/server/test/nixstasis_web/channels/terminal_channel_test.exs`: terminal session join and authorization
+  behind the detail page terminal.
 
 ## Design Reconciliation
 
@@ -63,8 +62,3 @@ The feature did not recreate REST modal open and close endpoints.
 - `docs/src/modules/server-devices.md`
 - `docs/src/modules/server-web.md`
 - `docs/src/runtime-boundaries.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-7ji`. Commit `f47fde36e19b034d3d5805a6f76db3e7917284c7`
-directly redesigned the detail tabs and established the delivered default view.

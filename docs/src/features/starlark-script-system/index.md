@@ -1,12 +1,9 @@
 # Starlark Script System
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-r80`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `cbae60a04ef3b5e3e2a2bf1093d7f52028bb3aeb`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -36,10 +33,18 @@ capability checks, and deterministic command correlation limit extension failure
 - [Client Starlark Runtime](../../modules/client-starlark-runtime.md)
 - [Client Command Handler](../../modules/client-command-handler.md)
 
-## Validation Evidence
+## Test Coverage
 
-Parser, schema, runtime, MQTT, command, timeout, report, CLI, and polling tests cover valid and invalid scripts,
-duplicate selectors, output conversion, runaway execution, and deny-by-default commands.
+- `packages/client/internal/script/format_test.go` and `validation_test.go`: Stary parsing, front matter, and output
+  schema validation for valid and invalid scripts.
+- `packages/client/internal/script/runtime_test.go` and `executor_test.go`: Starlark-to-Go value conversion, timeouts,
+  and runaway-execution limits.
+- `packages/client/internal/script/discovery_test.go`: script discovery and duplicate-name selectors.
+- `packages/client/internal/script/builtins_mqtt_test.go`, `builtins_exec_test.go`, and the
+  `builtins_read_file*_test.go` files: bounded builtins, including deny-by-default `exec_cmd`.
+- `packages/client/internal/script/report_test.go`: result reporting.
+- `packages/client/cmd/nixstasis/scripts_test.go`, `test_script_test.go`, `repl_test.go`, and `poll_test.go`: CLI
+  install, remove, list, test, REPL, and polling workflows.
 
 ## Design Reconciliation
 
@@ -55,7 +60,7 @@ within each poll.
 
 ### Deferred Work
 
-Server-side authoring and deployment is tracked separately in the active script-workbench feature.
+Server-side authoring and deployment is owned by the separate server Stary script workbench feature.
 
 ### Rejected or Removed Scope
 
@@ -66,8 +71,3 @@ Scripts do not receive unrestricted shell execution or bypass output schemas.
 - `packages/client/README.md`
 - `docs/src/modules/client-starlark-runtime.md`
 - `docs/src/modules/client-command-handler.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-r80`. Commit `cbae60a04ef3b5e3e2a2bf1093d7f52028bb3aeb`
-directly introduced the Stary runtime in `packages/client/internal/script/runtime.go`.

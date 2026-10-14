@@ -4,7 +4,7 @@
 
 - Feature slug: `server-provided-frps-token`
 - Feature root: `nixstasis-5hx`
-- Current lifecycle correction: `nixstasis-n01`, PR #3 review item 9
+- Lifecycle correction: `nixstasis-n01`
 - Delivery history: [index.md](index.md)
 
 This is the current intended contract for the unreleased application. The legacy

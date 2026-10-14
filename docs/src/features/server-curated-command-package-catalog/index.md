@@ -1,11 +1,8 @@
 # Server Curated Command Package Catalog
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-o4t`
-- Status: delivered
-- Pull request: not created by close-out
-- Merge commit: fast-forward delivery records the final target in Beads
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -48,17 +45,23 @@ Operators should seed or maintain catalog mappings before relying on catalog-bac
 - [API & Runtime Contracts](../../reference/contracts.md)
 - [Developer Tooling](../../development/tooling.md)
 
-## Validation Evidence
+## Test Coverage
 
-Focused checks passed during implementation and close-out:
-
-- `packages/server`: `mise x -- mix test`
-- `packages/server`: focused catalog, heartbeat, and command-policy LiveView tests
-- `packages/client`: `mise x -- go test ./internal/commands ./internal/inventory ./internal/transport ./cmd/nixstasis`
-- `packages/client`: `mise x -- golangci-lint run ./internal/commands ./internal/inventory ./internal/transport ./cmd/nixstasis`
-- Repository docs: `uv run scripts/check-docs.py` and `mdbook build docs`
-
-Known unrelated limitation: full client `go test ./...` currently fails in untouched `internal/script` slow-script warning coverage. Full repository `mise run check` also encounters pre-existing Markdown validation debt tracked outside this feature.
+- `packages/server/test/nixstasis/command_catalog/catalog_resolver_test.exs`: catalog mappings, inventory snapshots,
+  and compatibility statuses.
+- `packages/server/test/nixstasis/command_allowlists/` (`policy_resolver_test.exs`,
+  `device_policy_assignment_test.exs`, `policy_delivery_result_test.exs`): catalog-backed assignments resolve to the
+  absolute-path `apply_command_policy` payload, including revocation.
+- `packages/server/test/nixstasis/monitoring/heartbeat_test.exs` and
+  `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`: heartbeat inventory probes,
+  persistence, and invalid-inventory fallback.
+- `packages/server/test/nixstasis_web/live/command_policy_live_test.exs`: catalog selection, compatibility preview,
+  confirmation recheck, and manual-entry fallback.
+- `packages/client/internal/inventory/inventory_test.go`: bounded package and command evidence collection.
+- `packages/client/internal/transport/client_runtime_test.go`, `packages/client/internal/commands/handler_test.go`,
+  and `packages/client/cmd/nixstasis/poll_test.go`: heartbeat inventory reporting and policy handling.
+- `golangci-lint run` over the client inventory, transport, command, and CLI packages.
+- `mdbook build docs`.
 
 ## Design Reconciliation
 
@@ -105,14 +108,3 @@ Known unrelated limitation: full client `go test ./...` currently fails in untou
 - `docs/src/modules/client-starlark-runtime.md`
 - `docs/src/reference/contracts.md`
 - `docs/src/development/tooling.md`
-
-## Audit Trail
-
-- `844da2a` — reviewed design and implementation graph.
-- `8fb1af8` — server catalog resources, resolver, seed data, and tests.
-- `afbd3dc` — command policy catalog authoring UI and compatibility preview.
-- `ad28af6` — client inventory collection and heartbeat reporting.
-- `c25a271` — heartbeat inventory persistence/probe response and absolute-path delivery validation.
-- `6bd2319` — catalog policy client enforcement/revocation validation and tooling docs.
-
-Implementation review artifacts were recorded in Beads for `nixstasis-o4t.7.1` through `nixstasis-o4t.7.5`. Close-out holistic review artifacts are recorded on `nixstasis-o4t.10` and `nixstasis-o4t.11`.

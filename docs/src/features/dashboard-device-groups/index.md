@@ -1,11 +1,8 @@
 # Dashboard Device Groups
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-vpu`
-- Status: delivered
-- Pull request: not created; direct fast-forward delivery is present on `dev`
-- Merge commit: not applicable to fast-forward delivery; the target is recorded in Beads delivery evidence
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -41,15 +38,16 @@ Structured group audit events follow deployment log retention. They are not pers
 
 No public HTTP API, client command, configuration setting, or device runtime contract was added.
 
-## Validation Evidence
+## Test Coverage
 
-- Full server precommit: 528 tests, 0 failures.
-- Focused device-group, device-context, permission, and Device LiveView tests passed.
-- `mix ash.codegen --check`, `mix format --check-formatted`, and `mix credo --strict` passed.
-- Strict documentation validation passed with 0 errors and 16 historical legacy-design warnings.
-- mdBook, changed-file Rumdl, table formatting, contextlint, and repository hooks passed.
-- Headed Playwright checks verified keyboard interaction, desktop summaries, preserved route state, and a usable 390-by-844 layout with the summary column omitted.
-- The cold repository-wide check remains limited by the pre-existing Markdown debt tracked in `nixstasis-63w`; feature-specific and changed-file gates pass.
+- `packages/server/test/nixstasis/device_groups_test.exs`: group lifecycle, name uniqueness, memberships, and audit events.
+- `packages/server/test/nixstasis/devices_test.exs`: group filters composed with authorization and existing device filters.
+- `packages/server/test/nixstasis_web/permissions_test.exs`: trusted group authorization from browser permissions.
+- `packages/server/test/nixstasis_web/live/device_live_test.exs`: group management, membership workflows, route
+  filtering, and membership summaries in the Devices view.
+- `mix ash.codegen --check`, `mix format --check-formatted`, and `mix credo --strict` guard the server package.
+- Manual browser checks verify keyboard interaction, desktop membership summaries, preserved route state, and a usable
+  390-by-844 layout with the summary column omitted.
 
 ## Design Reconciliation
 
@@ -63,7 +61,7 @@ The implementation uses a focused inline Devices panel and native confirmation r
 
 ### Deferred Work
 
-Dynamic and nested groups, per-group role inheritance, public API exposure, feature-specific telemetry, and durable database-backed audit history remain deferred to separately designed work. Published server dependency advisories discovered during implementation are tracked by `nixstasis-9eh` and are not caused by this feature.
+Dynamic and nested groups, per-group role inheritance, public API exposure, feature-specific telemetry, and durable database-backed audit history remain deferred to separately designed work.
 
 ### Rejected or Removed Scope
 
@@ -79,9 +77,3 @@ The feature does not infer membership, change device runtime identity, expose in
 - `docs/src/features/index.md`
 - `docs/src/planned-features.md`
 - `docs/src/features/dashboard-device-groups/index.md`
-
-## Audit Trail
-
-The reviewed design was committed in `eb83cb5`. Implementation was delivered through bounded commits `b18d9dd`, `5fd127c`, `6767076`, `9145338`, `b0c0d48`, `7258336`, `a5adc17`, and `8a36dd3`. Every child received an isolated read-only review and fix verification before closure. Commit `f6f8a0f` preserves implementation closure evidence in the append-only Beads interaction history.
-
-The implementation coordinator `nixstasis-vpu.7` closed after all eight children passed acceptance. Close-out documentation, validation, delivery review, drift review, and final fast-forward evidence remain recorded on lifecycle tasks `nixstasis-vpu.8` through `nixstasis-vpu.12`.

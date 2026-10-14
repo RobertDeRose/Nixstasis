@@ -1,12 +1,8 @@
 # Add Rule Modal Improvements
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-inh`
-- Status: delivered
-- Measurements: SC-001, SC-002, and SC-004 deferred; no metric pass/fail is claimed
-- Pull request: not created; no PR action selected
-- Merge commit: `3415861d1bc555a7714569732a372654bc75fc1e` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -57,31 +53,22 @@ visible until correction or user action; success feedback continues to auto-dism
 - [Runtime Boundaries](../../runtime-boundaries.md)
 - [Feature design](design.md)
 
-## Validation Evidence
+## Test Coverage
 
-- Final `mise run check` passed with status 0 after the operator/type follow-ups; transient output was captured during
-  close-out and is no longer retained in the workspace.
-- Final `mise x -- mix precommit` passed with 617 tests and 0 failures; transient output was captured during close-out
-  and is no longer retained in the workspace.
-- `mise x -- mix precommit` passed: 611 tests, 0 failures; transient output was captured during close-out and is no
-  longer retained in the workspace.
-- Focused `alerts_live_test.exs`, `core_components_test.exs`, and `reports_live_test.exs` passed: 77 tests, 0 failures.
-- Alert-rule uniqueness/domain and LiveView tests passed: 27 tests, 0 failures.
-- `mix ash.codegen --check` passed; named migration and alert-rule resource snapshot are aligned.
-- `node --check assets/js/app.js` passed.
-- Manual feature-branch browser checks confirmed `#alert-rule-name` initial focus, visible-only focus trapping, discard-dialog focus on `Keep Editing`, focus restoration after `Keep Editing`, opener-focus restoration after new/edit close, and visible success status auto-dismissal.
-- Manual concurrent-tab browser checks confirmed a case-insensitive duplicate save remains in the modal with preserved values and actionable error feedback.
-- Follow-up focus and table checks passed: focused alerts/core tests passed with 31 tests and 0 failures; `mise x -- mix precommit` passed with 613 tests and 0 failures; `mise run check` passed with status 0. Transient command output was captured during close-out and is no longer retained.
-- Follow-up Playwright checks confirmed repeated discard flows focus `Keep Editing`, cycle through the confirmation controls, close only the active layer on Escape, and render rules as `Rule`, `Condition`, `Actions` with combined condition expressions.
-- `uv run scripts/check-docs.py` and `mdbook build docs` passed.
-- `mise x -- mix ash.codegen --check` passed; transient command output was captured during close-out and is no longer retained.
-- Post-merge delivery verification passed for `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`; transient
-  verification output was captured during close-out and is no longer retained.
-- Post-merge `mise run check` passed with status 0 after synchronizing ignored local Hex dependencies; transient output
-  was captured during close-out and is no longer retained.
-- SC-001, SC-002, and SC-004 usability measurements remain explicitly deferred: no defensible historical baseline or
-  controlled observation window exists, so no metric pass/fail is claimed. The user accepted the delivered
-  feedback-driven improvements as complete without treating synthetic timings as human-usability evidence.
+- `packages/server/test/nixstasis_web/live/alerts_live_test.exs`: modal validation, keyboard save, dirty-close
+  confirmation, duplicate-submit protection, schema type labels, operator recovery, and rules table presentation.
+- `packages/server/test/nixstasis_web/components/core_components_test.exs`: shared modal component and accessibility
+  behavior.
+- `packages/server/test/nixstasis_web/live/reports_live_test.exs`: report-modal pattern the alert modal mirrors.
+- `packages/server/test/nixstasis/monitoring/alert_rule_uniqueness_test.exs`: global case-insensitive rule-name
+  uniqueness.
+- `packages/server/test/nixstasis/monitoring/alert_rule_test.exs`: alert-rule domain behavior.
+- `mix ash.codegen --check`: named migration and alert-rule resource snapshot stay aligned.
+- `node --check assets/js/app.js`: modal hook JavaScript parses.
+- Manual browser check: initial focus on `#alert-rule-name`, focus trapping, discard-dialog focus on `Keep Editing`,
+  one Escape closing only the active layer, opener-focus restoration, and visible success status auto-dismissal.
+- Manual concurrent-tab check: a case-insensitive duplicate save remains in the modal with preserved values and
+  actionable error feedback.
 
 ## Design Reconciliation
 
@@ -99,7 +86,9 @@ new externally consumed API contract.
 
 ### Deferred Work
 
-- Capture the planned usability baselines and timed observations when a valid operator observation window exists.
+- SC-001, SC-002, and SC-004 usability measurements were deferred: no defensible historical baseline or controlled
+  observation window exists, so no metric result is claimed. Capture the planned usability baselines and timed
+  observations when a valid operator observation window exists.
 - Route consolidation is delivered by the bounded LiveView catalog reads feature; this feature retains no route-decision
 follow-up.
 
@@ -117,16 +106,3 @@ JSON:API or controller routes, remains outside the feature boundary.
 - `docs/src/planned-features.md`
 - `docs/src/features/index.md`
 - `docs/src/SUMMARY.md`
-
-## Audit Trail
-
-The reviewed design and lifecycle evidence were recorded in `1c09c4f` and `9d8cb49`. The LiveView boundary and
-reader-facing documentation were clarified in `84249de`; duplicate-save protection and its regression coverage were
-delivered in `d295dcf`; accessibility, nested-modal focus handling, and accessible feedback were delivered in
-`2a2c274`; the first focus-management correction was delivered in `0657d3f`; browser validation found and addressed
-success-status visibility and opener-focus restoration in `58e7156`; the repeated discard-confirmation keyboard
-correction was delivered in `72308b7`; and the rules table condition presentation was delivered in `3c2df6f`.
-Global case-insensitive rule-name uniqueness was added after validation review and is tracked by `nixstasis-inh.13`. Beads
-implementation children `nixstasis-inh.7.38` and `.7.39` are closed; measurement children `.7.34` through `.7.37`
-are explicitly deferred with provenance. Validation evidence is recorded on `nixstasis-inh.9`; the feature was
-fast-forwarded into `dev` at `3415861d1bc555a7714569732a372654bc75fc1e`, with no pull request created.

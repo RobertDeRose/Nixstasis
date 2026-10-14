@@ -3,7 +3,7 @@
 These notes define the Ash model/action shape, compatibility boundaries, and
 retained-controller rationale for the current endpoint inventory. The builder
 contract slice was rebaselined here, and the approved device-runtime conversion
-is now delivered as an additive generated route family.
+is an additive generated route family.
 
 ## Usage Rule Consultation
 
@@ -22,9 +22,7 @@ is now delivered as an additive generated route family.
 - AshPhoenix guidance is mostly UI/form-oriented for this feature. It reinforces
   using domain code interfaces and generated helpers rather than bypassing Ash
   through direct web-module calls.
-- HexDocs MCP fetches were attempted first but local embedding generation was
-  unavailable; the in-repo usage rules are the authoritative guidance for this
-  design pass.
+- The in-repo usage rules are the authoritative guidance for this design.
 
 ## Ash-Backed Endpoint Model
 
@@ -88,7 +86,7 @@ surface for clients that require the original wrapper status/body shape.
 
 The builder slice is existing implementation, not a future conversion candidate.
 Its route-specific authorization, generated/static OpenAPI evidence, wrapper
-parity, and reader-facing documentation are reconciled alongside the delivered
+parity, and reader-facing documentation are reconciled alongside the
 device-runtime actions.
 
 ### Builder Compatibility Matrix
@@ -199,15 +197,14 @@ OpenAPI documents the registration exception; it does not bypass the Plug. The
 `/api/v1` controllers retain the same lookup and error precedence during the
 transition.
 
-**Implementation handoff delivered:** `.7.40` implemented the explicit
-`device_runtime` dispatch in the existing JSON API pipeline, including the public
-registration exception, operator list policy, device lookup/bearer-token validation,
-`Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests for `404`/`401`/`403`
-precedence. `.7.41` delivered the generated heartbeat orchestration action,
+**Implementation:** the explicit `device_runtime` dispatch in the existing JSON API
+pipeline includes the public registration exception, operator list policy, device
+lookup/bearer-token validation, `Ash.PlugHelpers.set_actor/2`, and HTTP/direct tests
+for `404`/`401`/`403` precedence. The generated heartbeat orchestration action has a
 200 response, heartbeat-rate-limit classification, and OpenAPI/runtime coverage.
-`.7.42` delivered the generated command-result acknowledgement and payload-fetch
-actions, preserving 202/200 status and not-found/replay behavior while reusing
-the same branch for command-result side effects.
+The generated command-result acknowledgement and payload-fetch actions preserve
+202/200 status and not-found/replay behavior while reusing the same branch for
+command-result side effects.
 
 Both generated and compatibility routes use the layered API limiter. Before
 device authentication, requests are limited by trusted network origin plus a
@@ -248,7 +245,7 @@ authenticated device runtime actions consume the separate per-device quotas:
   registration requires a schema with `product`; and `ipv4_address` may be taken
   from either the direct field or `metadata.ip_address`. Registration is keyed by
   MAC and preserves operator-owned approval and remote-access settings. Following
-  the October 2026 security reconciliation, initial registration requires a
+  the enrollment security reconciliation, initial registration requires a
   client-prepared `registration_token` persisted before sending; only its hash is
   stored. Approved exchanges require that proof (or the current runtime token)
   and a distinct, pre-saved `replacement_token`. Verification, attribute updates,
@@ -279,7 +276,7 @@ authenticated device runtime actions consume the separate per-device quotas:
   count; this is the observed compatibility behavior, not an idempotency guarantee.
   Missing/invalid keys, unknown devices, and unapproved devices retain
   `401`/`404`/`403`; a non-list body is `400`. The current controller has no
-  reachable `422` processing-error branch for a list input, so `.7.42` must not
+  reachable `422` processing-error branch for a list input, so the generated action must not
   invent one or silently change replay behavior; any future hardening requires an
   explicit versioned contract decision. After successful device authentication,
   the route has a separate 120-requests-per-60-seconds per-device command-result
