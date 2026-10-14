@@ -157,6 +157,10 @@ func validationError(err error) *ScriptError {
 	}
 }
 
+// finalizeResult records the final status, error, and elapsed time on result.
+// It adds a slow-execution warning when the run took longer than the
+// configured WarnAfter threshold, comparing at full duration precision while
+// reporting the duration in milliseconds.
 func (e *Executor) finalizeResult(result ScriptResult, start time.Time, status ExecutionStatus, err *ScriptError) ScriptResult {
 	result.Status = status
 	result.Error = err
