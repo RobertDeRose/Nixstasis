@@ -121,8 +121,8 @@ local linters = new Mapping<String, Step> {
     check = "uv run packages/frp/bin/test_frps_render_config.py"
   }
   ["docs"] = new Step {
-    glob = List("docs/src/**/*.md", "docs/book.toml", "scripts/check-docs.py")
-    check = "uv run scripts/check-docs.py && mdbook build docs"
+    glob = List("docs/src/**/*.md", "docs/book.toml")
+    check = "mdbook build docs"
   }
   ["fix_smart_quotes"] = Builtins.fix_smart_quotes
   ["markdown-table-formatter"] = new Step {

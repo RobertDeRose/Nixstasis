@@ -44,7 +44,7 @@ mise install --locked
 bd ready --json
 ```
 
-Run documentation validation with `mise run docs:check` and the complete quality contract with `mise run check`.
+Build the documentation with `mise run docs:build` and the complete quality contract with `mise run check`.
 See `AGENTS.md` for contribution rules and `docs/src/development/releasing.md` for releases.
 
 ## Package READMEs

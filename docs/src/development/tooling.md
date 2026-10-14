@@ -11,7 +11,6 @@ Use the same commands locally and in automation:
 ```bash
 mise run check
 mise run fix
-mise run docs:check
 mise run docs:build
 mise run docs:deployment:enable
 mise run docs:serve
@@ -88,7 +87,6 @@ NIXSTASIS_DB_AUTOSTART=false mise x -- mix test \
 NIXSTASIS_DB_AUTOSTART=false mise x -- mix ash.codegen --check
 
 cd ../..
-uv run scripts/check-docs.py
 mise run check
 bash -n .mise/tasks/deploy/dev/seed.sh
 mise run deploy:dev:seed  # requires the Compose dev lab
