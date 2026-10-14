@@ -54,8 +54,10 @@ successful image build into a failure. Missing cache entries are rebuilt.
 
 Caching does not eliminate base-image metadata requests or the BuildKit bootstrap
 image pull during builder setup. Docker Hub timeouts and pull-rate limits can
-still fail those pulls. No Docker Hub login is configured by these workflows;
-existing conditional GHCR publication and credentials are unchanged. See
+still fail those pulls. No Docker Hub login is configured by these workflows.
+GHCR publication happens only when the Release workflow calls them with a
+version, or from a manual dispatch with `push` enabled; see
+[Releasing](../development/releasing.md). See
 [Docker's cache guidance](https://docs.docker.com/build/ci/github-actions/cache/).
 
 ## Template updates

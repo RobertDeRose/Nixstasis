@@ -36,6 +36,7 @@
 - [Development Overview](development.md)
 - [Developer Tooling](development/tooling.md)
 - [Feature Lifecycle](development/feature-lifecycle.md)
+- [Releasing](development/releasing.md)
 - [Operational Unknowns](unknowns.md)
 
 # Operations
