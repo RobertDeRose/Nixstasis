@@ -1,6 +1,12 @@
 defmodule Nixstasis.MixProject do
   use Mix.Project
 
+  @doc """
+  Returns the Mix project configuration.
+
+  The application version comes from the `NIXSTASIS_VERSION` environment variable,
+  which release image builds set from the release tag. Other builds use `0.0.0-dev`.
+  """
   def project do
     [
       app: :nixstasis,
