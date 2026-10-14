@@ -160,9 +160,10 @@ func validationError(err error) *ScriptError {
 func (e *Executor) finalizeResult(result ScriptResult, start time.Time, status ExecutionStatus, err *ScriptError) ScriptResult {
 	result.Status = status
 	result.Error = err
-	result.DurationMs = time.Since(start).Milliseconds()
+	elapsed := time.Since(start)
+	result.DurationMs = elapsed.Milliseconds()
 
-	if result.DurationMs > e.config.WarnAfter.Milliseconds() {
+	if elapsed > e.config.WarnAfter {
 		result.Warnings = append(result.Warnings, ScriptWarning{
 			Type:       WarningSlowExecution,
 			Message:    fmt.Sprintf("script took %dms", result.DurationMs),
