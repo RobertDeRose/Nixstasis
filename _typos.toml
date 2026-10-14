@@ -2,6 +2,7 @@
 extend-ignore-re = ["[0-9a-f]{7,40}"]
 
 [default.extend-words]
+devlop = "devlop"
 inh = "inh"
 [files]
 # Generated/minified assets are not maintainable prose sources.

@@ -52,17 +52,13 @@ command -v go >/dev/null 2>&1 || fail "go is required to run the ssh terminal sm
 
 cd "$CLIENT_DIR"
 
-if [ -z "${GOEXPERIMENT:-}" ]; then
-  export GOEXPERIMENT=jsonv2
-fi
-
 go_test_args="-count=1 -run TestRealSSHDIntegration\$ ./internal/sshauth/..."
 if [ "$verbose" -eq 1 ]; then
   go_test_args="-v $go_test_args"
 fi
 
 echo "Running: go test $go_test_args"
-GOEXPERIMENT="$GOEXPERIMENT" go test $go_test_args
+go test $go_test_args
 
 cat <<EOF
 ssh terminal smoke: PASS

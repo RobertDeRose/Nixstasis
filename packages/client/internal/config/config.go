@@ -15,7 +15,8 @@ import (
 const (
 	defaultConfigRoot         = "/etc/nixstasis"
 	defaultUserConfig         = "$HOME/.config/nixstasis"
-	defaultScriptsDir         = "/usr/libexec/nixstasis/scripts"
+	defaultScriptsDir         = "/var/lib/nixstasis/scripts"
+	legacyScriptsDir          = "/usr/libexec/nixstasis/scripts"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 	defaultSSHAuthoritySocket = "/run/nixstasis/ssh-authority.sock"
@@ -34,7 +35,8 @@ type Config struct {
 
 // APIConfig holds configuration for the Nixstasis API.
 type APIConfig struct {
-	URL string `mapstructure:"url"`
+	URL               string `mapstructure:"url"`
+	AllowLoopbackHTTP bool   `mapstructure:"allow_loopback_http"`
 }
 
 // PollConfig holds configuration for the polling loop.
@@ -65,13 +67,15 @@ type FRPConfig struct {
 
 // RuntimeConfig holds opt-in script command capabilities.
 type RuntimeConfig struct {
-	MQTTBroker          string            `mapstructure:"mqtt_broker"`
-	ExecCommands        map[string]string `mapstructure:"exec_commands"`
-	ExecWorkDir         string            `mapstructure:"exec_work_dir"`
-	ExecEnv             []string          `mapstructure:"exec_env"`
-	MQTTPublishTopics   []string          `mapstructure:"mqtt_publish_topics"`
-	MQTTSubscribeTopics []string          `mapstructure:"mqtt_subscribe_topics"`
-	SSHAuthoritySocket  string            `mapstructure:"ssh_authority_socket"`
+	MQTTBroker          string                `mapstructure:"mqtt_broker"`
+	ExecCommands        map[string]string     `mapstructure:"exec_commands"`
+	ExecCommandArgs     map[string][][]string `mapstructure:"exec_command_args"`
+	ReadFiles           []string              `mapstructure:"read_files"`
+	ExecWorkDir         string                `mapstructure:"exec_work_dir"`
+	ExecEnv             []string              `mapstructure:"exec_env"`
+	MQTTPublishTopics   []string              `mapstructure:"mqtt_publish_topics"`
+	MQTTSubscribeTopics []string              `mapstructure:"mqtt_subscribe_topics"`
+	SSHAuthoritySocket  string                `mapstructure:"ssh_authority_socket"`
 }
 
 // LogConfig holds configuration for logging.
@@ -84,7 +88,8 @@ func setDefaults() *viper.Viper {
 	v := viper.New()
 
 	// Defaults
-	v.SetDefault("api.url", "http://localhost:4000")
+	v.SetDefault("api.url", "https://localhost:4000")
+	v.SetDefault("api.allow_loopback_http", false)
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
@@ -112,6 +117,7 @@ func GetDefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
 
+	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
 }
@@ -148,8 +154,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
+}
+
+func normalizeScriptsConfig(cfg *ScriptsConfig) {
+	if filepath.Clean(cfg.Dir) == legacyScriptsDir {
+		cfg.Dir = defaultScriptsDir
+	}
 }
 
 // IdentityPath returns the canonical identity file path.
@@ -159,6 +172,15 @@ func IdentityPath() string {
 	}
 
 	return filepath.Join(defaultConfigRoot, "id")
+}
+
+// RegistrationPath returns the owner-only enrollment and credential-recovery state.
+func RegistrationPath() string {
+	if path := os.Getenv("NIXSTASIS_REGISTRATION_PATH"); path != "" {
+		return path
+	}
+
+	return filepath.Join(defaultConfigRoot, "registration")
 }
 
 // FRPCConfigPath returns the canonical frpc config path.

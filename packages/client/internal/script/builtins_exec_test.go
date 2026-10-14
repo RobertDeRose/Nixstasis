@@ -2,6 +2,7 @@ package script
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -202,5 +203,114 @@ def main():
 `)
 	if err == nil || !strings.Contains(err.Error(), "capability is not configured") {
 		t.Fatalf("expected capability error, got %v", err)
+	}
+}
+
+func TestExecCmdRejectsArgumentsWithoutLocalRule(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "reader")
+	if err := os.WriteFile(cmdPath, []byte("#!/bin/sh\nprintf '%s' \"$1\"\n"), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout: 5 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"reader": cmdPath,
+		},
+	})
+	_, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/etc/nixstasis/id"])}
+`)
+	if err == nil || !strings.Contains(err.Error(), "without a local exec_command_args rule") {
+		t.Fatalf("expected argument capability denial, got %v", err)
+	}
+}
+
+func TestExecCmdAllowsOnlyExactLocallyConfiguredArguments(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "reader")
+	if err := os.WriteFile(cmdPath, []byte("#!/bin/sh\nprintf '%s' \"$1\"\n"), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout: 5 * time.Second,
+		ExecCommandAllowlist: map[string]string{
+			"reader": cmdPath,
+		},
+		ExecArgumentAllowlist: map[string][][]string{
+			cmdPath: {{"/proc/loadavg"}},
+		},
+	})
+
+	out, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/proc/loadavg"])}
+`)
+	if err != nil {
+		t.Fatalf("expected exact argument vector to succeed: %v", err)
+	}
+	if got := out["out"]; got != "/proc/loadavg" {
+		t.Fatalf("unexpected command output: %q", got)
+	}
+
+	_, err = runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="reader", args=["/etc/nixstasis/id"])}
+`)
+	if err == nil || !strings.Contains(err.Error(), "arguments are not allowlisted") {
+		t.Fatalf("expected non-allowlisted argument vector to fail, got %v", err)
+	}
+}
+
+func TestExecCmdAcceptsOutputAtLimit(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "at-limit")
+	script := fmt.Sprintf("#!/bin/sh\nprintf 'e' >&2\nhead -c %d /dev/zero | tr '\\000' o\n", maxExecOutputBytes-1)
+	if err := os.WriteFile(cmdPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:              5 * time.Second,
+		ExecCommandAllowlist: map[string]string{"at-limit": cmdPath},
+	})
+	out, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="at-limit")}
+`)
+	if err != nil {
+		t.Fatalf("expected output at the limit to succeed: %v", err)
+	}
+	want := "e" + strings.Repeat("o", maxExecOutputBytes-1)
+	if got := out["out"]; got != want {
+		t.Fatalf("unexpected combined output length %d, want %d", len(got.(string)), len(want))
+	}
+}
+
+func TestExecCmdRejectsAndStopsOutputOverLimit(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "noisy")
+	if err := os.WriteFile(cmdPath, []byte("#!/bin/sh\nwhile :; do printf '%1024s' ''; done\n"), 0o755); err != nil {
+		t.Fatalf("write test command: %v", err)
+	}
+
+	const timeout = 10 * time.Second
+	runtime := NewRuntime(RuntimeConfig{
+		Timeout:              timeout,
+		ExecCommandAllowlist: map[string]string{"noisy": cmdPath},
+	})
+	started := time.Now()
+	_, err := runtime.Execute(context.Background(), "test.star", `
+def main():
+    return {"out": exec_cmd(cmd="noisy")}
+`)
+	if err == nil || !strings.Contains(err.Error(), "output exceeds") {
+		t.Fatalf("expected output limit error, got %v", err)
+	}
+	if elapsed := time.Since(started); elapsed >= timeout/2 {
+		t.Fatalf("expected the command to be stopped at the limit, took %s", elapsed)
 	}
 }

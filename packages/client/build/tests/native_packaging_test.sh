@@ -27,6 +27,14 @@ require_file() {
   [ -f "$1" ] || fail "missing file: $1"
 }
 
+file_mode() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+  else
+    stat -f '%Lp' "$1"
+  fi
+}
+
 for file in "$POSTINSTALL" "$POLL_UNIT" "$HELPER" "$DROPIN" "$GORELEASER" "$VERIFY" "$DOCKERFILE"; do
   require_file "$file"
 done
@@ -41,6 +49,8 @@ require_literal "$POSTINSTALL" '--gid nixstasis-ssh nixstasis-ssh-authority'
 require_literal "$POSTINSTALL" 'usermod --lock nixstasis-ssh-authority'
 require_literal "$POSTINSTALL" 'usermod --append --groups nixstasis-ssh nixstasis'
 require_literal "$POSTINSTALL" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis'
+require_literal "$POSTINSTALL" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
+require_literal "$POSTINSTALL" 'dir: "/usr/libexec/nixstasis/scripts"$#  dir: "/var/lib/nixstasis/scripts"'
 require_literal "$POSTINSTALL" 'chown root:root /usr/libexec/nixstasis/ssh-authorized-keys'
 require_literal "$POSTINSTALL" 'chmod 0644 /etc/ssh/sshd_config.d/nixstasis-support.conf'
 require_literal "$POSTINSTALL" '"$sshd_bin" -t'
@@ -65,12 +75,16 @@ fi
 
 require_literal "$DOCKERFILE" 'passwd --lock nixstasis-ssh-authority'
 require_literal "$DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis-ssh /run/nixstasis'
+require_literal "$DOCKERFILE" 'install -d -m 0750 -o nixstasis -g nixstasis /var/lib/nixstasis/scripts'
 require_literal "$DOCKERFILE" 'usermod --append --groups nixstasis-ssh nixstasis'
+if grep -Eq 'chown .*/usr/libexec/nixstasis/scripts' "$POSTINSTALL" "$DOCKERFILE"; then
+  fail "packaged system scripts must remain root-owned"
+fi
 
 [ -x "$HELPER" ] || fail "helper must be executable in source tree"
-[ "$(stat -f '%Lp' "$HELPER" 2>/dev/null || stat -c '%a' "$HELPER")" = 755 ] ||
+[ "$(file_mode "$HELPER")" = 755 ] ||
   fail "helper must be mode 0755 in source tree"
-[ "$(stat -f '%Lp' "$DROPIN" 2>/dev/null || stat -c '%a' "$DROPIN")" = 644 ] ||
+[ "$(file_mode "$DROPIN")" = 644 ] ||
   fail "sshd drop-in must be mode 0644 in source tree"
 
 echo "native packaging contract passed"

@@ -1,9 +1,9 @@
-# Go 1.26 Best Practices Guide
+# Go Best Practices Guide
 
 **Last Updated:** February 2026
-**Go Version:** 1.26 (latest stable)
+**Go Version:** 1.27.1 (latest stable)
 
-This guide outlines best practices for developing robust, maintainable, and performant Go applications using Go 1.26. It incorporates the latest features and improvements introduced in this release.
+This guide outlines best practices for developing robust, maintainable, and performant Go applications using Go 1.27.1. It incorporates the latest features and improvements introduced in this release.
 
 ---
 
@@ -48,15 +48,11 @@ Go 1.26 automatically adjusts `GOMAXPROCS` based on container CPU limits, improv
 // GODEBUG=updatemaxprocs=0 go run main.go
 ```
 
-#### 2. Experimental JSON v2 Package
+#### 2. JSON v2 Package
 
-A new high-performance JSON implementation with improved API and performance.
+Go 1.27 provides a high-performance JSON implementation with an improved API.
 
-**Enable with:**
-
-```bash
-GOEXPERIMENT=jsonv2 go build
-```
+Use it directly with the standard toolchain:
 
 **Best Practice:**
 
@@ -69,8 +65,11 @@ import (
 type Config struct {
     Name    string    `json:"name"`
     Timeout int       `json:"timeout"`
-    Created time.Time `json:"created,format:DateOnly"`
-    Extra   map[string]any `json:",unknown"` // Capture unknown fields
+    Created time.Time `json:"created"`
+}
+
+type Envelope struct {
+    Config `json:",embed"`
 }
 
 var buf bytes.Buffer
@@ -80,6 +79,11 @@ if err := json.MarshalWrite(&buf, config); err != nil {
 
 // Pretty printing with indent
 data, err := json.Marshal(config, jsontext.WithIndent("  "))
+
+// Reject unknown object members while unmarshaling.
+if err := json.UnmarshalRead(bytes.NewReader(data), &config, json.RejectUnknownMembers(true)); err != nil {
+    return err
+}
 ```
 
 **Benefits:**
@@ -87,9 +91,8 @@ data, err := json.Marshal(config, jsontext.WithIndent("  "))
 - Faster decoding performance
 - Better control over marshaling/unmarshaling
 - Streaming support via `MarshalWrite` and `UnmarshalRead`
-- Unknown field handling with `,unknown` tag
-- Field inlining with `,inline` tag
-- Custom date formatting
+- Reject unknown members with `json.RejectUnknownMembers(true)`
+- Field embedding with the `,embed` tag
 
 #### 3. Testing Concurrent Code with `testing/synctest`
 
@@ -1081,7 +1084,7 @@ func TestRateLimiter(t *testing.T) {
 
 ```dockerfile
 # Build stage
-FROM golang:1.26-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./

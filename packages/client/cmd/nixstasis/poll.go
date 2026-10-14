@@ -63,7 +63,10 @@ func runPoll(cfg *config.Config) error {
 	slog.Info("Device identity loaded", "uuid", uuid)
 
 	// 2. Setup Components
-	client := transport.NewClient(cfg.API)
+	client, err := transport.NewClient(cfg.API)
+	if err != nil {
+		return err
+	}
 	client.SetAPIKey(credentials.Token)
 	policyStore := commandpolicy.NewStore(config.CommandPolicyPath())
 	execCommandAllowlist, commandPolicyVersion, commandPolicyRevision := initialCommandPolicy(cfg, policyStore)
@@ -72,6 +75,8 @@ func runPoll(cfg *config.Config) error {
 		WarnAfter:             3 * time.Second,
 		MQTTBroker:            runtimeMQTTBroker(cfg.Runtime.MQTTBroker),
 		ExecCommandAllowlist:  execCommandAllowlist,
+		ExecArgumentAllowlist: cfg.Runtime.ExecCommandArgs,
+		ReadFileAllowlist:     cfg.Runtime.ReadFiles,
 		CommandPolicyVersion:  commandPolicyVersion,
 		CommandPolicyRevision: commandPolicyRevision,
 		ExecWorkDir:           cfg.Runtime.ExecWorkDir,
@@ -227,11 +232,19 @@ type frpController interface {
 type remoteAccessPollState struct {
 	tokenHash             string
 	profileKey            string
+	expiresAtMS           int64
+	leaseID               string
 	commandInventoryProbe *transport.CommandInventoryProbe
 }
 
 type inventoryPollClient interface {
 	PollWithInventory(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error)
+}
+
+// secureHeartbeatPollClient is implemented by the real transport client. The
+// optional interface keeps lightweight test and E2E poll clients compatible.
+type secureHeartbeatPollClient interface {
+	PollWithInventoryAndHostKey(ctx context.Context, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence, sshHostKey string) (*transport.PollResponse, error)
 }
 
 func collectCommandInventory(ctx context.Context, state *remoteAccessPollState) *transport.CommandInventoryEvidence {
@@ -241,7 +254,10 @@ func collectCommandInventory(ctx context.Context, state *remoteAccessPollState) 
 	return inventory.Collect(ctx, state.commandInventoryProbe)
 }
 
-func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, commandInventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload telemetry.Payload, frpStatus frp.ConnectionStatus, commandInventory *transport.CommandInventoryEvidence, sshHostKey string) (*transport.PollResponse, error) {
+	if secure, ok := client.(secureHeartbeatPollClient); ok {
+		return secure.PollWithInventoryAndHostKey(ctx, uuid, payload, frpStatus, commandInventory, sshHostKey)
+	}
 	if extended, ok := client.(inventoryPollClient); ok {
 		return extended.PollWithInventory(ctx, uuid, payload, frpStatus, commandInventory)
 	}
@@ -293,9 +309,13 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 	}
 
 	commandInventory := collectCommandInventory(ctx, state)
+	sshHostKey, hostKeyErr := sshauth.LoadHostPublicKey()
+	if hostKeyErr != nil {
+		slog.Debug("SSH host public key unavailable", "error", hostKeyErr)
+	}
 
 	slog.Debug("Sending telemetry", "scripts", len(payload.Scripts), "uptime", payload.Device.Uptime)
-	resp, err := sendHeartbeat(ctx, client, uuid, payload, frpStatus, commandInventory)
+	resp, err := sendHeartbeat(ctx, client, uuid, payload, frpStatus, commandInventory, sshHostKey)
 	if err != nil {
 		return err
 	}
@@ -312,7 +332,7 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 	currentFRPStatus := frpManager.GetStatus()
 
 	switch {
-	case resp.RemoteAccessToken != "":
+	case resp.RemoteAccessToken != "" && (resp.RemoteAccessExpiresAtMS == 0 || resp.RemoteAccessExpiresAtMS > time.Now().UnixMilli()):
 		remoteAccessTokenHash := tokenHash(resp.RemoteAccessToken)
 		profileKey, profileErr := remoteAccessProfileKey(cfg.FRP, resp.RemoteAccessProfile)
 		if profileErr != nil {
@@ -333,9 +353,8 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 		switch {
 		case !currentFRPStatus.Active:
 			startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
-		case state != nil && state.tokenHash != "" &&
-			(state.tokenHash != remoteAccessTokenHash || state.profileKey != profileKey):
-			slog.Info("Server remote access token or profile changed, restarting FRP")
+		case state != nil && ((state.profileKey != "" && state.profileKey != profileKey) || state.leaseID != resp.RemoteAccessLeaseID || credentialNeedsRefresh(state.expiresAtMS, resp.RemoteAccessExpiresAtMS)):
+			slog.Info("Server remote access profile or credential validity changed, restarting FRP")
 			if err := frpManager.Stop(); err != nil {
 				slog.Error("Failed to stop FRP before restart", "error", err)
 			} else {
@@ -349,6 +368,10 @@ func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtim
 			} else {
 				startFRP(frpManager, cfg, uuid, resp.RemoteAccessToken, resp.RemoteAccessProfile, remoteAccessTokenHash, profileKey, state)
 			}
+		}
+		if state != nil && state.tokenHash == remoteAccessTokenHash {
+			state.expiresAtMS = resp.RemoteAccessExpiresAtMS
+			state.leaseID = resp.RemoteAccessLeaseID
 		}
 	default:
 		if currentFRPStatus.Active {
@@ -395,10 +418,21 @@ func remoteAccessProfileKey(frpConfig config.FRPConfig, selection *config.RouteP
 	return fmt.Sprintf("%s:%d", resolved.Name, resolved.Version), nil
 }
 
+// Renew before the stored credential expires, without churning on each newly signed heartbeat.
+func credentialNeedsRefresh(storedExpiry, nextExpiry int64) bool {
+	if nextExpiry <= 0 {
+		return false
+	}
+	return storedExpiry <= 0 || nextExpiry < storedExpiry ||
+		(storedExpiry <= time.Now().Add(30*time.Second).UnixMilli() && nextExpiry > storedExpiry)
+}
+
 func clearRemoteAccessState(state *remoteAccessPollState) {
 	if state != nil {
 		state.tokenHash = ""
 		state.profileKey = ""
+		state.expiresAtMS = 0
+		state.leaseID = ""
 	}
 }
 
@@ -422,9 +456,9 @@ func tokenHash(token string) string {
 func runtimeFRPConfig(base config.FRPConfig, uuid string) config.FRPConfig {
 	frpConfig := base
 	frpConfig.AuthToken = ""
-	if frpConfig.Name == "" {
-		frpConfig.Name = identity.GenerateDeviceName(uuid)
-	}
+	// Remote-access identity is derived from the registered device ID so a
+	// local configuration override cannot claim another device namespace.
+	frpConfig.Name = identity.GenerateDeviceName(uuid)
 	return frpConfig
 }
 

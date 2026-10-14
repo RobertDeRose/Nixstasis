@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -28,14 +29,18 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	account := generateAccountNumber()
 	productName := fmt.Sprintf("runtime-linux-e2e-%d", time.Now().UnixNano())
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
-	deviceID, err := apiClient.RegisterDevice(ctx, identity.DeviceIdentity{
-		MACAddress: mac,
-		Name:       productName,
-	})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
 	if err != nil {
 		return stepOutcome{}, err
 	}
+	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
+		MACAddress: mac,
+		Name:       productName,
+	}, identity.NewToken())
+	if err != nil && !errors.Is(err, transport.ErrDevicePendingApproval) {
+		return stepOutcome{}, err
+	}
+	deviceID := credentials.UUID
 
 	if deviceID == "" {
 		return stepOutcome{}, assertionFailure(
@@ -86,6 +91,7 @@ func (e *journeyExecutor) runtimeRegisterDevice(ctx context.Context, state *jour
 	state.DeviceID = deviceID
 	state.DeviceMac = mac
 	state.ProductName = productName
+	state.RegistrationToken = credentials.RegistrationToken
 
 	return stepOutcome{
 		ResponseType: responseTypeJSON,
@@ -158,11 +164,14 @@ func (e *journeyExecutor) runtimeApproveDevice(ctx context.Context, state *journ
 		return stepOutcome{}, err
 	}
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	credentials, err := apiClient.RegisterDeviceCredentials(ctx, identity.DeviceIdentity{
 		MACAddress: state.DeviceMac,
 		Name:       state.ProductName,
-	})
+	}, state.RegistrationToken, identity.NewToken())
 	if err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeHTTPRequestFailed,
@@ -295,7 +304,7 @@ def main():
 	}
 
 	refPath := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, state.CommandRef)
-	if _, _, err := e.doRequest(ctx, "GET", withAPIKey(refPath, state.DeviceToken), nil, nil, 200); err != nil {
+	if _, _, err := e.doRequest(ctx, "GET", refPath, nil, deviceBearerHeaders(state.DeviceToken), 200); err != nil {
 		return stepOutcome{}, &stepError{
 			Code:            errCodeAssertionFailed,
 			AssertionFailed: "queued command payload is retrievable by payload_ref",
@@ -321,7 +330,7 @@ func (e *journeyExecutor) runtimeExpectMissingPayloadRef(ctx context.Context, st
 
 	missingRef := fmt.Sprintf("missing-%d", time.Now().UnixNano())
 	path := fmt.Sprintf("/api/v1/devices/%s/command_payloads/%s", state.DeviceID, missingRef)
-	_, _, err := e.doRequest(ctx, "GET", withAPIKey(path, state.DeviceToken), nil, nil, 404)
+	_, _, err := e.doRequest(ctx, "GET", path, nil, deviceBearerHeaders(state.DeviceToken), 404)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -362,8 +371,10 @@ func (e *journeyExecutor) runtimeRejectInvalidCommandResults(ctx context.Context
 		}
 	}
 
-	path := withAPIKey(fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID), state.DeviceToken)
-	_, _, err = e.doRequest(ctx, "POST", path, body, map[string]string{"Content-Type": "application/json"}, 400)
+	path := fmt.Sprintf("/api/v1/devices/%s/command_results", state.DeviceID)
+	headers := deviceBearerHeaders(state.DeviceToken)
+	headers["Content-Type"] = "application/json"
+	_, _, err = e.doRequest(ctx, "POST", path, body, headers, 400)
 	if err != nil {
 		return stepOutcome{}, err
 	}
@@ -408,7 +419,10 @@ func (e *journeyExecutor) runtimePollWithScripts(ctx context.Context, state *jou
 
 	pollStart := time.Now()
 
-	apiClient := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL})
+	apiClient, err := transport.NewClient(config.APIConfig{URL: e.cfg.APIURL, AllowLoopbackHTTP: e.cfg.AllowLoopbackHTTP})
+	if err != nil {
+		return stepOutcome{}, err
+	}
 	apiClient.SetAPIKey(state.DeviceToken)
 	scripts, err := script.DiscoverScripts(scriptDir)
 	if err != nil {
@@ -856,11 +870,23 @@ func executeScriptsForRuntime(
 		Timeout:   5 * time.Second,
 		WarnAfter: 3 * time.Second,
 		ExecCommandAllowlist: map[string]string{
-			"cat":   "/bin/cat",
 			"df":    "/bin/df",
 			"nproc": "/usr/bin/nproc",
 			"stat":  "/usr/bin/stat",
 			"uname": "/usr/bin/uname",
+		},
+		ExecArgumentAllowlist: map[string][][]string{
+			"/bin/df":        {{"-B1", "/"}},
+			"/usr/bin/stat":  {{"-f", "-c", "%T", "/"}},
+			"/usr/bin/uname": {{"-srmo"}},
+		},
+		ReadFileAllowlist: []string{
+			"/proc/1/comm",
+			"/proc/loadavg",
+			"/proc/meminfo",
+			"/proc/1/net/route",
+			"/proc/stat",
+			"/proc/uptime",
 		},
 	})
 
@@ -949,15 +975,10 @@ func shouldEnforceRuntimeBudget() bool {
 		strings.EqualFold(os.Getenv("E2E_RUNTIME_PERF_GATE"), "true")
 }
 
-func withAPIKey(path, token string) string {
-	if token == "" {
-		return path
+func deviceBearerHeaders(token string) map[string]string {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
 	}
-
-	separator := "?"
-	if strings.Contains(path, "?") {
-		separator = "&"
-	}
-
-	return path + separator + "api_key=" + url.QueryEscape(token)
+	return headers
 }

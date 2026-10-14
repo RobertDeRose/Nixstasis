@@ -76,6 +76,14 @@ func (s *Store) Load() (Credentials, error) {
 	return normalizeCredentials(Credentials{UUID: trimmed})
 }
 
+// Remove deletes the stored credentials if present.
+func (s *Store) Remove() error {
+	if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return syncDir(filepath.Dir(s.path))
+}
+
 // SaveUUID writes the UUID to the storage file.
 // Creates directories if they don't exist.
 func (s *Store) SaveUUID(uuid string) error {

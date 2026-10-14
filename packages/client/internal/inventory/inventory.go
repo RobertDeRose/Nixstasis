@@ -251,11 +251,11 @@ func packageInstalled(ctx context.Context, manager, name string) bool {
 	var cmd *exec.Cmd
 	switch manager {
 	case "apt":
-		cmd = exec.CommandContext(probeCtx, "dpkg-query", "-W", "-f=${Status}", name)
+		cmd = exec.CommandContext(probeCtx, "dpkg-query", "-W", "-f=${Status}", name) // #nosec G204 -- name is validated against validPackageName.
 	case "dnf", "rpm":
-		cmd = exec.CommandContext(probeCtx, "rpm", "-q", name)
+		cmd = exec.CommandContext(probeCtx, "rpm", "-q", name) // #nosec G204 -- name is validated against validPackageName.
 	case "nix":
-		cmd = exec.CommandContext(probeCtx, "nix-env", "-q", name)
+		cmd = exec.CommandContext(probeCtx, "nix-env", "-q", name) // #nosec G204 -- name is validated against validPackageName.
 	default:
 		return false
 	}

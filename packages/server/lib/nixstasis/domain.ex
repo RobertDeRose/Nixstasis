@@ -14,7 +14,7 @@ defmodule Nixstasis.Domain do
   alias Nixstasis.Repo
 
   json_api do
-    authorize? false
+    authorize? true
     prefix "/api/json"
 
     routes do
@@ -199,6 +199,8 @@ defmodule Nixstasis.Domain do
   end
 
   resources do
+    resource Nixstasis.Devices.RemoteAccessLease
+
     resource Nixstasis.Devices.Device do
       define :list_devices, action: :read
       define :get_device, action: :read, get_by: [:id]
@@ -206,6 +208,7 @@ defmodule Nixstasis.Domain do
       define :create_device, action: :create
       define :register_device, action: :register
       define :update_device, action: :update
+      define :update_device_ssh_host_key_state, action: :update_ssh_host_key_state
       define :destroy_device, action: :destroy
     end
 

@@ -6,6 +6,7 @@ defmodule Nixstasis.Monitoring.AlertRule do
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
     domain: Nixstasis.Domain,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshJsonApi.Resource]
 
   postgres do
@@ -30,6 +31,28 @@ defmodule Nixstasis.Monitoring.AlertRule do
 
     update :update do
       accept [:product_name, :condition_field, :operator, :threshold_value]
+    end
+  end
+
+  policies do
+    bypass actor_absent() do
+      authorize_if always()
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(^actor(:can_view_alert_rules) == true)
+    end
+
+    policy action_type(:create) do
+      authorize_if expr(^actor(:can_manage_alert_rules) == true)
+    end
+
+    policy action_type(:update) do
+      authorize_if expr(^actor(:can_manage_alert_rules) == true)
+    end
+
+    policy action_type(:destroy) do
+      authorize_if expr(^actor(:can_manage_alert_rules) == true)
     end
   end
 

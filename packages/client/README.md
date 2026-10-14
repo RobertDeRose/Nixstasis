@@ -3,6 +3,10 @@
 The Nixstasis client is a lightweight IoT monitoring agent written in Go. It replaces the original Bash prototype and
 now provides embedded Starlark scripting for telemetry, durable identity, and FRP tunnel control.
 
+The supported client runtime and release targets are Linux only. Native service,
+SSH packaging, and release-artifact validation require a Linux host. macOS and
+Windows are not supported runtime or packaging platforms.
+
 ## Features
 
 - **Auto-Registration**: Registers with the Nixstasis server on first boot and persists a device UUID.
@@ -20,7 +24,7 @@ now provides embedded Starlark scripting for telemetry, durable identity, and FR
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+
 - mise
 
 ### Commands
@@ -34,6 +38,15 @@ mise run test:coverage # Print coverage summary from coverage.out
 
 ## Usage
 
+Registration persists a random enrollment proof and proposed runtime token before
+contacting the server. Keep `/etc/nixstasis/registration` until registration has
+saved `/etc/nixstasis/id` successfully: this owner-only state lets lost responses,
+service restarts, and failed identity saves recover without losing credentials.
+After success, the separate enrollment file is removed. If the identity and
+registration path overrides point to the same file, that file is retained with
+the runtime credentials, even when the paths use different spellings such as
+`/etc/nixstasis/./id` and `/etc/nixstasis/id`.
+
 ```bash
 bin/nixstasis register
 bin/nixstasis poll
@@ -42,6 +55,13 @@ bin/nixstasis poll
 ## E2E Testing
 
 The client includes a lightweight E2E harness for validating client/server integration.
+Every E2E API call uses a dedicated runner principal. Set the runner token in the environment rather than in the YAML config:
+
+```bash
+export NIXSTASIS_E2E_RUNNER_ID=local-runner
+export NIXSTASIS_E2E_RUNNER_TOKEN=dev-e2e-runner-token-0123456789abcdef0123456789abcdef
+```
+
 An entire suite of journeys can be run like the following:
 
 ```bash
@@ -80,7 +100,7 @@ scripts/e2e/scaffold  --dry-run --id runtime_disk_pressure --steps register_devi
 scripts/e2e/scaffold --id runtime_disk_pressure --steps register_phase=register_device:device_registered
 ```
 
-Configuration lives in `scripts/e2e/config.example.yaml` and can be customized per environment. The CLI posts runs and
+Configuration lives in `scripts/e2e/config.example.yaml` and can be customized per environment. `e2e.runner_id` may be set there or overridden with `--runner-id`/`NIXSTASIS_E2E_RUNNER_ID`; the bearer token is read only from `NIXSTASIS_E2E_RUNNER_TOKEN`. The CLI posts runs and
 results to the server; use the printed `RunID` to query `/e2e/runs/:id`, `/e2e/runs/:id/results`, and
 `/e2e/runs/:id/results/:journey_id/log`.
 
@@ -99,9 +119,20 @@ The runtime suite generates and executes 10+ Linux-oriented Starlark scripts (re
 - telemetry persistence and report queryability
 - alert triggering from script data
 
+Stary source is capped at 1 MiB before YAML or Starlark parsing. The same limit
+applies to discovered/installed files and server-delivered `install_script` or
+`run_script` payloads, so parse-time work cannot bypass runtime execution limits.
+
 Production `exec_cmd` usage is deny-by-default. Operators must explicitly
-allowlist commands in the client runtime configuration before scripts can run
-host commands.
+allowlist executable paths in the client runtime configuration before scripts can run
+host commands. Commands execute with no arguments unless the exact argument vector is
+listed locally under `runtime.exec_command_args` for that absolute executable path; server-delivered command
+policies cannot expand those argument capabilities. The shipped configuration no longer exposes `cat`.
+Scripts that need file-backed diagnostics must use `read_file`, which accepts only exact
+paths listed locally under `runtime.read_files`; Nixstasis state under `/etc/nixstasis`
+and `/run/nixstasis` is always denied, and each read is capped at 64 KiB.
+Every path component must be free of symlinks, and only regular files are readable;
+FIFOs, directories, and other special files are rejected without waiting for data.
 
 Runtime suite journeys:
 
@@ -111,6 +142,7 @@ Runtime suite journeys:
 
 On non-Linux hosts, `scripts/e2e/run` automatically runs runtime E2E in an ephemeral Ubuntu container using Apple
 Container first, then Docker, then Podman. The script rewrites the API host for the selected runtime automatically.
+This executes Linux coverage and does not establish native support for the host platform.
 
 ## Configuration
 
@@ -127,8 +159,19 @@ poll:
   interval: 10s
 
 scripts:
-  dir: "/usr/libexec/nixstasis/scripts"
+  dir: "/var/lib/nixstasis/scripts"
 ```
+
+The API URL defaults to `https://localhost:4000`. HTTPS certificate and hostname
+verification are mandatory; API redirects are not followed. Install private CA
+certificates in the client's OS trust store, or set Go's `SSL_CERT_FILE` to a
+trusted PEM CA bundle. Do not disable certificate verification.
+
+For a local HTTP mock only, set `api.url: http://127.0.0.1:4000` and
+`api.allow_loopback_http: true` (environment: `NIXSTASIS_API_ALLOW_LOOPBACK_HTTP=true`).
+This option defaults to false and accepts only `localhost` or loopback IP
+addresses, never LAN addresses or Compose service names. HTTP connections bypass
+proxies; `localhost` connects directly to `127.0.0.1` without DNS resolution.
 
 For Compose dev-harness remote-access validation, use `mise run deploy:dev -- up`
 from the repository root. It starts the full
@@ -136,8 +179,9 @@ stack including a containerized client that runs the real Go client binary with
 systemd, sshd, and frpc — matching real device lifecycle. Scale client containers
 with `--clients N`. The container image entrypoint writes
 `/etc/nixstasis/config.yaml` from Compose-provided environment before systemd
-starts, so the packaged systemd units can use the local Compose server and FRPS
-service names without changing the native package defaults. The image also keeps
+starts. Clients use Caddy's HTTPS API hostname and the internal FRPS service
+name. The dev task installs only Caddy's public local CA certificate into client
+trust stores and restarts registration; Caddy's private CA keys are not shared. The image also keeps
 `systemd-user-sessions.service` in `multi-user.target` so systemd removes
 `/run/nologin` and SSH remote-access sessions can authenticate as the dedicated
 `nixstasis-support` account.
@@ -150,8 +194,11 @@ self-extracting `.run` installers for systemd Linux hosts that do not use deb or
 1. Review the shared production version pins:
 
 ```bash
-grep -E '^(FRP_VERSION|CADDY_VERSION|POSTGRES_VERSION)=' ../../prod.env
+grep -E '^(FRP_VERSION|FRP_LINUX_(AMD64|ARM64)_SHA256|CADDY_VERSION|POSTGRES_VERSION)=' ../../prod.env
 ```
+
+Treat `FRP_VERSION` and both `FRP_LINUX_*_SHA256` values as one pin set. Native release packaging and the Compose
+client simulator both use `build/bin/fetch_frpc.sh`, which verifies the selected archive before extraction.
 
 1. Build snapshot artifacts from `packages/client`:
 
@@ -174,7 +221,11 @@ The generated archive and native packages install these client assets:
 
 On package install, the maintainer script seeds `/etc/nixstasis/config.yaml`
 from the example template if the host does not already have one. It also ensures
-the `nixstasis` system user has `/var/lib/nixstasis` as its home. Remote SSH
+the `nixstasis` system user has `/var/lib/nixstasis` as its home and owns the
+managed script directory `/var/lib/nixstasis/scripts`. Packaged scripts under
+`/usr/libexec/nixstasis/scripts` remain root-owned and are discovered as
+read-only system scripts. Upgrades migrate the exact former packaged default
+`/usr/libexec/nixstasis/scripts` to the writable state directory. Remote SSH
 access uses a separate `nixstasis-support` account with `/bin/bash` as its
 login shell, in-memory SSH keys handled via an OpenSSH `AuthorizedKeysCommand`
 helper backed by the client runtime over local IPC, and passwordless sudo for

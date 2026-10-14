@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"encoding/json/v2"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -105,11 +106,14 @@ func TestRegisterDevice(t *testing.T) {
 			defer server.Close()
 
 			cfg := config.APIConfig{
-				URL: server.URL,
+				URL: server.URL, AllowLoopbackHTTP: true,
 			}
-			client := NewClient(cfg)
+			client, err := NewClient(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			deviceID, err := client.RegisterDevice(context.Background(), tt.device)
+			deviceID, err := client.RegisterDevice(context.Background(), tt.device, identity.NewToken(), identity.NewToken())
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("RegisterDevice() error = %v, expectErr %v", err, tt.expectErr)
@@ -119,5 +123,75 @@ func TestRegisterDevice(t *testing.T) {
 				t.Errorf("RegisterDevice() id = %v, want %v", deviceID, tt.wantID)
 			}
 		})
+	}
+}
+
+func TestRegisterDeviceCredentialsUsesEnrollmentProof(t *testing.T) {
+	const (
+		deviceID          = "550e8400-e29b-41d4-a716-446655440000"
+		registrationToken = "registration-proof"
+		runtimeToken      = "runtime-token"
+	)
+
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		var payload map[string]any
+		if err := json.UnmarshalRead(r.Body, &payload); err != nil {
+			t.Fatalf("decode registration payload: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		if got, _ := payload["registration_token"].(string); got != registrationToken {
+			t.Fatalf("registration_token = %q, want %q", got, registrationToken)
+		}
+		if got, _ := payload["replacement_token"].(string); got != runtimeToken {
+			t.Fatalf("replacement_token = %q, want %q", got, runtimeToken)
+		}
+		if requestCount == 1 {
+			respBytes, _ := json.Marshal(map[string]any{
+				"data": map[string]string{
+					"id":                 deviceID,
+					"registration_token": registrationToken,
+				},
+			})
+			_, _ = w.Write(respBytes)
+			return
+		}
+
+		if got, _ := payload["registration_token"].(string); got != registrationToken {
+			t.Fatalf("registration_token = %q, want %q", got, registrationToken)
+		}
+		respBytes, _ := json.Marshal(map[string]any{
+			"data": map[string]string{
+				"id":        deviceID,
+				"api_token": runtimeToken,
+			},
+		})
+		_, _ = w.Write(respBytes)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	device := identity.DeviceIdentity{MACAddress: "00:11:22:33:44:55", Name: "atom-001122334455"}
+
+	pending, err := client.RegisterDeviceCredentials(context.Background(), device, registrationToken, runtimeToken)
+	if !errors.Is(err, ErrDevicePendingApproval) {
+		t.Fatalf("first registration error = %v, want ErrDevicePendingApproval", err)
+	}
+	if pending.UUID != deviceID || pending.RegistrationToken != registrationToken {
+		t.Fatalf("pending credentials = %+v", pending)
+	}
+
+	credentials, err := client.RegisterDeviceCredentials(context.Background(), device, pending.RegistrationToken, runtimeToken)
+	if err != nil {
+		t.Fatalf("approved registration error = %v", err)
+	}
+	if credentials.UUID != deviceID || credentials.Token != runtimeToken {
+		t.Fatalf("runtime credentials = %+v", credentials)
 	}
 }

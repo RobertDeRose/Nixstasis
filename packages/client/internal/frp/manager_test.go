@@ -592,6 +592,13 @@ func TestPackagedConfigUsesQuotedPlaceholders(t *testing.T) {
 		}
 	}
 
+	if !strings.Contains(text, `auth.token = "nixstasis-frp-plugin-gated"`) {
+		t.Error("packaged frpc config must use the FRPS plugin-gated transport marker")
+	}
+	if !strings.Contains(text, `metadatas.nixstasis_token = "{{ .Envs.FRPS_AUTH_TOKEN }}"`) {
+		t.Error("packaged frpc config must send the signed lease credential as metadata")
+	}
+
 	unquotedPlaceholders := []string{
 		"{{ .Envs.FRPS_SERVER_PORT }}",
 		"{{ .Envs.FRPC_WEB_SERVER_PORT }}",

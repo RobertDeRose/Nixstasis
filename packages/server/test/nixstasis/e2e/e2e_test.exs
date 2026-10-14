@@ -83,6 +83,23 @@ defmodule Nixstasis.E2ETest do
     assert run1.id == run2.id
   end
 
+  test "create_run does not reuse another runner's run for the same environment + idempotency key" do
+    attrs = %{
+      suite_id: "full",
+      environment_label: "local",
+      trigger_source: "manual",
+      protocol_version: "1",
+      idempotency_key: "shared-request"
+    }
+
+    assert {:ok, first_run} = E2E.create_run(Map.put(attrs, :runner_id, "runner-a"))
+    assert {:ok, _cancelled} = E2E.cancel_run(first_run.id)
+
+    assert {:ok, second_run} = E2E.create_run(Map.put(attrs, :runner_id, "runner-b"))
+    assert second_run.id != first_run.id
+    assert second_run.runner_id == "runner-b"
+  end
+
   test "create_run with same idempotency key in different environments creates separate runs" do
     attrs = %{
       suite_id: "full",

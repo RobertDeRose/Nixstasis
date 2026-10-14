@@ -3,7 +3,9 @@ package script
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +21,10 @@ const (
 	defaultExecLang   = "C.UTF-8"
 	defaultExecLCAll  = "C.UTF-8"
 	defaultExecTmpDir = "/tmp"
+
+	// maxExecOutputBytes bounds combined stdout/stderr captured from one
+	// exec_cmd call. Larger output fails the call and stops the command.
+	maxExecOutputBytes = 256 * 1024
 )
 
 var blockedExecEnvPrefixes = []string{
@@ -83,6 +89,10 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 		}
 	}
 
+	if err := r.validateExecArguments(cmdPath, argv[1:]); err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(runtimeContext(thread), r.config.Timeout)
 	defer cancel()
 
@@ -95,7 +105,10 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 		setExecUser(cmd, r.config.ExecUser)
 	}
 
-	output, err := cmd.CombinedOutput()
+	output, err := runBoundedCombinedOutput(ctx, cancel, cmd, maxExecOutputBytes)
+	if errors.Is(err, errExecOutputLimit) {
+		return nil, err
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return nil, fmt.Errorf("command timed out after %s", r.config.Timeout)
 	}
@@ -104,6 +117,44 @@ func (r *Runtime) execCmdBuiltin(thread *starlark.Thread, _ *starlark.Builtin, a
 	}
 
 	return starlark.String(strings.TrimSpace(string(output))), nil
+}
+
+var errExecOutputLimit = fmt.Errorf("command output exceeds %d-byte limit", maxExecOutputBytes)
+
+// runBoundedCombinedOutput runs cmd with stdout and stderr sharing one pipe and
+// reads at most limit bytes. Exceeding the limit cancels ctx, which kills the
+// command, so a noisy command cannot grow client memory without bound.
+func runBoundedCombinedOutput(ctx context.Context, cancel context.CancelFunc, cmd *exec.Cmd, limit int64) ([]byte, error) {
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	cmd.Stderr = cmd.Stdout
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	// Descendants can keep the pipe open after the command is killed, so close
+	// the read side on cancellation instead of waiting for EOF.
+	stopClose := context.AfterFunc(ctx, func() { _ = pipe.Close() })
+	defer stopClose()
+
+	output, readErr := io.ReadAll(io.LimitReader(pipe, limit+1))
+	exceeded := int64(len(output)) > limit
+	if exceeded {
+		cancel()
+	}
+	waitErr := cmd.Wait()
+
+	switch {
+	case exceeded:
+		return nil, errExecOutputLimit
+	case readErr != nil && ctx.Err() == nil:
+		return nil, readErr
+	case waitErr != nil:
+		return nil, waitErr
+	}
+	return output, nil
 }
 
 func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {
@@ -131,7 +182,6 @@ func (r *Runtime) resolveExecCommand(cmdName string) (string, error) {
 	if filepath.IsAbs(cmdName) && filepath.Clean(cmdName) != clean {
 		return "", fmt.Errorf("command path does not match allowlist: %s", cmdName)
 	}
-
 	return clean, nil
 }
 
@@ -178,4 +228,34 @@ func execEnvBlocked(key string) bool {
 	}
 
 	return false
+}
+
+func (r *Runtime) validateExecArguments(cmdPath string, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	cleanPath := filepath.Clean(cmdPath)
+	allowedSets, ok := r.config.ExecArgumentAllowlist[cleanPath]
+	if !ok {
+		return fmt.Errorf("arguments are not permitted for %s without a local exec_command_args rule", cleanPath)
+	}
+
+	for _, allowed := range allowedSets {
+		if len(allowed) != len(args) {
+			continue
+		}
+		matched := true
+		for index := range args {
+			if args[index] != allowed[index] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("arguments are not allowlisted for %s", cleanPath)
 }

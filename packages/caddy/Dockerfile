@@ -12,6 +12,10 @@ RUN xcaddy build "v${CADDY_VERSION}" \
     --with github.com/greenpau/caddy-security@${CADDY_SECURITY_VERSION} && \
     go version -m /usr/bin/caddy
 
+# Export the exact production binary for the host-side proxy contract tests.
+FROM scratch AS proxy-test-binary
+COPY --from=builder /usr/bin/caddy /caddy
+
 ARG CADDY_VERSION=2.11.2
 ARG CADDY_RUNNER_IMAGE_DIGEST
 

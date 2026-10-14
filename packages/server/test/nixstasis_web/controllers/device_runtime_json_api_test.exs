@@ -4,10 +4,13 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   require Ash.Query
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
   alias Nixstasis.Scripts
   alias NixstasisWeb.Plugs.JsonApiPermissions
+  alias NixstasisWeb.RateLimiterStore
 
   setup do
     previous = Application.get_env(:nixstasis, :local_browser_auth_fallback?, false)
@@ -43,6 +46,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_trusted_proxy_auth()
       |> get(
         "/api/json/device_runtime/devices?product=runtime-approved&account_number=12345&approval_status=approved&connectivity_status=online&ipv4_address=192.0.2.11"
       )
@@ -66,6 +70,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("x-token-user-roles", "nixstasis/viewer")
+      |> put_trusted_proxy_auth()
       |> get("/api/json/device_runtime/devices?product=%20&approval_status=unknown&ipv4_address=%20")
 
     assert %{"data" => data, "meta" => %{"active_filters" => %{}}} = json_response(conn, 200)
@@ -81,11 +86,22 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)
   end
 
-  test "generated registration is public and returns pending devices without a token", %{conn: conn} do
+  test "direct backend callers cannot forge an admin role header", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("x-token-user-roles", "nixstasis/admin")
+      |> get("/api/json/device_runtime/devices")
+
+    assert %{"errors" => [%{"code" => "forbidden"}]} = json_response(conn, 403)
+  end
+
+  test "generated registration is public and returns pending proof without a runtime token", %{conn: conn} do
     params = %{
       "data" => %{
         "mac_address" => "AA:BB:CC:DD:EE:03",
         "product_name" => "runtime-new",
+        "registration_token" => String.duplicate("p", 43),
         "schema_definition" => %{"product" => "runtime-new", "type" => "object", "properties" => %{}},
         "ipv4_address" => "192.0.2.12"
       }
@@ -114,6 +130,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       "data" => %{
         "mac_address" => approved.mac_address,
         "product_name" => approved.product_name,
+        "registration_token" => old_token,
+        "replacement_token" => String.duplicate("r", 43),
         "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
       }
     }
@@ -135,6 +153,47 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     {:ok, updated} = Devices.get_device(approved.id)
     assert {:error, :invalid_token} = Devices.authenticate_device(updated, old_token)
     assert :ok = Devices.authenticate_device(updated, new_token)
+
+    retry_conn =
+      conn
+      |> recycle()
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> post("/api/json/device_runtime/devices/register", params)
+
+    assert json_response(retry_conn, 201)["data"]["api_token"] == new_token
+    assert :ok = Devices.authenticate_device(Devices.get_device!(approved.id), new_token)
+  end
+
+  test "generated registration rejects invalid proof and missing replacement before mutation", %{
+    conn: conn,
+    approved: approved,
+    token: old_token
+  } do
+    attrs = %{
+      "mac_address" => approved.mac_address,
+      "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}},
+      "registration_token" => old_token,
+      "replacement_token" => String.duplicate("r", 43),
+      "metadata" => %{"must_not" => "persist"}
+    }
+
+    for {params, status} <- [
+          {Map.put(attrs, "registration_token", "wrong-proof"), 403},
+          {Map.delete(attrs, "replacement_token"), 400}
+        ] do
+      result =
+        conn
+        |> recycle()
+        |> put_req_header("accept", "application/vnd.api+json")
+        |> put_req_header("content-type", "application/vnd.api+json")
+        |> post("/api/json/device_runtime/devices/register", %{"data" => params})
+
+      assert is_list(json_response(result, status)["errors"])
+      persisted = Devices.get_device!(approved.id)
+      assert persisted.metadata == approved.metadata
+      assert persisted.api_token_hash == approved.api_token_hash
+    end
   end
 
   test "generated heartbeat preserves telemetry, inventory, commands, probe, and remote access", %{
@@ -181,26 +240,27 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       }
     }
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn =
-        conn
-        |> put_req_header("accept", "application/vnd.api+json")
-        |> put_req_header("content-type", "application/vnd.api+json")
-        |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", payload)
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", payload)
 
-      assert %{
-               "data" => %{
-                 "commands" => [%{"command_id" => command_id, "payload" => %{"cmd" => "update"}}],
-                 "command_inventory_probe" => probe,
-                 "remote_access_token" => "shared-secret"
-               }
-             } = json_response(conn, 200)
+    assert %{
+             "data" => %{
+               "commands" => [%{"command_id" => command_id, "payload" => %{"cmd" => "update"}}],
+               "command_inventory_probe" => probe,
+               "remote_access_token" => remote_access_token
+             }
+           } = json_response(conn, 200)
 
-      assert command_id
-      assert probe["catalog_version"] == "catalog-v1"
-      assert "coreutils" in probe["package_names"]
-      assert Enum.any?(probe["command_probes"], &(&1["name"] == "df"))
-    end)
+    assert {:ok, %{"device_id" => device_id}} = FrpsToken.verify(remote_access_token)
+    assert device_id == to_string(approved.id)
+    assert command_id
+    assert probe["catalog_version"] == "catalog-v1"
+    assert "coreutils" in probe["package_names"]
+    assert Enum.any?(probe["command_probes"], &(&1["name"] == "df"))
 
     updated = Devices.get_device!(approved.id)
     refute is_nil(updated.last_seen_at)
@@ -220,6 +280,36 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     assert device_id == approved.id
   end
 
+  test "generated heartbeat rejects over-limit telemetry before persistence", %{
+    conn: conn,
+    approved: approved,
+    token: token
+  } do
+    limits = TelemetryLimits.limits()
+    last_seen_at = approved.last_seen_at
+
+    conn =
+      conn
+      |> put_req_header("accept", "application/vnd.api+json")
+      |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", %{
+        "data" => %{
+          "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
+        }
+      })
+
+    assert conn.status == 400
+    assert Devices.get_device!(approved.id).last_seen_at == last_seen_at
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^approved.id)
+      |> Ash.read!(domain: Domain)
+
+    assert telemetry == []
+  end
+
   test "generated heartbeat ignores malformed inventory while delivering commands", %{
     conn: conn,
     approved: approved,
@@ -231,8 +321,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/heartbeat",
         %{"data" => %{"command_inventory" => %{"schema_version" => "bad"}}}
       )
 
@@ -249,10 +340,12 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     token: token
   } do
     previous = Application.get_env(:nixstasis, :rate_limit)
-    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1)
-    :ets.delete_all_objects(:nixstasis_rate_limiter)
+    Application.put_env(:nixstasis, :rate_limit, heartbeat_limit: 1, preauth_limit: 100)
+    RateLimiterStore.clear()
 
     on_exit(fn ->
+      RateLimiterStore.clear()
+
       if previous do
         Application.put_env(:nixstasis, :rate_limit, previous)
       else
@@ -264,14 +357,15 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat?api_key=#{token}", %{
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/heartbeat", %{
         "data" => %{}
       })
     end
 
     assert response = request.(conn)
     assert response.status == 200
-    assert %{"error" => %{"code" => "rate_limited"}} = json_response(request.(conn), 429)
+    assert %{"errors" => [%{"code" => "rate_limited"}]} = json_response(request.(conn), 429)
   end
 
   test "generated command results preserves acknowledgement and replay behavior", %{
@@ -297,7 +391,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}", payload)
+      |> put_device_bearer(token)
+      |> post("/api/json/device_runtime/devices/#{approved.id}/command_results", payload)
     end
 
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(request.(conn), 202)
@@ -325,8 +420,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{
           "data" => %{
             "results" => [
@@ -355,15 +451,16 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{"data" => %{"results" => "not-a-list"}}
       )
 
     assert is_list(json_response(conn, 400)["errors"])
   end
 
-  test "generated command results uses the device API-key boundary", %{
+  test "generated command results uses the device bearer boundary", %{
     conn: conn,
     pending: pending,
     approved: approved,
@@ -374,14 +471,18 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn = post(conn, path, %{"data" => %{"results" => []}})
     assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
 
-    conn = post(build_conn(), "#{path}?api_key=wrong", %{"data" => %{"results" => []}})
+    conn = post(build_conn(), "#{path}?api_key=#{token}", %{"data" => %{"results" => []}})
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = post(put_device_bearer(build_conn(), "wrong"), path, %{"data" => %{"results" => []}})
     assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
 
     conn =
       build_conn()
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
-      |> post("#{path}?api_key=#{token}", %{"data" => %{"results" => []}})
+      |> put_device_bearer(token)
+      |> post(path, %{"data" => %{"results" => []}})
 
     assert json_response(conn, 202)["data"]["acknowledged_count"] == 0
 
@@ -396,8 +497,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "#{path}?api_key=#{other_token}",
+        put_device_bearer(build_conn(), other_token),
+        path,
         %{"data" => %{"results" => []}}
       )
 
@@ -405,8 +506,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/command_results?api_key=wrong",
+        put_device_bearer(build_conn(), "wrong"),
+        "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/command_results",
         %{"data" => %{"results" => []}}
       )
 
@@ -414,8 +515,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
 
     conn =
       post(
-        build_conn(),
-        "/api/json/device_runtime/devices/#{pending.id}/command_results?api_key=anything",
+        put_device_bearer(build_conn(), "anything"),
+        "/api/json/device_runtime/devices/#{pending.id}/command_results",
         %{"data" => %{"results" => []}}
       )
 
@@ -470,8 +571,9 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
       conn
       |> put_req_header("accept", "application/vnd.api+json")
       |> put_req_header("content-type", "application/vnd.api+json")
+      |> put_device_bearer(token)
       |> post(
-        "/api/json/device_runtime/devices/#{approved.id}/command_results?api_key=#{token}",
+        "/api/json/device_runtime/devices/#{approved.id}/command_results",
         %{
           "data" => %{
             "results" => [
@@ -509,7 +611,8 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn =
       conn
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/generated-payload?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/generated-payload")
 
     assert %{
              "content_type" => "text/plain",
@@ -526,12 +629,13 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn =
       conn
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get("/api/json/device_runtime/devices/#{approved.id}/command_payloads/missing-payload")
 
     assert is_list(json_response(conn, 404)["errors"])
   end
 
-  test "generated deferred payload uses the device API-key boundary", %{
+  test "generated deferred payload uses the device bearer boundary", %{
     conn: conn,
     approved: approved,
     token: token
@@ -541,13 +645,17 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     conn = get(conn, path)
     assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
 
-    conn = get(build_conn(), "#{path}?api_key=wrong")
+    conn = get(build_conn(), "#{path}?api_key=#{token}")
+    assert %{"errors" => [%{"code" => "missing_api_key"}]} = json_response(conn, 401)
+
+    conn = get(put_device_bearer(build_conn(), "wrong"), path)
     assert %{"errors" => [%{"code" => "invalid_api_key"}]} = json_response(conn, 401)
 
     conn =
       build_conn()
       |> put_req_header("accept", "application/vnd.api+json")
-      |> get("#{path}?api_key=#{token}")
+      |> put_device_bearer(token)
+      |> get(path)
 
     assert is_list(json_response(conn, 404)["errors"])
   end
@@ -565,7 +673,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   end
 
   test "device runtime HTTP permission returns 404 before authentication for an unknown device", %{conn: conn} do
-    conn = get(conn, "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/heartbeat?api_key=wrong")
+    conn = get(put_device_bearer(conn, "wrong"), "/api/json/device_runtime/devices/#{Ecto.UUID.generate()}/heartbeat")
 
     assert %{"errors" => [%{"code" => "device_not_found"}]} = json_response(conn, 404)
   end
@@ -577,7 +685,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   end
 
   test "device runtime HTTP permission rejects unapproved devices", %{conn: conn, pending: pending} do
-    conn = get(conn, "/api/json/device_runtime/devices/#{pending.id}/heartbeat?api_key=anything")
+    conn = get(put_device_bearer(conn, "anything"), "/api/json/device_runtime/devices/#{pending.id}/heartbeat")
 
     assert %{"errors" => [%{"code" => "device_not_approved"}]} = json_response(conn, 403)
   end
@@ -587,32 +695,19 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
     approved: approved,
     token: token
   } do
-    conn = runtime_permission_conn(conn, approved.id, %{"api_key" => token})
+    conn = runtime_permission_conn(conn, approved.id, token)
     conn = JsonApiPermissions.call(conn, [])
 
     refute conn.halted
     assert Ash.PlugHelpers.get_actor(conn).id == approved.id
   end
 
-  defp with_env(name, value, fun) do
-    previous = System.get_env(name)
-    System.put_env(name, value)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp restore_env(name, nil), do: System.delete_env(name)
-  defp restore_env(name, value), do: System.put_env(name, value)
-
-  defp runtime_permission_conn(conn, device_id, query_params) do
+  defp runtime_permission_conn(conn, device_id, token) do
     conn
+    |> put_device_bearer(token)
     |> Map.put(:method, "POST")
     |> Map.put(:path_info, ["api", "json", "device_runtime", "devices", device_id, "heartbeat"])
     |> Map.put(:path_params, %{"device_id" => device_id})
-    |> Map.put(:query_params, query_params)
+    |> Map.put(:query_params, %{})
   end
 end

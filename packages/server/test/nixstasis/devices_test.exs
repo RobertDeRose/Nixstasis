@@ -4,6 +4,7 @@ defmodule Nixstasis.DevicesTest do
   import ExUnit.CaptureLog
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
 
   describe "devices" do
@@ -303,13 +304,72 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.get_device!(d2.id).approval_status == :rejected
     end
 
-    test "set_remote_access/2 toggles flag" do
+    test "set_remote_access/2 toggles bounded remote access" do
       device = device_fixture()
       assert {:ok, updated} = Devices.set_remote_access(device, true)
       assert updated.remote_access_requested == true
+      assert %DateTime{} = updated.remote_access_expires_at
+      assert Devices.remote_access_active?(updated)
 
       assert {:ok, updated} = Devices.set_remote_access(updated, false)
       assert updated.remote_access_requested == false
+      assert is_nil(updated.remote_access_expires_at)
+      assert is_nil(updated.remote_access_owner)
+      refute Devices.remote_access_active?(updated)
+    end
+
+    test "remote-access lease survives manager restart only until its original expiry" do
+      device = device_fixture(%{mac_address: "10:20:30:40:50:60"})
+
+      assert {:ok, opened, lease_ref} =
+               Devices.open_remote_access_lease(device,
+                 owner: self(),
+                 audit_owner: "operator@example.invalid",
+                 ttl_ms: 1_500
+               )
+
+      original_expiry = opened.remote_access_expires_at
+      token = FrpsToken.for_heartbeat(opened)
+      assert is_binary(token)
+      assert opened.remote_access_owner == "operator@example.invalid"
+      assert Devices.remote_access_lease_active?(lease_ref)
+
+      restart_remote_access_leases!()
+      Devices.sync_remote_access_leases()
+
+      restored = Devices.get_device!(device.id)
+      assert restored.remote_access_requested
+      assert restored.remote_access_expires_at == original_expiry
+      assert restored.remote_access_owner == "operator@example.invalid"
+      assert Devices.remote_access_active?(restored)
+      assert Devices.remote_access_lease_active?(lease_ref)
+
+      assert eventually(fn ->
+               refreshed = Devices.get_device!(device.id)
+               not refreshed.remote_access_requested and is_nil(refreshed.remote_access_expires_at)
+             end)
+
+      assert {:error, :expired} = FrpsToken.verify(token)
+    end
+
+    test "restart never recreates authorization from a stale device projection" do
+      device = device_fixture(%{mac_address: "10:20:30:40:50:61"})
+      assert {:ok, opened} = Devices.set_remote_access(device, true)
+
+      Repo.delete_all(from(l in Nixstasis.Devices.RemoteAccessLease, where: l.device_id == ^opened.id))
+
+      expired = Devices.get_device!(device.id)
+      assert expired.remote_access_requested
+      refute Devices.remote_access_active?(expired)
+      assert is_nil(FrpsToken.for_heartbeat(expired))
+
+      restart_remote_access_leases!()
+      Devices.sync_remote_access_leases()
+
+      refreshed = Devices.get_device!(device.id)
+      refute refreshed.remote_access_requested
+      assert is_nil(refreshed.remote_access_expires_at)
+      refute Devices.remote_access_active?(refreshed)
     end
 
     test "set_remote_access/3 stores a validated route profile" do
@@ -376,6 +436,29 @@ defmodule Nixstasis.DevicesTest do
       assert Devices.get_device!(rejected.id).approval_status == :rejected
     end
 
+    test "approve_device/1 preserves a public enrollment proof until credential exchange" do
+      attrs = %{
+        "mac_address" => "89:89:89:89:89:89",
+        "product_name" => "public-device",
+        "registration_token" => String.duplicate("p", 43),
+        "schema" => %{
+          "product" => "public-device",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      assert {:ok, %{data: data}} = Devices.register_runtime_device(attrs)
+      assert is_binary(data.registration_token)
+
+      pending = Devices.get_device!(data.id)
+      enrollment_hash = pending.api_token_hash
+      assert is_binary(enrollment_hash)
+
+      assert {:ok, approved} = Devices.approve_device(pending)
+      assert approved.api_token_hash == enrollment_hash
+    end
+
     test "approve_device/1 forces secure registration before runtime auth" do
       pending = device_fixture(%{approval_status: :pending})
 
@@ -383,6 +466,117 @@ defmodule Nixstasis.DevicesTest do
       assert approved.approval_status == :approved
       assert is_nil(approved.api_token_hash)
       assert Devices.authenticate_device(approved, "token") == {:error, :missing_token}
+    end
+
+    test "register_public_device/1 returns a proof usable for re-registration" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A0",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      pending =
+        device_fixture(%{mac_address: attrs["mac_address"], product_name: attrs["product_name"]})
+
+      assert {:ok, device, registration_token} = Devices.register_public_device(attrs)
+      assert device.id == pending.id
+      assert is_binary(registration_token) and registration_token != ""
+      assert device.api_token_hash != registration_token
+      assert Devices.get_device!(device.id).api_token_hash == device.api_token_hash
+
+      assert {:error, :forbidden} = Devices.register_public_device(attrs)
+
+      assert {:error, :forbidden} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", "invalid-token"))
+
+      assert {:ok, registered_again, nil} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", registration_token))
+
+      assert registered_again.id == device.id
+      assert registered_again.api_token_hash == device.api_token_hash
+    end
+
+    test "register_public_device/1 rejects a stale empty-slot claim without overwriting the winner" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A6",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        },
+        "metadata" => %{"request" => "winner"}
+      }
+
+      pending = device_fixture(%{mac_address: attrs["mac_address"]})
+      assert is_nil(pending.api_token_hash)
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+      handler_id = "registration-claim-#{System.unique_integer([:positive])}"
+      test_pid = self()
+
+      # Complete the competing request after the loser has read the empty slot,
+      # but before it resumes with that stale device snapshot.
+      :ok =
+        :telemetry.attach(
+          handler_id,
+          [:nixstasis, :repo, :query],
+          fn _event, _measurements, metadata, _config ->
+            if self() == test_pid and metadata.source == "devices" and
+                 String.starts_with?(metadata.query, "SELECT") do
+              :telemetry.detach(handler_id)
+              send(test_pid, {:winning_registration, Devices.register_public_device(attrs)})
+            end
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      assert {:error, :forbidden} =
+               Devices.register_public_device(Map.put(attrs, "metadata", %{"request" => "loser"}))
+
+      assert_receive {:winning_registration, {:ok, winner, proof}}
+      assert winner.id == pending.id
+      assert is_binary(proof) and proof != ""
+      persisted = Devices.get_device!(pending.id)
+      assert persisted.api_token_hash == winner.api_token_hash
+      assert persisted.metadata == %{"request" => "winner"}
+      assert_receive {:device_registered, %{id: id}}
+      assert id == pending.id
+      refute_receive {:device_registered, _}
+
+      assert {:ok, registered_again, nil} =
+               Devices.register_public_device(Map.put(attrs, "registration_token", proof))
+
+      assert registered_again.api_token_hash == winner.api_token_hash
+    end
+
+    test "register_public_device/1 rolls back the token claim when the attribute update fails" do
+      attrs = %{
+        "mac_address" => "AA:BB:CC:DD:EE:A7",
+        "product_name" => "public-thermostat",
+        "schema" => %{
+          "product" => "public-thermostat",
+          "type" => "object",
+          "properties" => %{}
+        }
+      }
+
+      pending = device_fixture(%{mac_address: attrs["mac_address"]})
+      Phoenix.PubSub.subscribe(Nixstasis.PubSub, "devices")
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Devices.register_public_device(Map.put(attrs, "last_seen_at", "invalid"))
+
+      assert is_nil(Devices.get_device!(pending.id).api_token_hash)
+      refute_receive {:device_registered, _}
+      assert {:ok, registered, proof} = Devices.register_public_device(attrs)
+      assert registered.id == pending.id
+      assert is_binary(proof) and proof != ""
     end
 
     test "register_public_device/1 rejects missing schema" do
@@ -568,6 +762,140 @@ defmodule Nixstasis.DevicesTest do
     end
   end
 
+  describe "SSH host key trust" do
+    @host_key_a "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    @host_key_b "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+
+    test "first authenticated heartbeat host key is enrolled as trusted" do
+      device = device_fixture(%{mac_address: "75:75:75:75:75:75", approval_status: :approved})
+
+      assert {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      assert enrolled.ssh_host_key == @host_key_a
+      assert is_nil(enrolled.ssh_host_key_pending)
+      assert %DateTime{} = enrolled.ssh_host_key_trusted_at
+      assert enrolled.ssh_host_key_trusted_by == "device-heartbeat:#{device.id}"
+    end
+
+    test "changed host key is held pending and cannot replace the trusted key" do
+      device = device_fixture(%{mac_address: "76:76:76:76:76:76", approval_status: :approved})
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+
+      assert {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      assert changed.ssh_host_key == @host_key_a
+      assert changed.ssh_host_key_pending == @host_key_b
+    end
+
+    test "operator recovery explicitly accepts a pending host key and records the previous fingerprint" do
+      device = device_fixture(%{mac_address: "77:77:77:77:77:77", approval_status: :approved})
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      previous_fingerprint = Devices.ssh_host_key_fingerprint(@host_key_a)
+
+      assert {:ok, trusted} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test@example.com",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      assert trusted.ssh_host_key == @host_key_b
+      assert is_nil(trusted.ssh_host_key_pending)
+      assert trusted.ssh_host_key_previous_fingerprint == previous_fingerprint
+      assert trusted.ssh_host_key_trusted_by == "operator:test@example.com"
+    end
+
+    test "recovery rejects a fingerprint other than the one reviewed" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+
+      for fingerprint <- [nil, "", Devices.ssh_host_key_fingerprint(@host_key_a)] do
+        assert {:error, :ssh_host_key_changed} =
+                 Devices.accept_pending_ssh_host_key(changed, "operator:test", fingerprint)
+      end
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert Devices.get_device!(device.id).ssh_host_key_pending == @host_key_b
+    end
+
+    test "recovery cannot promote a pending key removed after review" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      {:ok, _restored} = Devices.record_ssh_host_key(changed, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert is_nil(Devices.get_device!(device.id).ssh_host_key_pending)
+    end
+
+    test "recovery cannot promote a different pending key after review" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+      replacement = "ssh-ed25519 " <> Base.encode64(<<11::32, "ssh-ed25519", 32::32, 2::256>>)
+      {:ok, _replaced} = Devices.record_ssh_host_key(changed, replacement)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:test",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      assert Devices.get_device!(device.id).ssh_host_key == @host_key_a
+      assert Devices.get_device!(device.id).ssh_host_key_pending == replacement
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(changed, @host_key_a)
+    end
+
+    test "a competing enrollment cannot overwrite the first trusted key" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(device, @host_key_b)
+      assert Devices.get_device!(device.id).ssh_host_key == enrolled.ssh_host_key
+    end
+
+    test "a stale heartbeat cannot overwrite an operator trust decision" do
+      device = device_fixture()
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+
+      {:ok, trusted} =
+        Devices.accept_pending_ssh_host_key(changed, "operator:test", Devices.ssh_host_key_fingerprint(@host_key_b))
+
+      assert {:error, :ssh_host_key_changed} = Devices.record_ssh_host_key(changed, @host_key_a)
+
+      assert {:error, :ssh_host_key_changed} =
+               Devices.accept_pending_ssh_host_key(
+                 changed,
+                 "operator:other",
+                 Devices.ssh_host_key_fingerprint(@host_key_b)
+               )
+
+      current = Devices.get_device!(device.id)
+      assert current.ssh_host_key == trusted.ssh_host_key
+      assert current.ssh_host_key_trusted_by == "operator:test"
+      assert is_nil(current.ssh_host_key_pending)
+    end
+
+    test "return to the trusted host key clears a stale pending mismatch" do
+      device = device_fixture(%{mac_address: "78:78:78:78:78:78", approval_status: :approved})
+      {:ok, enrolled} = Devices.record_ssh_host_key(device, @host_key_a)
+      {:ok, changed} = Devices.record_ssh_host_key(enrolled, @host_key_b)
+
+      assert {:ok, restored} = Devices.record_ssh_host_key(changed, @host_key_a)
+      assert restored.ssh_host_key == @host_key_a
+      assert is_nil(restored.ssh_host_key_pending)
+    end
+  end
+
   describe "queue_terminal_revoke/2" do
     test "returns :ok for empty session_ref without queuing anything" do
       device = device_fixture(%{mac_address: "70:70:70:70:70:70", approval_status: :approved})
@@ -615,4 +943,22 @@ defmodule Nixstasis.DevicesTest do
       assert log =~ "failed to queue terminal revoke for device #{missing_device.id}"
     end
   end
+
+  defp restart_remote_access_leases! do
+    :ok = Supervisor.terminate_child(Nixstasis.Supervisor, Devices)
+    {:ok, _} = Supervisor.restart_child(Nixstasis.Supervisor, Devices)
+  end
+
+  defp eventually(fun, attempts \\ 100)
+
+  defp eventually(fun, attempts) when attempts > 0 do
+    if fun.() do
+      true
+    else
+      Process.sleep(20)
+      eventually(fun, attempts - 1)
+    end
+  end
+
+  defp eventually(_fun, 0), do: false
 end

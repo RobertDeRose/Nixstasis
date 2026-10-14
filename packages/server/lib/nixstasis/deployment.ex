@@ -1,7 +1,7 @@
 defmodule Nixstasis.Deployment do
   @moduledoc false
 
-  import Nixstasis.Utilities, only: [format_mac_address: 1]
+  alias Nixstasis.Devices
 
   @default_port 4000
   @reserved_subdomains ~w(nixstasis auth frp-admin)
@@ -44,18 +44,38 @@ defmodule Nixstasis.Deployment do
     Application.get_env(:nixstasis, :base_domain) || System.get_env("BASE_DOMAIN")
   end
 
-  def approved_tls_domain?(domain, remote_access_requested? \\ &Nixstasis.Devices.requesting_remote_access?/1)
+  def approved_tls_domain?(domain, remote_access_requested? \\ &active_device_authorization?/1)
 
   def approved_tls_domain?(domain, remote_access_requested?) when is_binary(domain) do
     case subdomain_for(domain) do
-      {:ok, subdomain} when subdomain in @reserved_subdomains -> true
-      {:ok, "tls-validate-" <> _nonce} -> Nixstasis.TLSObservations.enabled?() and base_domain() == "localhost"
-      {:ok, "atom-" <> normalized_device_id} -> remote_access_requested?.(format_mac_address(normalized_device_id))
-      _ -> false
+      {:ok, subdomain} when subdomain in @reserved_subdomains ->
+        true
+
+      {:ok, "tls-validate-" <> _nonce} ->
+        Nixstasis.TLSObservations.enabled?() and base_domain() == "localhost"
+
+      {:ok, "atom-" <> normalized_device_id} ->
+        with [_, hex_id] <- Regex.run(~r/^([0-9a-f]{32})(?:-[a-z][a-z0-9-]*)?$/, normalized_device_id),
+             {:ok, bytes} <- Base.decode16(hex_id, case: :lower),
+             {:ok, device_id} <- Ecto.UUID.cast(bytes) do
+          remote_access_requested?.(device_id)
+        else
+          _ -> false
+        end
+
+      _ ->
+        false
     end
   end
 
   def approved_tls_domain?(_, _), do: false
+
+  defp active_device_authorization?(device_id) do
+    case Devices.get_device(device_id) do
+      {:ok, device} -> Devices.remote_access_active?(device)
+      _ -> false
+    end
+  end
 
   def subdomain_for(domain) when is_binary(domain) do
     normalized_domain =

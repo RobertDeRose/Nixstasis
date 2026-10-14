@@ -19,6 +19,7 @@ type cliOptions struct {
 	environment      string
 	trigger          string
 	protocolVersion  string
+	runnerID         string
 	idempotencyKey   string
 	journey          string
 	journeys         string
@@ -67,6 +68,7 @@ func parseFlags() cliOptions {
 	environment := flag.String("env", "", "environment label")
 	trigger := flag.String("trigger", "", "trigger source (manual|ci)")
 	protocolVersion := flag.String("protocol-version", "", "E2E protocol version header")
+	runnerID := flag.String("runner-id", "", "E2E runner principal id (token comes from NIXSTASIS_E2E_RUNNER_TOKEN)")
 	idempotencyKey := flag.String("idempotency-key", "", "optional idempotency key for run creation")
 	journey := flag.String("journey", "", "single journey id")
 	journeys := flag.String("journeys", "", "comma-separated journey ids")
@@ -79,6 +81,7 @@ func parseFlags() cliOptions {
 		environment:     *environment,
 		trigger:         *trigger,
 		protocolVersion: *protocolVersion,
+		runnerID:        *runnerID,
 		idempotencyKey:  *idempotencyKey,
 		journey:         *journey,
 		journeys:        *journeys,
@@ -100,6 +103,9 @@ func applyOverrides(cfg *e2e.Config, opts cliOptions) bool {
 	}
 	if opts.protocolVersion != "" {
 		cfg.ProtocolVersion = opts.protocolVersion
+	}
+	if opts.runnerID != "" {
+		cfg.RunnerID = opts.runnerID
 	}
 	if opts.idempotencyKey != "" {
 		cfg.IdempotencyKey = opts.idempotencyKey

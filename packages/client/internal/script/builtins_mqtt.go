@@ -12,6 +12,29 @@ import (
 	"go.starlark.net/starlark"
 )
 
+// maxMQTTReplyBytes bounds one pub_and_get reply before JSON decoding or
+// conversion to a Starlark string.
+const maxMQTTReplyBytes = 1 << 20
+
+// mqttReply carries either an accepted reply payload or a terminal reply error
+// from the MQTT handler to the waiting builtin.
+type mqttReply struct {
+	payload []byte
+	err     error
+}
+
+// pubAndGetBuiltin implements pub_and_get(topic, msg, reply_topic?, accept?).
+// It publishes msg on topic and returns the first matching reply on reply_topic
+// (default: topic) as a string. Both topics must be concrete and match the
+// configured publish and subscribe allowlists, and accept filters JSON replies
+// by top-level field values. When the topics are equal, an exact echo of msg is
+// ignored. Calls are serialized to protect shared subscriptions. A reply larger
+// than maxMQTTReplyBytes fails the call, and no reply within five seconds
+// returns None. Context cancellation returns ErrTimeout when observed before
+// broker work starts or while waiting for the reply. The connect, subscribe, and
+// publish waits use fixed timeouts instead and fail with that operation's error,
+// or with a timeout error when the broker never completes it.
+//
 //nolint:gocyclo // Starlark builtin argument coercion and MQTT request validation are intentionally kept together.
 func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	ctx := runtimeContext(thread)
@@ -52,7 +75,7 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 	if !topicAllowed(replyTopic, r.config.MQTTSubscribeTopics) {
 		return nil, fmt.Errorf("subscribe topic is not allowed: %s", replyTopic)
 	}
-	acceptCriteria, err := parseAcceptCriteria(accept)
+	acceptCriteria, err := parseAcceptCriteria(ctx, accept)
 	if err != nil {
 		return nil, err
 	}
@@ -65,36 +88,48 @@ func (r *Runtime) pubAndGetBuiltin(thread *starlark.Thread, _ *starlark.Builtin,
 		return nil, err
 	}
 
-	responseCh := make(chan []byte, 1)
+	responseCh := make(chan mqttReply, 1)
 	var handler mqtt.MessageHandler = func(_ mqtt.Client, message mqtt.Message) {
 		payload := message.Payload()
-		if replyTopic == topic && string(payload) == msg {
+		if replyTopic == topic && len(payload) == len(msg) && string(payload) == msg {
 			return
 		}
-		if !responseMatchesAccept(payload, acceptCriteria) {
+
+		matches, err := responseMatchesAccept(payload, acceptCriteria)
+		if err != nil {
+			select {
+			case responseCh <- mqttReply{err: err}:
+			default:
+			}
+			return
+		}
+		if !matches {
 			return
 		}
 		select {
-		case responseCh <- payload:
+		case responseCh <- mqttReply{payload: payload}:
 		default:
 		}
 	}
 
-	if token := client.Subscribe(replyTopic, 0, handler); !token.WaitTimeout(3*time.Second) || token.Error() != nil {
-		return nil, fmt.Errorf("subscribe failed: %w", token.Error())
+	if err := awaitToken(client.Subscribe(replyTopic, 0, handler), "subscribe", 3*time.Second); err != nil {
+		return nil, err
 	}
 	defer func() {
 		token := client.Unsubscribe(replyTopic)
 		token.WaitTimeout(2 * time.Second)
 	}()
 
-	if token := client.Publish(topic, 0, false, msg); !token.WaitTimeout(3*time.Second) || token.Error() != nil {
-		return nil, fmt.Errorf("publish failed: %w", token.Error())
+	if err := awaitToken(client.Publish(topic, 0, false, msg), "publish", 3*time.Second); err != nil {
+		return nil, err
 	}
 
 	select {
-	case payload := <-responseCh:
-		return starlark.String(string(payload)), nil
+	case response := <-responseCh:
+		if response.err != nil {
+			return nil, response.err
+		}
+		return starlark.String(string(response.payload)), nil
 	case <-ctx.Done():
 		return nil, ErrTimeout
 	case <-time.After(5 * time.Second):
@@ -113,44 +148,55 @@ func runtimeContext(thread *starlark.Thread) context.Context {
 	return ctx
 }
 
-func parseAcceptCriteria(accept *starlark.Dict) (map[string]any, error) {
+// parseAcceptCriteria converts optional reply filters using bounded native
+// conversion and validates top-level JSON field names. A nil dictionary means
+// no filtering; conversion and key validation failures return an error.
+func parseAcceptCriteria(ctx context.Context, accept *starlark.Dict) (map[string]any, error) {
 	if accept == nil {
 		return nil, nil
 	}
-	criteria := make(map[string]any, accept.Len())
-	for _, item := range accept.Items() {
-		field, ok := item[0].(starlark.String)
-		if !ok {
-			return nil, fmt.Errorf("accept keys must be strings")
-		}
-		name := string(field)
+
+	converted, err := starlarkValueToGo(ctx, accept)
+	if err != nil {
+		return nil, fmt.Errorf("accept criteria: %w", err)
+	}
+	criteria, ok := converted.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("accept criteria must be a dict")
+	}
+	for name := range criteria {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, ".[]") {
 			return nil, fmt.Errorf("accept keys must be non-empty top-level JSON field names")
 		}
-		value, err := starlarkValueToGo(item[1])
-		if err != nil {
-			return nil, fmt.Errorf("accept value for %s: %w", name, err)
-		}
-		criteria[name] = value
 	}
 	return criteria, nil
 }
 
-func responseMatchesAccept(payload []byte, accept map[string]any) bool {
+// responseMatchesAccept enforces the reply size ceiling and reports whether a
+// reply satisfies the accept criteria. A reply larger than maxMQTTReplyBytes
+// returns an error before any decoding. With no criteria every bounded reply
+// matches; otherwise the reply must be a JSON object whose named top-level
+// fields are all present and equal, and numeric criteria also match equal JSON
+// numbers. Malformed JSON is a non-match, not an error, so the call keeps
+// waiting for a valid reply.
+func responseMatchesAccept(payload []byte, accept map[string]any) (bool, error) {
+	if len(payload) > maxMQTTReplyBytes {
+		return false, fmt.Errorf("mqtt reply payload exceeded %d-byte limit", maxMQTTReplyBytes)
+	}
 	if len(accept) == 0 {
-		return true
+		return true, nil
 	}
 	var input map[string]any
 	if err := json.Unmarshal(payload, &input); err != nil {
-		return false
+		return false, nil //nolint:nilerr // Malformed replies do not match accept criteria; keep waiting for a valid reply.
 	}
 	for key, want := range accept {
 		got, ok := input[key]
 		if !ok || !acceptValuesEqual(got, want) {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func acceptValuesEqual(got, want any) bool {
@@ -185,12 +231,18 @@ func topicAllowed(topic string, patterns []string) bool {
 	return false
 }
 
+// mqttTopicMatch matches a concrete topic against an allowlist pattern,
+// supporting + for one level and a final # for remaining levels. As in the
+// MQTT specification, a leading wildcard never matches a $-prefixed topic.
 func mqttTopicMatch(pattern, topic string) bool {
-	if pattern == "" || topic == "" {
+	if pattern == "" || !mqttTopicNameIsConcrete(topic) {
 		return false
 	}
 	patternParts := strings.Split(pattern, "/")
 	topicParts := strings.Split(topic, "/")
+	if strings.HasPrefix(topic, "$") && (patternParts[0] == "+" || patternParts[0] == "#") {
+		return false
+	}
 	for i, part := range patternParts {
 		if part == "#" {
 			return i == len(patternParts)-1
@@ -203,6 +255,26 @@ func mqttTopicMatch(pattern, topic string) bool {
 		}
 	}
 	return len(patternParts) == len(topicParts)
+}
+
+// mqttTopicNameIsConcrete reports whether a topic is nonempty and contains
+// neither MQTT wildcard character (+ or #).
+func mqttTopicNameIsConcrete(topic string) bool {
+	return topic != "" && !strings.ContainsAny(topic, "+#")
+}
+
+// awaitToken waits up to timeout for an MQTT operation to complete. It returns
+// the operation's error when it failed, a timeout error when it did not
+// complete in time, and nil when it succeeded.
+func awaitToken(token mqtt.Token, operation string, timeout time.Duration) error {
+	completed := token.WaitTimeout(timeout)
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("%s failed: %w", operation, err)
+	}
+	if !completed {
+		return fmt.Errorf("%s timed out after %s", operation, timeout)
+	}
+	return nil
 }
 
 func (r *Runtime) connectMQTT() (mqtt.Client, error) {
@@ -222,9 +294,9 @@ func (r *Runtime) connectMQTT() (mqtt.Client, error) {
 	opts.SetClientID(fmt.Sprintf("nixstasis-stary-%d-%d", time.Now().UnixNano(), r.mqttSeq.Add(1)))
 
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); !token.WaitTimeout(5*time.Second) || token.Error() != nil {
+	if err := awaitToken(client.Connect(), "mqtt connect", 5*time.Second); err != nil {
 		r.mqttFailures++
-		return nil, fmt.Errorf("mqtt connect failed: %w", token.Error())
+		return nil, err
 	}
 
 	r.mqttFailures = 0

@@ -461,6 +461,9 @@ defmodule NixstasisWeb.ScriptLive.Show do
     if focus_id, do: push_event(socket, "focus_schema_field_name", %{id: "sf-name-#{focus_id}"}), else: socket
   end
 
+  # Queues a test of version on devices for the current draft and refreshes the
+  # test runs and client actions on success. Failures become an error flash, with
+  # a specific message for scripts over the 1 MiB device download limit.
   defp queue_test(socket, version, devices) do
     draft = socket.assigns.draft
 
@@ -474,11 +477,18 @@ defmodule NixstasisWeb.ScriptLive.Show do
          |> assign(:client_actions, list_client_actions(test_runs, socket.assigns.deployment_runs))
          |> put_flash(:info, "Test queued for #{length(devices)} device(s)")}
 
+      {:error, :payload_too_large} ->
+        {:noreply, put_flash(socket, :error, "Failed to queue test: script exceeds the 1 MiB device download limit")}
+
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to queue test: #{inspect(reason)}")}
     end
   end
 
+  # Queues a deployment of version on devices for the current draft and refreshes
+  # the deployment runs and client actions on success. A nil version means no
+  # validated version exists yet. Failures become an error flash, with a specific
+  # message for scripts over the 1 MiB device download limit.
   defp queue_deployment(socket, nil, _devices) do
     {:noreply, put_flash(socket, :error, "No script version available. Run validation first to create one.")}
   end
@@ -495,6 +505,10 @@ defmodule NixstasisWeb.ScriptLive.Show do
          |> assign(:deployment_runs, deployment_runs)
          |> assign(:client_actions, list_client_actions(socket.assigns.test_runs, deployment_runs))
          |> put_flash(:info, "Deployment queued for #{length(devices)} device(s)")}
+
+      {:error, :payload_too_large} ->
+        {:noreply,
+         put_flash(socket, :error, "Failed to queue deployment: script exceeds the 1 MiB device download limit")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to queue deployment: #{inspect(reason)}")}

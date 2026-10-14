@@ -39,6 +39,8 @@ defmodule Nixstasis.MixProject do
   # Specifies your project dependencies.
   #
   # Type `mix help deps` for examples and options.
+  # Declare build and runtime dependencies, including the SAT solver needed by
+  # Ash's policy authorizer to enforce the device and settings access rules.
   defp deps do
     [
       {:sourceror, "~> 1.8", only: [:dev, :test]},
@@ -52,6 +54,7 @@ defmodule Nixstasis.MixProject do
       {:ash_json_api, "~> 1.0"},
       {:ash_phoenix, "~> 2.0"},
       {:ash, "~> 3.0"},
+      {:simple_sat, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:dns_cluster, "~> 0.2"},
       {:ecto_psql_extras, "~> 0.6"},
@@ -85,6 +88,9 @@ defmodule Nixstasis.MixProject do
   #     $ mix setup
   #
   # See the documentation for `Mix` for more info on aliases.
+  #
+  # `precommit` mirrors the repository hooks: compile with warnings as errors,
+  # prune unused lock entries, format, and run the test suite.
   defp aliases do
     [
       setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],
@@ -108,7 +114,7 @@ defmodule Nixstasis.MixProject do
         "openapi.spec.yaml --spec NixstasisWeb.AshJsonApiOpenAPISpec --filename priv/static/openapi.yaml --start-app=false"
       ],
       precommit: [
-        "compile --no-optional-deps --warning-as-errors",
+        "compile --no-optional-deps --warnings-as-errors",
         "deps.unlock --unused",
         "format",
         "test"

@@ -25,6 +25,17 @@ defmodule Nixstasis.E2E do
     Repo.all(from run in Run, order_by: [desc: run.inserted_at])
   end
 
+  def list_runs_for_runner(runner_id, opts \\ []) when is_binary(runner_id) do
+    limit = opts |> Keyword.get(:limit, 100) |> min(100) |> max(1)
+
+    Repo.all(
+      from run in Run,
+        where: run.runner_id == ^runner_id,
+        order_by: [desc: run.inserted_at],
+        limit: ^limit
+    )
+  end
+
   def list_suites do
     Application.get_env(:nixstasis, :e2e, [])
     |> Keyword.get(:suites, %{})
@@ -41,6 +52,13 @@ defmodule Nixstasis.E2E do
 
   def get_run(id) do
     case Repo.get(Run, id) do
+      nil -> {:error, :not_found}
+      run -> {:ok, run}
+    end
+  end
+
+  def get_run_for_runner(id, runner_id) when is_binary(id) and is_binary(runner_id) do
+    case Repo.get_by(Run, id: id, runner_id: runner_id) do
       nil -> {:error, :not_found}
       run -> {:ok, run}
     end
@@ -209,7 +227,7 @@ defmodule Nixstasis.E2E do
   def fetch_result_log(_run_id, _journey_id), do: {:error, :not_found}
 
   defp create_or_reuse_run(attrs, journey_ids, protocol_version) do
-    case fetch_idempotent_run(attrs.environment_label, attrs.idempotency_key) do
+    case fetch_idempotent_run(attrs.runner_id, attrs.environment_label, attrs.idempotency_key) do
       %Run{} = run ->
         emit_event([:run, :idempotency, :hit], %{count: 1}, %{run_id: run.id, environment_label: run.environment_label})
         {:ok, run}
@@ -301,6 +319,7 @@ defmodule Nixstasis.E2E do
           environment_label: attrs.environment_label,
           trigger_source: attrs.trigger_source,
           protocol_version: protocol_version,
+          runner_id: attrs.runner_id,
           idempotency_key: attrs.idempotency_key,
           idempotency_expires_at: idempotency_expires_at,
           status: "queued",
@@ -393,6 +412,7 @@ defmodule Nixstasis.E2E do
       environment_label: fetch_attr(attrs, "environment_label", :environment_label),
       trigger_source: fetch_attr(attrs, "trigger_source", :trigger_source),
       protocol_version: fetch_attr(attrs, "protocol_version", :protocol_version),
+      runner_id: fetch_attr(attrs, "runner_id", :runner_id, "internal"),
       idempotency_key: attrs |> fetch_attr("idempotency_key", :idempotency_key) |> normalize_idempotency_key(),
       run_metadata: fetch_attr(attrs, "metadata", :run_metadata, %{}),
       legacy_client_version: fetch_attr(attrs, "client_version", :client_version),
@@ -510,14 +530,15 @@ defmodule Nixstasis.E2E do
     |> DateTime.add(@idempotency_ttl_seconds, :second)
   end
 
-  defp fetch_idempotent_run(_environment_label, nil), do: nil
+  defp fetch_idempotent_run(_runner_id, _environment_label, nil), do: nil
 
-  defp fetch_idempotent_run(environment_label, idempotency_key) do
+  defp fetch_idempotent_run(runner_id, environment_label, idempotency_key) do
     now = DateTime.utc_now()
 
     from(run in Run,
       where:
-        run.environment_label == ^environment_label and run.idempotency_key == ^idempotency_key and
+        run.runner_id == ^runner_id and run.environment_label == ^environment_label and
+          run.idempotency_key == ^idempotency_key and
           run.idempotency_expires_at > ^now,
       order_by: [desc: run.inserted_at],
       limit: 1

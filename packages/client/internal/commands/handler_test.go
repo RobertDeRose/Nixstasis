@@ -68,6 +68,32 @@ func TestGivenExpiredContext_WhenExecuteBatch_ThenTimeoutReported(t *testing.T) 
 	}
 }
 
+// TestGivenOversizedServerScriptPayload_WhenExecuteBatch_ThenRejectsBeforeParsing
+// verifies that install_script and run_script payloads one byte over the Stary
+// source limit fail with the source-size error instead of being parsed.
+func TestGivenOversizedServerScriptPayload_WhenExecuteBatch_ThenRejectsBeforeParsing(t *testing.T) {
+	handler := NewHandler(t.TempDir())
+	base := "---\nname: oversized\nversion: \"1\"\nschema:\n  type: object\n---\n\ndef main():\n    return {}\n#"
+	content := base + strings.Repeat("x", (1<<20)+1-len(base))
+
+	for _, commandType := range []string{"install_script", "run_script"} {
+		t.Run(commandType, func(t *testing.T) {
+			result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+				CommandID: "cmd-" + commandType,
+				Type:      commandType,
+				Payload:   &transport.CommandPayload{Data: content},
+			}})[0]
+
+			if result.Status != transport.CommandStatusFailed {
+				t.Fatalf("expected oversized %s payload to fail, got status=%s", commandType, result.Status)
+			}
+			if !strings.Contains(result.Error, "stary source exceeds maximum size") {
+				t.Fatalf("expected source-size error, got %q", result.Error)
+			}
+		})
+	}
+}
+
 func TestGivenValidRunScriptPayload_WhenExecuteBatch_ThenReturnsStructuredResult(t *testing.T) {
 	handler := NewHandler("")
 	content := strings.TrimSpace(`---
@@ -865,5 +891,34 @@ def main():
 
 	if result.Status != transport.CommandStatusOK {
 		t.Fatalf("expected remove_script to succeed once committed, got status=%s error=%s", result.Status, result.Error)
+	}
+}
+
+func TestApplyCommandPolicyCannotExpandLocalArgumentOrReadCapabilities(t *testing.T) {
+	runtimeCfg := script.RuntimeConfig{
+		ExecArgumentAllowlist: map[string][][]string{
+			"/usr/bin/uname": {{"-srmo"}},
+		},
+		ReadFileAllowlist: []string{"/proc/loadavg"},
+	}
+	handler := NewHandlerWithSSHAuthRuntimeConfigAndPolicyStore("", nil, &runtimeCfg, nil)
+
+	result := handler.ExecuteBatch(context.Background(), []transport.CommandRequest{{
+		CommandID: "cmd-policy",
+		Type:      applyCommandPolicyCommandType,
+		Payload: &transport.CommandPayload{
+			Data: `{"version":"v1","commands":{"reader":"/usr/bin/cat"}}`,
+		},
+	}})[0]
+	if result.Status != transport.CommandStatusOK {
+		t.Fatalf("expected apply_command_policy to succeed, got %s: %s", result.Status, result.Error)
+	}
+
+	allowedArgs := runtimeCfg.ExecArgumentAllowlist["/usr/bin/uname"]
+	if len(allowedArgs) != 1 || len(allowedArgs[0]) != 1 || allowedArgs[0][0] != "-srmo" {
+		t.Fatalf("command policy mutated local argument capabilities: %#v", runtimeCfg.ExecArgumentAllowlist)
+	}
+	if len(runtimeCfg.ReadFileAllowlist) != 1 || runtimeCfg.ReadFileAllowlist[0] != "/proc/loadavg" {
+		t.Fatalf("command policy mutated local file capabilities: %#v", runtimeCfg.ReadFileAllowlist)
 	}
 }

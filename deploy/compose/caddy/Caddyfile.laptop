@@ -50,6 +50,13 @@
       validate bearer header
       inject headers with claims
     }
+
+    authorization policy frp_admin_policy {
+      set auth url https://auth.{$BASE_DOMAIN}
+      allow roles nixstasis/admin
+      crypto key verify {$JWT_KEY}
+      validate bearer header
+    }
   }
 }
 
@@ -68,45 +75,74 @@ nixstasis.{$BASE_DOMAIN} {
     on_demand
   }
 
+  @frp_internal path /internal/frp/*
+
+  # Prevent hop-by-hop cleanup from removing verified claims after authorization.
+  @unsafe_connection header_regexp Connection `(?i)(^|,)[ \t]*x-(token-[^, \t]*|nixstasis-proxy-token)[ \t]*(,|$)`
+
+  # Remove client claims before AuthCrunch injects verified operator claims.
+  request_header -X-Token-*
+
   @device_registration {
     method POST
-    path /api/v1/devices/register
+    path /api/v1/devices/register /api/json/device_runtime/devices/register
   }
 
   @device_heartbeat {
     method POST
-    path_regexp ^/api/v1/devices/[^/]+/heartbeat$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/heartbeat$
   }
 
   @device_command_results {
     method POST
-    path_regexp ^/api/v1/devices/[^/]+/command_results$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/command_results$
   }
 
   @device_command_payload {
     method GET
-    path_regexp ^/api/v1/devices/[^/]+/command_payloads/[^/]+$
+    path_regexp ^/api/(v1|json/device_runtime)/devices/[^/]+/command_payloads/[^/]+$
   }
 
-  handle @device_registration {
-    reverse_proxy nixstasis:{$PORT}
-  }
+  # Explicit order keeps rejection ahead of all device and operator handlers.
+  route {
+    respond @unsafe_connection 400
+    respond @frp_internal "Not Found" 404
 
-  handle @device_heartbeat {
-    reverse_proxy nixstasis:{$PORT}
-  }
+    handle @device_registration {
+      reverse_proxy nixstasis:{$PORT} {
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
 
-  handle @device_command_results {
-    reverse_proxy nixstasis:{$PORT}
-  }
+    handle @device_heartbeat {
+      reverse_proxy nixstasis:{$PORT} {
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
 
-  handle @device_command_payload {
-    reverse_proxy nixstasis:{$PORT}
-  }
+    handle @device_command_results {
+      reverse_proxy nixstasis:{$PORT} {
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
 
-  handle {
-    authorize with entra_policy
-    reverse_proxy nixstasis:{$PORT}
+    handle @device_command_payload {
+      reverse_proxy nixstasis:{$PORT} {
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
+
+    handle {
+      authorize with entra_policy
+      reverse_proxy nixstasis:{$PORT} {
+        header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+        header_up X-Nixstasis-Client-IP {http.request.remote.host}
+      }
+    }
   }
 }
 
@@ -116,7 +152,7 @@ frp-admin.{$BASE_DOMAIN} {
     on_demand
   }
 
-  authorize with entra_policy
+  authorize with frp_admin_policy
   reverse_proxy frps:{$FRPS_DASHBOARD_PORT}
 }
 
@@ -126,8 +162,19 @@ frp-admin.{$BASE_DOMAIN} {
     on_demand
   }
 
-  authorize with entra_policy
-  header -X-Frame-Options
-  header Content-Security-Policy "frame-ancestors 'self' https://nixstasis.{$BASE_DOMAIN}"
-  reverse_proxy frps:{$FRPS_HTTP_PORT}
+  # Explicit order: drop client claims, let AuthCrunch inject verified claims,
+  # then ask Phoenix for device access before proxying to FRPS.
+  route {
+    request_header -X-Token-*
+    authorize with entra_policy
+    forward_auth nixstasis:{$PORT} {
+      uri /internal/frp/access
+      header_up Accept application/json
+      header_up X-Nixstasis-Proxy-Token {$NIXSTASIS_PROXY_AUTH_TOKEN}
+      header_up X-Nixstasis-Requested-Host {host}
+    }
+    header -X-Frame-Options
+    header Content-Security-Policy "frame-ancestors 'self' https://nixstasis.{$BASE_DOMAIN}"
+    reverse_proxy frps:{$FRPS_HTTP_PORT}
+  }
 }

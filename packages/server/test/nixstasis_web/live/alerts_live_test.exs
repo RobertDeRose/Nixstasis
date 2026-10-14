@@ -69,6 +69,136 @@ defmodule NixstasisWeb.AlertsLiveTest do
     refute html =~ "resolved alert"
   end
 
+  test "active alerts are scoped to the viewer's authorized devices", %{conn: conn} do
+    {:ok, authorized_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:36",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, other_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:37",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, authorized_alert} =
+      Domain.create_alert(%{
+        device_id: authorized_device.id,
+        type: :offline,
+        status: :active,
+        message: "authorized scoped alert"
+      })
+
+    {:ok, other_alert} =
+      Domain.create_alert(%{
+        device_id: other_device.id,
+        type: :offline,
+        status: :active,
+        message: "out-of-scope alert"
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("alert_permissions", %{"can_view" => true, "can_manage" => false})
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => [authorized_device.id]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts")
+
+    assert has_element?(view, "#alert-#{authorized_alert.id}", "authorized scoped alert")
+    assert has_element?(view, "#alert-#{authorized_alert.id}", authorized_device.mac_address)
+    refute has_element?(view, "#alert-#{other_alert.id}")
+    refute has_element?(view, "#alerts tr", other_device.mac_address)
+  end
+
+  test "active alerts fail closed when the device scope is invalid", %{conn: conn} do
+    {:ok, device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:38",
+        "product_name" => "alert-page-device"
+      })
+
+    {:ok, alert} =
+      Domain.create_alert(%{
+        device_id: device.id,
+        type: :offline,
+        status: :active,
+        message: "must stay hidden"
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("alert_permissions", %{"can_view" => true, "can_manage" => false})
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => ["not-a-uuid"]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts")
+
+    refute has_element?(view, "#alert-#{alert.id}")
+    refute has_element?(view, "#alerts tr", device.mac_address)
+  end
+
+  test "viewer can read alert rules but cannot create, edit, or delete them", %{conn: conn} do
+    {:ok, rule} =
+      Domain.create_rule(%{
+        name: "Viewer protected rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("alert_permissions", %{"can_view" => true, "can_manage" => false})
+
+    {:ok, view, html} = live(conn, ~p"/alerts/rules")
+
+    assert html =~ "Viewer protected rule"
+    assert html =~ "Alert Rules"
+    refute has_element?(view, "#alert-add-rule")
+    refute has_element?(view, "thead th", "Actions")
+    refute has_element?(view, "button[aria-label='Edit rule #{rule.id}']")
+    refute has_element?(view, "button[aria-label='Delete rule #{rule.id}']")
+
+    before_count = length(Domain.list_rules!())
+
+    assert render_submit(view, "save_rule", %{
+             "schema_id" => "alert-schema-product",
+             "schema_version" => "v1",
+             "alert_rule" => %{
+               "name" => "Viewer injected rule",
+               "condition_field" => "temp",
+               "operator" => ">",
+               "threshold_value" => "80"
+             }
+           }) =~ "Not authorized to manage alert rules"
+
+    assert render_click(view, "confirm_delete_rule", %{"id" => to_string(rule.id)}) =~
+             "Not authorized to manage alert rules"
+
+    assert render_click(view, "delete_rule", %{}) =~ "Not authorized to manage alert rules"
+    assert length(Domain.list_rules!()) == before_count
+    assert Enum.any?(Domain.list_rules!(), &(&1.id == rule.id))
+
+    assert {:error, {:live_redirect, %{to: "/alerts/rules", flash: %{"error" => message}}}} =
+             live(conn, alert_new_path())
+
+    assert message =~ "Not authorized to manage alert rules"
+  end
+
   test "schema option loading emits measured timing for the alert builder", %{conn: conn} do
     handler_id = "alert-schema-options-timing-#{System.unique_integer([:positive])}"
 
@@ -948,6 +1078,38 @@ defmodule NixstasisWeb.AlertsLiveTest do
     {:ok, _view, literal_html} = live(conn, ~p"/alerts/rules?filters[query]=100%25")
     assert literal_html =~ "Literal 100% Rule"
     refute literal_html =~ "Literal 100x Rule"
+  end
+
+  test "rule filter form patches the query into the rules route", %{conn: conn} do
+    {:ok, needle} =
+      Domain.create_rule(%{
+        name: "Needle Rule",
+        product_name: "alert-schema-product",
+        condition_field: "temp",
+        operator: ">",
+        threshold_value: "75"
+      })
+
+    {:ok, other} =
+      Domain.create_rule(%{
+        name: "Other Rule",
+        product_name: "alert-schema-product",
+        condition_field: "status",
+        operator: "is",
+        threshold_value: "ok"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
+    assert has_element?(view, "#alert-rule-#{needle.id}", "Needle Rule")
+    assert has_element?(view, "#alert-rule-#{other.id}", "Other Rule")
+
+    view
+    |> element("#alert-rule-filters")
+    |> render_change(%{"filters" => %{"query" => "Needle"}})
+
+    assert assert_patch(view) =~ "Needle"
+    assert has_element?(view, "#alert-rule-#{needle.id}", "Needle Rule")
+    refute has_element?(view, "#alert-rule-#{other.id}")
   end
 
   test "rules table presents one readable condition column", %{conn: conn} do

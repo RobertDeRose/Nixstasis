@@ -43,8 +43,8 @@ defmodule Nixstasis.DeploymentTest do
     assert Deployment.approved_tls_domain?("nixstasis.devices.example.com")
 
     assert Deployment.approved_tls_domain?(
-             "atom-aabbccddeeff.devices.example.com",
-             fn mac -> mac == "AA:BB:CC:DD:EE:FF" end
+             "atom-11111111222233334444555555555555-provisioning.devices.example.com",
+             fn id -> id == "11111111-2222-3333-4444-555555555555" end
            )
   end
 
@@ -60,8 +60,8 @@ defmodule Nixstasis.DeploymentTest do
 
   test "approved_tls_domain?/2 normalizes device hostnames before remote-access lookup" do
     assert Deployment.approved_tls_domain?(
-             "ATOM-aabbccddeeff.DEVICES.EXAMPLE.COM.",
-             fn mac -> mac == "AA:BB:CC:DD:EE:FF" end
+             "ATOM-11111111222233334444555555555555.DEVICES.EXAMPLE.COM.",
+             fn id -> id == "11111111-2222-3333-4444-555555555555" end
            )
   end
 

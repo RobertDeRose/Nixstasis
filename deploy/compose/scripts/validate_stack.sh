@@ -71,6 +71,24 @@ has_wildcard_token() {
   [ "$wildcard" = true ]
 }
 
+# Require the named deployment variable to meet the given character minimum.
+# Matching outer quotes are Compose delimiters and do not count toward length.
+# Missing or short values stop validation with an error; used for the proxy secret.
+require_env_min_length() {
+  name="$1"
+  min_length="$2"
+  value=$(env_value "$name" || true)
+
+  case "$value" in
+    \"*\") value=${value#\"}; value=${value%\"} ;;
+    \'*\') value=${value#\'}; value=${value%\'} ;;
+  esac
+
+  if [ "${#value}" -lt "$min_length" ]; then
+    fail "$name must be at least $min_length characters"
+  fi
+}
+
 require_exact_env_value() {
   name="$1"
   expected="$2"
@@ -127,15 +145,18 @@ require_env_value AUTHORIZED_GROUPS
 require_env_value NIXSTASIS_VIEWER_GROUPS
 require_env_value NIXSTASIS_OPERATOR_GROUPS
 require_env_value NIXSTASIS_ADMIN_GROUPS
+require_env_value NIXSTASIS_PROXY_AUTH_TOKEN
+require_env_min_length NIXSTASIS_PROXY_AUTH_TOKEN 32
 require_exact_env_value PORT 4000
 require_exact_env_value PHOENIX_BIND_HOST 127.0.0.1
 require_exact_env_value CADDY_CONFIG ./caddy/Caddyfile
 require_caddy_text 'ask http://nixstasis:\{\$PORT\}/api/v1/check_domain'
 require_caddy_text 'reverse_proxy nixstasis:\{\$PORT\}'
+require_caddy_text 'header_up X-Nixstasis-Proxy-Token \{\$NIXSTASIS_PROXY_AUTH_TOKEN\}'
 require_caddy_text 'path /api/v1/devices/register'
-require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/heartbeat\$'
-require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_results\$'
-require_caddy_text 'path_regexp \^/api/v1/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
+require_caddy_text 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/heartbeat\$'
+require_caddy_text 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/command_results\$'
+require_caddy_text 'path_regexp \^/api/\(v1\|json/device_runtime\)/devices/\[\^/\]\+/command_payloads/\[\^/\]\+\$'
 reject_caddy_text 'ask http://nixstasis:4000/api/v1/check_domain'
 reject_caddy_text 'reverse_proxy nixstasis:4000'
 require_caddy_text 'allow roles \{\$AUTHORIZED_ROLES\}'

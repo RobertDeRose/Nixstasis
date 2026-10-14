@@ -1,13 +1,14 @@
 defmodule NixstasisWeb.HeartbeatControllerTest do
   use NixstasisWeb.ConnCase
 
-  import ExUnit.CaptureLog
-
   require Ash.Query
 
   alias Nixstasis.Devices
+  alias Nixstasis.Devices.FrpsToken
   alias Nixstasis.Domain
+  alias Nixstasis.Monitoring
   alias Nixstasis.Monitoring.Telemetry
+  alias Nixstasis.Monitoring.TelemetryLimits
 
   setup do
     {:ok, device} =
@@ -19,6 +20,16 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     %{device: approved, token: token}
   end
 
+  test "POST /api/v1/devices/:id/heartbeat rejects query-string credentials", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+
+    assert %{"error" => %{"code" => "missing_api_key"}} = json_response(conn, 401)
+  end
+
   test "POST /api/v1/devices/:id/heartbeat updates last_seen and returns commands", %{
     conn: conn,
     device: device,
@@ -28,7 +39,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
 
     payload = %{"scripts" => %{"disk" => %{"data" => %{"usage_pct" => 73.2}}}}
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", payload)
 
     assert %{"commands" => commands} = data = json_response(conn, 200)["data"]
     refute Map.has_key?(data, "remote_access_token")
@@ -50,6 +61,50 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     assert hd(telemetry).payload["scripts"]["disk"]["data"]["usage_pct"] == 73.2
   end
 
+  test "oversized telemetry is rejected before heartbeat side effects", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    stale_at = DateTime.utc_now() |> DateTime.add(-20, :minute) |> DateTime.truncate(:second)
+    {:ok, device} = Devices.update_device(device, %{last_seen_at: stale_at})
+
+    result = Monitoring.check_offline_devices(window_minutes: 10)
+    assert result.status == :success
+    assert [%{status: :active} = offline_alert] = Domain.list_alerts!()
+
+    {:ok, queued_command} = Devices.queue_command(device, %{"cmd" => "update"})
+    limits = TelemetryLimits.limits()
+
+    conn =
+      post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{
+        "telemetry" => %{"blob" => String.duplicate("x", limits.max_string_bytes + 1)}
+      })
+
+    assert %{
+             "error" => %{
+               "code" => "telemetry_limits_exceeded",
+               "message" => "Telemetry exceeds the accepted persistence limits"
+             }
+           } = json_response(conn, 413)
+
+    unchanged = Devices.get_device!(device.id)
+    assert unchanged.last_seen_at == stale_at
+
+    telemetry =
+      Telemetry
+      |> Ash.Query.filter(device_id == ^device.id)
+      |> Ash.read!(domain: Domain)
+
+    assert telemetry == []
+
+    alert = Enum.find(Domain.list_alerts!(), &(&1.id == offline_alert.id))
+    assert alert.status == :active
+
+    pending = Enum.find(Domain.list_pending_commands!(), &(&1.id == queued_command.id))
+    assert pending.status == :queued
+  end
+
   test "POST /api/v1/devices/:id/heartbeat returns ssh_authorize public key at top level", %{
     conn: conn,
     device: device,
@@ -57,7 +112,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
   } do
     {:ok, _} = Devices.queue_command(device, %{"type" => "ssh_authorize", "public_key" => "ssh-ed25519 test"})
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["type"] == "ssh_authorize"
@@ -81,7 +136,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
         }
       })
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["payload_ref"] == "test-run-id"
@@ -108,7 +163,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
 
     assert {:ok, _} = Devices.queue_command_policy_assignment(assignment)
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"commands" => [command]} = json_response(conn, 200)["data"]
     assert command["type"] == "apply_command_policy"
@@ -138,7 +193,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
         command_path: "/usr/bin/df"
       })
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"command_inventory_probe" => probe} = json_response(conn, 200)["data"]
     assert probe["catalog_version"] == "catalog-v1"
@@ -187,7 +242,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
       }
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", payload)
     assert json_response(conn, 200)["data"]
 
     snapshots = Domain.list_device_command_inventory_snapshots() |> elem(1)
@@ -214,7 +269,7 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     {:ok, _} = Devices.queue_command(device, %{"cmd" => "update"})
 
     conn =
-      post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{
+      post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{
         "command_inventory" => %{
           "schema_version" => "bad",
           "probe_catalog_version" => "catalog-v1"
@@ -233,132 +288,58 @@ defmodule NixstasisWeb.HeartbeatControllerTest do
     device: device,
     token: token
   } do
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
-      data = json_response(conn, 200)["data"]
+    data = json_response(conn, 200)["data"]
 
-      refute Map.has_key?(data, "remote_access_token")
-      refute Map.has_key?(data, "remote_access_profile")
-      refute Map.has_key?(data, "remote_access_requested")
-    end)
+    refute Map.has_key?(data, "remote_access_token")
+    refute Map.has_key?(data, "remote_access_profile")
+    refute Map.has_key?(data, "remote_access_expires_at_ms")
+    refute Map.has_key?(data, "remote_access_requested")
   end
 
-  test "heartbeat includes the default remote access profile with its token", %{
+  test "heartbeat issues a signed device-bound remote access credential", %{
     conn: conn,
     device: device,
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert %{
+             "remote_access_token" => remote_access_token,
+             "remote_access_profile" => %{"name" => "default", "version" => 1}
+           } = data = json_response(conn, 200)["data"]
 
-      assert %{
-               "remote_access_token" => "shared-secret",
-               "remote_access_profile" => %{"name" => "default", "version" => 1}
-             } = data = json_response(conn, 200)["data"]
+    assert {:ok,
+            %{
+              "device_id" => device_id,
+              "device_name" => device_name,
+              "expires_at_ms" => expires_at_ms,
+              "profile" => "default"
+            }} = FrpsToken.verify(remote_access_token)
 
-      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
-    end)
+    assert data["remote_access_expires_at_ms"] == expires_at_ms
+    assert expires_at_ms == DateTime.to_unix(device.remote_access_expires_at, :millisecond)
+    assert device_id == to_string(device.id)
+    assert device_name == FrpsToken.device_name(device.id)
+    refute remote_access_token == System.get_env("FRPS_AUTH_TOKEN")
+    refute Map.has_key?(data, "remote_access_requested")
   end
 
-  test "heartbeat includes an operator-selected remote access profile", %{
+  test "heartbeat binds an operator-selected profile into the FRP credential", %{
     conn: conn,
     device: device,
     token: token
   } do
     {:ok, device} = Devices.set_remote_access(device, true, "bootstrap")
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert %{
+             "remote_access_token" => remote_access_token,
+             "remote_access_profile" => %{"name" => "bootstrap", "version" => 1}
+           } = json_response(conn, 200)["data"]
 
-      assert %{"remote_access_profile" => %{"name" => "bootstrap", "version" => 1}} =
-               data = json_response(conn, 200)["data"]
-
-      assert Map.keys(data["remote_access_profile"]) |> Enum.sort() == ["name", "version"]
-    end)
+    assert {:ok, %{"profile" => "bootstrap"}} = FrpsToken.verify(remote_access_token)
   end
-
-  test "heartbeat includes remote_access_token when requested and configured", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    with_env("FRPS_AUTH_TOKEN", "shared-secret", fn ->
-      conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-      assert %{"remote_access_token" => "shared-secret"} = data = json_response(conn, 200)["data"]
-      refute Map.has_key?(data, "remote_access_requested")
-    end)
-  end
-
-  test "heartbeat omits remote_access_token and logs when requested token is missing", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    without_env("FRPS_AUTH_TOKEN", fn ->
-      log =
-        capture_log(fn ->
-          conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-          data = json_response(conn, 200)["data"]
-          refute Map.has_key?(data, "remote_access_token")
-          refute Map.has_key?(data, "remote_access_requested")
-        end)
-
-      assert log =~ "FRPS_AUTH_TOKEN is missing while remote access is requested"
-    end)
-  end
-
-  test "heartbeat omits remote_access_token and logs when requested token is blank", %{
-    conn: conn,
-    device: device,
-    token: token
-  } do
-    {:ok, device} = Devices.set_remote_access(device, true)
-
-    with_env("FRPS_AUTH_TOKEN", "   ", fn ->
-      log =
-        capture_log(fn ->
-          conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
-
-          data = json_response(conn, 200)["data"]
-          refute Map.has_key?(data, "remote_access_token")
-          refute Map.has_key?(data, "remote_access_requested")
-        end)
-
-      assert log =~ "FRPS_AUTH_TOKEN is missing while remote access is requested"
-    end)
-  end
-
-  defp with_env(name, value, fun) do
-    previous = System.get_env(name)
-    System.put_env(name, value)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp without_env(name, fun) do
-    previous = System.get_env(name)
-    System.delete_env(name)
-
-    try do
-      fun.()
-    after
-      restore_env(name, previous)
-    end
-  end
-
-  defp restore_env(name, nil), do: System.delete_env(name)
-  defp restore_env(name, value), do: System.put_env(name, value)
 end

@@ -26,6 +26,16 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     %{"path" => "finished_at", "alias" => "finished_at"}
   ]
 
+  @doc """
+  Builds an Ecto query from report configuration without executing it.
+
+  Configuration chooses the source, fields, schema, and saved filters; `opts`
+  adds view filters, sorting, and pagination. For telemetry, a supplied trusted
+  device scope is applied first: `nil` is unrestricted, empty or invalid scopes
+  return no rows, and any invalid ID rejects the entire scope. Non-telemetry
+  sources do not use that scope. Use `Reporting.run_custom_report/3` when view
+  options come from a caller so they cannot replace the trusted authorization.
+  """
   def build(config, opts \\ %{}) do
     source = normalize_source(config["source"] || config[:source])
     fields = fields_for_report(config)
@@ -33,9 +43,11 @@ defmodule Nixstasis.Reporting.QueryBuilder do
     sort_by = opts[:sort_by] || opts["sort_by"]
     sort_dir = opts[:sort_dir] || opts["sort_dir"] || "asc"
     numeric_sort? = telemetry_numeric_sort?(source, sort_by, filters, opts)
+    authorized_device_ids = opts[:authorized_device_ids] || opts["authorized_device_ids"]
 
     source
     |> base_query()
+    |> apply_authorized_device_scope(source, authorized_device_ids)
     |> apply_schema_scope(config, source)
     |> apply_filters(filters, source)
     |> apply_result_sort(sort_by, sort_dir, fields, source, numeric_sort?)
@@ -114,6 +126,33 @@ defmodule Nixstasis.Reporting.QueryBuilder do
   defp base_query("e2e"), do: from(r in Run)
 
   defp base_query(_unknown), do: from(r in Run, where: false)
+
+  # Constrain telemetry by valid device UUIDs before other filters. Keep nil
+  # unrestricted, preserve empty scopes as zero rows, and deny the entire scope
+  # if any ID is malformed or the scope type is unsupported. Other report sources have no device scope to apply.
+  defp apply_authorized_device_scope(query, "telemetry", nil), do: query
+
+  defp apply_authorized_device_scope(query, "telemetry", %MapSet{} = device_ids) do
+    apply_authorized_device_scope(query, "telemetry", MapSet.to_list(device_ids))
+  end
+
+  defp apply_authorized_device_scope(query, "telemetry", device_ids) when is_list(device_ids) do
+    valid_device_ids =
+      Enum.reduce_while(device_ids, [], fn device_id, ids ->
+        case Ecto.UUID.cast(device_id) do
+          {:ok, valid_id} -> {:cont, [valid_id | ids]}
+          :error -> {:halt, []}
+        end
+      end)
+
+    from(q in query, where: q.device_id in ^valid_device_ids)
+  end
+
+  defp apply_authorized_device_scope(query, "telemetry", _invalid_scope) do
+    from(q in query, where: false)
+  end
+
+  defp apply_authorized_device_scope(query, _source, _device_ids), do: query
 
   defp apply_schema_scope(query, config, "telemetry") do
     schema_id = config["schema_id"] || config[:schema_id]

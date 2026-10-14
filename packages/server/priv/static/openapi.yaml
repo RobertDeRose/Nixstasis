@@ -5550,11 +5550,11 @@ components:
       description: JWT for bearer authentication
       scheme: bearer
       type: http
-    deviceApiKey:
+    deviceBearer:
+      bearerFormat: Device token
       description: Registration-issued device token for runtime operations.
-      in: query
-      name: api_key
-      type: apiKey
+      scheme: bearer
+      type: http
 info:
   title: Nixstasis JSON API
   version: 1.0.0
@@ -7670,9 +7670,21 @@ paths:
                           x-struct:
                           x-validate:
                         - type: 'null'
+                    registration_token:
+                      anyOf:
+                        - type: string
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
                     remote_access_requested:
                       anyOf:
                         - type: boolean
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    replacement_token:
+                      anyOf:
+                        - type: string
                           x-struct:
                           x-validate:
                         - type: 'null'
@@ -7756,6 +7768,12 @@ paths:
                             x-struct:
                             x-validate:
                           - type: 'null'
+                      registration_token:
+                        anyOf:
+                          - type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_profile:
                         type: string
                         x-struct:
@@ -7786,6 +7804,17 @@ paths:
                 x-validate:
           description: Success
         '400':
+          content:
+            application/vnd.api+json:
+              schema:
+                properties:
+                  errors:
+                    $ref: '#/components/schemas/errors'
+                required:
+                  - errors
+                type: object
+          description: JSON:API error response
+        '403':
           content:
             application/vnd.api+json:
               schema:
@@ -7928,7 +7957,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/device_runtime/devices/{device_id}/command_results:
@@ -8092,7 +8121,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/device_runtime/devices/{device_id}/heartbeat:
@@ -8129,6 +8158,12 @@ paths:
                     connection_status:
                       anyOf:
                         - type: object
+                          x-struct:
+                          x-validate:
+                        - type: 'null'
+                    ssh_host_key:
+                      anyOf:
+                        - type: string
                           x-struct:
                           x-validate:
                         - type: 'null'
@@ -8269,6 +8304,19 @@ paths:
                         type: array
                         x-struct:
                         x-validate:
+                      remote_access_expires_at_ms:
+                        anyOf:
+                          - type: integer
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
+                      remote_access_lease_id:
+                        anyOf:
+                          - format: uuid
+                            type: string
+                            x-struct:
+                            x-validate:
+                          - type: 'null'
                       remote_access_profile:
                         anyOf:
                           - additionalProperties: false
@@ -8371,7 +8419,7 @@ paths:
         default:
           $ref: '#/components/responses/errors'
       security:
-        - deviceApiKey: []
+        - deviceBearer: []
       tags:
         - device
   /api/json/devices:

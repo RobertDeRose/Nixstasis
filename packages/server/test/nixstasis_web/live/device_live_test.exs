@@ -14,6 +14,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
   alias NixstasisWeb.DeviceLive.FormComponent
 
   @endpoint NixstasisWeb.Endpoint
+  @ssh_host_key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
   defmodule TerminalJourneySshClient do
     use GenServer
@@ -38,6 +39,16 @@ defmodule NixstasisWeb.DeviceLiveTest do
     defp output_for(data), do: data
   end
 
+  test "Cockpit links use the same UUID-bound host as FRPC", %{conn: conn} do
+    device = create_device!(%{mac_address: "AA:BB:CC:DD:EE:09"})
+    {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}")
+
+    assert html =~
+             "https://#{Nixstasis.Devices.FrpsToken.device_name(device.id)}.#{Application.get_env(:nixstasis, :base_domain)}"
+
+    refute html =~ "https://atom-aabbccddee09."
+  end
+
   @base_attrs %{
     account_number: "123456789",
     approval_status: :approved,
@@ -47,6 +58,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp create_device!(attrs) do
     {:ok, device} = Devices.create_device(Map.merge(@base_attrs, attrs))
+    {:ok, device} = Devices.record_ssh_host_key(device, @ssh_host_key)
     device
   end
 
@@ -587,7 +599,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       routed_params = Map.delete(routed_params, "product")
       assert_patch(view, ~p"/devices?#{routed_params}")
 
-      view |> element("form[phx-change='search']") |> render_change(%{"search" => "31:31:31"})
+      view |> element("#device-search") |> render_change(%{"search" => "31:31:31"})
       routed_params = Map.put(routed_params, "search", "31:31:31")
       assert_patch(view, ~p"/devices?#{routed_params}")
 
@@ -1059,6 +1071,50 @@ defmodule NixstasisWeb.DeviceLiveTest do
       with_log(fn -> Devices.sync_remote_access_leases() end)
 
       assert Devices.get_device!(device.id).remote_access_requested == false
+    end
+
+    test "changed SSH host key blocks terminal until an identified operator trusts it", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:01"})
+
+      new_host_key =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+
+      {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
+
+      conn = put_session(conn, "operator_context", %{"subject" => "operator-host-key-reviewer"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      assert has_element?(view, "#ssh-host-key-change-warning")
+      assert has_element?(view, "#ssh-host-key-change-heading", "SSH host identity changed")
+      assert has_element?(view, "#ssh-host-key-verification-guidance", "independent trusted channel")
+      assert has_element?(view, "#trust-pending-ssh-host-key")
+
+      view
+      |> element("#trust-pending-ssh-host-key")
+      |> render_click()
+
+      updated = Devices.get_device!(device.id)
+      assert updated.ssh_host_key == new_host_key
+      assert is_nil(updated.ssh_host_key_pending)
+      assert updated.ssh_host_key_trusted_by == "operator-host-key-reviewer"
+      refute has_element?(view, "#ssh-host-key-change-warning")
+    end
+
+    test "trust rejects a missing or outdated browser fingerprint", %{conn: conn} do
+      device = create_device!(%{mac_address: "E4:E4:E4:E4:E4:02"})
+      new_host_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+      reviewed_fingerprint = Devices.ssh_host_key_fingerprint(device.ssh_host_key)
+      {:ok, device} = Devices.record_ssh_host_key(device, new_host_key)
+      conn = put_session(conn, "operator_context", %{"subject" => "operator-host-key-reviewer"})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      render_click(view, "trust_pending_ssh_host_key", %{})
+      render_click(view, "trust_pending_ssh_host_key", %{"fingerprint" => reviewed_fingerprint})
+
+      assert has_element?(view, "#ssh-host-key-change-warning")
+      current = Devices.get_device!(device.id)
+      assert current.ssh_host_key == device.ssh_host_key
+      assert current.ssh_host_key_pending == new_host_key
     end
 
     test "starting ssh session renders terminal socket token", %{conn: conn} do
@@ -1573,6 +1629,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
     end
   end
 
+  # Polls the rendered view up to `attempts` times, 5 ms apart, until `text`
+  # appears. Returns false when it never does.
   defp eventually_rendered?(view, text, attempts \\ 20)
 
   defp eventually_rendered?(view, text, attempts) when attempts > 0 do
@@ -1586,8 +1644,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp eventually_rendered?(_view, _text, 0), do: false
 
-  defp eventually_cleared?(view, attempts \\ 20)
-
+  # Polls the rendered view up to `attempts` times, 5 ms apart, until the
+  # "Device created successfully" flash is gone. Returns false if it persists.
   defp eventually_cleared?(view, attempts) when attempts > 0 do
     if render(view) =~ "Device created successfully" do
       Process.sleep(5)

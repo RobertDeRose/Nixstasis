@@ -30,6 +30,7 @@ func (s journeyStep) effectiveStepID() string {
 type journeyState struct {
 	DeviceID             string
 	DeviceToken          string
+	RegistrationToken    string
 	DeviceMac            string
 	ProductName          string
 	ReportID             string

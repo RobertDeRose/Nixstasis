@@ -4,6 +4,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   alias Nixstasis.Devices
   alias Nixstasis.Domain
   alias Nixstasis.Scripts
+  alias NixstasisWeb.RateLimiterStore
 
   setup do
     {:ok, device} =
@@ -34,7 +35,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     device: device,
     token: token
   } do
-    conn = get(conn, ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha?api_key=#{token}")
+    conn = get(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha")
 
     assert %{
              "content_type" => "text/plain",
@@ -59,7 +60,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
   end
 
@@ -103,7 +104,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
 
     completed = Domain.list_script_test_runs() |> elem(1) |> Enum.find(&(&1.id == run.id))
@@ -134,7 +135,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
 
     assignment = Domain.get_command_policy_assignment(assignment.id) |> elem(1)
@@ -174,7 +175,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
 
     [result] =
@@ -204,7 +205,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
       ]
     }
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{token}", payload)
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", payload)
     assert %{"data" => %{"acknowledged_count" => 1}} = json_response(conn, 202)
 
     assignment = Domain.get_command_policy_assignment(assignment.id) |> elem(1)
@@ -225,7 +226,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   end
 
   test "POST /api/v1/devices/:device_id/command_results rejects invalid token", %{conn: conn, device: device} do
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=wrong", %{"results" => []})
+    conn = post(put_device_bearer(conn, "wrong"), ~p"/api/v1/devices/#{device.id}/command_results", %{"results" => []})
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
@@ -235,7 +236,12 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     {:ok, other} = Devices.approve_device(other)
     {:ok, _other, other_token} = Devices.issue_device_token(other)
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/command_results?api_key=#{other_token}", %{"results" => []})
+    conn =
+      post(
+        put_device_bearer(conn, other_token),
+        ~p"/api/v1/devices/#{device.id}/command_results",
+        %{"results" => []}
+      )
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
@@ -247,17 +253,20 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   end
 
   test "GET /api/v1/devices/:device_id/command_payloads/:ref rejects invalid token", %{conn: conn, device: device} do
-    conn = get(conn, ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha?api_key=wrong")
+    conn = get(put_device_bearer(conn, "wrong"), ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha")
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
 
-  test "GET /api/v1/devices/:device_id/command_payloads/:ref rejects wrong-device token", %{conn: conn, device: device} do
+  test "GET /api/v1/devices/:device_id/command_payloads/:ref rejects wrong-device token", %{
+    conn: conn,
+    device: device
+  } do
     {:ok, other} = Devices.register_device(%{mac_address: "AA:BB:CC:11:22:55", product_name: "P2"})
     {:ok, other} = Devices.approve_device(other)
     {:ok, _other, other_token} = Devices.issue_device_token(other)
 
-    conn = get(conn, ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha?api_key=#{other_token}")
+    conn = get(put_device_bearer(conn, other_token), ~p"/api/v1/devices/#{device.id}/command_payloads/install-alpha")
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
@@ -269,7 +278,7 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
   end
 
   test "POST /api/v1/devices/:device_id/heartbeat rejects invalid token", %{conn: conn, device: device} do
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=wrong", %{})
+    conn = post(put_device_bearer(conn, "wrong"), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
@@ -279,25 +288,63 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     {:ok, other} = Devices.approve_device(other)
     {:ok, _other, other_token} = Devices.issue_device_token(other)
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{other_token}", %{})
+    conn = post(put_device_bearer(conn, other_token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(conn, 401)
   end
 
-  test "POST /api/v1/devices/:device_id/heartbeat returns 429 over rate limit", %{
+  test "POST /api/v1/devices/:device_id/heartbeat returns 429 over authenticated device rate limit", %{
     conn: conn,
     device: device,
     token: token
   } do
-    Application.put_env(:nixstasis, :rate_limit, limit: 1, window_ms: 60_000)
-    on_exit(fn -> Application.delete_env(:nixstasis, :rate_limit) end)
+    configure_rate_limit(heartbeat_limit: 1)
 
-    assert post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
            |> json_response(200)
 
-    conn = post(conn, ~p"/api/v1/devices/#{device.id}/heartbeat?api_key=#{token}", %{})
+    conn = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
 
     assert %{"error" => %{"code" => "rate_limited"}} = json_response(conn, 429)
+  end
+
+  test "invalid-token traffic cannot consume an authenticated device heartbeat quota", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    configure_rate_limit(heartbeat_limit: 1)
+
+    for _ <- 1..5 do
+      invalid = post(put_device_bearer(conn, "wrong"), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+      assert %{"error" => %{"code" => "invalid_api_key"}} = json_response(invalid, 401)
+    end
+
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+           |> json_response(200)
+
+    limited = post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+    assert %{"error" => %{"code" => "rate_limited"}} = json_response(limited, 429)
+  end
+
+  test "authenticated heartbeat and command-result quotas are independent", %{
+    conn: conn,
+    device: device,
+    token: token
+  } do
+    configure_rate_limit(heartbeat_limit: 1, device_limit: 1)
+
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+           |> json_response(200)
+
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", %{"results" => []})
+           |> json_response(202)
+
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/heartbeat", %{})
+           |> json_response(429)
+
+    assert post(put_device_bearer(conn, token), ~p"/api/v1/devices/#{device.id}/command_results", %{"results" => []})
+           |> json_response(429)
   end
 
   test "approved device without token hash cannot use runtime endpoints", %{conn: conn} do
@@ -305,13 +352,40 @@ defmodule NixstasisWeb.DeviceCommandControllerTest do
     {:ok, approved} = Devices.approve_device(device)
     assert is_nil(approved.api_token_hash)
 
-    heartbeat = post(conn, ~p"/api/v1/devices/#{approved.id}/heartbeat?api_key=anything", %{})
+    heartbeat = post(put_device_bearer(conn, "anything"), ~p"/api/v1/devices/#{approved.id}/heartbeat", %{})
     assert %{"error" => %{"code" => "missing_api_key"}} = json_response(heartbeat, 401)
 
-    results = post(conn, ~p"/api/v1/devices/#{approved.id}/command_results?api_key=anything", %{"results" => []})
+    results =
+      post(
+        put_device_bearer(conn, "anything"),
+        ~p"/api/v1/devices/#{approved.id}/command_results",
+        %{"results" => []}
+      )
+
     assert %{"error" => %{"code" => "missing_api_key"}} = json_response(results, 401)
 
-    payload = get(conn, ~p"/api/v1/devices/#{approved.id}/command_payloads/ref?api_key=anything")
+    payload = get(put_device_bearer(conn, "anything"), ~p"/api/v1/devices/#{approved.id}/command_payloads/ref")
     assert %{"error" => %{"code" => "missing_api_key"}} = json_response(payload, 401)
+  end
+
+  defp configure_rate_limit(overrides) do
+    previous = Application.get_env(:nixstasis, :rate_limit)
+
+    values =
+      [preauth_limit: 100, preauth_global_limit: 1_000, preauth_max_keys: 128, window_ms: 60_000]
+      |> Keyword.merge(overrides)
+
+    Application.put_env(:nixstasis, :rate_limit, values)
+    RateLimiterStore.clear()
+
+    on_exit(fn ->
+      RateLimiterStore.clear()
+
+      if previous do
+        Application.put_env(:nixstasis, :rate_limit, previous)
+      else
+        Application.delete_env(:nixstasis, :rate_limit)
+      end
+    end)
   end
 end

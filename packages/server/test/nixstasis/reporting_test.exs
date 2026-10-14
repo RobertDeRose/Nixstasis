@@ -1,8 +1,46 @@
 defmodule Nixstasis.ReportingTest do
   use Nixstasis.DataCase, async: true
 
+  alias Nixstasis.Devices
+  alias Nixstasis.Monitoring.Telemetry
   alias Nixstasis.Repo
   alias Nixstasis.Reporting
+  alias Nixstasis.Reporting.CustomReport
+
+  test "report execution uses only the separately supplied authorization scope" do
+    {:ok, device} = Devices.register_device(%{"mac_address" => "AA:BB:CC:DD:EE:01", "product_name" => "sensor"})
+    {:ok, other_device} = Devices.register_device(%{"mac_address" => "AA:BB:CC:DD:EE:02", "product_name" => "sensor"})
+
+    for {device_id, temperature} <- [{device.id, 25}, {device.id, 30}, {other_device.id, 999}] do
+      Repo.insert!(%Telemetry{
+        device_id: device_id,
+        payload: %{"temp" => temperature},
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+    end
+
+    report = %CustomReport{config: %{"source" => "telemetry", "fields" => [%{"path" => "temp", "alias" => "temp"}]}}
+
+    caller_scopes = [
+      %{},
+      %{authorized_device_ids: MapSet.new([other_device.id])},
+      %{authorized_device_ids: MapSet.new()},
+      %{"authorized_device_ids" => MapSet.new([other_device.id])},
+      %{"authorized_device_ids" => MapSet.new([other_device.id]), :authorized_device_ids => nil},
+      %{"authorized_device_ids" => MapSet.new(), :authorized_device_ids => MapSet.new([other_device.id])}
+    ]
+
+    for caller_scope <- caller_scopes,
+        {trusted_scope, temperatures} <- [
+          {MapSet.new([device.id]), [30, 25]},
+          {MapSet.new(), []},
+          {nil, [999, 30, 25]}
+        ] do
+      opts = Map.merge(caller_scope, %{"sort_by" => "temp", "sort_dir" => "desc"})
+      rows = Reporting.run_custom_report(report, opts, trusted_scope)
+      assert Enum.map(rows, & &1["temp"]) == temperatures
+    end
+  end
 
   test "view preferences are durable and do not rely on ETS" do
     scope = Reporting.preference_scope(%{"kind" => "report_live", "owner" => "durable"})

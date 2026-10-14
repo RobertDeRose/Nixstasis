@@ -14,7 +14,11 @@ The CLI posts run metadata and results to the server. Use the returned `RunID` t
 Per-journey log files use JSONL schema `e2e_log.v1` (journey start, one terminal row per step, journey completion
 summary).
 
-Run creation requires `X-E2E-Protocol-Version` (set via `--protocol-version` or config `e2e.protocol_version`).
+All `/e2e/*` requests require a dedicated runner identity and bearer credential. Set
+`NIXSTASIS_E2E_RUNNER_TOKEN` in the environment and either set `NIXSTASIS_E2E_RUNNER_ID` or configure
+`e2e.runner_id`. The token is intentionally not accepted in YAML or as a CLI argument.
+
+Run creation also requires `X-E2E-Protocol-Version` (set via `--protocol-version` or config `e2e.protocol_version`).
 
 ## Runtime Suite
 
@@ -29,7 +33,7 @@ The `runtime` suite validates runtime client APIs and Linux-oriented Starlark te
   `custom_reports`, `telemetry_events`)
 
 The runtime journey generates and executes 10+ `.stary` scripts using `exec_cmd`
-with a narrow test-only command allowlist and validates:
+and the exact-path `read_file` capability with narrow test-only allowlists and validates:
 
 - telemetry persistence to `telemetry_events`
 - report rendering from stored script payloads
@@ -46,7 +50,16 @@ Performance gate:
 
 If the host is not Linux, `scripts/e2e/run` automatically executes runtime E2E in an ephemeral Ubuntu container.
 It prefers Apple Container (`container`), then Docker, then Podman, and rewrites `--api-url` to the appropriate host
-alias so the containerized client reaches the host server.
+alias so the containerized harness reaches the host server. Runtime client
+journeys and the runner-authenticated run API requests require HTTPS for any
+non-loopback URL and never follow redirects: use a reachable HTTPS hostname
+with a trusted certificate when running in a container. The wrapper preserves
+HTTPS hostnames and forwards a supplied `SSL_CERT_FILE` PEM CA bundle read-only.
+It forwards `NIXSTASIS_E2E_RUNNER_TOKEN` by name only, so the token value never
+appears in the container command's process arguments.
+The default HTTP example supports runtime journeys only when run directly on
+Linux against loopback; `api.allow_loopback_http: true` in the example config is
+not a bypass for container host aliases or LAN addresses.
 
 Local runtime `check_domain` validation expects a base domain that matches the server's dev/test config. The default
 local value is `devices.example.com`, so the runtime suite validates `auth.devices.example.com` unless you override
@@ -77,6 +90,16 @@ action token.
 
 ## Run All Server-Configured Suites
 
+The aggregate runner intentionally defaults to local loopback HTTP; the example
+config explicitly enables `api.allow_loopback_http` for this Linux development
+path. It refuses to send the runner token to any `--api-url` other than
+`https://` or `http://` on `localhost`, `127.0.0.1`, or `[::1]`, and does not
+follow redirects. It also rejects runner IDs outside the server's runner-ID
+format and API URLs or tokens containing whitespace, quotes, or backslashes.
+The catalog request ignores the user's `~/.curlrc` so local curl defaults
+cannot change its redirect or logging behavior. For containerized runtime journeys, supply a reachable HTTPS
+API URL instead, with a trusted CA as described above.
+
 ```bash
 scripts/e2e/run_all_suites \
   --api-url http://127.0.0.1:4000 \
@@ -91,7 +114,14 @@ The default config example also includes:
 
 ```yaml
 e2e:
+  runner_id: local-runner
   base_domain: devices.example.com
+```
+
+For a local development server, export its configured runner token before running the harness:
+
+```bash
+export NIXSTASIS_E2E_RUNNER_TOKEN=dev-e2e-runner-token-0123456789abcdef0123456789abcdef
 ```
 
 This uses server suite configuration as source of truth via `GET /e2e/suites`. If any suite fails, the command exits

@@ -115,7 +115,7 @@ func credentialValue(name string) (string, error) {
 		return value, nil
 	}
 
-	data, err := os.ReadFile(filepath.Join(credentialsDir, name)) // #nosec G304 -- systemd credentials directory and credential name are controlled by the unit.
+	data, err := os.ReadFile(filepath.Join(credentialsDir, name)) // #nosec G304,G703 -- systemd credentials directory and credential name are controlled by the unit.
 	if err != nil {
 		return "", fmt.Errorf("failed to read credential %s: %w", name, err)
 	}

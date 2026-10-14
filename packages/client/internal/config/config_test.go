@@ -8,11 +8,15 @@ import (
 
 func TestPathsUseNixstasisDefaults(t *testing.T) {
 	t.Setenv("NIXSTASIS_IDENTITY_PATH", "")
+	t.Setenv("NIXSTASIS_REGISTRATION_PATH", "")
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "")
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "")
 
 	if got := IdentityPath(); got != "/etc/nixstasis/id" {
 		t.Fatalf("IdentityPath() = %q", got)
+	}
+	if got := RegistrationPath(); got != "/etc/nixstasis/registration" {
+		t.Fatalf("RegistrationPath() = %q", got)
 	}
 
 	if got := FRPCConfigPath(); got != "/usr/share/nixstasis/frpc.toml" {
@@ -28,18 +32,29 @@ func TestPathsUseNixstasisDefaults(t *testing.T) {
 		t.Fatalf("GetDefaultConfig() error = %v", err)
 	}
 
-	if cfg.Scripts.Dir != DefaultScriptsDir() {
+	if cfg.API.URL != "https://localhost:4000" || cfg.API.AllowLoopbackHTTP {
+		t.Fatalf("insecure API defaults: %+v", cfg.API)
+	}
+
+	if cfg.Scripts.Dir != "/var/lib/nixstasis/scripts" {
 		t.Fatalf("scripts dir = %q", cfg.Scripts.Dir)
+	}
+	if cfg.Scripts.Dir != DefaultScriptsDir() {
+		t.Fatalf("DefaultScriptsDir() = %q, config = %q", DefaultScriptsDir(), cfg.Scripts.Dir)
 	}
 }
 
 func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 	t.Setenv("NIXSTASIS_IDENTITY_PATH", "/tmp/nixstasis/id")
+	t.Setenv("NIXSTASIS_REGISTRATION_PATH", "/tmp/nixstasis/registration")
 	t.Setenv("NIXSTASIS_FRPC_CONFIG_PATH", "/tmp/nixstasis/frpc.toml")
 	t.Setenv("NIXSTASIS_FRPC_BINARY_PATH", "/tmp/nixstasis/frpc")
 
 	if got := IdentityPath(); got != "/tmp/nixstasis/id" {
 		t.Fatalf("IdentityPath() = %q", got)
+	}
+	if got := RegistrationPath(); got != "/tmp/nixstasis/registration" {
+		t.Fatalf("RegistrationPath() = %q", got)
 	}
 
 	if got := FRPCConfigPath(); got != "/tmp/nixstasis/frpc.toml" {
@@ -48,6 +63,25 @@ func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 
 	if got := FRPCBinaryPath(); got != "/tmp/nixstasis/frpc" {
 		t.Fatalf("FRPCBinaryPath() = %q", got)
+	}
+}
+
+func TestLoadMigratesLegacySystemScriptsDir(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	contents := `scripts:
+  dir: "/usr/libexec/nixstasis/scripts"
+`
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Scripts.Dir != "/var/lib/nixstasis/scripts" {
+		t.Fatalf("migrated scripts dir = %q", cfg.Scripts.Dir)
 	}
 }
 
@@ -103,6 +137,33 @@ func TestLoadReadsClientOwnedFRPProfiles(t *testing.T) {
 	}
 }
 
+func TestLoadLoopbackHTTPOptIn(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	if err := os.WriteFile(configFile, []byte("api:\n  url: http://127.0.0.1:4000\n  allow_loopback_http: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+	t.Setenv("NIXSTASIS_API_URL", "")
+	t.Setenv("NIXSTASIS_API_ALLOW_LOOPBACK_HTTP", "")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.API.AllowLoopbackHTTP {
+		t.Fatal("YAML loopback opt-in was not loaded")
+	}
+	t.Setenv("NIXSTASIS_API_ALLOW_LOOPBACK_HTTP", "false")
+	cfg, err = Load()
+	if err != nil || cfg.API.AllowLoopbackHTTP {
+		t.Fatalf("environment override failed: config=%+v, error=%v", cfg, err)
+	}
+	t.Setenv("NIXSTASIS_API_ALLOW_LOOPBACK_HTTP", "true")
+	cfg, err = Load()
+	if err != nil || !cfg.API.AllowLoopbackHTTP {
+		t.Fatalf("environment opt-in failed: config=%+v, error=%v", cfg, err)
+	}
+}
+
 func TestLoadCanUseExplicitConfigFile(t *testing.T) {
 	configFile := filepath.Join(t.TempDir(), "client.yaml")
 	if err := os.WriteFile(configFile, []byte("api:\n  url: https://nixstasis.localhost\n"), 0o600); err != nil {
@@ -118,5 +179,33 @@ func TestLoadCanUseExplicitConfigFile(t *testing.T) {
 
 	if cfg.API.URL != "https://nixstasis.localhost" {
 		t.Fatalf("api url = %q", cfg.API.URL)
+	}
+}
+
+func TestLoadReadsLocalScriptArgumentAndFileCapabilities(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "client.yaml")
+	contents := `runtime:
+  exec_commands:
+    uname: /usr/bin/uname
+  exec_command_args:
+    /usr/bin/uname:
+      - ["-srmo"]
+  read_files:
+    - /proc/loadavg
+`
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := cfg.Runtime.ExecCommandArgs["/usr/bin/uname"]; len(got) != 1 || len(got[0]) != 1 || got[0][0] != "-srmo" {
+		t.Fatalf("exec command args = %#v", got)
+	}
+	if len(cfg.Runtime.ReadFiles) != 1 || cfg.Runtime.ReadFiles[0] != "/proc/loadavg" {
+		t.Fatalf("read files = %#v", cfg.Runtime.ReadFiles)
 	}
 }

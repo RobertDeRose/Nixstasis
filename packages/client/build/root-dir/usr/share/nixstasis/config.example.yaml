@@ -5,7 +5,7 @@ poll:
   interval: 30s
 
 scripts:
-  dir: "/usr/libexec/nixstasis/scripts"
+  dir: "/var/lib/nixstasis/scripts"
 
 frp:
   auth_token: ""
@@ -46,11 +46,20 @@ runtime:
     - "LANG=C"
   exec_commands:
     uname: "/usr/bin/uname"
-    cat: "/usr/bin/cat"
     df: "/usr/bin/df"
     stat: "/usr/bin/stat"
     nproc: "/usr/bin/nproc"
     pcp-metrics: "/usr/libexec/nixstasis/pcp-metrics.sh"
+  exec_command_args:
+    /usr/bin/uname:
+      - ["-srmo"]
+    /usr/bin/df:
+      - ["-B1", "/"]
+    /usr/bin/stat:
+      - ["-f", "-c", "%T", "/"]
+  read_files: []
+  # Allowlist entries may use MQTT wildcards, but scripts must request
+  # concrete publish and reply topic names without + or #.
   mqtt_publish_topics:
     - "nixstasis/+/request"
   mqtt_subscribe_topics:

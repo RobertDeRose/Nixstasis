@@ -1,7 +1,7 @@
 bindPort = "__FRPS_BIND_PORT__"
 
 auth.method = "token"
-auth.token = "__FRPS_AUTH_TOKEN__"
+auth.token = "nixstasis-frp-plugin-gated"
 
 webServer.port = "__FRPS_DASHBOARD_PORT__"
 webServer.user = "__FRPS_DASHBOARD_USER__"
@@ -13,3 +13,11 @@ log.level = "info"
 tcpmuxHTTPConnectPort = "__FRPS_TCPMUX_PORT__"
 vhostHTTPPort = "__FRPS_HTTP_PORT__"
 subDomainHost = "__BASE_DOMAIN__"
+
+# Tables must come last: every key after a [[httpPlugins]] header belongs to
+# that plugin entry, not to the top level.
+[[httpPlugins]]
+name = "nixstasis-device-authorization"
+addr = "nixstasis:4000"
+path = "/internal/frp/authorize"
+ops = ["Login", "NewProxy"]

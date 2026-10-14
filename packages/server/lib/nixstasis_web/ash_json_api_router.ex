@@ -41,27 +41,27 @@ defmodule NixstasisWeb.AshJsonApiRouter do
       |> put_operation_security(
         "/api/json/device_runtime/devices/{device_id}/heartbeat",
         :post,
-        [%{"deviceApiKey" => []}]
+        [%{"deviceBearer" => []}]
       )
       |> put_operation_security(
         "/api/json/device_runtime/devices/{device_id}/command_results",
         :post,
-        [%{"deviceApiKey" => []}]
+        [%{"deviceBearer" => []}]
       )
       |> put_operation_security(
         "/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}",
         :get,
-        [%{"deviceApiKey" => []}]
+        [%{"deviceBearer" => []}]
       )
 
     security_schemes =
       (components.securitySchemes || %{})
       |> Map.put(
-        "deviceApiKey",
+        "deviceBearer",
         %OpenApiSpex.SecurityScheme{
-          type: "apiKey",
-          in: "query",
-          name: "api_key",
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "Device token",
           description: "Registration-issued device token for runtime operations."
         }
       )
@@ -118,7 +118,7 @@ defmodule NixstasisWeb.AshJsonApiRouter do
       |> put_operation_error_responses(
         "/api/json/device_runtime/devices/register",
         :post,
-        [400, 429]
+        [400, 403, 429]
       )
       |> put_operation_error_responses(
         "/api/json/device_runtime/devices/{device_id}/heartbeat",

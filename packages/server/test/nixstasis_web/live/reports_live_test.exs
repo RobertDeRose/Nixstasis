@@ -1059,7 +1059,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
   end
 
   test "reports index filters by fuzzy name and selected schema-field chips", %{conn: conn, permissions: permissions} do
-    _cpu =
+    cpu =
       report_fixture(%{
         "name" => "CPU Health",
         "config" => %{
@@ -1069,7 +1069,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
         }
       })
 
-    _temp =
+    temp =
       report_fixture(%{
         "name" => "Temp Trends",
         "config" => %{"source" => "telemetry", "fields" => [%{"path" => "temp"}], "filters" => []}
@@ -1083,6 +1083,18 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, _view, html2} = live(conn, ~p"/reports?filters[field_queries][]=cpu.usage")
     assert html2 =~ "CPU Health"
     refute html2 =~ "Temp Trends"
+
+    {:ok, view, _html} = live(conn, ~p"/reports")
+    assert has_element?(view, "#report-#{cpu.id}", "CPU Health")
+    assert has_element?(view, "#report-#{temp.id}", "Temp Trends")
+
+    view
+    |> element("#report-list-filters")
+    |> render_change(%{"filters" => %{"name" => "hea"}})
+
+    assert assert_patch(view) =~ "hea"
+    assert has_element?(view, "#report-#{cpu.id}", "CPU Health")
+    refute has_element?(view, "#report-#{temp.id}")
   end
 
   test "schema-field filter supports multiple selections and ignores duplicates", %{
@@ -1112,12 +1124,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Temp and Humidity"
@@ -1125,7 +1137,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp and Humidity"
@@ -1154,12 +1166,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Temp and Humidity Reset"
@@ -1210,7 +1222,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp Autocomplete"
@@ -1223,7 +1235,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "humidity"})
 
     assert html =~ "Humidity Autocomplete"
@@ -1245,7 +1257,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> element("form[phx-change='add_field_filter_select']")
+      |> element("#report-field-filter-select")
       |> render_change(%{"field" => "temp"})
 
     assert html =~ "Temp No Duplicate"
@@ -1464,7 +1476,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "temp", "operator" => ">", "value" => "25"}
       })
       |> render_change()
@@ -1527,12 +1539,57 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "room_temp", "operator" => ">", "value" => "50"}
       })
       |> render_change()
 
     assert ["80"] == report_result_values(html)
+  end
+
+  test "report detail limits telemetry rows to the session device scope", %{conn: conn, permissions: permissions} do
+    {:ok, allowed_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:95",
+        "product_name" => "report-live-scoped-results"
+      })
+
+    {:ok, other_device} =
+      Devices.register_device(%{
+        "mac_address" => "AA:BB:CC:DD:EE:96",
+        "product_name" => "report-live-scoped-results"
+      })
+
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.insert!(%Telemetry{device_id: allowed_device.id, payload: %{"temp" => 11}, timestamp: timestamp})
+    Repo.insert!(%Telemetry{device_id: other_device.id, payload: %{"temp" => 22}, timestamp: timestamp})
+
+    report =
+      report_fixture(%{
+        "name" => "Scoped Live Report",
+        "config" => %{
+          "source" => "telemetry",
+          "fields" => [%{"path" => "temp", "alias" => "temp"}],
+          "filters" => []
+        }
+      })
+
+    conn =
+      conn
+      |> init_test_session(%{})
+      |> put_session("report_permissions", permissions)
+      |> put_session("device_permissions", %{
+        "can_view" => true,
+        "can_manage" => false,
+        "can_remote_access" => false,
+        "device_ids" => [allowed_device.id]
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/reports/#{report.id}")
+
+    assert "11" in report_result_values(html)
+    refute "22" in report_result_values(html)
   end
 
   test "report detail limits database-backed result loading", %{conn: conn, permissions: permissions} do
@@ -1674,7 +1731,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> form("form[phx-change='apply_filters']", %{
+      |> form("#report-result-filters", %{
         "filter" => %{"column" => "temp", "operator" => "is", "value" => ""}
       })
       |> render_change()

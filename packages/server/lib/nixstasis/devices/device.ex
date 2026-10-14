@@ -9,6 +9,7 @@ defmodule Nixstasis.Devices.Device do
   use Ash.Resource,
     data_layer: AshPostgres.DataLayer,
     domain: Nixstasis.Domain,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshJsonApi.Resource]
 
   alias Nixstasis.CommandAllowlists
@@ -27,7 +28,8 @@ defmodule Nixstasis.Devices.Device do
     metadata: [type: :map, allow_nil?: false],
     remote_access_requested: [type: :boolean, allow_nil?: false],
     remote_access_profile: [type: :string, allow_nil?: false],
-    api_token: [type: :string]
+    api_token: [type: :string],
+    registration_token: [type: :string]
   ]
 
   @runtime_list_device_fields [
@@ -91,6 +93,8 @@ defmodule Nixstasis.Devices.Device do
       constraints: [items: [fields: @heartbeat_command_fields]]
     ],
     remote_access_token: [type: :string],
+    remote_access_expires_at_ms: [type: :integer],
+    remote_access_lease_id: [type: :uuid],
     remote_access_profile: [type: :map, constraints: [fields: @heartbeat_profile_fields]],
     command_inventory_probe: [type: :map, constraints: [fields: @heartbeat_probe_fields]]
   ]
@@ -156,6 +160,7 @@ defmodule Nixstasis.Devices.Device do
 
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
     end
 
     create :register do
@@ -173,9 +178,27 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
 
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
+
       upsert? true
       upsert_identity :unique_mac_address
-      upsert_fields {:replace_all_except, [:id, :approval_status, :api_token_hash, :remote_access_profile]}
+
+      upsert_fields {:replace_all_except,
+                     [
+                       :id,
+                       :approval_status,
+                       :api_token_hash,
+                       :remote_access_requested,
+                       :remote_access_default_profile,
+                       :remote_access_profile,
+                       :remote_access_expires_at,
+                       :remote_access_owner,
+                       :ssh_host_key,
+                       :ssh_host_key_pending,
+                       :ssh_host_key_trusted_at,
+                       :ssh_host_key_trusted_by,
+                       :ssh_host_key_previous_fingerprint
+                     ]}
     end
 
     update :update do
@@ -197,6 +220,19 @@ defmodule Nixstasis.Devices.Device do
       change {Nixstasis.Devices.Changes.FormatMacAddress, []}
       validate {Nixstasis.Devices.Validations.SchemaDefinition, []}
       validate {Nixstasis.Devices.Validations.ApprovalTransition, []}
+      change Nixstasis.Devices.Changes.RemoteAccessProjection
+    end
+
+    update :update_ssh_host_key_state do
+      require_atomic? false
+
+      accept [
+        :ssh_host_key,
+        :ssh_host_key_pending,
+        :ssh_host_key_trusted_at,
+        :ssh_host_key_trusted_by,
+        :ssh_host_key_previous_fingerprint
+      ]
     end
 
     action :list_runtime_devices, :map do
@@ -208,8 +244,11 @@ defmodule Nixstasis.Devices.Device do
       argument :connectivity_status, :string
       argument :ipv4_address, :string
 
-      run fn input, _context ->
-        {:ok, Devices.runtime_list(input.arguments)}
+      run fn input, context ->
+        case Map.get(context, :actor) do
+          nil -> {:ok, Devices.runtime_list(input.arguments, authorized_device_ids: MapSet.new())}
+          actor -> {:ok, Devices.runtime_list(input.arguments, actor: actor)}
+        end
       end
     end
 
@@ -224,9 +263,17 @@ defmodule Nixstasis.Devices.Device do
       argument :schema, :map
       argument :metadata, :map
       argument :remote_access_requested, :boolean
+      argument :registration_token, :string, sensitive?: true
+      argument :replacement_token, :string, sensitive?: true
 
       run fn input, _context ->
-        Devices.register_runtime_device(input.arguments)
+        case Devices.register_runtime_device(input.arguments) do
+          {:error, :forbidden} ->
+            {:error, Ash.Error.Forbidden.Policy.exception(custom_message: "invalid registration proof")}
+
+          result ->
+            result
+        end
       end
     end
 
@@ -237,6 +284,7 @@ defmodule Nixstasis.Devices.Device do
       argument :telemetry, :map, default: %{}
       argument :connection_status, :map, default: %{}
       argument :command_inventory, :map
+      argument :ssh_host_key, :string
 
       run fn input, _context ->
         case Devices.get_device(input.arguments.device_id) do
@@ -244,6 +292,9 @@ defmodule Nixstasis.Devices.Device do
             case Monitoring.heartbeat(device, heartbeat_payload(input.arguments)) do
               {:ok, updated_device, commands} ->
                 {:ok, %{data: Monitoring.heartbeat_response_data(updated_device, commands)}}
+
+              {:error, {:telemetry_limits, message}} ->
+                {:error, Ash.Error.Action.InvalidArgument.exception(field: :telemetry, message: message)}
 
               {:error, _reason} ->
                 {:error, "heartbeat processing failed"}
@@ -312,8 +363,35 @@ defmodule Nixstasis.Devices.Device do
     end
   end
 
+  policies do
+    bypass actor_absent() do
+      authorize_if always()
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(
+                     ^actor(:can_view_device_data) == true and
+                       (^actor(:unscoped_device_access) == true or id in ^actor(:authorized_device_ids))
+                   )
+    end
+
+    policy action(:list_runtime_devices) do
+      authorize_if actor_attribute_equals(:can_view_device_data, true)
+    end
+
+    policy action_type([:create, :update, :destroy]) do
+      # Operator mutations are admitted and scoped by JsonApiPermissions.
+      authorize_if actor_present()
+    end
+
+    policy action([:heartbeat, :acknowledge_command_results, :fetch_command_payload]) do
+      # JsonApiPermissions authenticates the device before installing its actor.
+      authorize_if expr(^actor(:id) == ^arg(:device_id))
+    end
+  end
+
   defp heartbeat_payload(arguments) do
-    Map.take(arguments, [:telemetry, :connection_status, :command_inventory])
+    Map.take(arguments, [:telemetry, :connection_status, :command_inventory, :ssh_host_key])
   end
 
   attributes do
@@ -368,6 +446,26 @@ defmodule Nixstasis.Devices.Device do
       default false
       public? true
     end
+
+    attribute :remote_access_expires_at, :utc_datetime_usec
+
+    attribute :remote_access_owner, :string
+
+    attribute :remote_access_default_profile, :string do
+      allow_nil? false
+      default "default"
+      constraints match: ~r/^[a-z][a-z0-9._-]{0,63}$/
+    end
+
+    attribute :ssh_host_key, :string
+
+    attribute :ssh_host_key_pending, :string
+
+    attribute :ssh_host_key_trusted_at, :utc_datetime_usec
+
+    attribute :ssh_host_key_trusted_by, :string
+
+    attribute :ssh_host_key_previous_fingerprint, :string
 
     attribute :remote_access_profile, :string do
       allow_nil? false

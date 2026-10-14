@@ -5,14 +5,18 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   Device runtime APIs live under `/api/v1` and use device credentials instead of
   AuthCrunch operator claims. The generated `/api/json` surface is an
   operator/developer resource API and must fail closed outside local dev/test
-  fallback.
+  fallback. Verified operator requests also receive an Ash actor so device-backed
+  reads can enforce row scope and alert-rule actions can enforce view/manage
+  capabilities in the resource layer.
   """
 
   import Plug.Conn
 
   alias Nixstasis.Devices
+  alias NixstasisWeb.DeviceAuthentication
   alias NixstasisWeb.OperatorContext
   alias NixstasisWeb.Permissions
+  alias NixstasisWeb.Plugs.RateLimiter
 
   @behaviour Plug
 
@@ -36,16 +40,25 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     end
   end
 
+  # Check the route's permission against verified operator context, then attach
+  # a validated Ash read actor. Missing grants or malformed scope return a halted
+  # forbidden connection instead of executing an unscoped resource query.
   defp authorize_operator(conn, policy) do
-    conn
-    |> context_from_conn()
-    |> permitted?(policy)
-    |> case do
-      true -> conn
-      false -> forbidden(conn)
+    context = context_from_conn(conn)
+
+    if permitted?(context, policy) do
+      case Permissions.device_read_actor(context) do
+        {:ok, actor} -> Ash.PlugHelpers.set_actor(conn, actor)
+        {:error, :invalid_device_scope} -> forbidden(conn)
+      end
+    else
+      forbidden(conn)
     end
   end
 
+  # Map route and method to their credential/permission boundary: public device
+  # registration, device-authenticated runtime operations, scoped operator reads,
+  # admin-only settings, or report view/manage permissions for remaining resources.
   defp policy_for(%{path_info: ["api", "json", "device_runtime", "devices", "register"], method: "POST"}),
     do: :device_runtime_registration
 
@@ -72,6 +85,14 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
 
   defp policy_for(%{path_info: ["api", "json", "telemetry_events" | _], method: method}) do
     if method in ["GET", "HEAD", "OPTIONS"], do: {:device, :view}, else: {:device, :manage_all}
+  end
+
+  defp policy_for(%{path_info: ["api", "json", "alerts" | _], method: method}) do
+    if method in ["GET", "HEAD", "OPTIONS"], do: {:device, :view}, else: {:device, :manage_all}
+  end
+
+  defp policy_for(%{path_info: ["api", "json", "alert_rules" | _], method: method}) do
+    if method in ["GET", "HEAD", "OPTIONS"], do: {:alert, :view}, else: {:alert, :manage}
   end
 
   defp policy_for(%{path_info: ["api", "json", "system_settings" | _]}), do: {:role, "nixstasis/admin"}
@@ -110,6 +131,14 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
     context |> Map.get("device_permissions") |> Permissions.can_manage_all_devices?()
   end
 
+  defp permitted?(context, {:alert, :view}) do
+    get_in(context, ["alert_permissions", "can_view"]) == true
+  end
+
+  defp permitted?(context, {:alert, :manage}) do
+    get_in(context, ["alert_permissions", "can_manage"]) == true
+  end
+
   defp permitted?(context, {:report, :view}) do
     get_in(context, ["report_permissions", "can_view"]) == true
   end
@@ -128,10 +157,10 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
         runtime_error(conn, :not_found, "device_not_found", "Device not found")
 
       {:ok, device} ->
-        case Map.get(conn.query_params || %{}, "api_key") do
-          nil -> runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
-          "" -> runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
-          token -> authenticate_device_runtime(conn, device, token)
+        case DeviceAuthentication.bearer_token(conn) do
+          {:ok, token} -> authenticate_device_runtime(conn, device, token)
+          {:error, :missing_token} -> runtime_error(conn, :unauthorized, "missing_api_key", "Bearer token is required")
+          {:error, :invalid_token} -> runtime_error(conn, :unauthorized, "invalid_api_key", "Bearer token is invalid")
         end
 
       {:error, _reason} ->
@@ -142,20 +171,53 @@ defmodule NixstasisWeb.Plugs.JsonApiPermissions do
   defp authenticate_device_runtime(conn, device, token) do
     case Devices.authenticate_device(device, token) do
       :ok ->
-        conn
-        |> Ash.PlugHelpers.set_actor(device)
-        |> Ash.PlugHelpers.set_context(%{device: device})
+        case device_runtime_rate_action(conn) do
+          nil ->
+            put_device_runtime_actor(conn, device)
+
+          action ->
+            case RateLimiter.check_authenticated_device(device, action) do
+              :ok -> put_device_runtime_actor(conn, device)
+              :limited -> runtime_error(conn, :too_many_requests, "rate_limited", "Rate limit exceeded")
+            end
+        end
 
       {:error, :device_not_approved} ->
         runtime_error(conn, :forbidden, "device_not_approved", "Device is not approved")
 
       {:error, :invalid_token} ->
-        runtime_error(conn, :unauthorized, "invalid_api_key", "API key is invalid")
+        runtime_error(conn, :unauthorized, "invalid_api_key", "Bearer token is invalid")
 
       {:error, :missing_token} ->
-        runtime_error(conn, :unauthorized, "missing_api_key", "API key is required")
+        runtime_error(conn, :unauthorized, "missing_api_key", "Bearer token is required")
     end
   end
+
+  defp put_device_runtime_actor(conn, device) do
+    conn
+    |> Ash.PlugHelpers.set_actor(device)
+    |> Ash.PlugHelpers.set_context(%{device: device})
+  end
+
+  defp device_runtime_rate_action(%{
+         method: "POST",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "heartbeat"]
+       }),
+       do: :heartbeat
+
+  defp device_runtime_rate_action(%{
+         method: "POST",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "command_results"]
+       }),
+       do: :command_results
+
+  defp device_runtime_rate_action(%{
+         method: "GET",
+         path_info: ["api", "json", "device_runtime", "devices", _id, "command_payloads", _ref]
+       }),
+       do: :command_payload
+
+  defp device_runtime_rate_action(_conn), do: nil
 
   defp runtime_error(conn, status, code, detail) do
     conn

@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,12 +15,107 @@ import (
 	"github.com/RobertDeRose/nixstasis/packages/client/internal/telemetry"
 )
 
+// TestDoJSONBoundsResponseBody verifies that a JSON response body of exactly
+// maxAPIResponseBytes decodes and one byte more fails with the size error.
+func TestDoJSONBoundsResponseBody(t *testing.T) {
+	t.Parallel()
+
+	const prefix = `{"padding":"`
+	const suffix = `"}`
+	paddingAtLimit := maxAPIResponseBytes - len(prefix) - len(suffix)
+
+	tests := []struct {
+		name    string
+		size    int
+		wantErr bool
+	}{
+		{name: "at limit", size: paddingAtLimit},
+		{name: "over limit", size: paddingAtLimit + 1, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := prefix + strings.Repeat("x", tt.size) + suffix
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(body))
+			}))
+			defer server.Close()
+
+			client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Padding string `json:"padding"`
+			}
+			err = client.doJSON(context.Background(), http.MethodGet, server.URL, nil, &response, http.StatusOK)
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "API response body exceeded 1048576-byte limit") {
+					t.Fatalf("expected response-size error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("doJSON failed: %v", err)
+			}
+			if len(response.Padding) != tt.size {
+				t.Fatalf("padding length = %d, want %d", len(response.Padding), tt.size)
+			}
+		})
+	}
+}
+
+// TestDoJSONAllowsEmptyResponseBody verifies that empty and whitespace-only
+// success bodies are accepted without decoding, while truncated JSON still
+// fails to decode.
+func TestDoJSONAllowsEmptyResponseBody(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "empty"},
+		{name: "JSON whitespace", body: " \t\r\n"},
+		{name: "truncated object", body: `{`, wantErr: true},
+		{name: "truncated value", body: `{"value":`, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+
+			client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Value string `json:"value"`
+			}
+			err = client.doJSON(context.Background(), http.MethodGet, server.URL, nil, &response, http.StatusOK)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("doJSON error = %v, want error = %v", err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestPollUsesHeartbeatContract(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-123"
+	runtimeToken := "runtime-token"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
@@ -37,11 +133,15 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_profile":{"name":"default","version":1,"host_header_rewrite":"evil.example"},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
+		_, _ = w.Write([]byte(`{"data":{"remote_access_token":"shared-secret","remote_access_expires_at_ms":1900000000000,"remote_access_lease_id":"11111111-2222-3333-4444-555555555555","remote_access_profile":{"name":"default","version":1,"host_header_rewrite":"evil.example"},"commands":[{"command_id":"c1","type":"list_scripts","args":[]}]}}`))
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetAPIKey(runtimeToken)
 
 	resp, err := client.Poll(
 		context.Background(),
@@ -65,6 +165,12 @@ func TestPollUsesHeartbeatContract(t *testing.T) {
 	if resp == nil || len(resp.Commands) != 1 || resp.Commands[0].CommandID != "c1" {
 		t.Fatalf("unexpected poll response: %#v", resp)
 	}
+	if resp.RemoteAccessLeaseID != "11111111-2222-3333-4444-555555555555" {
+		t.Fatalf("remote access lease = %q", resp.RemoteAccessLeaseID)
+	}
+	if resp.RemoteAccessExpiresAtMS != 1900000000000 {
+		t.Fatalf("remote access expiry = %d", resp.RemoteAccessExpiresAtMS)
+	}
 	if resp.RemoteAccessToken != "shared-secret" {
 		t.Fatalf("remote access token = %q", resp.RemoteAccessToken)
 	}
@@ -77,9 +183,11 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-inventory"
+	runtimeToken := "inventory-token"
 	observedAt := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		var req PollRequest
 		if err := json.UnmarshalRead(r.Body, &req); err != nil {
 			t.Fatalf("decode request: %v", err)
@@ -106,7 +214,11 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetAPIKey(runtimeToken)
 	resp, err := client.PollWithInventory(context.Background(), deviceID, telemetry.Payload{}, frp.ConnectionStatus{}, &CommandInventoryEvidence{
 		SchemaVersion:       1,
 		ProbeCatalogVersion: "catalog-v1",
@@ -128,13 +240,54 @@ func TestPollWithInventorySendsEvidenceAndParsesProbe(t *testing.T) {
 	}
 }
 
+func TestPollWithInventoryAndHostKeySendsSSHHostKey(t *testing.T) {
+	t.Parallel()
+
+	deviceID := "d-host-key"
+	runtimeToken := "host-key-token"
+	hostKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE5peHN0YXNpcy10ZXN0LWhvc3Qta2V5LTEyMzQ1Ng=="
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
+		var req PollRequest
+		if err := json.UnmarshalRead(r.Body, &req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.SSHHostKey != hostKey {
+			t.Fatalf("ssh_host_key = %q, want %q", req.SSHHostKey, hostKey)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetAPIKey(runtimeToken)
+	if _, err := client.PollWithInventoryAndHostKey(
+		context.Background(),
+		deviceID,
+		telemetry.Payload{},
+		frp.ConnectionStatus{},
+		nil,
+		hostKey,
+	); err != nil {
+		t.Fatalf("PollWithInventoryAndHostKey failed: %v", err)
+	}
+}
+
 func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	t.Parallel()
 
 	deviceID := "d-123"
 	payloadRef := "p-1"
+	runtimeToken := "command-token"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeviceBearerRequest(t, r, runtimeToken)
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/devices/"+deviceID+"/command_results":
 			w.WriteHeader(http.StatusAccepted)
@@ -148,7 +301,11 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(config.APIConfig{URL: server.URL})
+	client, err := NewClient(config.APIConfig{URL: server.URL, AllowLoopbackHTTP: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetAPIKey(runtimeToken)
 
 	if err := client.SendCommandResults(context.Background(), deviceID, []CommandResult{{CommandID: "c1", Status: CommandStatusOK}}); err != nil {
 		t.Fatalf("SendCommandResults failed: %v", err)
@@ -160,5 +317,16 @@ func TestCommandEndpointsUseRuntimeV1Routes(t *testing.T) {
 	}
 	if payload == nil || payload.Data != "echo hi" {
 		t.Fatalf("unexpected payload: %#v", payload)
+	}
+}
+
+func assertDeviceBearerRequest(t *testing.T, r *http.Request, token string) {
+	t.Helper()
+
+	if got := r.Header.Get("Authorization"); got != "Bearer "+token {
+		t.Fatalf("authorization header = %q, want bearer token", got)
+	}
+	if r.URL.RawQuery != "" {
+		t.Fatalf("runtime credential must not appear in URL query: %q", r.URL.RawQuery)
 	}
 }

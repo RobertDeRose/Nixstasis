@@ -11,6 +11,17 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     script_client_actions
   )
 
+  test "report result OpenAPI declares operator authentication" do
+    path = Path.expand("../../../../docs/src/reference/openapi/report-api.yaml", __DIR__)
+    openapi = YamlElixir.read_from_file!(path)
+    operation = get_in(openapi, ["paths", "/api/v1/reports/{id}/results", "get"])
+
+    assert operation["security"] == [%{"operatorBearer" => []}]
+    assert get_in(openapi, ["components", "securitySchemes", "operatorBearer", "type"]) == "http"
+    assert get_in(openapi, ["components", "securitySchemes", "operatorBearer", "scheme"]) == "bearer"
+    assert Map.has_key?(operation["responses"], "401")
+  end
+
   test "generated OpenAPI includes builder contract action routes" do
     openapi = File.read!(@openapi_path)
 
@@ -34,9 +45,9 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert registration_operation["operationId"] == "register_runtime_device"
     assert list_operation["security"] == [%{"bearerAuth" => []}]
     assert registration_operation["security"] == []
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "type"]) == "apiKey"
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "in"]) == "query"
-    assert get_in(openapi, ["components", "securitySchemes", "deviceApiKey", "name"]) == "api_key"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "type"]) == "http"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "scheme"]) == "bearer"
+    assert get_in(openapi, ["components", "securitySchemes", "deviceBearer", "bearerFormat"]) == "Device token"
   end
 
   test "generated OpenAPI includes heartbeat action fields and its 200 status" do
@@ -50,7 +61,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert heartbeat["operationId"] == "heartbeat"
-    assert heartbeat["security"] == [%{"deviceApiKey" => []}]
+    assert heartbeat["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(heartbeat["responses"], "200")
     refute Map.has_key?(heartbeat["responses"], "201")
 
@@ -68,6 +79,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
     assert Map.has_key?(request_properties, "telemetry")
     assert Map.has_key?(request_properties, "connection_status")
     assert Map.has_key?(request_properties, "command_inventory")
+    assert get_in(request_properties, ["ssh_host_key", "anyOf", Access.at(0), "type"]) == "string"
 
     response_properties =
       get_in(heartbeat, [
@@ -82,6 +94,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert Map.has_key?(response_properties, "remote_access_profile")
+    assert Map.has_key?(response_properties, "remote_access_expires_at_ms")
   end
 
   test "generated OpenAPI includes command result and payload action contracts" do
@@ -102,7 +115,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
       ])
 
     assert command_results["operationId"] == "acknowledge_command_results"
-    assert command_results["security"] == [%{"deviceApiKey" => []}]
+    assert command_results["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(command_results["responses"], "202")
     refute Map.has_key?(command_results["responses"], "201")
 
@@ -119,7 +132,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
 
     assert Map.has_key?(results_properties, "results")
     assert payload["operationId"] == "fetch_command_payload"
-    assert payload["security"] == [%{"deviceApiKey" => []}]
+    assert payload["security"] == [%{"deviceBearer" => []}]
     assert Map.has_key?(payload["responses"], "200")
   end
 
@@ -128,7 +141,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
 
     expected = [
       {"/api/json/device_runtime/devices", "get", ~w(403 429)},
-      {"/api/json/device_runtime/devices/register", "post", ~w(400 429)},
+      {"/api/json/device_runtime/devices/register", "post", ~w(400 403 429)},
       {"/api/json/device_runtime/devices/{device_id}/heartbeat", "post", ~w(400 401 403 404 429)},
       {"/api/json/device_runtime/devices/{device_id}/command_results", "post", ~w(400 401 403 404 429)},
       {"/api/json/device_runtime/devices/{device_id}/command_payloads/{ref}", "get", ~w(401 403 404 429)}

@@ -20,6 +20,14 @@ defmodule NixstasisWeb.ReportLive.Show do
     {"is not", "is not"}
   ]
 
+  @doc """
+  Opens a report detail view using permissions from the trusted browser session.
+
+  Initializes fields, view preferences, and the operator's telemetry device
+  scope without loading result rows yet. Unauthorized operators are sent home;
+  internal E2E reports are redirected to the report list. Returns the mounted
+  socket for subsequent parameter-driven result loading.
+  """
   def mount(%{"id" => id}, session, socket) do
     if Permissions.can_view_reports?(session) do
       report = Reporting.get_custom_report!(id)
@@ -33,6 +41,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         fields = Reporting.report_fields(report)
         field_type_by_column = build_field_type_map(report, fields)
         preference_scope = Reporting.preference_scope(session)
+        authorized_device_ids = Permissions.authorized_report_device_ids(session)
         filter_column = first_field_key(fields)
         filter_operator = default_filter_operator(field_type_for_column(field_type_by_column, filter_column))
 
@@ -45,6 +54,7 @@ defmodule NixstasisWeb.ReportLive.Show do
          |> assign(:field_type_by_column, field_type_by_column)
          |> assign(:results, [])
          |> assign(:preference_scope, preference_scope)
+         |> assign(:authorized_device_ids, authorized_device_ids)
          |> assign(:preferences_enabled?, preference_scope != nil)
          |> assign(:preferences_reset?, false)
          |> assign(:sort_by, "")
@@ -62,6 +72,14 @@ defmodule NixstasisWeb.ReportLive.Show do
     end
   end
 
+  @doc """
+  Loads the authorized report preview for the current filter and sort parameters.
+
+  Merges saved preferences with URL input, normalizes the view state, and runs
+  at most 250 result rows using the device scope saved at mount. Records valid
+  preferences and updates table assigns. Unauthorized sockets remain unchanged;
+  query and persistence failures are not hidden by this callback.
+  """
   def handle_params(params, _url, socket) do
     if authorized_socket?(socket) do
       merged_view_state =
@@ -76,13 +94,17 @@ defmodule NixstasisWeb.ReportLive.Show do
       filters = to_filters(view_state)
 
       results =
-        Reporting.run_custom_report(socket.assigns.report, %{
-          "sort_by" => view_state["sort_by"],
-          "sort_dir" => view_state["sort_dir"],
-          "filters" => filters,
-          "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
-          "limit" => 250
-        })
+        Reporting.run_custom_report(
+          socket.assigns.report,
+          %{
+            "sort_by" => view_state["sort_by"],
+            "sort_dir" => view_state["sort_dir"],
+            "filters" => filters,
+            "numeric_columns" => numeric_field_keys(socket.assigns.field_type_by_column),
+            "limit" => 250
+          },
+          socket.assigns.authorized_device_ids
+        )
 
       Reporting.save_view_preferences(
         socket.assigns.preference_scope,
@@ -335,6 +357,15 @@ defmodule NixstasisWeb.ReportLive.Show do
     socket.assigns[:can_view_reports] == true
   end
 
+  @doc """
+  Renders the report detail page.
+
+  Shows notices when saved view preferences are unavailable or were reset, the
+  report name with a back link and an edit link for report managers, the column,
+  operator, and value filter form with a clear button, and the result table with
+  one sortable column per report field. An empty result set renders a no-data
+  message instead of rows.
+  """
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-6xl">
@@ -360,7 +391,7 @@ defmodule NixstasisWeb.ReportLive.Show do
         </div>
       </div>
 
-      <form phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
+      <form id="report-result-filters" phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
         <select name="filter[column]" class="ui-select-sm-plain" value={@filter_column}>
           <option :for={field <- @fields} value={field_key(field)} selected={@filter_column == field_key(field)}>
             {field_key(field)}

@@ -41,7 +41,15 @@ mise run deploy:dev -- up --clients 2
 
 `up` is the dev-lab bootstrap command: it starts Postgres, runs migrations,
 starts the full stack, scales client containers, and pre-approves the running
-client simulators. Seed deterministic schema-builder fixtures into the running
+client simulators. Clients use `https://nixstasis.${BASE_DOMAIN}` through a
+Compose alias for Caddy instead of plaintext Phoenix. During dev bootstrap,
+only Caddy's public local CA certificate is copied into each client's OS trust
+store before registration is restarted; private CA keys are never shared.
+HTTPS certificate/hostname verification stays enabled and client API redirects
+are rejected. With other private CAs, install the public CA certificate in the
+client trust store before enrollment.
+
+Seed deterministic schema-builder fixtures into the running
 Compose database with:
 
 ```sh
@@ -86,7 +94,14 @@ mise run deploy:dev -- exec nixstasis /bin/bash
 
 ## Production
 
-1. Copy `.env.example` to `.env` and fill every required value, including `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, and the `NIXSTASIS_*_GROUPS` group-to-role mapping values.
+1. Copy `.env.example` to `.env` and fill every required value, including
+   `DATABASE_URL`, `BASE_DOMAIN`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, the
+   `NIXSTASIS_*_GROUPS` group-to-role mapping values, and a fresh
+   `NIXSTASIS_PROXY_AUTH_TOKEN` generated with `openssl rand -hex 32`.
+   Matching single or double quotes around this value do not count toward its
+   minimum length of 32 characters. If E2E is enabled, also set a dedicated
+   `NIXSTASIS_E2E_RUNNER_ID` and fresh `NIXSTASIS_E2E_RUNNER_TOKEN` generated
+   the same way.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
 4. Start: `docker compose --env-file .env up -d`
@@ -115,6 +130,9 @@ targeting the compose `postgres` host.
 | `CHECK_ORIGIN_EXTRA`               | `nixstasis.localhost,127.0.0.1:4000` | (unset)                        |
 | `NIXSTASIS_FORCE_SSL`              | `false`                              | (unset, defaults to true)      |
 | `NIXSTASIS_SESSION_COOKIE_SECURE`  | `false`                              | `true`                         |
+| `NIXSTASIS_PROXY_AUTH_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
+| `NIXSTASIS_E2E_RUNNER_ID`          | `local-runner`                       | dedicated CI/runner principal  |
+| `NIXSTASIS_E2E_RUNNER_TOKEN`       | tracked local-only value             | fresh 32+ byte random secret   |
 | `NIXSTASIS_SIMULATOR_HTTP_ENABLED` | `true`                               | `false`                        |
 | `NIXSTASIS_SSH_FRP_HOST`           | `frps`                               | reachable FRPS TCP mux host    |
 | `ATOMIXOS_PROVISIONING_BASE_URL`   | derived from device host             | optional explicit FRP API base |
@@ -123,23 +141,49 @@ targeting the compose `postgres` host.
 ## Runtime Contract
 
 - Public ingress terminates at Caddy.
+- Production and laptop Nixstasis hosts remove client-supplied `X-Token-*`
+  headers at request entry, before AuthCrunch authorization injects verified
+  claims. Device runtime requests reach Phoenix without operator claims;
+  authorized operator requests retain only claims injected by AuthCrunch.
+- Those hosts reject requests with `400` before authorization or proxying if any
+  `Connection` header names an `X-Token-*` header or `X-Nixstasis-Proxy-Token`.
+  Matching is case-insensitive across comma-separated and repeated fields, so
+  hop-by-hop cleanup cannot remove verified claims. Ordinary WebSocket
+  upgrade requests remain supported.
+- Caddy overwrites `X-Nixstasis-Proxy-Token` on every Phoenix proxy request with
+  `NIXSTASIS_PROXY_AUTH_TOKEN`. Phoenix refuses `X-Token-*` operator claims
+  unless that internal proxy credential matches, so direct loopback or Compose
+  peers cannot manufacture an AuthCrunch identity from claim headers alone.
+- Caddy forwards identity and `nixstasis/*` roles only, never device scope.
+  Phoenix ignores `X-Token-Device-Ids` and its legacy aliases; device
+  authorization is Phoenix-owned.
+- `/e2e/*` bypasses browser OIDC at Caddy only because Phoenix requires the dedicated E2E runner credential. `X-E2E-Runner-ID` plus `Authorization: Bearer <token>` identify the runner, and each run is owner-scoped to that principal. Browser/AuthCrunch roles do not grant E2E access.
+- Caddy also overwrites `X-Nixstasis-Client-IP` with the peer address it observes.
+  Phoenix uses that value for pre-authentication rate limiting only when the same
+  proxy credential validates; direct callers are limited by their socket peer.
 - Phoenix runs on `PORT=4000` internally.
 - Phoenix's optional host-published diagnostic port binds to
   `PHOENIX_BIND_HOST=127.0.0.1` by default. Do not expose it publicly in
   production; browser authorization is only supported through Caddy/AuthCrunch.
-- `FRPS_AUTH_TOKEN` is provided to both `frps` and `nixstasis`; FRPS uses it for
-  token auth, and Phoenix only returns it to authenticated device heartbeats while
-  remote access is requested for that device.
+- FRPS delegates `Login` and `NewProxy` authorization to Phoenix. Heartbeats
+  return a short-lived signed credential bound to the requesting device, and
+  FRPS confines proxy names and domains to that device namespace. Devices no
+  longer receive a deployment-wide FRPS client secret.
 - PostgreSQL data is mounted at `/var/lib/postgresql` to match the PostgreSQL 18+
   image layout.
 - `FRPS_HTTP_PORT` is an internal Compose port for Caddy wildcard proxying and is
   not published directly on the host.
+- `FRPS_TCPMUX_PORT` is internal to the Compose network and is not published on
+  the host. Phoenix connects to it directly through the `frps` service.
 - `NIXSTASIS_SSH_FRP_HOST` is the hostname Phoenix uses for browser terminal SSH
   connections to FRPS TCP mux. In Compose it should stay `frps`; outside Compose
   it must be the FRPS TCP mux host reachable from the Phoenix runtime.
 - `ATOMIXOS_PROVISIONING_BASE_URL` optionally overrides the per-device public
   FRP API base used by the server's initial AtomixOS bootstrap action. When it
-  is unset, the server derives `https://atom-<normalized-mac>.<BASE_DOMAIN>`.
+  is unset, the server derives
+  `https://atom-<compact-device-uuid>-provisioning.<BASE_DOMAIN>`, using the
+  server-assigned device UUID in lowercase without hyphens, not the MAC address.
+  This hostname must resolve to Caddy and be eligible for TLS approval.
   The action still requires the authorized `atomixos-bootstrap` route and
   resolves only the documented relative `/api/jobs/<job_id>` path.
 - The client poll service and root-owned SSH helper use the fixed local socket
@@ -156,8 +200,13 @@ targeting the compose `postgres` host.
 - The tracked dev/test Caddyfile uses Caddy's internal CA directly instead of
   on-demand TLS so local HTTPS is deterministic without public ACME or OIDC.
 - Reserved hosts: `nixstasis.<base-domain>`, `auth.<base-domain>`,
-  `frp-admin.<base-domain>`.
-- Wildcard device hosts require `authorize with entra_policy` before proxying.
+  `frp-admin.<base-domain>`. Production and laptop AuthCrunch configurations
+  restrict the FRPS dashboard host to the normalized `nixstasis/admin` role
+  before FRPS applies its own dashboard credentials.
+- Wildcard device hosts require `authorize with entra_policy` and a Phoenix
+  `/internal/frp/access` forward-auth check before proxying. Phoenix derives the
+  owning device ID from the FRP hostname and requires `can_remote_access`.
+  Device scope comes only from Phoenix-owned permissions, never forwarded claims.
 - AuthCrunch policy must allow roles `${AUTHORIZED_ROLES}` and groups `${AUTHORIZED_GROUPS}`.
 - Caddy transforms provider-specific OIDC groups into provider-generic
   Nixstasis roles with `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`,
@@ -166,9 +215,10 @@ targeting the compose `postgres` host.
   sync.
 - Caddy injects AuthCrunch claims for Phoenix browser UI permission mapping with
   `X-Token-Subject`, `X-Token-User-Email`, `X-Token-User-Name`, and
-  `X-Token-User-Roles`. Phoenix consumes only normalized `nixstasis/viewer`,
-  `nixstasis/operator`, and `nixstasis/admin` role values; missing or unknown
-  production role claims fail closed.
+  `X-Token-User-Roles`. Phoenix accepts those claims only when the request also
+  carries the valid Caddy-injected `X-Nixstasis-Proxy-Token`, then consumes only
+  normalized `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin`
+  role values. Missing, untrusted, or unknown production claims fail closed.
 - Migrations are explicit, not part of container startup.
 
 Production image refs should look like `ghcr.io/<owner>/nixstasis-server@sha256:<digest>`.
@@ -244,8 +294,57 @@ stdout. Use
 
 ## Contract Validation
 
+Run the stack validation tests from the repository root. `mise run check` runs
+them as well, and the pre-commit hook runs them whenever staged files under
+`deploy/compose/` change:
+
 ```sh
-deploy/compose/scripts/check_runtime_contract.sh
+python3 deploy/compose/scripts/test_validate_stack.py
+```
+
+The `frps-render-config.sh` renderer in `packages/frp` has its own tests, run
+by the pre-commit hook whenever staged files under `packages/frp/` or
+`deploy/compose/frps/` change:
+
+```sh
+uv run packages/frp/bin/test_frps_render_config.py
+```
+
+For real production/laptop Caddy/AuthCrunch proxy claim checks on macOS or Linux,
+use Docker and the repository-built Caddy image in a disposable Compose container:
+
+```sh
+mise run deploy:dev -- build caddy
+mise run deploy:dev -- run --rm --no-deps \
+  --entrypoint /bin/sh \
+  --volume "$PWD:/workspace:ro" \
+  --workdir /workspace \
+  caddy -c 'apk add --no-cache python3 &&
+    python3 deploy/compose/scripts/check_proxy_claims.py --caddy /usr/bin/caddy'
+```
+
+The development stack already runs Caddy in a container. This check uses a separate
+one-off container, not the live Caddy process. Python is installed only in that
+disposable container; no host Caddy or Python installation is required. The check
+starts its own Caddy processes and echo upstream on container-local loopback ports.
+It does not require the full stack to be running or publish service ports. Package
+installation requires network access. Do not execute the exported Linux Buildx
+binary directly on macOS; the existing Linux CI workflow is unchanged.
+
+Confirm the pinned frps binary accepts the `frps/frps.toml` template. The script
+renders it with the image's own `frps-render-config.sh` using dummy values and
+runs `frps verify` in the image; the FRPS image workflow runs the same check
+before it publishes the image, and fails the release if the published image ID
+differs from the verified one:
+
+```sh
+mise run deploy:dev -- build frps
+deploy/compose/scripts/check_frps_config.sh nixstasis-frps:dev
+```
+
+Validate production deployment inputs separately:
+
+```sh
 deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 ```
 
