@@ -64,5 +64,6 @@
 
 Traceable references:
 
-- `packages/server/mix.exs:1-113`
-- `packages/server/lib/nixstasis/application.ex:9-51`
+- `packages/server/mix.exs`: `project/0`, `application/0`, and `deps/0`.
+- `packages/server/lib/nixstasis/application.ex`: `start/2`, which builds the
+  supervision tree.

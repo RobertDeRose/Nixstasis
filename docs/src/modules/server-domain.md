@@ -173,6 +173,10 @@
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/domain.ex:1-122`
-- `packages/server/lib/nixstasis_web/router.ex:22-28`
-- `packages/server/priv/static/openapi.yaml:3190`
+- `packages/server/lib/nixstasis/domain.ex`: the `json_api` block in
+  `Nixstasis.Domain`, which declares the `/api/json` routes.
+- `packages/server/lib/nixstasis_web/router.ex`: the `/api/json` scope under
+  the `:json_api` pipeline, which forwards Swagger UI and the Ash JSON:API
+  router.
+- `packages/server/priv/static/openapi.yaml`: the `paths` section, which
+  lists the generated `/api/json` operations.

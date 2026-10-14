@@ -88,7 +88,11 @@
 
 Traceable references:
 
-- `packages/server/lib/nixstasis/e2e.ex:1-420`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:1-93`
-- `packages/server/lib/nixstasis_web/router.ex:68-79`
-- `deploy/compose/README.md:12-14`
+- `packages/server/lib/nixstasis/e2e.ex`: `Nixstasis.E2E`, the run lifecycle
+  context.
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`:
+  `NixstasisWeb.E2ERunController`, which serves the `/e2e/runs` endpoints.
+- `packages/server/lib/nixstasis_web/router.ex`: the `/e2e` scope under the
+  `:e2e_api` pipeline.
+- `deploy/compose/README.md`: the Services table, which lists the `nixstasis`
+  server and `client` simulator containers.

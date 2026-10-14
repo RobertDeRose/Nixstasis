@@ -129,11 +129,16 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:84-212`
-- `packages/server/lib/nixstasis_web/router.ex:58-65`
-- `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-37`
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
+- `packages/client/internal/transport/client.go`: `RegisterDevice`, `Poll`,
+  `SendCommandResults`, and `FetchCommandPayload`, the device API calls.
+- `packages/server/lib/nixstasis_web/router.ex`: the `/api/v1` scope device
+  routes under the `:api` pipeline.
+- `packages/server/lib/nixstasis_web/controllers/device_controller.ex`:
+  `register/2`, the device registration action.
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`:
+  `create/2`, the heartbeat action.
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`:
+  `command_results/2` and `command_payload/2`, the command actions.
 
 ## Server-managed Stary command contract
 
@@ -344,7 +349,8 @@ Validation error response when the schema payload is missing or invalid:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:86-120`
+- `packages/client/internal/transport/client.go`: `RegisterDevice` and
+  `RegisterDeviceCredentials`, the registration request.
 - `docs/src/features/go-client-rewrite/design.md`
 
 ### Heartbeat
@@ -552,7 +558,9 @@ Devices that are not approved receive a distinct authorization failure:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:123-232`
+- `packages/client/internal/transport/client.go`: `PollRequest`,
+  `PollResponse`, and `PollWithInventoryAndHostKey`, the heartbeat request
+  and response.
 - `packages/client/internal/inventory/inventory.go`
 - `docs/src/features/go-client-rewrite/design.md`
 
@@ -604,8 +612,10 @@ Missing-token response:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:189-200`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-19`
+- `packages/client/internal/transport/client.go`: `SendCommandResults`, the
+  command results request.
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`:
+  `command_results/2`, which acknowledges command results.
 - `docs/src/features/go-client-rewrite/design.md`
 
 ### Command Payload
@@ -669,8 +679,10 @@ Denied host response:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:8-17`
-- `deploy/compose/caddy/Caddyfile:42-75`
+- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`:
+  `check_domain/2`, the on-demand TLS ask endpoint.
+- `deploy/compose/caddy/Caddyfile`: the `on_demand_tls` ask directive and the
+  per-site `tls` blocks with `on_demand`.
 - `docs/src/runtime-boundaries.md`
 - `docs/src/modules/deployment-compose.md`
 
@@ -853,9 +865,11 @@ not accepted as the version-pairing contract.
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:68-79`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-93`
-- `README.md:96-116`
+- `packages/server/lib/nixstasis_web/router.ex`: the `/e2e` scope under the
+  `:e2e_api` pipeline.
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`: the
+  `index/2`, `suites/2`, `create/2`, `show/2`, and `cancel/2` actions.
+- `README.md`: the Quick Start subsection of E2E Tests (Client ↔ Server).
 
 ## E2E API Examples
 
@@ -1098,11 +1112,16 @@ Traceable references:
 
 Traceable references:
 
-- `packages/server/lib/nixstasis_web/router.ex:4-20`
-- `deploy/compose/caddy/Caddyfile:25-38`
-- `packages/server/lib/nixstasis_web/channels/user_socket.ex:37-64`
-- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex:20-50`
-- `packages/client/internal/transport/client.go:47-54`
+- `packages/server/lib/nixstasis_web/router.ex`: the `:browser`, `:api`, and
+  `:e2e_api` pipeline definitions.
+- `deploy/compose/caddy/Caddyfile`: the `nixstasis_portal` authentication
+  portal and the `entra_policy` authorization policy.
+- `packages/server/lib/nixstasis_web/channels/user_socket.ex`: `connect/3`
+  and `id/1`, the terminal socket token check.
+- `packages/server/lib/nixstasis_web/channels/terminal_channel.ex`: `join/3`,
+  the terminal channel authorization.
+- `packages/client/internal/transport/client.go`: `NewHTTPClient`, which
+  enforces HTTPS or loopback-only HTTP.
 
 ## Error Handling Patterns
 
@@ -1123,11 +1142,16 @@ Traceable references:
 
 Traceable references:
 
-- `packages/client/internal/transport/client.go:37-82`
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:16-25`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:15-37`
-- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex:21-27`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:33-62`
+- `packages/client/internal/transport/client.go`: `doJSONWithBearer`, which
+  maps unexpected statuses and enforces `maxAPIResponseBytes`.
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`: the
+  `create/2` error clauses.
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`:
+  the `command_results/2` error clauses and bad-request fallback.
+- `packages/server/lib/nixstasis_web/controllers/tls_controller.ex`: `deny/2`,
+  the unauthorized domain response.
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`: the
+  `create/2` error-code mapping.
 
 ## Versioning Strategy
 
@@ -1140,6 +1164,7 @@ Traceable references:
 Traceable references:
 
 - `docs/src/features/go-client-rewrite/design.md`
-- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex:7-25`
-- `README.md:123-135`
-- `packages/client/go.mod:1-13`
+- `packages/server/lib/nixstasis_web/controllers/e2e_run_controller.ex`:
+  `create/2`, which reads the `@protocol_header` request header.
+- `README.md`: the Contract Rules (Server-Enforced) section.
+- `packages/client/go.mod`: the `go` directive.

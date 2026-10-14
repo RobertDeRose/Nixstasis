@@ -90,7 +90,11 @@
 
 Traceable references:
 
-- `packages/client/cmd/nixstasis/register.go:28-93`
-- `packages/client/cmd/nixstasis/poll.go:38-47`
-- `packages/client/internal/identity/store.go:18-157`
-- `packages/client/internal/config/config.go:116-119`
+- `packages/client/cmd/nixstasis/register.go`: `runRegisterWithClient` and
+  `prepareRegistration`, which persist and consume the enrollment proof.
+- `packages/client/cmd/nixstasis/poll.go`: `runPoll`, which loads stored
+  credentials before polling.
+- `packages/client/internal/identity/store.go`: `Store`, `Load`, and `Save`,
+  the credential persistence.
+- `packages/client/internal/config/config.go`: `IdentityPath`, which resolves
+  the identity file path.

@@ -119,7 +119,11 @@
 
 Traceable references:
 
-- `packages/client/internal/script/runtime.go:20-179`
-- `packages/client/internal/script/executor.go:13-133`
-- `packages/client/cmd/nixstasis/poll.go:105-126`
-- `packages/client/cmd/nixstasis/install_script.go:16-77`
+- `packages/client/internal/script/runtime.go`: `Runtime` and `Execute`, the
+  Starlark evaluation with timeout and step limits.
+- `packages/client/internal/script/executor.go`: `Executor.ExecuteScripts`,
+  which runs installed scripts concurrently.
+- `packages/client/cmd/nixstasis/poll.go`: `runScripts`, which executes
+  installed scripts during each poll.
+- `packages/client/cmd/nixstasis/install_script.go`: `installScriptCmd`, the
+  local script install command.

@@ -123,7 +123,9 @@ metadata payloads.
 - `GET /api/v1/devices/:device_id/command_payloads/:ref` calls `Devices.get_command_payload/2`.
 - Terminal session startup creates an opaque session ref **before** queueing
   `ssh_authorize`, so the queued command carries the ref. See
-  `packages/server/lib/nixstasis_web/live/device_live/show.ex` lines 171-192 for the full sequencing.
+  `start_ssh_session/1` in
+  `packages/server/lib/nixstasis_web/live/device_live/show.ex` for the full
+  sequencing.
 - Terminal authorization commands carry the public key at top level and a dynamic
   JSON payload with `target_user=nixstasis-support`, `ttl_seconds`, and
   `session_ref`. The in-memory `ssh_authorize` payload is the only shape the
@@ -233,7 +235,14 @@ Traceable references:
 - `packages/server/lib/nixstasis/devices/group_authorization.ex`
 - `packages/server/lib/nixstasis/devices/group_audit.ex`
 - `packages/server/lib/nixstasis_web/live/device_live/index.ex`
-- `packages/server/lib/nixstasis_web/controllers/device_controller.ex:31-65`
-- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex:7-27`
-- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex:6-39`
-- `packages/server/lib/nixstasis_web/live/device_live/show.ex:57-80`
+- `packages/server/lib/nixstasis_web/controllers/device_controller.ex`:
+  `index/2` and `register/2`, the runtime list and registration actions.
+- `packages/server/lib/nixstasis_web/controllers/heartbeat_controller.ex`:
+  `create/2`, which authenticates the device and calls
+  `Monitoring.heartbeat/2`.
+- `packages/server/lib/nixstasis_web/controllers/device_command_controller.ex`:
+  `command_results/2` and `command_payload/2`, the result acknowledgement and
+  deferred payload actions.
+- `packages/server/lib/nixstasis_web/live/device_live/show.ex`:
+  `handle_authorized_device/3` and `setup_device_view/3`, which load the
+  device and open its remote-access lease.

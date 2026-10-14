@@ -18,10 +18,10 @@
 
 Traceable references:
 
-- `README.md:3-17`
-- `packages/client/README.md:1-12`
-- `packages/server/README.md:1-17`
-- `deploy/compose/README.md:1-20`
+- `README.md`: the introduction above Key Components.
+- `packages/client/README.md`: the introduction and Features section.
+- `packages/server/README.md`: the introduction and Features section.
+- `deploy/compose/README.md`: the introduction and Services section.
 
 ## Primary Use Cases
 
@@ -79,7 +79,8 @@ Traceable references:
 
 Traceable reference:
 
-- `packages/server/lib/nixstasis_web/router.ex:30-45`
+- `packages/server/lib/nixstasis_web/router.ex`: the `live` routes in the `/`
+  scope under the `:browser` pipeline.
 
 ### Go Client Commands
 

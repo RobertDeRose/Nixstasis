@@ -121,6 +121,8 @@ same Nixstasis role contract.
 
 Traceable references:
 
-- `deploy/compose/caddy/Caddyfile:1-75`
-- `README.md:319-350`
-- `deploy/compose/README.md:7-20`
+- `deploy/compose/caddy/Caddyfile`: the global `on_demand_tls` and `security`
+  blocks plus the `nixstasis.{$BASE_DOMAIN}`, `frp-admin.{$BASE_DOMAIN}`, and
+  `*.{$BASE_DOMAIN}` sites.
+- `README.md`: the Caddy Server and AuthCrunch sections.
+- `deploy/compose/README.md`: the Services section.
