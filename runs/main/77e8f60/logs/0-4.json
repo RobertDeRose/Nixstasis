@@ -1,0 +1,40 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-10-14T03:58:34.497569403Z",
+      "metadata": {},
+      "kind": "step",
+      "summary": null,
+      "data_panels": [
+        {
+          "title": "JSON Response",
+          "bytes": 727,
+          "pretty": "{\"data\":{\"attributes\":{\"account_number\":\"812058\",\"approval_status\":\"pending\",\"ipv4_address\":null,\"last_seen_at\":null,\"mac_address\":\"8A:03:AC:AD:69:AE\",\"metadata\":{},\"product_name\":\"E2E Device\",\"remote_access_profile\":\"default\",\"remote_access_requested\":false,\"schema\":{\"product\":\"E2E Device\",\"properties\":{},\"type\":\"object\"}},\"id\":\"781e1c50-4fea-4c7b-886e-eaf4f2999742\",\"links\":{},\"meta\":{},\"type\":\"device\",\"relationships\":{\"alerts\":{\"links\":{},\"meta\":{}},\"command_policy_assignments\":{\"links\":{},\"me",
+          "http_status": 200,
+          "panel_type": "response",
+          "truncated": true
+        },
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"device_id\": \"781e1c50-4fea-4c7b-886e-eaf4f2999742\",\n  \"precondition_auto_register\": true\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 83,
+      "icon_label": "STEP",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "logout",
+        "expected": "session_ended"
+      }
+    }
+  ]
+}
