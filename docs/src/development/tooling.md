@@ -106,9 +106,9 @@ be run against a production database.
 
 ## GitHub validation
 
-`.github/workflows/validate.yml` runs on every push and pull request. It isolates user-global mise configuration,
-installs only the committed lock with `mise install --locked`, and runs `mise run check`. CI does not regenerate the
-lock or maintain a separate validation policy.
+`.github/workflows/validate.yml` runs on every pull request and is called by the Release workflow. It isolates
+user-global mise configuration, installs only the committed lock with `mise install --locked`, runs `mise run check`,
+and runs the server and client test suites. CI does not regenerate the lock or maintain a separate validation policy.
 
 ## Hooks and recovery
 
