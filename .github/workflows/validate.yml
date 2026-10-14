@@ -1,7 +1,16 @@
 name: Validation
 on:
   pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to validate
+        required: false
+        type: string
+        default: ""
 permissions: {}
+env:
+  MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -12,24 +21,82 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
         with:
+          ref: ${{ inputs.ref }}
           persist-credentials: false
       - name: Set up mise
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # ratchet:jdx/mise-action@v5.1.1
         with:
           install: false
       - name: Install locked tools
-        env:
-          MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
         run: mise install --locked
       - name: Install server dependencies
         working-directory: packages/server
-        env:
-          MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
         run: |
           mise x -- mix local.hex --force
           mise x -- mix local.rebar --force
           mise x -- mix deps.get
       - name: Run repository checks
-        env:
-          MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
         run: mise run check
+
+  server-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18-alpine # ratchet:exclude
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MIX_ENV: test
+      NIXSTASIS_DB_AUTOSTART: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # ratchet:jdx/mise-action@v5.1.1
+        with:
+          install: false
+      - name: Install locked tools
+        run: mise install --locked
+      - name: Run server tests
+        working-directory: packages/server
+        run: |
+          mise x -- mix local.hex --force
+          mise x -- mix local.rebar --force
+          mise x -- mix deps.get
+          mise x -- mix test
+
+  client-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: packages/client/go.mod
+      - name: Run client tests
+        working-directory: packages/client
+        # sshd only runs a root-owned AuthorizedKeysCommand, which the
+        # unprivileged runner cannot provide for the real-sshd test.
+        run: go test -tags no_sshd_integration ./...

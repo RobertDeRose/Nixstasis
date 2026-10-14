@@ -220,7 +220,17 @@ For multiline messages, write the message to a temporary file and use `git commi
 
 Feature branches use `feat/<slug>`. When `wt` is available, treat JSON output from `wt switch --format json` as authoritative for branch and path.
 
-Only fast-forward merges into `dev` are accepted. Use `git merge --ff-only`; never create a merge commit and never fall back to one when fast-forwarding fails.
+Changes reach `dev` only through a pull request merged with GitHub's squash merge, the only method the `dev` ruleset
+allows. GitHub signs the squash commit, keeping `dev` linear and signed; rebase merges are rejected because GitHub
+cannot sign rebased commits. A pull request needs passing `validate`, `server-tests`, and `client-tests` checks and
+resolved review threads. Never push directly to `dev` and never create a merge commit; local merges stay
+fast-forward only.
+
+In this repository, the `/close-feature` merge action squash-merges the feature's pull request with
+`gh pr merge --squash` instead of fast-forwarding `dev` locally.
+
+`main` moves only through the Release workflow, which fast-forwards it to a validated `dev` commit and tags the
+release. Never push to `main` or create `v*` tags directly; see `docs/src/development/releasing.md`.
 
 A no-mode `/close-feature` completes close-out and then asks for one explicit action:
 
