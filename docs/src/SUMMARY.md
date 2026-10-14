@@ -105,6 +105,5 @@
 - [Tooling Reference](reference/tooling.md)
 - [API & Runtime Contracts](reference/contracts.md)
   - [OpenAPI Contracts](reference/openapi/index.md)
-- [Agent Workflows](reference/agent-workflows.md)
 - [E2E Results](reference/e2e-results.md)
 - [Client-Server Interface](client-server-interface.md)

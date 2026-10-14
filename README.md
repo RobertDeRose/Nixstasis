@@ -36,18 +36,16 @@ Elixir/Phoenix, respectively.
 
 ## Development workflow
 
-This repository uses dstack's documentation-first, Beads-backed feature workflow. Install the workflow skills and
-inspect ready feature work with:
+Work is tracked in Beads, and feature designs and delivery records live under `docs/src/features`. Install the locked
+developer tools and inspect ready work with:
 
 ```bash
-npx --yes skills@1.5.16 add RobertDeRose/dstack
-bd prime
-bd ready --type epic --label workflow:feature --json --limit 0
+mise install --locked
+bd ready --json
 ```
 
-Use `/plan-features`, `/start-feature`, `/implement-feature`, and `/close-feature` for feature delivery. Install the
-locked developer tools with `mise install --locked`, run documentation validation with `mise run docs:check`, and run
-the complete quality contract with `mise run check`.
+Run documentation validation with `mise run docs:check` and the complete quality contract with `mise run check`.
+See `AGENTS.md` for contribution rules and `docs/src/development/releasing.md` for releases.
 
 ## Package READMEs
 

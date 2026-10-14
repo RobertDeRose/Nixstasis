@@ -230,7 +230,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
   DNS challenge behavior, and expected failure modes.
 - A browser/UI or E2E journey that launches a terminal and executes a harmless
   command through SSH.
-- Suggested first workflow command: `/start-feature compose-dev-harness`
 
 ### Self extracting installer (`self-extracting-installer`)
 
@@ -295,7 +294,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
   preservation.
 - Manual smoke test on Alpine or Arch to confirm FHS placement without
   `dpkg`/`rpm`.
-- Suggested first workflow command: `/start-feature self-extracting-installer`
 
 ### Server provided frps token (`server-provided-frps-token`)
 
@@ -372,7 +370,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - Named Ash migration/snapshot verification and OpenAPI contract checks.
 - Compose runtime-contract checks for plugin wiring and absence of shared client
   secrets.
-- Suggested first workflow command: `/start-feature server-provided-frps-token`
 
 ### In memory ssh authorized keys (`in-memory-ssh-authorized-keys`)
 
@@ -578,7 +575,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - Runtime contract checks for installed helper path, sshd drop-in, support user,
   authority user, sudoers rule, run0/polkit support, and absence of file-based
   key writes for new installs.
-- Suggested first workflow command: `/start-feature in-memory-ssh-authorized-keys`
 
 ### Ash API contract unification (`ash-api-contract-unification`)
 
@@ -676,7 +672,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
   moved or wrapped by Ash.
 - Run `mdbook build docs` and ensure Reference links describe the final contract
   source of truth.
-- Suggested first workflow command: `/start-feature ash-api-contract-unification`
 
 ### Authcrunch role contract (`authcrunch-role-contract`)
 
@@ -742,7 +737,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
   contract is implemented.
 - Run `mdbook build docs` and ensure Architecture, Operations, and Reference
   pages all point to the final authorization contract.
-- Suggested first workflow command: `/start-feature authcrunch-role-contract`
 
 ### Production operations runbooks (`production-operations-runbooks`)
 
@@ -806,7 +800,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - Run runtime contract checks before and after documented secret rotation steps.
 - Run `mdbook build docs` and verify Operations navigation points to the new
   runbooks.
-- Suggested first workflow command: `/start-feature production-operations-runbooks`
 
 ### Rich API examples (`rich-api-examples`)
 
@@ -870,7 +863,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - Compare examples against controller tests and client transport tests.
 - Run `mdbook build docs` and, where practical, OpenAPI validation for example
   payloads.
-- Suggested first workflow command: `/start-feature rich-api-examples`
 
 ### Server stary script workbench (`server-stary-script-workbench`)
 
@@ -1111,7 +1103,6 @@ The server UI now has bounded catalog reads so large fleets, rule catalogs, repo
 - End-to-end test that assigns a diagnostics allowlist to a test device, runs a
   Stary script using an allowed command, then removes the assignment and proves
   the same script can no longer execute the command.
-- Suggested first workflow command: `/start-feature server-command-allowlist-management`
 
 ### Dashboard device groups (`dashboard-device-groups`)
 

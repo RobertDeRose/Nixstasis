@@ -17,9 +17,6 @@ mise run docs:deployment:enable
 mise run docs:serve
 ```
 
-Use `/update-project` for the recorded template channel, or `/update-project --stable` / `--unstable` to change it. The
-update always records the exact resolved template commit.
-
 `check` is read-only: module tidiness uses `go mod tidy -diff`, and unused server dependencies use
 `mix deps.unlock --check-unused`. `fix` applies those repairs to the working tree. The server warning-as-error compile step uses
 `--no-optional-deps`; the optional LiveDebugger dependency is compiled only when explicitly enabled as documented in

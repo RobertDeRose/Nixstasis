@@ -43,7 +43,7 @@ DESIGN_HEADINGS = (
     "Open Questions",
 )
 
-# These delivered features retain their pre-dstack design records as historical
+# These delivered features retain their earlier design records as historical
 # intent. Keep this exemption exact; new or reopened features use DESIGN_HEADINGS.
 HISTORICAL_DESIGN_EXEMPTIONS = frozenset(
     {

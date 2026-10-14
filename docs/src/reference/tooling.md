@@ -60,12 +60,6 @@ version, or from a manual dispatch with `push` enabled; see
 [Releasing](../development/releasing.md). See
 [Docker's cache guidance](https://docs.docker.com/build/ci/github-actions/cache/).
 
-## Template updates
-
-`.copier-answers.yml` records `dstack_template_channel` and the exact reachable template commit in `_commit`. Stable
-selects the newest stable tag; unstable selects the source default-branch HEAD. `/update-project --stable` and
-`/update-project --unstable` change the persisted channel; `--vcs-ref` is a one-shot reviewed override.
-
 ## Commit messages and changelogs
 
 Changelog-visible `feat`, `fix`, `perf`, and `refactor` commits require a semantic scope. The commit hook also checks
