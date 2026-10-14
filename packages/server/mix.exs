@@ -4,7 +4,8 @@ defmodule Nixstasis.MixProject do
   def project do
     [
       app: :nixstasis,
-      version: "0.1.0",
+      # Release builds inject the version computed from the release tag.
+      version: System.get_env("NIXSTASIS_VERSION", "0.0.0-dev"),
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
