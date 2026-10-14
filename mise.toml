@@ -41,6 +41,10 @@ run = "hk check -a"
 description = "Apply deterministic repository fixes"
 run = "hk fix -a"
 
+[tasks.lock]
+description = "Regenerate mise.lock for the supported platforms"
+run = "mise lock --yes --platform linux-x64,linux-arm64,macos-arm64"
+
 [tasks."docs:check"]
 description = "Validate and build the documentation"
 depends = ["docs:build"]

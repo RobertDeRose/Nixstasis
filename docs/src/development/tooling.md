@@ -107,20 +107,14 @@ be run against a production database.
 user-global mise configuration, installs only the committed lock with `mise install --locked`, runs `mise run check`,
 and runs the server and client test suites. CI does not regenerate the lock or maintain a separate validation policy.
 
-## Hooks and recovery
+## Hooks and lock updates
 
-Setup installs repository-local hk hooks when the destination is a Git repository. To restore tooling after an offline
-or degraded setup, run:
+`mise install --locked` installs the locked tools, and the `postinstall` hook in `mise.toml` then installs the
+repository-local hk hooks. Rerun it to restore tooling after an offline or interrupted setup. In a repository
+initialized with Git after the tools were installed, run `hk install --mise` once.
 
-```bash
-python3 scripts/setup-tooling.py --json
-```
-
-The command gives lock, install, and hook stages one temporary `MISE_CONFIG_DIR`, removes inherited global config
-overrides, and deletes the temporary directory on exit. It preserves the scaffold on failure, reports the failed stage,
-and uses the same command above for recovery. A repository created without Git can install hooks after Git initialization
-with:
+After changing a tool version in `mise.toml`, regenerate the lock for the supported platforms and commit it:
 
 ```bash
-python3 scripts/setup-tooling.py --json
+mise run lock
 ```

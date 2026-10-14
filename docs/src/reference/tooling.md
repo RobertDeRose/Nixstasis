@@ -13,7 +13,6 @@
 | `contextlint.config.json`           | Checks documentation links, anchors, and image targets.                                                                                    |
 | `cog.toml`                          | Configures Conventional Commits and concise changelogs.                                                                                    |
 | `.config/cog-changelog.tera`        | Renders plain Markdown changelogs without author noise.                                                                                    |
-| `scripts/setup-tooling.py`          | Resolves the lock, installs tools, installs hooks, and returns JSON status.                                                                |
 | `scripts/enable-docs-deployment.py` | Configures workflow-built Pages through external `gh`.                                                                                     |
 | `.github/workflows/validate.yml`    | Runs locked `mise run check` and the test suites on pull requests and releases.                                                            |
 | `.github/workflows/docs.yml`        | Builds gated docs on pushes to `main`, after a successful E2E report run on `main` (building the commit it tested), or on manual dispatch. |
