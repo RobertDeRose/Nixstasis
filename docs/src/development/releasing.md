@@ -75,6 +75,21 @@ The workflow depends on this one-time GitHub configuration:
 - A tag ruleset on `v*` that blocks creation, update, and deletion, with the
   same bypass.
 
+The deploy key's private half exists only in the `RELEASE_DEPLOY_KEY`
+environment secret and is never needed elsewhere. To rotate it, or after a
+suspected exposure, delete the deploy key from the repository settings,
+generate a new ed25519 key pair, add its public half as a write-enabled deploy
+key, and overwrite the secret with the private half:
+
+```bash
+gh repo deploy-key add release_deploy_key.pub --allow-write \
+  --title 'Release workflow (main + v* tags)'
+gh secret set RELEASE_DEPLOY_KEY --env release < release_deploy_key
+```
+
+Delete the local key files afterwards. The rulesets allow deploy keys as a
+class, so rotation needs no ruleset change.
+
 The workflow pushes `main` and the tag with the deploy key rather than
 `GITHUB_TOKEN` because the rulesets can grant a deploy key a bypass. It calls
 the build workflows directly, rather than letting the tag push trigger them, so
