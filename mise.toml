@@ -18,7 +18,6 @@ config_roots = [".", "packages/client", "packages/server"]
 cocogitto = "latest"
 go = "1.27.1"
 goreleaser = "2.18.2"
-harper-cli = "latest"
 hk = "2.5.0"
 node = "lts"
 pkl = "0.32"

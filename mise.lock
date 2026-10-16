@@ -122,26 +122,6 @@ url = "https://github.com/goreleaser/goreleaser/releases/download/v2.18.2/gorele
 url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/569382437"
 provenance = "github-attestations"
 
-[[tools.harper-cli]]
-version = "2.12.0"
-backend = "aqua:Automattic/harper/harper-cli"
-specifiers = ["latest"]
-
-[tools.harper-cli."platforms.linux-arm64"]
-checksum = "sha256:7c7e081374d294dcdc102ddad7b8cbebcae4aad4d6b2642b1df2f3b0349ada2e"
-url = "https://github.com/Automattic/harper/releases/download/v2.12.0/harper-cli-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/Automattic/harper/releases/assets/603955684"
-
-[tools.harper-cli."platforms.linux-x64"]
-checksum = "sha256:b97d2b72e4b6c9b70499b22696c7a21209035497585f72b0ef12967c92e35089"
-url = "https://github.com/Automattic/harper/releases/download/v2.12.0/harper-cli-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/Automattic/harper/releases/assets/604099101"
-
-[tools.harper-cli."platforms.macos-arm64"]
-checksum = "sha256:b9563057df65ca8ad0f34117ed8a2072996dec4cbe8c22ff223cf49497516a86"
-url = "https://github.com/Automattic/harper/releases/download/v2.12.0/harper-cli-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/Automattic/harper/releases/assets/604099030"
-
 [[tools.hk]]
 version = "2.5.0"
 backend = "packslip:github.com/jdx/hk"

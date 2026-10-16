@@ -21,11 +21,8 @@ mise run docs:serve
 `--no-optional-deps`; the optional LiveDebugger dependency is compiled only when explicitly enabled as documented in
 `packages/server/README.md`. Contextlint checks links, anchors, and image targets across README and `docs/**/*.md`. The
 pre-commit hook may fix files while safely stashing unrelated unstaged work. The commit-message
-hook enforces Conventional Commits, required scopes for changelog-visible changes, grammar, 72/100-character line
-limits, and canonical optional `Beads:` footers. Harper applies its full native rule set to human-authored text after
-filtering Git comments/diffs, canonical release subjects, and the canonical machine-readable footer.
-The lint input removes the Conventional Commit prefix and capitalizes the summary's first character; the stored commit
-message stays unchanged. Run `cog changelog`
+hook enforces Conventional Commits, required scopes for changelog-visible changes, 72/100-character line limits, and
+canonical optional `Beads:` footers. Run `cog changelog`
 to preview the concise user-facing changelog. The hk policy uses native built-in steps whenever their behavior matches;
 hk's file locking coordinates independent steps. No dependency chain serializes unrelated checks.
 

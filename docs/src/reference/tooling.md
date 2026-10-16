@@ -19,7 +19,7 @@
 
 ## Tools
 
-The universal tool set is hk `1.49.0`, Node `lts`, and the `latest` Cocogitto, Harper CLI, Contextlint, mdBook, uv,
+The universal tool set is hk `1.49.0`, Node `lts`, and the `latest` Cocogitto, Contextlint, mdBook, uv,
 rumdl, typos, and `npm:markdown-table-formatter` releases. Contextlint checks documentation links, anchors, and image
 targets. Its reviewed low-download aube exception applies only to `@contextlint/cli`. Both hk Pkl imports use `1.49.0`.
 Equivalent native hk steps own matching formatter and linter commands. Independent steps have no explicit `depends`
@@ -62,10 +62,8 @@ version, or from a manual dispatch with `push` enabled; see
 ## Commit messages and changelogs
 
 Changelog-visible `feat`, `fix`, `perf`, and `refactor` commits require a semantic scope. The commit hook also checks
-Conventional Commit syntax, grammar, a 72-character subject, 100-character body lines, and canonical optional `Beads:`
-footers. Harper uses its full native rule set after filtering Git comments/diffs, canonical release subjects, and a
-canonical `Beads:` footer. It strips the Conventional Commit prefix from the subject
-before checking the summary and body. The Beads, length, and scope checks skip Git
+Conventional Commit syntax, a 72-character subject, 100-character body lines, and canonical optional `Beads:`
+footers. The Beads, length, and scope checks skip Git
 comments and stop before scissors or diff sections. The formatting check normalizes
 whitespace before running commitlint; its typo check also filters Git comment lines.
 Internal build, chore, CI, documentation, release, style, and test commits are omitted
