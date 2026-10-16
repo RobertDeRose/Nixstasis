@@ -210,9 +210,16 @@ defmodule Mix.Tasks.Db.Ensure do
   defp container_named?(%{"configuration" => %{"id" => id}}, container_name), do: id == container_name
   defp container_named?(_, _container_name), do: false
 
-  defp decode_container_status(%{"status" => "running"}), do: :running
-  defp decode_container_status(%{"status" => "stopped"}), do: :stopped
-  defp decode_container_status(_container), do: :missing
+  # `container` 1.5 reports `status` as an object with a `state` field; earlier
+  # releases report it as a plain string.
+  @doc false
+  def decode_container_status(%{"status" => %{"state" => state}}), do: decode_container_state(state)
+  def decode_container_status(%{"status" => state}) when is_binary(state), do: decode_container_state(state)
+  def decode_container_status(_container), do: :missing
+
+  defp decode_container_state("running"), do: :running
+  defp decode_container_state("stopped"), do: :stopped
+  defp decode_container_state(_state), do: :missing
 
   defp port_open? do
     host =
