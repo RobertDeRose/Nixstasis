@@ -17,9 +17,13 @@ import (
 
 type configContextKey struct{}
 
+// version is set by GoReleaser from the release tag.
+var version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:           "nixstasis",
 	Short:         "Nixstasis client for IoT monitoring",
+	Version:       version,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		var err error

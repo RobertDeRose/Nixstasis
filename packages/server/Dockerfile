@@ -28,6 +28,12 @@ COPY client/scripts/e2e/journeys priv/e2e/journeys
 COPY server/assets assets
 COPY shared ../shared
 
+# Declared after the dependency layers so a new release version keeps them
+# cached, and before assets.deploy because its first compile writes the
+# application version into nixstasis.app.
+ARG NIXSTASIS_VERSION=0.0.0-dev
+ENV NIXSTASIS_VERSION=${NIXSTASIS_VERSION}
+
 RUN mix assets.deploy
 RUN mix compile
 RUN mix release
