@@ -6,6 +6,19 @@ The repository uses mise to provide project tools and named tasks. Install mise,
 mise install --locked
 ```
 
+## Tool versions
+
+The root, `packages/client`, and `packages/server` `mise.toml` files declare the tools, and each `mise.lock` pins the
+exact version and download for every platform, so installs stay reproducible until a lock changes. Tools are requested
+as `latest` (Node as `lts`). The server's Elixir and Erlang are the exception: they stay pinned to match the production
+image in `packages/server/Dockerfile`, and change together with it.
+
+`mise run lock` keeps the locked versions and only refreshes platform entries. To upgrade tools, run
+`mise run lock --bump`, review the version changes in the lock diffs, and commit them. To add a tool, add it to the
+right `mise.toml` as `latest` and run `mise run lock`.
+
+## Commands
+
 Use the same commands locally and in automation:
 
 ```bash
@@ -108,7 +121,7 @@ and runs the server and client test suites. CI does not regenerate the lock or m
 repository-local hk hooks. Rerun it to restore tooling after an offline or interrupted setup. In a repository
 initialized with Git after the tools were installed, run `hk install --mise` once.
 
-After changing a tool version in `mise.toml`, regenerate the lock for the supported platforms and commit it:
+After changing a tool in any `mise.toml`, regenerate every lock for the supported platforms and commit them:
 
 ```bash
 mise run lock

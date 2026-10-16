@@ -8,19 +8,18 @@ env_shell_expand = true
 config_roots = [".", "packages/client", "packages/server"]
 
 [tools]
-"github:RobertDeRose/mdbook-mermaid" = "1.2.0"
-"github:joshrotenberg/mdbook-lint" = "0.16.2"
-# Match the mdBook version used to build the pinned mdbook-mermaid fork.
-"github:rust-lang/mdbook" = "0.5.2"
-"npm:@commitlint/cli" = "21.2.3"
+"github:RobertDeRose/mdbook-mermaid" = "latest"
+"github:joshrotenberg/mdbook-lint" = "latest"
+"github:rust-lang/mdbook" = "latest"
+"npm:@commitlint/cli" = "latest"
 "npm:@contextlint/cli" = { version = "latest", aube_args = "--allow-low-downloads" }
 "npm:markdown-table-formatter" = "latest"
 cocogitto = "latest"
-go = "1.27.1"
-goreleaser = "2.18.2"
-hk = "2.5.0"
+go = "latest"
+goreleaser = "latest"
+hk = "latest"
 node = "lts"
-pkl = "0.32"
+pkl = "latest"
 rumdl = "latest"
 typos = "latest"
 uv = "latest"
@@ -41,8 +40,16 @@ description = "Apply deterministic repository fixes"
 run = "hk fix -a"
 
 [tasks.lock]
-description = "Regenerate mise.lock for the supported platforms"
-run = "mise lock --yes --platform linux-x64,linux-arm64,macos-arm64"
+description = "Regenerate every mise.lock for the supported platforms"
+usage = 'flag "--bump" help="Re-resolve latest versions instead of keeping the locked ones"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+for root in . packages/client packages/server; do
+  (cd "$root" && mise lock --yes --platform linux-x64,linux-arm64,macos-arm64 ${usage_bump:+--bump})
+done
+'''
 
 [tasks."docs:build"]
 description = "Build the documentation site (mdBook)"

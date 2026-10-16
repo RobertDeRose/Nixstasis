@@ -1158,7 +1158,7 @@ Traceable references:
 - Device API is documented by this interface page and transport/controller tests.
 - E2E API run creation requires protocol version header `X-E2E-Protocol-Version`.
 - E2E JSONL logs use schema `e2e_log.v1` according to README.
-- Repository tooling currently installs Go `1.27.1` through `mise.toml`; the
+- mise installs the Go toolchain locked in `packages/client/mise.lock`; the
   client module target is `go 1.27` in `go.mod`.
 
 Traceable references:

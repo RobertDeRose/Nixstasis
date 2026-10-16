@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
+
 jobs:
   e2e:
     runs-on: ubuntu-24.04
@@ -42,16 +45,13 @@ jobs:
           ref: e2e-results
           path: e2e-pages
 
-      - name: Set up BEAM
-        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # ratchet:erlef/setup-beam@v1.24.1
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # ratchet:jdx/mise-action@v5.1.1
         with:
-          otp-version: "27.3"
-          elixir-version: "1.19.1"
+          install: false
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
-        with:
-          go-version: "1.27.1"
+      - name: Install locked tools
+        run: mise install --locked
 
       - name: Prepare E2E runner credential
         run: |

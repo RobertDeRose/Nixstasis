@@ -19,9 +19,9 @@
 
 ## Tools
 
-The universal tool set is hk `1.49.0`, Node `lts`, and the `latest` Cocogitto, Contextlint, mdBook, uv,
-rumdl, typos, and `npm:markdown-table-formatter` releases. Contextlint checks documentation links, anchors, and image
-targets. Its reviewed low-download aube exception applies only to `@contextlint/cli`. Both hk Pkl imports use `1.49.0`.
+`mise.toml` files own the tool set and `mise.lock` files own the resolved versions; see
+[Developer tooling](../development/tooling.md#tool-versions). Contextlint checks documentation links, anchors, and image
+targets. Its reviewed low-download aube exception applies only to `@contextlint/cli`.
 Equivalent native hk steps own matching formatter and linter commands. Independent steps have no explicit `depends`
 edges. Go retains two output-sensitive edges: `gofumpt` follows `goimports` so the stricter formatter owns final source,
 and fix-only `go-mod` follows `gofumpt` so module metadata observes the final imports.
