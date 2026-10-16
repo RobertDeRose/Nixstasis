@@ -105,6 +105,10 @@ Inspect selected work with `bd show <id> --json` and read structured metadata be
 
 Use Beads instead of Markdown TODO lists for executable work. Use `bd remember` for durable cross-feature knowledge.
 
+Track work in Beads when it spans sessions, has dependencies or acceptance criteria, belongs to a feature, or is
+deferred for later. A small, self-contained fix completed in one change needs no issue; its commit message is the
+record.
+
 Features use an immutable lowercase filesystem-safe slug, shared by the feature docs directory and branch:
 
 ```text
@@ -126,7 +130,7 @@ timeboxed fact-finding with explicit exit criteria is `spike`; durable architect
 and maintenance is `chore`. Use `feature` for standalone enhancements outside a feature epic. Introduce `story` only when
 the repository actually manages a user-story backlog, and `milestone` only as a work-free aggregate.
 
-For each implementation task: claim it atomically, load only relevant design and documentation context, implement the smallest complete scope, update documentation in the same work unit, validate, run an isolated quality/security/maintainability review, record evidence, commit with the Beads ID, and close only after acceptance criteria pass. Use focused checks while iterating. Run the full repository suite once after review fixes stabilize and before commit; rerun it only after a failure or a later broad/shared fix.
+For each tracked implementation task: claim it atomically, load only relevant design and documentation context, implement the smallest complete scope, update documentation in the same work unit, validate, run an isolated quality/security/maintainability review, record evidence, commit with the Beads ID, and close only after acceptance criteria pass. Untracked fixes follow the same steps except claiming, recording evidence, referencing a Beads ID, and closing. Use focused checks while iterating. Run the full repository suite once after review fixes stabilize and before commit; rerun it only after a failure or a later broad/shared fix.
 
 ## Documentation placement
 
