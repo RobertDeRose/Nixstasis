@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # AuthCrunch Role Contract Design
 
 ## Summary

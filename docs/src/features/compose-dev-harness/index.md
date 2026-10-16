@@ -1,12 +1,9 @@
 # Compose Dev Harness
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-ed8`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `6deea930afdb70641c28ecf5a179037d9c9d510f`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -39,12 +36,15 @@ Compose guidance and public certificate behavior remain distinct from laptop val
 - [Deployment Compose](../../modules/deployment-compose.md)
 - `deploy/compose/README.md`
 
-## Validation Evidence
+## Test Coverage
 
-Legacy delivery evidence records runtime-contract checks, Compose stack validation, local TLS approval checks, managed
-client registration and polling, and LiveView terminal lifecycle coverage. The implementation is corroborated by
-`deploy/compose/README.md`, the stack validation tests in `deploy/compose/scripts/test_validate_stack.py`, and
-server terminal tests.
+- `deploy/compose/scripts/test_validate_stack.py` and `deploy/compose/scripts/validate_stack.sh`: Compose stack
+  validation.
+- `packages/server/test/nixstasis_web/controllers/tls_controller_test.exs`: Caddy domain-approval (TLS ask) boundary.
+- `packages/server/test/nixstasis_web/channels/terminal_channel_test.exs` and
+  `packages/server/test/nixstasis_web/live/device_live_test.exs`: browser terminal lifecycle.
+- Manual dev-lab check: `mise run deploy:dev -- up --clients N` starts managed client simulators that register and
+  poll, and the server UI is reachable through local TLS hostnames.
 
 ## Design Reconciliation
 
@@ -71,8 +71,3 @@ The default workflow does not require a hosted staging environment, tunnel provi
 - `docs/src/runtime-boundaries.md`
 - `docs/src/modules/deployment-compose.md`
 - `deploy/compose/README.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-ed8`. Commit `6deea930afdb70641c28ecf5a179037d9c9d510f` moved the
-dev-lab entry point to mise and directly updated the corroborating deployment documentation.

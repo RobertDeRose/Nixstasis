@@ -1,12 +1,9 @@
 # Server-Provided FRPS Token
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-5hx`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `8d4c10618c56a1412f29bfda1f08d77c88ed03bf`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,12 +31,20 @@ The deployment-wide FRPS client secret has been removed. Device credentials are 
 - [Client FRP Manager](../../modules/client-frp-manager.md)
 - [Deployment Compose](../../modules/deployment-compose.md)
 
-## Validation Evidence
+## Test Coverage
 
-Client polling and transport tests cover token-present and token-absent behavior; server controller tests cover
-signed credential and cross-device proxy rejection; the FRPS config check in
-`deploy/compose/scripts/check_frps_config.sh` renders the Compose `frps.toml` template, plugin entry included, and
-verifies it with the pinned frps binary.
+- `packages/client/cmd/nixstasis/poll_test.go` and `packages/client/internal/transport/client_runtime_test.go`:
+  token-present and token-absent FRPC lifecycle, and lease replacement versus signature-only rotation.
+- `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`: signed, lease-bound credentials in
+  heartbeat responses.
+- `packages/server/test/nixstasis_web/controllers/frp_authorization_controller_test.exs` and
+  `packages/server/test/nixstasis_web/controllers/frp_access_controller_test.exs`: FRPS `Login`/`NewProxy`
+  authorization and cross-device proxy rejection.
+- `packages/server/test/nixstasis/devices/remote_access_leases_test.exs`: durable lease identity, ownership,
+  precedence, revocation, and projection consistency.
+- `deploy/compose/scripts/check_frps_config.sh` renders the Compose `frps.toml` template, plugin entry included, and
+  verifies it with the pinned frps binary.
+- `mix ash.codegen --check` guards the durable lease resource and its migrations.
 
 ## Design Reconciliation
 
@@ -54,8 +59,8 @@ credentials, and authorizes FRPS `Login` and `NewProxy` operations through Phoen
 
 ### Current Lease Contract
 
-PR #3's approved lifecycle correction (`nixstasis-n01`) persists each lease's
-identity, owner, immutable profile, expiry, and revocation independently. Device
+Each lease persists its identity, owner, immutable profile, expiry, and
+revocation independently. Device
 fields are projections rather than authorization sources. Provisioning uses its
 delivery UUID to recover the same lease after restart; it cannot silently renew
 or close another operator's authorization.
@@ -66,6 +71,8 @@ checks that exact lease for new Login/NewProxy operations, so another live lease
 cannot validate a revoked credential. Heartbeats advertise `remote_access_lease_id`
 and `remote_access_expires_at_ms`; the client replaces a changed lease without
 signature-only restart churn. Old unowned device-summary credentials fail closed.
+Unrelated device updates cannot overwrite lease projections, and profile
+preferences are reconciled within the same locked update transaction.
 
 ### Deferred Work
 
@@ -84,17 +91,3 @@ Browser and terminal authorization remain separate from FRPS client authorizatio
 - `docs/src/modules/client-frp-manager.md`
 - `docs/src/modules/deployment-compose.md`
 - `deploy/compose/README.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-5hx`. Commit `8d4c10618c56a1412f29bfda1f08d77c88ed03bf`
-directly implemented heartbeat-provided FRPS token handling in the client polling path.
-The user approved the durable per-lease redesign during PR #3 review; acceptance,
-independent review, migration, and validation evidence are tracked by `nixstasis-n01`.
-PR #3 review item 31 reconciles the completed roadmap entry with the current
-lease-bound credential and internal authorization plugin contract (`nixstasis-yeo`).
-Review items 36 and 37 correct provisioning hostname and signing-key rotation
-recovery guidance (`nixstasis-1uk`, `nixstasis-7bk`) without changing runtime behavior.
-Review item 38 (`nixstasis-3z4`) prevents unrelated device updates from overwriting
-lease projections and reconciles profile preferences within the locked update
-transaction, with staged concurrency and rollback regressions.

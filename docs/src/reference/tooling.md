@@ -13,7 +13,6 @@
 | `contextlint.config.json`           | Checks documentation links, anchors, and image targets.                                                                                    |
 | `cog.toml`                          | Configures Conventional Commits and concise changelogs.                                                                                    |
 | `.config/cog-changelog.tera`        | Renders plain Markdown changelogs without author noise.                                                                                    |
-| `scripts/setup-tooling.py`          | Resolves the lock, installs tools, installs hooks, and returns JSON status.                                                                |
 | `scripts/enable-docs-deployment.py` | Configures workflow-built Pages through external `gh`.                                                                                     |
 | `.github/workflows/validate.yml`    | Runs locked `mise run check` and the test suites on pull requests and releases.                                                            |
 | `.github/workflows/docs.yml`        | Builds gated docs on pushes to `main`, after a successful E2E report run on `main` (building the commit it tested), or on manual dispatch. |
@@ -60,12 +59,6 @@ version, or from a manual dispatch with `push` enabled; see
 [Releasing](../development/releasing.md). See
 [Docker's cache guidance](https://docs.docker.com/build/ci/github-actions/cache/).
 
-## Template updates
-
-`.copier-answers.yml` records `dstack_template_channel` and the exact reachable template commit in `_commit`. Stable
-selects the newest stable tag; unstable selects the source default-branch HEAD. `/update-project --stable` and
-`/update-project --unstable` change the persisted channel; `--vcs-ref` is a one-shot reviewed override.
-
 ## Commit messages and changelogs
 
 Changelog-visible `feat`, `fix`, `perf`, and `refactor` commits require a semantic scope. The commit hook also checks
@@ -91,7 +84,6 @@ configured.
 |--------------------------|-----------------------------------------------------------------------|
 | `check`                  | Run all hk checks without requesting fixes.                           |
 | `fix`                    | Apply deterministic hk fixes to the working tree.                     |
-| `docs:check`             | Build the book, then validate documentation metadata and navigation.  |
 | `docs:build`             | Build the mdBook site.                                                |
 | `docs:deployment:enable` | Configure Pages and enable its repository gate through external `gh`. |
 | `docs:serve`             | Serve mdBook on port 3000 by default or a supplied port.              |
@@ -109,6 +101,3 @@ The universal tool count remains ten; `gh` is an external administrative prerequ
 `build_type=workflow` plus `DOCS_DEPLOYMENT_ENABLED=true`. The build job has `contents: read`; only the deploy job has
 `pages: write` and `id-token: write`, and that job is gated on the repository variable being exactly `true`. Eligible
 events are matching pushes to `main`, manual dispatches, and successful tagged `E2E Suites Report` workflow runs.
-
-Provisioning reports separate mise availability, lock, install, and hook states. Overall status is `succeeded`,
-`degraded`, or `skipped`; failed or skipped stages include exact recovery commands.

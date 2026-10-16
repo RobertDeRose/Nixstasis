@@ -1,12 +1,9 @@
 # Production Operations Runbooks
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-41x`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `6d9d5ebd4d6887bcafb7029b552718cbf342bf33`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -35,11 +32,14 @@ claims. Examples avoid real credentials and production hostnames.
 - [Secret Rotation](../../operations/secret-rotation.md)
 - [Upgrades and Rollbacks](../../operations/upgrades-rollbacks.md)
 
-## Validation Evidence
+## Test Coverage
 
-Documentation reconciliation checked every runbook against Compose inputs and runtime validation scripts, then built the
-mdBook. `docs/src/operations/backup-restore.md` and commit `6d9d5ebd4d6887bcafb7029b552718cbf342bf33`
-provide direct historical corroboration.
+- `mdbook build docs` builds the operations pages and their navigation.
+- `deploy/compose/scripts/validate_stack.sh` (tested by `deploy/compose/scripts/test_validate_stack.py`) validates the
+  Compose runtime contract that the runbooks reference.
+- `deploy/compose/scripts/check_proxy_claims.py` and `deploy/compose/scripts/check_frps_config.sh` guard the proxy claim
+  and FRPS configuration inputs that the runbooks describe.
+- Runbook procedures are manually checked against the tracked Compose inputs and runtime validation scripts.
 
 ## Design Reconciliation
 
@@ -68,8 +68,3 @@ The runbooks do not replace operator-specific backup platforms or imply clustere
 - `docs/src/operations/incidents.md`
 - `docs/src/operations/upgrades-rollbacks.md`
 - `docs/src/operations/ha-scaling.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-41x`. Commit `6d9d5ebd4d6887bcafb7029b552718cbf342bf33`
-reconciled the delivered operations documentation against current behavior.

@@ -6,8 +6,6 @@
 - Feature slug: `server-curated-command-package-catalog`
 - Design path: `docs/src/features/server-curated-command-package-catalog/design.md`
 - Implemented record: `docs/src/features/server-curated-command-package-catalog/index.md`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -150,18 +148,18 @@ Introduce a catalog layer above the existing command allowlist runtime contract.
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                                          | Create or update        | Planned change                                                                                                   | Owning Beads task   |
-|----------------------------|---------------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------|---------------------|
-| Architecture               | `docs/src/data-flow.md`                                             | Update                  | Document heartbeat inventory and catalog-backed policy resolution flow.                                          | `nixstasis-o4t.7.4` |
-| Architecture               | `docs/src/modules/server-domain.md`                                 | Update                  | Add catalog resources, inventory snapshots, and resolver statuses.                                               | `nixstasis-o4t.7.2` |
-| Architecture               | `docs/src/modules/client-starlark-runtime.md`                       | Update                  | Clarify unchanged absolute-path enforcement after catalog resolution.                                            | `nixstasis-o4t.7.4` |
-| Usage / Operations         | `docs/src/operations/command-policies.md`                           | Update                  | Explain catalog command selection, compatibility warnings, missing-package guidance, and manual-entry fallback.  | `nixstasis-o4t.7.3` |
-| Reference                  | `docs/src/client-server-interface.md`                               | Update                  | Define `command_inventory_probe` and `command_inventory` heartbeat shapes and inventory error/fallback behavior. | `nixstasis-o4t.7.1` |
-| Reference                  | `docs/src/modules/client-transport.md`                              | Update                  | Document Go transport request/response fields for inventory probes and inventory evidence.                       | `nixstasis-o4t.7.1` |
-| Reference                  | `docs/src/reference/contracts.md`                                   | Update                  | Define catalog-backed command policy resolver and compatibility statuses.                                        | `nixstasis-o4t.7.2` |
-| Development                | `docs/src/development/tooling.md`                                   | Update                  | Record focused validation commands for client inventory, server catalog, UI, and E2E coverage.                   | `nixstasis-o4t.7.5` |
-| Navigation                 | `docs/src/SUMMARY.md`                                               | Update                  | Register this feature design.                                                                                    | `nixstasis-o4t.1`   |
-| Implemented Feature Record | `docs/src/features/server-curated-command-package-catalog/index.md` | Create during close-out | Preserve delivery and audit history.                                                                             | `nixstasis-o4t.8`   |
+| Documentation concern      | Exact page                                                          | Create or update        | Planned change                                                                                                   |
+|----------------------------|---------------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------|
+| Architecture               | `docs/src/data-flow.md`                                             | Update                  | Document heartbeat inventory and catalog-backed policy resolution flow.                                          |
+| Architecture               | `docs/src/modules/server-domain.md`                                 | Update                  | Add catalog resources, inventory snapshots, and resolver statuses.                                               |
+| Architecture               | `docs/src/modules/client-starlark-runtime.md`                       | Update                  | Clarify unchanged absolute-path enforcement after catalog resolution.                                            |
+| Usage / Operations         | `docs/src/operations/command-policies.md`                           | Update                  | Explain catalog command selection, compatibility warnings, missing-package guidance, and manual-entry fallback.  |
+| Reference                  | `docs/src/client-server-interface.md`                               | Update                  | Define `command_inventory_probe` and `command_inventory` heartbeat shapes and inventory error/fallback behavior. |
+| Reference                  | `docs/src/modules/client-transport.md`                              | Update                  | Document Go transport request/response fields for inventory probes and inventory evidence.                       |
+| Reference                  | `docs/src/reference/contracts.md`                                   | Update                  | Define catalog-backed command policy resolver and compatibility statuses.                                        |
+| Development                | `docs/src/development/tooling.md`                                   | Update                  | Record focused validation commands for client inventory, server catalog, UI, and E2E coverage.                   |
+| Navigation                 | `docs/src/SUMMARY.md`                                               | Update                  | Register this feature design.                                                                                    |
+| Implemented Feature Record | `docs/src/features/server-curated-command-package-catalog/index.md` | Create during close-out | Preserve delivery and audit history.                                                                             |
 
 ## Validation Strategy
 
@@ -170,20 +168,20 @@ Introduce a catalog layer above the existing command allowlist runtime contract.
 - LiveView tests for catalog search, category selection, compatibility preview, permission scoping, and manual-entry fallback.
 - Command policy tests proving catalog selections queue the existing absolute-path `apply_command_policy` payload.
 - End-to-end test that assigns a catalog-backed `df` command, observes allowed `exec_cmd`, revokes it, and observes denial.
-- Documentation validation with `uv run scripts/check-docs.py` and `mdbook build docs`.
+- Documentation validation with `mdbook build docs`.
 - Ash validation with `mix ash.codegen --check` when Ash resources change.
 
 ## Implementation Decomposition
 
-- `nixstasis-o4t.7.1`: client inventory collection and heartbeat reporting.
-- `nixstasis-o4t.7.2`: server catalog resources, inventory storage, and compatibility resolver.
-- `nixstasis-o4t.7.3`: Command Policies LiveView catalog selection and compatibility preview.
-- `nixstasis-o4t.7.4`: catalog-backed assignment delivery through existing absolute-path policy payloads.
-- `nixstasis-o4t.7.5`: integration/E2E validation and development documentation.
+- Client inventory collection and heartbeat reporting.
+- Server catalog resources, inventory storage, and compatibility resolver.
+- Command Policies LiveView catalog selection and compatibility preview.
+- Catalog-backed assignment delivery through existing absolute-path policy payloads.
+- Integration/E2E validation and development documentation.
 
 ## Dependencies and Parallelism
 
-- All implementation children depend on `nixstasis-o4t.6` specification reconciliation.
+- All implementation slices depend on specification reconciliation.
 - Client inventory and server catalog can proceed in parallel.
 - Policy UI depends on server catalog resolver APIs.
 - Policy delivery depends on client inventory and server catalog.
@@ -229,7 +227,6 @@ None blocking implementation.
 ### Assumptions
 
 - The implementation repository is this `nixstasis` repository because all referenced client, server, and documentation paths are local.
-- The implementation base branch is `dev`; the imported `main` metadata was corrected because this repository has no `main` branch.
 - Heartbeat inventory is acceptable because it reuses existing authenticated device runtime traffic and does not authorize policy by itself.
 
 ### Design Changes During Planning

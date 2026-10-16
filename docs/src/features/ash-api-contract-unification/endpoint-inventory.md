@@ -35,7 +35,7 @@ Classifications:
 
 ## Device Runtime Generated Target
 
-The five `/api/v1` device rows below are the delivered `ash-backed` migration
+The five `/api/v1` device rows below are the `ash-backed` migration
 group. Their canonical generated target is the additive route family below; the
 `/api/v1`
 paths remain compatibility wrappers for the Go client and existing automation.
@@ -55,13 +55,12 @@ Generated OpenAPI uses route-level security: `deviceBearer` is an HTTP bearer sc
 has `security: []`, and the generated list uses the operator bearer boundary. The
 raw token is assigned by the device-runtime permission plug and is not an Ash action
 argument. Unknown devices remain `404`, missing or invalid bearer tokens `401`, and
-unapproved devices `403`. `.7.40` implements the `device_runtime` dispatch in
-the existing `JsonApiPermissions` pipeline, sets the authenticated device actor,
-and enables the list/registration routes. `.7.41` adds the generated heartbeat
-action and preserves its 200 response, telemetry/inventory side effects,
-command delivery, probe, remote-access, and heartbeat-rate-limit behavior;
-`.7.42` adds command-result acknowledgement and payload-fetch actions while
-reusing the same branch. Generated action schemas and the compatibility
+unapproved devices `403`. The `device_runtime` dispatch in the existing
+`JsonApiPermissions` pipeline sets the authenticated device actor and enables the
+list/registration routes. The generated heartbeat action preserves its 200 response,
+telemetry/inventory side effects, command delivery, probe, remote-access, and
+heartbeat-rate-limit behavior; the command-result acknowledgement and payload-fetch
+actions reuse the same branch. Generated action schemas and the compatibility
 `device-api.yaml` sections remain side by side because they document distinct
 generated and `/api/v1` transport contracts. Runtime tests prove complete generated coverage in
 `packages/server/priv/static/openapi.yaml`.
@@ -126,8 +125,8 @@ model are separate decisions, and this feature does not expand into that review.
 ## Reconciliation Notes
 
 - `docs/src/reference/openapi/device-api.yaml` currently mixes device runtime
-  APIs with Caddy TLS approval. Device runtime routes are now an Ash-backed
-  delivered migration group; `check_domain` remains a Caddy-only retained
+  APIs with Caddy TLS approval. Device runtime routes are an Ash-backed
+  migration group; `check_domain` remains a Caddy-only retained
   controller.
 - `GET /api/v1/devices` accepts `ipv4_address`; preserve that filter in the
   Ash-backed contract or compatibility wrapper and generated/reference docs.

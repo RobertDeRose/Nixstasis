@@ -1,117 +1,25 @@
 # Feature lifecycle
 
+Each feature uses an immutable lowercase slug shared by its documentation directory and branch, for example
+`docs/src/features/first-capability/` and `feat/first-capability`. Beads tracks the work; the feature directory holds
+the design before implementation and the delivery record afterwards.
+
 ## Responsibilities
 
 ```text
-Beads                                            executable state and dependencies
-docs/src/features/<slug>/design.md         intended feature behavior and design
-reader-facing docs under docs/src/               current supported behavior
-code and tests                                   implementation evidence
-docs/src/features/<slug>/index.md          delivered reconciliation and audit record
+Beads                                 executable state, dependencies, and delivery history
+docs/src/features/<slug>/design.md    intended feature behavior and design
+reader-facing docs under docs/src/    current supported behavior
+code and tests                        implementation evidence
+docs/src/features/<slug>/index.md     delivered capability and design reconciliation
 ```
 
-Workflow commands are installed from `RobertDeRose/dstack` with the `skills` CLI. The CLI manages the agent-specific installation paths and updates; Copier manages this repository scaffold.
+## Feature records
 
-## Start a session
+`design.md` records the intended behavior, boundaries, decisions, validation strategy, documentation impact, and task
+decomposition before implementation starts. `index.md` is written at delivery and describes what the feature provides
+and how it differs from its design. Both start from `docs/src/features/_template/`.
 
-```bash
-bd prime
-bd ready --type epic --label workflow:feature --json --limit 0
-bd ready --json
-```
-
-## Plan
-
-`/plan-features` asks design-changing questions, defines the documentation architecture, creates slug-named feature
-designs, pours one Beads epic/molecule per feature, and decomposes lifecycle and implementation into bounded child
-tasks. Native planning resolves every decision needed by those tasks before implementation; unresolved decision gaps may remain only on imported migration work with explicit reconciliation blockers. It recommends the next feature by canonical slug and human name rather than by an opaque Beads hash.
-
-A new feature uses:
-
-```text
-docs/src/features/feature-slug/design.md
-feat/feature-slug
-```
-
-## Review and start
-
-`/start-feature <slug>` resolves the human feature reference through Beads, activates the worktree, and runs
-four isolated reviews. An exact feature name or a unique name fragment also resolves; the Beads ID remains
-internal mutation/audit evidence.
-
-The feature root is an epic. Lifecycle tasks are direct children, and bounded implementation tasks sit beneath the
-implementation coordinator task. A milestone is not used as the feature container.
-
-One fresh, read-only context builder gathers a factual evidence packet once. Four fresh reviewers share that packet and independently cover:
-
-1. architecture consistency;
-2. simplicity and maintainability;
-3. documentation readiness;
-4. execution-graph readiness.
-
-The packet contains factual source locations but no findings, recommendations, or verdict. Reviewers read extra source when it is insufficient. Do not add confidence reviewers without a distinct uncovered risk or user request. Fix verification resumes only affected reviewers; fresh replacements are used only when an original is unavailable or the scope materially changes, and receive the original evidence and post-review diff. Refresh a shared packet only after broad design, architecture, task-graph, or documentation-structure changes.
-
-It reconciles clear findings, asks only blocking design questions, commits the reviewed design, and closes `spec-reconcile` only when implementation can proceed without inventing intent. A successful start records the canonical feature in repository-local Git configuration so `/implement-feature` can resume it from the base worktree when no selector is supplied.
-
-## Implement
-
-Claim the next ready task beneath the implementation coordinator:
-
-```bash
-bd ready --parent <implementation-id> --claim --json
-bd show <task-id> --json
-```
-
-Use `parent-child` for hierarchy and `blocks` only for real prerequisites. Keep code, tests, and affected documentation aligned in the same work unit. Record validation and review evidence, include the Beads ID in the commit message, and close the task only after its acceptance criteria pass. Each task gets exactly one fresh reviewer; fixes resume that reviewer. A fresh replacement is allowed only when the original is unavailable or scope materially changes. `/implement-feature` then claims the next ready child and continues until the implementation coordinator closes. It pauses only when every remaining child is blocked on explicit user decisions; native planned work should never reach that state.
-
-Discovered work should retain provenance:
-
-```bash
-bd create "Describe discovered work" \
-  --type task \
-  --deps discovered-from:<current-task-id> \
-  --json
-```
-
-Add a blocking edge only when the discovery is required for safe completion.
-
-## Close
-
-`/close-feature` compares delivered code with the design and reader-facing docs, creates a standalone implemented-feature record, and runs validation. One fresh context builder supplies a factual packet to two fresh holistic reviewers for delivery and drift. They follow the neutrality, extra-source, refresh, confidence-review, and replacement rules above; fixes resume only the affected reviewer. The workflow then performs an explicit `pr`, `merge`, or `ready` action. With no mode, it asks which action to take. Merge mode uses `git merge --ff-only` unless the target repository's `AGENTS.md` explicitly permits merge commits; it never falls back to a merge commit after a failed fast-forward.
-
-## Audit
-
-`/audit-project` periodically compares Beads, designs, current docs, implemented-feature records, code, tests, and recent commits. Drift becomes linked Beads work rather than an untracked note.
-
-## Historical design exemptions
-
-The following delivered features retain their pre-dstack design headings as historical intent. Their `index.md`
-implemented records, closed Beads epics, and reader-facing pages remain the current delivery authority:
-
-- `docs/src/features/authcrunch-role-contract/design.md`
-- `docs/src/features/compose-dev-harness/design.md`
-- `docs/src/features/dashboard-home/design.md`
-- `docs/src/features/device-detail-page/design.md`
-- `docs/src/features/go-client-rewrite/design.md`
-- `docs/src/features/iot-device-monitoring/design.md`
-- `docs/src/features/packaging-deployment-migration/design.md`
-- `docs/src/features/phoenix-ui-polish/design.md`
-- `docs/src/features/production-operations-runbooks/design.md`
-- `docs/src/features/report-view-improvements/design.md`
-- `docs/src/features/rich-api-examples/design.md`
-- `docs/src/features/self-extracting-installer/design.md`
-- `docs/src/features/server-client-e2e-tests/design.md`
-- `docs/src/features/server-command-allowlist-management/design.md`
-- `docs/src/features/server-provided-frps-token/design.md`
-- `docs/src/features/starlark-script-system/design.md`
-
-`scripts/check-docs.py` exempts only these exact paths from current design-heading completeness checks. New and reopened
-features must use the current design structure; this exemption does not apply to their designs.
-
-## Skill maintenance
-
-After editing a canonical skill:
-
-```bash
-npx skills update
-```
+Feature records hold durable information only. They link the Beads feature root and the design, and list the tests that
+cover the feature, but never pull requests, commits, branch names, delivery status, review notes, or validation run
+results; Beads and Git history own that state.

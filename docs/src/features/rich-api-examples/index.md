@@ -1,12 +1,9 @@
 # Rich API Examples
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-jpl`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `a5b6eaf2f9fc22ad2567ebdb49671708f692614d`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -34,10 +31,17 @@ transport tests, and generated OpenAPI changes.
 - [API and Runtime Contracts](../../reference/contracts.md)
 - [OpenAPI Contracts](../../reference/openapi/index.md)
 
-## Validation Evidence
+## Test Coverage
 
-The delivered examples were reconciled against server controller tests, Go transport tests, retained OpenAPI files, and
-generated Ash OpenAPI. `docs/src/client-server-interface.md` is direct reader-facing evidence.
+The examples are documentation; they are checked against the tests that own each wire shape:
+
+- Server controller tests under `packages/server/test/nixstasis_web/controllers/`, including
+  `provisioning_controller_test.exs`, `heartbeat_controller_test.exs`, `device_command_controller_test.exs`,
+  `frp_authorization_controller_test.exs`, `e2e_run_controller_test.exs`, `e2e_run_result_controller_test.exs`,
+  `builder_schema_controller_test.exs`, `builder_config_validation_controller_test.exs`, and
+  `report_result_controller_test.exs`.
+- `packages/server/test/nixstasis_web/openapi_contract_test.exs`: retained and generated OpenAPI contracts.
+- Go transport tests under `packages/client/internal/transport/`: `client_runtime_test.go` and `register_test.go`.
 
 ## Design Reconciliation
 
@@ -63,8 +67,3 @@ No LiveView browser routes were presented as public HTTP API contracts, and no A
 - `docs/src/reference/contracts.md`
 - `docs/src/reference/openapi/index.md`
 - `docs/src/reference/openapi/*.yaml`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-jpl`. Commit `a5b6eaf2f9fc22ad2567ebdb49671708f692614d`
-directly reconciled the rich examples in the client-server contract documentation.

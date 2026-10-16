@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Ash API Contract Unification
 
 ## Summary
@@ -318,8 +316,6 @@ Existing bespoke OpenAPI files that must be reconciled:
 
 - Beads feature root: `nixstasis-zf5`
 - Feature slug: `ash-api-contract-unification`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -431,8 +427,8 @@ rejected.
 No device-runtime boundary or implementation question remains open: action names,
 orchestration ownership, generated route family, device-bearer security scheme,
 route-specific authentication, compatibility wrapper, and error-precedence rules
-are defined in `docs/src/features/ash-api-contract-unification/contract-design.md`
-and are delivered on `dev`. Report export, E2E generated-contract treatment, and
+are defined in `docs/src/features/ash-api-contract-unification/contract-design.md`.
+Report export, E2E generated-contract treatment, and
 development diagnostics remain deferred or retained as listed below.
 
 ## Deferred Decisions

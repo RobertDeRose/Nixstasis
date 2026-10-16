@@ -1,15 +1,9 @@
 # Server Stary Script Workbench
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-kb6`
-- Status: delivered
-- Pull request: not created; no PR action was selected
-- Merge commit: `3dc4580b25ae935ff1d78d01310e6cbc5fca7e0b` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
-
-The implementation, close-out reconciliation, validation, and Beads evidence were
-fast-forwarded into `dev`.
 
 ## Delivered Capability
 
@@ -68,14 +62,22 @@ validator remains intentionally bounded and does not replace the client runtime.
 - [API & Runtime Contracts](../../reference/contracts.md)
 - [Server Web](../../modules/server-web.md)
 
-## Validation Evidence
+## Test Coverage
 
-- `mise x -- mix test test/nixstasis/scripts_test.exs test/nixstasis_web/live/script_live_test.exs` — 52 tests, 0 failures.
-- `mise x -- mix precommit` — 589 server tests, 0 failures.
-- `mise x -- go test ./cmd/nixstasis ./internal/commands ./internal/transport` — passed for deferred command hydration and command handling.
-- Focused Go Stary runtime tests — passed for parsing, schema, execution, and immutable-artifact compatibility.
-- Focused `mix format --check-formatted`, `gofmt`, `rumdl`, and `git diff --check` — passed.
-- Repository-wide Markdown validation retains the repository's known legacy warnings; no new error was introduced by this feature.
+- `packages/server/test/nixstasis/scripts_test.exs`: drafts, immutable versions, validation, test and deployment runs,
+  retry, cancellation, and per-client actions.
+- `packages/server/test/nixstasis/scripts/validator_test.exs`: bounded front-matter, schema-shape, and Starlark
+  preflight.
+- `packages/server/test/nixstasis/scripts/authorization_test.exs`: context-level target authorization.
+- `packages/server/test/nixstasis/scripts/audit_test.exs`: trusted actor attribution in audit events.
+- `packages/server/test/nixstasis_web/live/script_live_test.exs`: `/scripts` list and editor workflows.
+- `packages/server/test/nixstasis_web/controllers/script_json_api_test.exs`: workbench resources are not exposed as
+  generic JSON:API routes.
+- `packages/client/cmd/nixstasis/poll_test.go`: deferred `run_script` payload hydration in the poll loop.
+- `packages/client/internal/commands/handler_test.go`: `run_script` and `install_script` command handling.
+- Go Stary runtime tests under `packages/client/internal/script/`: parsing, schema, execution, and immutable-artifact
+  compatibility.
+- Repository formatting and Markdown checks: `mix format --check-formatted`, `gofmt`, and `rumdl`.
 
 ## Design Reconciliation
 
@@ -101,8 +103,8 @@ validator remains intentionally bounded and does not replace the client runtime.
 - External audited domain-specific script API actions remain future work.
 - Pagination, high-volume run retention, and richer editor capabilities remain outside the
   initial workbench scale.
-- Browser smoke/E2E deployment against a live managed client remains a close-out validation
-  limitation when the Compose device environment is unavailable.
+- Browser smoke/E2E deployment against a live managed client requires the Compose device
+  environment and is not part of automated coverage.
 
 ### Rejected or Removed Scope
 
@@ -123,22 +125,3 @@ validator remains intentionally bounded and does not replace the client runtime.
 - `docs/src/planned-features.md`
 - `docs/src/features/index.md`
 - `docs/src/SUMMARY.md`
-
-## Audit Trail
-
-Specification review and reconciliation are recorded in Beads under `nixstasis-kb6.2`–
-`nixstasis-kb6.6`. Implementation children `nixstasis-kb6.7.41`–`.44` and coordinator
-`nixstasis-kb6.7` are closed.
-
-Implementation commits:
-
-- `506136dea03441b0460c28b60ae75004b987fd7a` — immutable validation artifacts.
-- `d423a835d4a4b1974bbeb4e4c034ed5ed7d4ea89` — deferred `run_script` payload hydration.
-- `a07fa09673e00675ab994955693015401a12daad` — trusted audit actor identity.
-- `ddd4550d0a909d0030e17e8bc0e65f9c6b4ffc7e` — context-level target authorization.
-
-Close-out documentation and validation are tracked by `nixstasis-kb6.8` and
-`nixstasis-kb6.9`; delivery review and drift review are closed under `.10` and `.11`.
-`3dc4580b25ae935ff1d78d01310e6cbc5fca7e0b` records the fast-forward delivery and
-includes the feature's Beads interaction evidence. No remote push or pull request was
-performed.

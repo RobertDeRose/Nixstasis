@@ -1,12 +1,9 @@
 # Phoenix UI Polish
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-jw3`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `b90decfa26a67960519dc1486f857fab7ee72eed`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -33,10 +30,12 @@ dependencies.
 - [Server Web](../../modules/server-web.md)
 - [Introduction](../../README.md)
 
-## Validation Evidence
+## Test Coverage
 
-Core component and LiveView tests cover control rendering and interaction state; page-level tests cover responsive and
-modal workflows. `packages/server/lib/nixstasis_web/components/core_components.ex` corroborates the shared system.
+- `packages/server/test/nixstasis_web/components/core_components_test.exs`: shared control rendering and interaction
+  states.
+- `packages/server/test/nixstasis_web/controllers/layout_test.exs`: application shell and layout.
+- `packages/server/test/nixstasis_web/live/*_live_test.exs`: page-level responsive and modal workflows.
 
 ## Design Reconciliation
 
@@ -61,8 +60,3 @@ The feature did not replace Phoenix LiveView or introduce a separate frontend ap
 
 - `docs/src/README.md`
 - `docs/src/modules/server-web.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-jw3`. Commit `b90decfa26a67960519dc1486f857fab7ee72eed`
-directly extended the shared component system with selectable palettes.

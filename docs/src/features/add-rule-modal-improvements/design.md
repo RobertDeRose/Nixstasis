@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Add Rule Modal Improvements
 
 ## Feature Name
@@ -48,8 +46,6 @@ alert-rule-name uniqueness invariant without changing evaluation or notification
 
 - Beads feature root: `nixstasis-inh`
 - Feature slug: `add-rule-modal-improvements`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -113,8 +109,8 @@ Update the exact reader-facing pages when externally visible behavior or keyboar
 
 Run alert LiveView and domain tests for create, edit, validation, global case-insensitive name uniqueness, focus order,
 keyboard shortcuts, duplicate submits, dirty close, accessible dialog/error associations, feedback persistence, schema
-field type labels, and mixed-type operator recovery. Those implementation checks passed; the human usability measurements
-remain explicitly deferred because no defensible baseline or controlled observation window is available.
+field type labels, and mixed-type operator recovery. The human usability measurements remain explicitly deferred because
+no defensible baseline or controlled observation window is available.
 
 ## Implementation Decomposition
 

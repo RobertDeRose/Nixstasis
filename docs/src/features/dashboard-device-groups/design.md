@@ -6,8 +6,6 @@
 - Feature slug: `dashboard-device-groups`
 - Design path: `docs/src/features/dashboard-device-groups/design.md`
 - Implemented record: `docs/src/features/dashboard-device-groups/index.md`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -246,14 +244,11 @@ structured audit logs and existing application observability.
 - `mix format --check-formatted`
 - `mix credo --strict`
 - `mix precommit`
-- `uv run scripts/check-docs.py`
 - `mdbook build docs`
-- `mise run check` after the repository-wide Markdown validation issue `nixstasis-63w` is resolved; until then, record
-  that known limitation and run changed-file hooks plus all feature-specific checks.
+- `mdbook build docs`
+- `mise run check`
 - For every implementation child, run its focused checks while editing. Once fixes stabilize, invoke the repository-wide
-  suite once immediately before that child's commit. Until `nixstasis-63w` closes, record its known Rumdl failure and use
-  successful changed-file hooks plus affected package tests as the commit gate; reuse successful package evidence only
-  when no relevant package file changed.
+  suite once immediately before that child's commit.
 - Manual responsive checks for group management, group chips or summaries, filter preservation, empty states, conflict
   feedback, and keyboard operation.
 - Permission checks using unscoped manager, scoped manager, scoped viewer, empty scope, and denied sessions.
@@ -345,8 +340,7 @@ made explicit before task creation.
 
 Independent architecture, simplicity, documentation, and execution reviews then clarified context-owned authorization,
 trusted actor propagation, separate audit and refresh events, rollback safety, idempotent membership semantics,
-standalone operator documentation, and eight bounded implementation slices. Replacement reviews approved every
-reconciled domain with no remaining findings.
+standalone operator documentation, and eight bounded implementation slices.
 
 ### Source Material
 

@@ -6,8 +6,6 @@
 - Feature slug: `atomixos-bootstrap-provisioning`
 - Design path: `docs/src/features/atomixos-bootstrap-provisioning/design.md`
 - Implemented record: `docs/src/features/atomixos-bootstrap-provisioning/index.md`
-- Base branch: `dev`
-- Status: delivered
 
 ## Feature Summary
 
@@ -101,8 +99,7 @@ unknown result and withdraw temporary access.
 ## Architecture Consistency
 
 The server action is a retained Phoenix controller boundary backed by an Ash
-resource. PR #3's approved lifecycle correction (`nixstasis-n01`) replaces volatile
-lease ownership with the internal durable `RemoteAccessLease` resource and
+resource. Lease ownership uses the internal durable `RemoteAccessLease` resource and
 lease-bound FRPS credentials; see the [current lease contract](../server-provided-frps-token/index.md#current-lease-contract). It delegates device authorization and lease lifecycle to
 `Nixstasis.Devices`, profile selection to the existing remote-access contract,
 HTTP transport to a small Req adapter, and audit emission to the same

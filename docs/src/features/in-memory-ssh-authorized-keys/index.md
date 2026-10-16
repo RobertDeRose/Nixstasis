@@ -1,11 +1,8 @@
 # In-Memory SSH Authorized Keys
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-bdv`
-- Status: delivered
-- Pull request: not created; no PR action was selected
-- Merge commit: `80e373002fe85df2407c5284a60394189f0ffc7a` (fast-forward into `dev`)
 - Design record: [design.md](design.md)
 
 ## Delivered Capability
@@ -61,9 +58,8 @@ system manager denies `systemd-run`; native root-managed installations retain
 the transient systemd unit path.
 
 The host real-sshd integration is focused Linux coverage. The separate
-Compose/browser smoke also passed in the configured lab: it exercised the
-support-account login, safe diagnostic, terminal close, FRP cleanup, and
-post-revoke helper denial.
+Compose/browser smoke exercises the support-account login, safe diagnostic,
+terminal close, FRP cleanup, and post-revoke helper denial in a configured lab.
 
 ## Reference and Contracts
 
@@ -80,36 +76,28 @@ post-revoke helper denial.
 - Client installation and packaging: `packages/client/README.md`
 - Compose deployment details: `deploy/compose/README.md`
 
-## Validation Evidence
+## Test Coverage
 
-Passed for the implementation commits:
-
-- Server `mix precommit`: 593 tests, 0 failures, including the terminal-revoke
-  migration regression test.
-- Compose/browser smoke: `mise run deploy:dev -- up --clients 3` completed after
-  rebuilding the feature images; browser terminal login returned
-  `nixstasis-support`, `whoami` returned the support identity, navigation away
-  closed the session, and the client acknowledged the revoke. The revoked
-  public key was then submitted to the installed helper and produced empty
-  output (denied).
-
-Additional implementation evidence:
-
-- Focused server authorization, device, channel, LiveView, and cleanup tests:
-  114 and 27 tests, 0 failures respectively.
-- Client `go test ./...`: passed; Linux real-sshd coverage is
-  skipped on macOS.
-- `golangci-lint`: 0 issues; native packaging, GoReleaser snapshot/installer,
-  Compose runtime-contract, shell syntax, and `node --check` checks passed.
-- `uv run scripts/check-docs.py`: 0 errors and 16 existing legacy warnings.
-- `mdbook build docs`, targeted Rumdl, YAML parsing, and `git diff --check` passed.
-
-Known validation limitation:
-
-- Repository-wide `mise run check` remains non-clean from pre-existing Markdown,
-  typo, and cold-dependency debt outside this feature. The transient check output
-  was captured during close-out and is no longer retained; scoped feature checks
-  and the Compose/browser smoke passed.
+- Client in-memory store, key validation, and IPC: `packages/client/internal/sshauth/store_test.go`,
+  `packages/client/internal/sshauth/keys_test.go`, and `packages/client/internal/sshauth/ipc_test.go`.
+- `packages/client/internal/sshauth/sshd_integration_test.go`: host real-sshd `AuthorizedKeysCommand` integration
+  (Linux only).
+- `packages/client/cmd/nixstasis/ssh_authorized_keys_test.go`: the `AuthorizedKeysCommand` helper.
+- `packages/client/internal/commands/handler_test.go`: dynamic `ssh_authorize` and `ssh_revoke` command handling.
+- `packages/client/cmd/nixstasis/poll_test.go`: the fixed trusted IPC socket path.
+- `packages/client/build/tests/native_packaging_test.sh`: native installer accounts, socket group, runtime directory,
+  helper permissions, and sshd configuration.
+- `packages/server/test/nixstasis/devices/ssh_client_test.exs` and
+  `packages/server/test/nixstasis/devices/ssh_key_manager_test.exs`: server key material and SSH client behavior.
+- `packages/server/test/nixstasis/devices_test.exs`: command queueing and terminal authorization status.
+- `packages/server/test/nixstasis_web/controllers/heartbeat_controller_test.exs`: dynamic `ssh_authorize` payload
+  serialization.
+- `packages/server/test/nixstasis_web/channels/terminal_channel_test.exs` and
+  `packages/server/test/nixstasis_web/live/device_live_test.exs`: terminal acknowledgement gating and cleanup.
+- `packages/server/test/nixstasis/repo/migrations/deduplicate_terminal_revokes_test.exs`: the terminal-revoke
+  migration regression.
+- `deploy/compose/scripts/ssh_terminal_smoke.sh`: the Compose/browser terminal smoke, which verifies support-account
+  login, terminal close, revoke acknowledgement, and helper denial of the revoked key.
 
 ## Design Reconciliation
 
@@ -144,8 +132,7 @@ Known validation limitation:
 
 ### Deferred Work
 
-- No feature-scope behavior is deferred. Repository-wide validation still has
-  unrelated baseline Markdown, formatter, typo, and dependency debt.
+- No feature-scope behavior is deferred.
 
 ### Rejected or Removed Scope
 
@@ -175,23 +162,3 @@ Known validation limitation:
 - `deploy/compose/README.md`
 - `packages/client/internal/frp/manager.go`
 - `packages/server/priv/repo/migrations/20260803120000_deduplicate_terminal_revokes.exs`
-
-## Audit Trail
-
-- `1c6878d1` — reconciled the reviewed design and implementation graph.
-- `4ea40f08` — completed native SSH authority packaging.
-- `2919b569` — enforced dynamic SSH payload, key, TTL, and helper invariants.
-- `e44dd5e8` — made terminal cleanup exception-safe and revocation idempotent.
-- `77077e40` — bound terminal access to acknowledged authorization.
-- `e5cb5435` — unified the trusted client/helper IPC socket path.
-- `094ec8d7` — reconciled reader-facing SSH contracts and OpenAPI documentation.
-- `6f53da39` — created the standalone implementation record and navigation.
-- `0b258fc` — made terminal-revoke migration cleanup safe for existing data.
-- `79f5373` — added the unprivileged nested-systemd FRP fallback.
-- `faf002c` — recorded final Compose/browser smoke evidence.
-- `80e3730` — rebased the feature onto the delivered Stary base and fast-forwarded
-  the SSH implementation and Beads evidence into `dev`.
-
-Implementation children `.7.74-.7.80` and validation children `.7.65-.7.71`
-are recorded in Beads; `.7.80.1` records the acceptance fixes. Close-out
-review and delivery are closed under `nixstasis-bdv.10-.12`.

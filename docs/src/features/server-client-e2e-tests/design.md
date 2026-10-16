@@ -1,5 +1,3 @@
-<!-- workflow-migration:legacy-markdown-to-beads -->
-
 # Server-Client E2E Tests
 
 ## Feature Name

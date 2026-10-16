@@ -1,12 +1,9 @@
 # IoT Device Monitoring
 
-## Delivery Summary
+## References
 
 - Beads feature root: `nixstasis-8nc`
-- Status: delivered
-- Pull request: not recorded in the legacy workflow
-- Delivery commit: `fce8833b7ba9d7521ba56407689520a9aa938a17`
-- Design record: `design.md`
+- Design record: [design.md](design.md)
 
 ## Delivered Capability
 
@@ -35,11 +32,20 @@ protect fleet monitoring under retries and concurrent polling.
 - [Server Devices](../../modules/server-devices.md)
 - [Server Monitoring](../../modules/server-monitoring.md)
 
-## Validation Evidence
+## Test Coverage
 
-Device domain and controller tests cover registration, approval, credentials, heartbeat authentication, command claims,
-telemetry, rate limits, alerts, and schema validation. `packages/server/lib/nixstasis/devices.ex` corroborates the core
-context.
+- `packages/server/test/nixstasis/devices_test.exs` and `packages/server/test/nixstasis/devices_bdd_test.exs`:
+  registration, approval, and credentials.
+- `packages/server/test/nixstasis/devices/approval_test.exs`, `enrollment_test.exs`, and `schema_validator_test.exs`
+  under the same directory: approval, enrollment, and schema validation.
+- `packages/server/test/nixstasis/monitoring/heartbeat_test.exs`, `command_queue_test.exs`, `telemetry_test.exs`,
+  `telemetry_limits_test.exs`, and `offline_checker_test.exs`: heartbeats, command claims, telemetry, and freshness.
+- `packages/server/test/nixstasis/alerts_test.exs` and `packages/server/test/nixstasis/monitoring/alert_worker_test.exs`:
+  alerts.
+- `packages/server/test/nixstasis_web/controllers/device_controller_test.exs`,
+  `heartbeat_controller_test.exs`, and `device_command_controller_test.exs`: device protocol endpoints and heartbeat
+  authentication.
+- `packages/server/test/nixstasis_web/plugs/rate_limiter_test.exs`: heartbeat rate limits.
 
 ## Design Reconciliation
 
@@ -65,8 +71,3 @@ No unauthenticated heartbeat or implicit schema fallback remains supported.
 - `docs/src/client-server-interface.md`
 - `docs/src/modules/server-devices.md`
 - `docs/src/modules/server-monitoring.md`
-
-## Audit Trail
-
-Legacy tasks were imported beneath `nixstasis-8nc`. Commit `fce8833b7ba9d7521ba56407689520a9aa938a17`
-directly aligned public registration validation with the delivered monitoring contract.
