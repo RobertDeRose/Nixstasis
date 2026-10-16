@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E2E Run</title>
+  <link rel="stylesheet" href="../../../assets/e2e_log_viewer/viewer.css" />
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 1.5rem; background: #f5f7fb; color: #1f2937; }
+    .card { background: #fff; border: 1px solid #d6deeb; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; vertical-align: top; }
+    .journey-log { margin-top: 0.6rem; }
+  </style>
+</head>
+<body>
+  <p><a href="../../../index.html">Back to all runs</a></p>
+  <h1 id="run-title">E2E Run</h1>
+  <div class="card" id="run-meta"></div>
+  <div class="card">
+    <h2>Suite Results</h2>
+    <div id="run-results"></div>
+  </div>
+  <script src="../../../assets/e2e_log_viewer/viewer.js"></script>
+  <script>
+    function appendMeta(container, label, value) {
+      const paragraph = document.createElement("p")
+      const strong = document.createElement("strong")
+      strong.textContent = `${label}:`
+      paragraph.appendChild(strong)
+      paragraph.appendChild(document.createTextNode(` ${String(value ?? "")}`))
+      container.appendChild(paragraph)
+    }
+
+    function appendTextCell(row, tagName, value) {
+      const cell = document.createElement(tagName)
+      cell.textContent = String(value ?? "")
+      row.appendChild(cell)
+      return cell
+    }
+
+    function buildResultsTable() {
+      const table = document.createElement("table")
+      const thead = document.createElement("thead")
+      const headerRow = document.createElement("tr")
+      for (const heading of ["Journey", "Status", "Duration (ms)", "Error"]) {
+        appendTextCell(headerRow, "th", heading)
+      }
+      thead.appendChild(headerRow)
+
+      const tbody = document.createElement("tbody")
+      table.appendChild(thead)
+      table.appendChild(tbody)
+      return { table, tbody }
+    }
+
+    async function loadRun() {
+      const payload = await fetch("./run.json", { cache: "no-store" }).then((r) => r.json())
+      const shortSha = String(payload.full_sha || "").slice(0, 7)
+      document.getElementById("run-title").textContent = `E2E Run: ${String(payload.ref_name || "")} @ ${shortSha}`
+
+      const meta = document.getElementById("run-meta")
+      meta.replaceChildren()
+      appendMeta(meta, "Ref", `${String(payload.ref_type || "")}:${String(payload.ref_name || "")}`)
+      appendMeta(meta, "Commit", payload.full_sha)
+      appendMeta(meta, "Generated", payload.timestamp)
+
+      const root = document.getElementById("run-results")
+      root.replaceChildren()
+
+      for (const report of payload.reports || []) {
+        const reportCard = document.createElement("div")
+        reportCard.className = "card"
+
+        const reportHeading = document.createElement("h3")
+        reportHeading.textContent = `Run ${String(report.RunID || "unknown")} (${String(report.Status || "unknown")})`
+        reportCard.appendChild(reportHeading)
+
+        const { table, tbody } = buildResultsTable()
+
+        for (const journey of report.Journeys || []) {
+          const row = document.createElement("tr")
+          appendTextCell(row, "td", journey.JourneyID || "")
+          appendTextCell(row, "td", journey.Status || "")
+          appendTextCell(row, "td", journey.DurationMs ?? "")
+          appendTextCell(row, "td", journey.Error || "")
+          tbody.appendChild(row)
+
+          const logRow = document.createElement("tr")
+          const cell = document.createElement("td")
+          cell.colSpan = 4
+
+          const details = document.createElement("details")
+          details.className = "journey-log"
+          const summary = document.createElement("summary")
+          summary.textContent = "Journey Log"
+          const logViewer = document.createElement("div")
+          logViewer.className = "journey-log-viewer"
+          details.appendChild(summary)
+          details.appendChild(logViewer)
+          cell.appendChild(details)
+          logRow.appendChild(cell)
+          tbody.appendChild(logRow)
+
+          try {
+            const logPayload = await fetch(journey.log_payload, { cache: "no-store" }).then((r) => r.json())
+            window.NixstasisE2ELogViewer.render(logViewer, logPayload)
+          } catch (_err) {
+            logViewer.replaceChildren()
+            const unavailable = document.createElement("div")
+            unavailable.className = "text-danger"
+            unavailable.textContent = "Log unavailable"
+            logViewer.appendChild(unavailable)
+          }
+        }
+
+        reportCard.appendChild(table)
+        root.appendChild(reportCard)
+      }
+    }
+    loadRun()
+  </script>
+</body>
+</html>
