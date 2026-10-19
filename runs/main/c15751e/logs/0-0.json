@@ -1,0 +1,40 @@
+{
+  "entries": [
+    {
+      "message": null,
+      "status": "passed",
+      "timestamp": "2026-10-19T00:46:30.262653167Z",
+      "metadata": {},
+      "kind": "step",
+      "summary": null,
+      "data_panels": [
+        {
+          "title": "JSON Response",
+          "bytes": 403,
+          "pretty": "{\n  \"data\": {\n    \"account_number\": \"947045\",\n    \"approval_status\": \"pending\",\n    \"id\": \"3a75dca1-6446-4a1b-8fac-cd35777cfb64\",\n    \"last_seen_at\": null,\n    \"mac_address\": \"96:EF:A0:1D:7F:92\",\n    \"metadata\": {},\n    \"product_name\": \"E2E Device\",\n    \"registration_token\": \"[REDACTED]\",\n    \"remote_access_profile\": \"default\",\n    \"remote_access_requested\": false,\n    \"schema\": {\n      \"product\": \"E2E Device\",\n      \"properties\": {},\n      \"type\": \"object\"\n    }\n  }\n}",
+          "http_status": 201,
+          "panel_type": "response",
+          "truncated": false
+        },
+        {
+          "title": "Action Data",
+          "bytes": null,
+          "pretty": "{\n  \"device_id\": \"3a75dca1-6446-4a1b-8fac-cd35777cfb64\"\n}",
+          "http_status": null,
+          "panel_type": "action_data",
+          "truncated": null
+        }
+      ],
+      "duration_ms": 43,
+      "icon_label": "STEP",
+      "metadata_pretty": null,
+      "payload_label": null,
+      "payload_pretty": null,
+      "step_header": {
+        "status": "passed",
+        "action": "register_device",
+        "expected": "uuid_returned"
+      }
+    }
+  ]
+}
