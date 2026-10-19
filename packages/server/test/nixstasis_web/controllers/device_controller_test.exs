@@ -7,7 +7,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
       "mac_address" => "AA:BB:CC:DD:EE:FF",
       "product_name" => "prod_123",
       "registration_token" => String.duplicate("p", 43),
-      "schema" => %{
+      "schema_definition" => %{
         "product" => "prod_123",
         "type" => "object",
         "properties" => %{"temp" => %{"type" => "number"}}
@@ -25,7 +25,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
       "mac_address" => "AA:BB:CC:DD:EE:E0",
       "product_name" => "initial-client",
       "registration_token" => String.duplicate("p", 43),
-      "schema" => %{
+      "schema_definition" => %{
         "product" => "initial-client",
         "type" => "object",
         "properties" => %{}
@@ -54,7 +54,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     attack_params = %{
       initial_params
       | "product_name" => "attacker-controlled",
-        "schema" => %{
+        "schema_definition" => %{
           "product" => "attacker-controlled",
           "type" => "object",
           "properties" => %{}
@@ -80,7 +80,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
       |> Map.put("registration_token", registration_token)
       |> Map.put("replacement_token", String.duplicate("r", 43))
       |> Map.put("product_name", "updated-client")
-      |> Map.put("schema", %{
+      |> Map.put("schema_definition", %{
         "product" => "updated-client",
         "type" => "object",
         "properties" => %{}
@@ -142,7 +142,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:F1",
       "product_name" => "prod_123",
-      "schema" => %{"type" => "object", "properties" => %{}}
+      "schema_definition" => %{"type" => "object", "properties" => %{}}
     }
 
     conn = post(conn, ~p"/api/v1/devices/register", params)
@@ -165,7 +165,7 @@ defmodule NixstasisWeb.DeviceControllerTest do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:F4",
       "product_name" => "prod_123",
-      "schema" => nil
+      "schema_definition" => nil
     }
 
     conn = post(conn, ~p"/api/v1/devices/register", params)
@@ -185,11 +185,12 @@ defmodule NixstasisWeb.DeviceControllerTest do
     assert json_response(conn, 422)["errors"]
   end
 
-  test "POST /api/v1/devices/register rejects empty direct schema", %{conn: conn} do
+  test "POST /api/v1/devices/register ignores the removed schema field", %{conn: conn} do
     params = %{
       "mac_address" => "AA:BB:CC:DD:EE:F5",
       "product_name" => "prod_123",
-      "schema" => %{}
+      "registration_token" => String.duplicate("s", 43),
+      "schema" => %{"product" => "prod_123", "type" => "object", "properties" => %{}}
     }
 
     conn = post(conn, ~p"/api/v1/devices/register", params)

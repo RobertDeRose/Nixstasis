@@ -78,30 +78,13 @@ local commit_message_scope = new Step {
     """#
 }
 
-local harper_commit_message = (Builtins.harper_commit_message) {
-  check = #"""
-    awk '
-      /^# ------------------------ >8 ------------------------/ { exit }
-      /^diff --git / { exit }
-      /^#/ { next }
-      NR == 1 && /^release: v[0-9]+\.[0-9]+\.[0-9]+$/ { next }
-      NR == 1 && /^[a-z]+(\([^)]*\))?!?: / {
-        sub(/^[a-z]+(\([^)]*\))?!?: /, "")
-        $0 = toupper(substr($0, 1, 1)) substr($0, 2)
-      }
-      /^Beads: [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*(, [a-z][a-z0-9-]*-[a-z0-9][a-z0-9.-]*)*$/ { next }
-      { print }
-    ' {{commit_msg_file}} | harper-cli lint --quiet --no-color --user-dict-path .config/harper-dictionary.txt
-    """#
-}
-
 local linters = new Mapping<String, Step> {
   ["check_byte_order_marker"] = Builtins.byte_order_marker
   ["check_case_conflict"] = Builtins.check_case_conflict
   ["check_executables_have_shebangs"] = Builtins.check_executables_have_shebangs
   ["check_symlinks"] = Builtins.check_symlinks
   ["check-added-large-files"] = (Builtins.check_added_large_files) {
-    exclude = List("packages/server/priv/static/images/sad_little_toaster.png")
+    exclude = List("packages/server/priv/static/images/sad_little_toaster.png", "website/package-lock.json")
   }
   ["check-exec-shebangs"] = Builtins.check_executables_have_shebangs
   ["check-merge-conflict"] = Builtins.check_merge_conflict
@@ -109,7 +92,7 @@ local linters = new Mapping<String, Step> {
   ["mise"] = Builtins.mise
   ["mixed-line-ending"] = Builtins.mixed_line_ending
   ["contextlint"] = new Step {
-    glob = List("README.md", "docs/**/*.md", "contextlint.config.json")
+    glob = List("README.md", "website/**/*.md", "contextlint.config.json")
     check = "contextlint lint {{ files }}"
   }
   ["compose-stack"] = new Step {
@@ -121,8 +104,8 @@ local linters = new Mapping<String, Step> {
     check = "uv run packages/frp/bin/test_frps_render_config.py"
   }
   ["docs"] = new Step {
-    glob = List("docs/src/**/*.md", "docs/book.toml")
-    check = "mdbook build docs"
+    glob = List("website/**/*.md", "website/**/*.mdx", "website/**/*.yaml", "website/*.ts", "website/package*.json", "website/src/**")
+    check = "mise run docs:build"
   }
   ["fix_smart_quotes"] = Builtins.fix_smart_quotes
   ["markdown-table-formatter"] = new Step {
@@ -136,11 +119,6 @@ local linters = new Mapping<String, Step> {
     fix = "rumdl check --fix {{ files }}"
   }
   ["typos"] = Builtins.typos
-  ["mdbook-lint"] = new Step {
-    glob = List("docs/src/**/*.md")
-    check_diff = "mdbook-lint lint --config .mdbook-lint.toml {{ files }}"
-    fix = "mdbook-lint fix --config .mdbook-lint.toml {{ files }}"
-  }
   ["server-compile"] = new Step {
     glob = List(
       "**/*.ex",
@@ -210,7 +188,6 @@ local conformity = new Mapping<String, Step> {
   ["commit_message_format"] = commit_message_validation
   ["commit_message_length"] = commit_message_length
   ["commit_message_scope"] = commit_message_scope
-  ["harper_commit_message"] = harper_commit_message
 }
 
 default_branch = "dev"

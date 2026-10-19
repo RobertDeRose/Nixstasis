@@ -63,15 +63,10 @@ vendor/
 .chunkhound*
 .specify
 
-# mdBook
-book/
 issues.md
 
 # Browser MCP artifacts
 .playwright-mcp/
-
-# Generated mdBook output
-docs/book/
 
 # Local tooling and secret overrides
 mise.local.toml
@@ -81,6 +76,7 @@ mise.local.toml
 .env.*.local
 .rumdl_cache/
 .beads*
+.claude/
 
 # Local editor and OS files
 .DS_Store

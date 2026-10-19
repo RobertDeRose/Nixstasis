@@ -16,6 +16,9 @@ type Enrollment struct {
 	UUID             string `json:"uuid,omitempty"`
 	Token            string `json:"token"`
 	ReplacementToken string `json:"replacement_token,omitempty"`
+	// MACAddress is fixed before the first registration request so retries and
+	// restarts never present the proof with a different MAC.
+	MACAddress string `json:"mac_address,omitempty"`
 }
 
 // NewToken generates a 256-bit, unpadded base64url credential.

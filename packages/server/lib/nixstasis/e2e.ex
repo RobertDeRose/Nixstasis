@@ -76,8 +76,7 @@ defmodule Nixstasis.E2E do
     attrs = normalize_attrs(attrs)
     emit_event([:run, :create, :attempt], %{count: 1}, %{environment_label: attrs.environment_label})
 
-    with :ok <- validate_legacy_fields(attrs),
-         :ok <- DataPolicy.validate_environment(attrs.environment_label),
+    with :ok <- DataPolicy.validate_environment(attrs.environment_label),
          {:ok, protocol_version} <- Protocol.validate(attrs.protocol_version),
          {:ok, journey_ids} <- JourneySelection.resolve(attrs.suite_id, attrs.journey_ids),
          :ok <- ExpectationRegistry.validate_journeys(journey_ids),
@@ -414,9 +413,7 @@ defmodule Nixstasis.E2E do
       protocol_version: fetch_attr(attrs, "protocol_version", :protocol_version),
       runner_id: fetch_attr(attrs, "runner_id", :runner_id, "internal"),
       idempotency_key: attrs |> fetch_attr("idempotency_key", :idempotency_key) |> normalize_idempotency_key(),
-      run_metadata: fetch_attr(attrs, "metadata", :run_metadata, %{}),
-      legacy_client_version: fetch_attr(attrs, "client_version", :client_version),
-      legacy_server_version: fetch_attr(attrs, "server_version", :server_version)
+      run_metadata: fetch_attr(attrs, "metadata", :run_metadata, %{})
     }
   end
 
@@ -504,14 +501,6 @@ defmodule Nixstasis.E2E do
       end)
 
     inspect(errors)
-  end
-
-  defp validate_legacy_fields(%{legacy_client_version: nil, legacy_server_version: nil}), do: :ok
-
-  defp validate_legacy_fields(_attrs) do
-    {:error,
-     {:protocol_mismatch,
-      "Legacy fields client_version/server_version are no longer supported. Use X-E2E-Protocol-Version."}}
   end
 
   defp normalize_idempotency_key(nil), do: nil

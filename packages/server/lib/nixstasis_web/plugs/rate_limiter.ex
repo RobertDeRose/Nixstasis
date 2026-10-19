@@ -22,7 +22,7 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
   def call(conn, opts) do
     window_ms = rate_limit(opts, :window_ms, @default_window_ms)
     global_limit = rate_limit(opts, :preauth_global_limit, @default_preauth_global_limit)
-    origin_limit = rate_limit(opts, :preauth_limit, rate_limit(opts, :limit, @default_preauth_limit))
+    origin_limit = rate_limit(opts, :preauth_limit, @default_preauth_limit)
     max_keys = rate_limit(opts, :preauth_max_keys, @default_preauth_max_keys)
     route = preauth_route(conn)
     origin = client_origin(conn)
@@ -77,7 +77,7 @@ defmodule NixstasisWeb.Plugs.RateLimiter do
   end
 
   defp authenticated_device_limit(_action, opts) do
-    rate_limit(opts, :device_limit, rate_limit(opts, :limit, @default_device_limit))
+    rate_limit(opts, :device_limit, @default_device_limit)
   end
 
   defp device_id(%{id: id}), do: device_id(id)

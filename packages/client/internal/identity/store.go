@@ -19,6 +19,8 @@ var ErrNoIdentity = errors.New("no device identity file found")
 type Credentials struct {
 	UUID  string `json:"uuid"`
 	Token string `json:"token,omitempty"`
+	// MACAddress is the identity MAC the device registered with.
+	MACAddress string `json:"mac_address,omitempty"`
 }
 
 // Store handles persistence of the Device ID.
@@ -50,7 +52,7 @@ func (s *Store) LoadUUID() (string, error) {
 	return credentials.UUID, nil
 }
 
-// Load reads the persisted runtime credentials. Legacy plain UUID files are supported.
+// Load reads the persisted runtime credentials.
 func (s *Store) Load() (Credentials, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
@@ -66,14 +68,10 @@ func (s *Store) Load() (Credentials, error) {
 	}
 
 	var credentials Credentials
-	if strings.HasPrefix(trimmed, "{") {
-		if err := json.Unmarshal([]byte(trimmed), &credentials); err != nil {
-			return Credentials{}, err
-		}
-		return normalizeCredentials(credentials)
+	if err := json.Unmarshal([]byte(trimmed), &credentials); err != nil {
+		return Credentials{}, fmt.Errorf("identity file is not valid JSON: %w", err)
 	}
-
-	return normalizeCredentials(Credentials{UUID: trimmed})
+	return normalizeCredentials(credentials)
 }
 
 // Remove deletes the stored credentials if present.

@@ -1,0 +1,71 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - website/**
+      - e2e-results/**
+      - mise.toml
+      - .github/workflows/docs.yml
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+
+      - name: Checkout E2E results
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        continue-on-error: true
+        with:
+          ref: e2e-results
+          path: e2e-results
+
+      - name: Install mise tools
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # ratchet:jdx/mise-action@v5.1.1
+        with:
+          experimental: true
+
+      - name: Prepare E2E results page
+        run: bash website/scripts/prepare_e2e_results.sh e2e-results website/docs/development/e2e/results.md
+
+      - name: Build docs
+        run: mise run docs:build
+
+      - name: Include E2E reports
+        run: |
+          if [ -f e2e-results/runs.json ]; then
+            mkdir -p website/build/e2e-results
+            cp -R e2e-results/. website/build/e2e-results/
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # ratchet:actions/upload-pages-artifact@v5.0.0
+        with:
+          path: ./website/build
+
+  deploy:
+    if: vars.DOCS_DEPLOYMENT_ENABLED == 'true'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # ratchet:actions/deploy-pages@v5.0.1

@@ -1,0 +1,62 @@
+---
+title: Introduction
+hide_title: true
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+<section className="brand-hero">
+  <img className="brand-hero__logo" src={useBaseUrl('/img/nixstasis-logo.svg')} alt="Nixstasis logo" />
+  <div className="brand-hero__copy">
+    <h1><strong>Nix</strong><span>stasis</span></h1>
+    {/* One span per letter, spread across the wordmark's width so both lines are the same length. */}
+    <p className="brand-hero__tagline" aria-label="State synchronization">
+      {'State synchronization'.split('').map((char, i) => <span key={i} aria-hidden="true">{char === ' ' ? '\u00a0' : char}</span>)}
+    </p>
+  </div>
+</section>
+
+## What Nixstasis is
+
+Nixstasis keeps watch over a fleet of managed IoT devices and lets operators reach any of them securely when they need
+to. It has three parts:
+
+- **The client, on each device.** It registers the device, reports telemetry gathered by Stary (Starlark) scripts, runs
+  commands from operators, and opens an FRP tunnel when remote access is granted. Devices only ever connect outward,
+  so they need no open inbound ports.
+- **The server.** It keeps track of every device and runs the web UI, alerting, reporting, and the APIs devices and
+  tools use.
+- **The gateway.** Caddy, with the AuthCrunch plugin, sits in front of the server and handles HTTPS and operator sign-in.
+  FRPS carries the device tunnels.
+
+## Who it is for
+
+- **Operators and administrators** who approve devices, watch telemetry and alerts, and open remote sessions.
+- **Developers** who build, test, and release the server, the client, and the deployment.
+
+## What it does
+
+- Registers each device with a lasting identity, and holds it until an operator approves it.
+- Collects telemetry with every heartbeat and raises alerts when rules match.
+- Organizes devices into groups and lets operators filter the fleet.
+- Builds custom reports from device telemetry.
+- Sends commands, scripts, and command policies to devices.
+- Opens remote access through FRP tunnels, including SSH terminals in the browser.
+
+## What is supported
+
+- The server runs with Docker Compose, from `deploy/compose`.
+- Client packages are built with GoReleaser.
+- The client and server are tested together end to end, with a real client talking to a real server, not just each on
+  its own.
+- Caddy and AuthCrunch sign operators in; Phoenix decides what they and each device are allowed to do.
+
+## Where to start
+
+| If you want to | Start with |
+|---|---|
+| Understand how the parts fit together | [Architecture Overview](architecture.md) |
+| Deploy, configure, or operate a server | [Production Operations](operations/index.md) |
+| Build, test, or release the code | [Development Overview](development.md) |
+| Integrate with the device, E2E, or report APIs | [API & Runtime Contracts](reference/contracts.md) |
+| See what a delivered feature provides | [Implemented Features](features/index.mdx) |

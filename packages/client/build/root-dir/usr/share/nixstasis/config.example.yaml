@@ -1,6 +1,11 @@
 api:
   url: "https://nixstasis.example.com"
 
+identity:
+  # Interface whose MAC identifies the device. Empty detects the interface that
+  # routes to api.url, retrying with exponential backoff until one exists.
+  interface: ""
+
 poll:
   interval: 30s
 

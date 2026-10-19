@@ -8,6 +8,6 @@ inh = "inh"
 # Generated/minified assets are not maintainable prose sources.
 extend-exclude = [
   ".beads/interactions.jsonl",
-  "docs/mermaid.min.js",
+  "website/mermaid.min.js",
   "packages/server/priv/static/codemirror/codemirror.min.js",
 ]

@@ -53,7 +53,6 @@ defmodule Nixstasis.MixProject do
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:open_api_spex, "~> 3.0"},
       {:ymlr, "~> 5.0"},
-      {:usage_rules, "~> 0.1", only: [:dev]},
       {:live_debugger, "~> 1.0", only: [:dev], optional: true},
       {:ash_state_machine, "~> 0.2"},
       {:ash_admin, "~> 1.2"},

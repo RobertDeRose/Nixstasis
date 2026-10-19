@@ -9,12 +9,8 @@ under `deploy/compose`.
 - LiveView UI for fleet health, approvals, alerts, and reports.
 - JSONB-backed device and telemetry storage (Postgres).
 - API endpoints for device registration and heartbeat polling.
-- Schema-driven dropdown APIs for alert/report builders. Generated Ash JSON:API
-  contracts are available under `/api/json/builder_contract/*`; legacy JSON
-  compatibility wrappers remain under `/api/v1`:
-  - `GET /api/v1/builder-schemas`
-  - `GET /api/v1/builder-schemas/:schema_id/versions/:schema_version/options`
-  - `POST /api/v1/builder-configurations/validate`
+- Schema-driven dropdown APIs for alert/report builders, under
+  `/api/json/builder_contract/*`.
 - Integrates with Caddy/AuthCrunch and FRP for secure remote access.
 
 ## Local development

@@ -4,43 +4,36 @@ package identity
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"strings"
 	"time"
 )
 
-// GetPrimaryMAC returns the MAC address of the primary network interface (e.g. eth0).
-// It prioritizes "eth0" but falls back to the first non-loopback, non-virtual interface found.
-func GetPrimaryMAC() (string, error) {
-	interfaces, err := net.Interfaces()
-	fallback := ""
+// GetPrimaryMAC returns the MAC address of the named identity interface. It fails
+// if the name is empty, the interface is missing, or it has no MAC; it never falls
+// back to another interface. Use ResolveInterface to choose the name.
+func GetPrimaryMAC(ifaceName string) (string, error) {
+	if ifaceName == "" {
+		return "", errors.New("identity interface is not set")
+	}
 
+	interfaces, err := listInterfaces()
 	if err != nil {
 		return "", err
 	}
 
-	// 1. Try to find "eth0" specifically (per spec)
 	for _, iface := range interfaces {
-		if iface.Name == "eth0" && iface.Flags&net.FlagUp != 0 {
-			if mac := iface.HardwareAddr.String(); mac != "" {
-				return mac, nil
-			}
-		}
-		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+		if iface.Name != ifaceName {
 			continue
 		}
-		// 2. Fallback: Find first valid interface (up, not loopback, has MAC)
-		if fallback == "" && len(iface.HardwareAddr) > 0 {
-			fallback = iface.HardwareAddr.String()
+		if len(iface.HardwareAddr) == 0 {
+			return "", fmt.Errorf("identity interface %q has no MAC address", ifaceName)
 		}
+		return iface.HardwareAddr.String(), nil
 	}
-
-	if fallback != "" {
-		return fallback, nil
-	}
-
-	return "", errors.New("no valid MAC address found")
+	return "", fmt.Errorf("identity interface %q not found", ifaceName)
 }
 
 // GetPrimaryIP returns the IPv4 address of the primary network interface.

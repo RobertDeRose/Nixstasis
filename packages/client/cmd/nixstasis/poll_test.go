@@ -25,6 +25,25 @@ type fakeCommandHandler struct {
 	results  []transport.CommandResult
 }
 
+// defaultRemoteAccessProfile is the profile reference the server sends with every remote access token.
+func defaultRemoteAccessProfile() *config.RouteProfileSelection {
+	return &config.RouteProfileSelection{Name: config.DefaultFRPProfileName, Version: config.DefaultFRPProfileVersion}
+}
+
+func TestPollOnceRejectsTokenWithoutProfile(t *testing.T) {
+	manager := &fakeFRPController{}
+	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
+	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
+	runtimeCfg := script.RuntimeConfig{}
+
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), &remoteAccessPollState{}); err != nil {
+		t.Fatal(err)
+	}
+	if manager.startCalls != 0 {
+		t.Fatalf("a token without a route profile must not start FRP: starts=%d", manager.startCalls)
+	}
+}
+
 func TestSSHAuthoritySocketPathUsesFixedTrustedPath(t *testing.T) {
 	if got := sshAuthoritySocketPath(&config.Config{}); got != "/run/nixstasis/ssh-authority.sock" {
 		t.Fatalf("sshAuthoritySocketPath() default = %q", got)
@@ -88,6 +107,7 @@ type fakePayloadFetcher struct {
 type fakePollClient struct {
 	response  *transport.PollResponse
 	inventory *transport.CommandInventoryEvidence
+	payload   telemetry.Payload
 }
 
 type fakeFRPController struct {
@@ -123,11 +143,13 @@ func (f *fakePayloadFetcher) FetchCommandPayload(ctx context.Context, _ string, 
 	}
 }
 
-func (f *fakePollClient) Poll(_ context.Context, _ string, _ telemetry.Payload, _ frp.ConnectionStatus) (*transport.PollResponse, error) {
+func (f *fakePollClient) Poll(_ context.Context, _ string, payload telemetry.Payload, _ frp.ConnectionStatus) (*transport.PollResponse, error) {
+	f.payload = payload
 	return f.response, nil
 }
 
-func (f *fakePollClient) PollWithInventory(_ context.Context, _ string, _ telemetry.Payload, _ frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+func (f *fakePollClient) PollWithInventory(_ context.Context, _ string, payload telemetry.Payload, _ frp.ConnectionStatus, inventory *transport.CommandInventoryEvidence) (*transport.PollResponse, error) {
+	f.payload = payload
 	f.inventory = inventory
 	return f.response, nil
 }
@@ -221,6 +243,8 @@ func TestPollResponseTokenOverridesRuntimeFRPAuthToken(t *testing.T) {
 	}
 }
 
+// TestPollOnceStartsFRPWithSelectedRouteProfile verifies that a heartbeat
+// starts FRP with the server-selected route profile and records its version.
 func TestPollOnceStartsFRPWithSelectedRouteProfile(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{
 		RemoteAccessToken:   "heartbeat-token",
@@ -241,8 +265,11 @@ func TestPollOnceStartsFRPWithSelectedRouteProfile(t *testing.T) {
 	}
 	state := &remoteAccessPollState{}
 
-	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
+	}
+	if got := client.payload.Device.Identity.MACAddress; got != "02:00:00:00:00:01" {
+		t.Fatalf("heartbeat MAC = %q, want %q", got, "02:00:00:00:00:01")
 	}
 	if frpManager.startCalls != 1 {
 		t.Fatalf("start calls = %d, want 1", frpManager.startCalls)
@@ -255,6 +282,8 @@ func TestPollOnceStartsFRPWithSelectedRouteProfile(t *testing.T) {
 	}
 }
 
+// TestPollOnceRestartsFRPWhenSelectedRouteProfileChanges verifies that a
+// profile change restarts FRP and updates the tracked profile.
 func TestPollOnceRestartsFRPWhenSelectedRouteProfileChanges(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{
 		RemoteAccessToken:   "heartbeat-token",
@@ -264,7 +293,7 @@ func TestPollOnceRestartsFRPWhenSelectedRouteProfileChanges(t *testing.T) {
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{ServerAddr: "frps.example"}}
 	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "bootstrap:1"}
 
-	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 	if frpManager.stopCalls != 1 || frpManager.startCalls != 1 {
@@ -275,6 +304,8 @@ func TestPollOnceRestartsFRPWhenSelectedRouteProfileChanges(t *testing.T) {
 	}
 }
 
+// TestPollOnceFailsClosedForUnknownRouteProfile verifies that an unknown
+// profile stops active FRP, clears its state, and reports the rejection.
 func TestPollOnceFailsClosedForUnknownRouteProfile(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{
 		RemoteAccessToken:   "heartbeat-token",
@@ -284,7 +315,7 @@ func TestPollOnceFailsClosedForUnknownRouteProfile(t *testing.T) {
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{ServerAddr: "frps.example"}}
 	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "default:1"}
 
-	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 	if frpManager.stopCalls != 1 || frpManager.startCalls != 0 {
@@ -298,6 +329,8 @@ func TestPollOnceFailsClosedForUnknownRouteProfile(t *testing.T) {
 	}
 }
 
+// TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat verifies
+// that inventory follows a retained probe without changing the command allowlist.
 func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{CommandInventoryProbe: &transport.CommandInventoryProbe{
 		CatalogVersion: "catalog-v1",
@@ -309,7 +342,7 @@ func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing
 	runtimeCfg := script.RuntimeConfig{ExecCommandAllowlist: map[string]string{"local": "/bin/true"}}
 	state := &remoteAccessPollState{}
 
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("first pollOnce() error = %v", err)
 	}
 	if client.inventory != nil {
@@ -320,7 +353,7 @@ func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing
 	}
 
 	client.response = &transport.PollResponse{}
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("second pollOnce() error = %v", err)
 	}
 	if client.inventory == nil || client.inventory.ProbeCatalogVersion != "catalog-v1" || client.inventory.SchemaVersion != 1 {
@@ -331,6 +364,8 @@ func TestPollOnceStoresProbeAndReportsBoundedInventoryOnNextHeartbeat(t *testing
 	}
 }
 
+// TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal verifies that
+// withdrawing remote access clears an earlier route profile error.
 func TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{
 		RemoteAccessToken:   "heartbeat-token",
@@ -340,7 +375,7 @@ func TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal(t *testing.T) {
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
 	state := &remoteAccessPollState{}
 
-	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() rejected-profile error = %v", err)
 	}
 	if len(frpManager.errors) != 1 || !strings.Contains(frpManager.errors[0], "unknown route profile") {
@@ -348,7 +383,7 @@ func TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal(t *testing.T) {
 	}
 
 	client.response = &transport.PollResponse{}
-	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &script.RuntimeConfig{}, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() withdrawal error = %v", err)
 	}
 	if got := frpManager.errors[len(frpManager.errors)-1]; got != "" {
@@ -356,14 +391,16 @@ func TestPollOnceClearsFRPErrorAfterRemoteAccessWithdrawal(t *testing.T) {
 	}
 }
 
+// TestPollOnceStartsFRPWithRemoteAccessToken verifies that FRP starts with
+// the server-issued token and records its hash instead of using the local token.
 func TestPollOnceStartsFRPWithRemoteAccessToken(t *testing.T) {
-	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
+	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessProfile: defaultRemoteAccessProfile(), RemoteAccessToken: "heartbeat-token"}}
 	frpManager := &fakeFRPController{}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token", ServerAddr: "frps.example"}}
 	runtimeCfg := script.RuntimeConfig{}
 
 	state := &remoteAccessPollState{}
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
@@ -384,6 +421,8 @@ func TestPollOnceStartsFRPWithRemoteAccessToken(t *testing.T) {
 	}
 }
 
+// TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent verifies that a heartbeat
+// without a token stops active FRP and clears its tracked state.
 func TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
@@ -392,7 +431,7 @@ func TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent(t *testing.T) {
 	runtimeCfg := script.RuntimeConfig{}
 
 	state := &remoteAccessPollState{tokenHash: tokenHash("previous-token"), profileKey: "default:1"}
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
@@ -407,6 +446,8 @@ func TestPollOnceStopsFRPWhenRemoteAccessTokenAbsent(t *testing.T) {
 	}
 }
 
+// TestPollOnceDoesNothingWhenTokenAbsentAndFRPInactive verifies that a
+// heartbeat without a token clears stale state without starting or stopping FRP.
 func TestPollOnceDoesNothingWhenTokenAbsentAndFRPInactive(t *testing.T) {
 	client := &fakePollClient{response: &transport.PollResponse{}}
 	frpManager := &fakeFRPController{}
@@ -415,7 +456,7 @@ func TestPollOnceDoesNothingWhenTokenAbsentAndFRPInactive(t *testing.T) {
 	runtimeCfg := script.RuntimeConfig{}
 
 	state := &remoteAccessPollState{tokenHash: tokenHash("previous-token")}
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
@@ -427,15 +468,17 @@ func TestPollOnceDoesNothingWhenTokenAbsentAndFRPInactive(t *testing.T) {
 	}
 }
 
+// TestPollOnceKeepsActiveFRPWhenTokenPresent verifies that unchanged remote
+// access credentials leave an active FRP session running.
 func TestPollOnceKeepsActiveFRPWhenTokenPresent(t *testing.T) {
-	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
+	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessProfile: defaultRemoteAccessProfile(), RemoteAccessToken: "heartbeat-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token"}}
 
 	runtimeCfg := script.RuntimeConfig{}
 
 	state := &remoteAccessPollState{tokenHash: tokenHash("heartbeat-token"), profileKey: "default:1"}
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
@@ -444,15 +487,17 @@ func TestPollOnceKeepsActiveFRPWhenTokenPresent(t *testing.T) {
 	}
 }
 
+// TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges verifies that
+// rotating a signed token alone does not restart an active FRP session.
 func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
-	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token"}}
+	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessProfile: defaultRemoteAccessProfile(), RemoteAccessToken: "new-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token"}}
 
 	runtimeCfg := script.RuntimeConfig{}
 	state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1"}
 
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 
@@ -461,6 +506,8 @@ func TestPollOnceKeepsActiveFRPWhenShortLivedCredentialChanges(t *testing.T) {
 	}
 }
 
+// TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry verifies
+// that a new lease restarts FRP once while later signature changes leave it running.
 func TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry(t *testing.T) {
 	manager := &fakeFRPController{}
 	client := &fakePollClient{}
@@ -469,13 +516,13 @@ func TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry(t *testi
 	runtimeCfg := script.RuntimeConfig{}
 	for index, lease := range []string{"lease-a", "lease-b", "lease-b"} {
 		response := &transport.PollResponse{}
-		body := fmt.Sprintf(`{"remote_access_token":"token-%d","remote_access_lease_id":%q,"remote_access_expires_at_ms":%d}`, index, lease, time.Now().Add(time.Duration(index+1)*time.Hour).UnixMilli())
+		body := fmt.Sprintf(`{"remote_access_token":"token-%d","remote_access_profile":{"name":"default","version":1},"remote_access_lease_id":%q,"remote_access_expires_at_ms":%d}`, index, lease, time.Now().Add(time.Duration(index+1)*time.Hour).UnixMilli())
 		if err := json.Unmarshal([]byte(body), response); err != nil {
 			t.Fatal(err)
 		}
 		client.response = response
 		manager.status.Active = index > 0
-		if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+		if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -484,6 +531,8 @@ func TestPollOnceRestartsOnLeaseChangeEvenWithSameProfileAndLaterExpiry(t *testi
 	}
 }
 
+// TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn verifies
+// that FRP restarts for near expiry or shortened validity, not a routine extension.
 func TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn(t *testing.T) {
 	for _, test := range []struct {
 		name         string
@@ -497,12 +546,12 @@ func TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn(t *testing
 		{"shortened validity", time.Now().Add(time.Hour).UnixMilli(), time.Now().Add(time.Minute).UnixMilli(), true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "new-token", RemoteAccessExpiresAtMS: test.newExpiry}}
+			client := &fakePollClient{response: &transport.PollResponse{RemoteAccessProfile: defaultRemoteAccessProfile(), RemoteAccessToken: "new-token", RemoteAccessExpiresAtMS: test.newExpiry}}
 			manager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 			cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}}
 			state := &remoteAccessPollState{tokenHash: tokenHash("old-token"), profileKey: "default:1", expiresAtMS: test.storedExpiry}
 			runtimeCfg := script.RuntimeConfig{}
-			if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+			if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, manager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 				t.Fatal(err)
 			}
 			if (manager.startCalls == 1 && manager.stopCalls == 1) != test.wantRestart {
@@ -515,15 +564,17 @@ func TestPollOnceRefreshesCredentialBeforeExpiryWithoutHeartbeatChurn(t *testing
 	}
 }
 
+// TestPollOnceRestartsActiveFRPWhenTokenStateUnknown verifies that an active
+// session restarts with the heartbeat credentials when its tracked state is missing.
 func TestPollOnceRestartsActiveFRPWhenTokenStateUnknown(t *testing.T) {
-	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessToken: "heartbeat-token"}}
+	client := &fakePollClient{response: &transport.PollResponse{RemoteAccessProfile: defaultRemoteAccessProfile(), RemoteAccessToken: "heartbeat-token"}}
 	frpManager := &fakeFRPController{status: frp.ConnectionStatus{Active: true}}
 	cfg := &config.Config{Scripts: config.ScriptsConfig{Dir: t.TempDir()}, FRP: config.FRPConfig{AuthToken: "local-token"}}
 
 	runtimeCfg := script.RuntimeConfig{}
 	state := &remoteAccessPollState{}
 
-	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", time.Now(), state); err != nil {
+	if err := pollOnce(context.Background(), cfg, client, &runtimeCfg, frpManager, &fakeCommandHandler{}, "device-1", "02:00:00:00:00:01", time.Now(), state); err != nil {
 		t.Fatalf("pollOnce() error = %v", err)
 	}
 

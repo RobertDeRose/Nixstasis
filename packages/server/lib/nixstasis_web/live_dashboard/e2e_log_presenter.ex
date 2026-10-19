@@ -55,11 +55,11 @@ defmodule NixstasisWeb.LiveDashboard.E2ELogPresenter do
         parse_json_payload(payload, context)
 
       :error ->
-        {legacy_entry(line), context}
+        {unparsable_entry(line), context}
     end
   rescue
     _ ->
-      {legacy_entry(line), context}
+      {unparsable_entry(line), context}
   end
 
   defp parse_json_payload(payload, context) do
@@ -118,8 +118,8 @@ defmodule NixstasisWeb.LiveDashboard.E2ELogPresenter do
     })
   end
 
-  defp legacy_entry(line) do
-    unsupported_entry("Unsupported legacy log format (expected e2e_log.v1)", %{
+  defp unparsable_entry(line) do
+    unsupported_entry("Unsupported log line (expected e2e_log.v1)", %{
       "raw_line" => sanitize_utf8(line)
     })
   end

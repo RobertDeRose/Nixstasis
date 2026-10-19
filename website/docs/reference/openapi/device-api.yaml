@@ -1,0 +1,543 @@
+openapi: 3.0.3
+info:
+  title: Nixstasis Device API
+  version: 1.0.0
+  description: >-
+    The routes devices use to register, send heartbeats, report command results, and fetch large command payloads,
+    plus the device list for operators and the check Caddy makes before issuing a device certificate. Heartbeats,
+    command results, and payload fetches send the device's token as a bearer token (the deviceBearer scheme), never
+    in the URL. Registration needs no token, because it is how a device gets one. The device list needs a signed-in
+    operator and only shows devices they can access. The same device actions are also available as generated routes
+    under /api/json/device_runtime/devices.
+paths:
+  /api/v1/devices:
+    get:
+      security:
+        - operatorBearer: []
+      summary: List devices with optional filters
+      description: Requires verified operator claims supplied by Caddy/AuthCrunch with device-view permission. Any Phoenix-owned device scope is applied before filtering; forwarded device-scope headers are ignored. In local development, requests without claims get default operator permissions. The same list is available as a generated route under /api/json/device_runtime/devices.
+      parameters:
+        - in: query
+          name: product
+          schema:
+            type: string
+        - in: query
+          name: account_number
+          schema:
+            type: string
+        - in: query
+          name: approval_status
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - in: query
+          name: connectivity_status
+          schema:
+            type: string
+            enum: [online, offline]
+        - in: query
+          name: ipv4_address
+          schema:
+            type: string
+            format: ipv4
+          description: Filters devices by exact IPv4 address and is echoed in `meta.active_filters` when present.
+      responses:
+        "200":
+          description: Device list response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  meta:
+                    type: object
+                    properties:
+                      active_filters:
+                        type: object
+                        additionalProperties: true
+        "401":
+          description: Verified operator authentication is missing or invalid; empty response body.
+        "403":
+          description: Device-view permission is missing; empty response body.
+        "429":
+          description: Device-list rate limit exceeded
+  /api/v1/devices/register:
+    post:
+      security: []
+      summary: Register a managed device
+      description: Registration requires a product schema and a client-prepared proof saved before the initial request. Only hashes are stored server-side. Approved exchanges require a distinct, durably saved replacement_token and atomically verify proof, update device-owned attributes, and rotate the hash. Retrying with the committed replacement returns the same runtime token without further mutation. The old proof alone cannot exchange again. Operator-owned approval and remote-access settings are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mac_address]
+              properties:
+                mac_address:
+                  type: string
+                  example: "00:11:22:33:44:55"
+                product_name:
+                  type: string
+                  example: atom-001122334455
+                schema_definition:
+                  type: object
+                  required: [product]
+                  additionalProperties: true
+                  description: Product schema used to validate registration.
+                  example:
+                    product: atom-001122334455
+                    type: object
+                    properties:
+                      temp:
+                        type: number
+                metadata:
+                  type: object
+                  additionalProperties: true
+                ipv4_address:
+                  type: string
+                  format: ipv4
+                  description: Optional direct IPv4 value; when absent, registration may use metadata.ip_address.
+                registration_token:
+                  type: string
+                  description: Required for initial registration and proof-bearing re-registration. Initially generate 32 cryptographically random bytes encoded as 43 unpadded base64url characters and persist them before sending. After enrollment, use the current runtime API token for a new credential rotation.
+                replacement_token:
+                  type: string
+                  minLength: 43
+                  maxLength: 43
+                  pattern: '^[A-Za-z0-9_-]{43}$'
+                  description: Required for an approved credential exchange. Generate a distinct random 32-byte base64url token and persist it before sending. Reuse it across retries; possession of the committed replacement recovers the same api_token until another rotation supersedes it.
+              anyOf:
+                - required: [schema_definition]
+                - required: [schema]
+      responses:
+        "201":
+          description: Registration accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      mac_address:
+                        type: string
+                      product_name:
+                        type: string
+                      account_number:
+                        type: string
+                        nullable: true
+                      approval_status:
+                        type: string
+                        enum: [pending, approved, rejected]
+                      last_seen_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      schema:
+                        type: object
+                        additionalProperties: true
+                      metadata:
+                        type: object
+                        additionalProperties: true
+                      remote_access_requested:
+                        type: boolean
+                      api_token:
+                        type: string
+                        nullable: true
+                        description: The accepted client-prepared replacement, returned after an approved exchange or a retry bearing that committed replacement.
+                      registration_token:
+                        type: string
+                        nullable: true
+                        description: Echoes the client-prepared proof when a pending enrollment first claims the empty token slot. The client must already have saved it before sending.
+        "403":
+          description: Existing MAC requires a valid current proof or the committed replacement for retry recovery.
+        "422":
+          description: Missing or invalid schema, initial proof, or required replacement credential
+        "429":
+          description: Registration rate limit exceeded
+  /api/v1/devices/{id}/heartbeat:
+    post:
+      security:
+        - deviceBearer: []
+      summary: Submit device heartbeat and telemetry
+      description: >-
+        Sends the device's telemetry and collects queued commands and any remote-access credential. The device must be
+        approved. The same action is available as a generated route. Telemetry is limited to 65,536 encoded
+        bytes, depth 8, 512 total keys, 128 keys per object, 128 bytes per key, 256 array items, and 16,384 bytes
+        per string. Limit violations reject the heartbeat before state changes.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                telemetry:
+                  type: object
+                  additionalProperties: true
+                  description: >-
+                    Untrusted telemetry document subject to the server persistence size and structural limits
+                    described by this operation.
+                connection_status:
+                  type: object
+                  properties:
+                    active:
+                      type: boolean
+                    connection_string:
+                      type: string
+                    pid:
+                      type: integer
+                    start_time:
+                      type: string
+                      format: date-time
+                    error:
+                      type: string
+                      description: Client-side FRP profile or lifecycle error reported after a failed safe decision.
+                ssh_host_key:
+                  type: string
+                  description: OpenSSH Ed25519 public host key used by the device sshd; other algorithms are ignored. The first authenticated value is enrolled; changes require explicit operator trust before terminal access resumes.
+                command_inventory:
+                  type: object
+                  additionalProperties: true
+                  description: Optional untrusted package and command evidence collected from the latest server probe.
+      responses:
+        "200":
+          description: Heartbeat acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      remote_access_token:
+                        type: string
+                        nullable: true
+                        description: Short-lived signed FRPS device credential. Non-empty means client should start/keep FRPC; absent or empty means stop/remain stopped.
+                      remote_access_lease_id:
+                        type: string
+                        format: uuid
+                        nullable: true
+                        description: Selected durable lease identity. A change requires replacing the installed FRPC credential, even if profile and expiry do not shorten.
+                      remote_access_expires_at_ms:
+                        type: integer
+                        format: int64
+                        nullable: true
+                        description: Absolute credential expiry as Unix milliseconds, bounded by persisted lease expiry and signing maximum age.
+                      remote_access_profile:
+                        type: object
+                        nullable: true
+                        description: Versioned named reference to a client-owned route profile. The server never sends FRPC configuration or local targets.
+                        properties:
+                          name:
+                            type: string
+                          version:
+                            type: integer
+                      commands:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CommandRequest"
+                      command_inventory_probe:
+                        type: object
+                        additionalProperties: true
+                        description: Optional server-owned probe manifest describing requested package and command evidence.
+        "401":
+          description: Missing or invalid device bearer token
+        "403":
+          description: Device is not approved
+        "404":
+          description: Device not found
+        "413":
+          description: Normalized telemetry exceeds the persistence size or structural limits
+        "422":
+          description: Heartbeat processing failed
+        "429":
+          description: Heartbeat rejected by rate limit
+  /api/v1/devices/{id}/command_results:
+    post:
+      security:
+        - deviceBearer: []
+      summary: Submit command execution results
+      description: Reports the results of commands the device ran. Results for unknown or repeated commands are ignored, and the response counts the ones acknowledged. The same action is available as a generated route.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CommandResult"
+      responses:
+        "202":
+          description: Command results accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      acknowledged_count:
+                        type: integer
+        "400":
+          description: Missing or malformed results list
+        "401":
+          description: Missing or invalid device bearer token
+        "403":
+          description: Device is not approved
+        "404":
+          description: Device not found
+        "429":
+          description: Command-result rate limit exceeded
+  /api/v1/devices/{id}/command_payloads/{ref}:
+    get:
+      security:
+        - deviceBearer: []
+      summary: Fetch deferred command payload
+      description: Fetches a command payload that was too large to send with the command. The same action is available as a generated route.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandPayload"
+        "401":
+          description: Missing or invalid device bearer token
+        "403":
+          description: Device is not approved
+        "404":
+          description: Device or payload not found
+        "429":
+          description: Payload-fetch rate limit exceeded
+  /api/v1/check_domain:
+    get:
+      summary: Authorize Caddy on-demand TLS host
+      description: Retained as a controller route because it is Caddy's on-demand TLS ask endpoint with simple ingress allow/deny semantics, not a durable product data resource.
+      parameters:
+        - in: query
+          name: domain
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Domain is permitted
+        "401":
+          description: Domain is not permitted
+  /api/v1/provisioning/devices/{device_id}:
+    post:
+      security:
+        - operatorBearer: []
+      summary: Submit one initial AtomixOS bootstrap artifact
+      description: >-
+        Uploads exactly one complete config.toml or approved config archive through
+        the authorized atomixos-bootstrap FRP route. The server opens the route
+        lease before sending the opaque bytes, polls the returned job, and never
+        retries an accepted POST. Production authorization is supplied by Caddy
+        forwarded operator claims; local development may use its explicit fallback.
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: content-type
+          required: true
+          schema:
+            type: string
+            enum: [application/octet-stream]
+        - in: header
+          name: x-config-filename
+          required: false
+          schema:
+            type: string
+            enum: [config.toml, config-bundle.tar.gz, config-bundle.tgz, config.tar.zst, config.tar.zstd, config.tzst]
+        - in: header
+          name: x-nixstasis-bootstrap-attempt-id
+          required: false
+          description: UUID used to make an explicit new attempt or re-enter an existing attempt.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 33554432
+      responses:
+        "200":
+          description: Previously completed successful delivery returned idempotently.
+        "202":
+          description: Delivery accepted or still being polled.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "409":
+          description: An indeterminate delivery requires reconciliation or an explicit new attempt.
+        "413":
+          description: Artifact exceeds 32 MiB.
+        "415":
+          description: Content-Type is not exactly application/octet-stream.
+        "422":
+          description: Device, filename, artifact, or provisioning validation failed.
+        "503":
+          description: The accepted job outcome is indeterminate after the bounded polling deadline.
+        "429":
+          description: Provisioning request rate limit exceeded.
+  /api/v1/provisioning/deliveries/{id}:
+    get:
+      security:
+        - operatorBearer: []
+      summary: Read an AtomixOS bootstrap delivery
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Delivery record without artifact bytes.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "404":
+          description: Delivery or device is not visible to the operator.
+  /api/v1/provisioning/deliveries/{id}/withdraw:
+    post:
+      security:
+        - operatorBearer: []
+      summary: Withdraw a retained indeterminate bootstrap route lease
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Route lease withdrawn.
+        "401":
+          description: Operator authorization is missing or invalid.
+        "404":
+          description: Delivery or device is not visible to the operator.
+components:
+  securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer
+      description: Trusted operator bearer claims admitted by the Caddy/AuthCrunch edge.
+    deviceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Device token
+      description: Registration-issued device token used in the Authorization header by runtime heartbeat and command operations. Query-string credentials are rejected.
+  schemas:
+    CommandRequest:
+      type: object
+      properties:
+        command_id:
+          type: string
+        type:
+          type: string
+          enum: [list_scripts, install_script, remove_script, ssh_authorize, ssh_revoke]
+          description: Dynamic SSH authorization commands use the exact versioned payload below; `ssh_revoke` removes a terminal session from the client in-memory store.
+        args:
+          type: array
+          items:
+            type: string
+        public_key:
+          type: string
+          description: Full authorized_keys-style SSH public key. Present only for `ssh_authorize`.
+        payload_ref:
+          type: string
+        payload:
+          type: object
+          description: For SSH commands, this object has the exact versioned content_type, name, and data fields described below; other command types may use their existing payload shape.
+          properties:
+            content_type:
+              type: string
+              enum:
+                - application/vnd.nixstasis.ssh-authorize+json;version=1
+                - application/vnd.nixstasis.ssh-revoke+json;version=1
+              description: Exact versioned dynamic SSH command content type.
+            name:
+              type: string
+              format: uuid
+              description: Terminal session ref; must match data.session_ref.
+            data:
+              type: string
+              description: JSON-encoded metadata. Authorize data includes target_user=nixstasis-support, ttl_seconds, and session_ref; revoke data includes session_ref.
+          additionalProperties: true
+    CommandResult:
+      type: object
+      required: [command_id, status]
+      properties:
+        command_id:
+          type: string
+        status:
+          type: string
+          enum: [OK, FAILED]
+        output:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+          nullable: true
+    CommandPayload:
+      type: object
+      properties:
+        content_type:
+          type: string
+        name:
+          type: string
+        data:
+          type: string

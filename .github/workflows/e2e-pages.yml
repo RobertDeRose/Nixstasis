@@ -1,0 +1,154 @@
+name: E2E Suites Report
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: e2e-results-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  MISE_IGNORED_CONFIG_PATHS: /home/runner/.config/mise/config.toml
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine # ratchet:exclude
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+
+      - name: Checkout existing E2E results
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        continue-on-error: true
+        with:
+          ref: e2e-results
+          path: e2e-pages
+
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # ratchet:jdx/mise-action@v5.1.1
+        with:
+          install: false
+
+      - name: Install locked tools
+        run: mise install --locked
+
+      - name: Prepare E2E runner credential
+        run: |
+          echo "NIXSTASIS_E2E_RUNNER_ID=github-actions" >> "$GITHUB_ENV"
+          echo "NIXSTASIS_E2E_RUNNER_TOKEN=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Prepare server
+        working-directory: packages/server
+        run: |
+          mise x -- mix local.hex --force
+          mise x -- mix local.rebar --force
+          mise x -- mix deps.get
+          MIX_ENV=dev mise x -- mix ecto.create
+          MIX_ENV=dev mise x -- mix ecto.migrate
+
+      - name: Start server
+        working-directory: packages/server
+        run: |
+          NIXSTASIS_DEV_BIND_ALL=true MIX_ENV=dev mise x -- mix phx.server > /tmp/nixstasis-server.log 2>&1 &
+          echo $! > /tmp/nixstasis-server.pid
+
+      - name: Wait for server
+        run: |
+          for _ in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:4000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Server did not become ready in time."
+          tail -n 200 /tmp/nixstasis-server.log || true
+          exit 1
+
+      - name: Run E2E suites
+        working-directory: packages/client
+        run: |
+          mise x -- scripts/e2e/run_all_suites \
+            --api-url http://127.0.0.1:4000 \
+            --env local \
+            --trigger ci \
+            --protocol-version 1 \
+            --reports-dir tmp/e2e/reports \
+            --logs-dir tmp/e2e/logs
+
+      - name: Build manifest-led static pages
+        working-directory: packages/server
+        env:
+          MAX_E2E_RUNS: ${{ vars.MAX_E2E_RUNS }}
+        run: |
+          mise x -- mix e2e.export_static \
+            --reports-dir ../client/tmp/e2e/reports \
+            --logs-dir ../client/tmp/e2e/logs \
+            --pages-dir ../../e2e-pages \
+            --title "Nixstasis E2E Reports" \
+            --ref-name "${GITHUB_REF_NAME}" \
+            --ref-type "${GITHUB_REF_TYPE}" \
+            --full-sha "${GITHUB_SHA}" \
+            --max-runs "${MAX_E2E_RUNS}"
+
+      - name: Publish E2E results branch
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd e2e-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add -A
+          git commit -m "ci(e2e): publish reports for ${GITHUB_REF_NAME}" || exit 0
+          git push origin HEAD:e2e-results --force
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7.0.1
+        with:
+          name: e2e-raw-artifacts
+          path: |
+            packages/client/tmp/e2e/reports
+            packages/client/tmp/e2e/logs
+            /tmp/nixstasis-server.log
+          if-no-files-found: warn
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/nixstasis-server.pid ]; then
+            kill "$(cat /tmp/nixstasis-server.pid)" || true
+          fi
+
+  docs:
+    # Publish the refreshed reports with the site. A called workflow keeps this
+    # run's ref, which the github-pages environment requires to be main.
+    if: github.ref == 'refs/heads/main'
+    needs: e2e
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

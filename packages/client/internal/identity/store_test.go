@@ -41,7 +41,7 @@ func TestLoadUUIDRejectsInvalidIdentityFile(t *testing.T) {
 
 func TestLoadUUIDNormalizesValidIdentity(t *testing.T) {
 	path := t.TempDir() + "/id"
-	if err := os.WriteFile(path, []byte("A0EBD0B2-63E6-4A74-8B8C-7084C18C45E8\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"uuid":"A0EBD0B2-63E6-4A74-8B8C-7084C18C45E8"}`+"\n"), 0o600); err != nil {
 		t.Fatalf("write identity file: %v", err)
 	}
 
@@ -51,6 +51,17 @@ func TestLoadUUIDNormalizesValidIdentity(t *testing.T) {
 	}
 	if uuid != "a0ebd0b2-63e6-4a74-8b8c-7084c18c45e8" {
 		t.Fatalf("LoadUUID() = %q", uuid)
+	}
+}
+
+func TestLoadRejectsPlainUUIDFile(t *testing.T) {
+	path := t.TempDir() + "/id"
+	if err := os.WriteFile(path, []byte("a0ebd0b2-63e6-4a74-8b8c-7084c18c45e8\n"), 0o600); err != nil {
+		t.Fatalf("write identity file: %v", err)
+	}
+
+	if _, err := NewStore(path).Load(); err == nil {
+		t.Fatal("Load() accepted a plain UUID identity file")
 	}
 }
 

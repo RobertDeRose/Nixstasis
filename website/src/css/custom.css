@@ -1,0 +1,368 @@
+/* Nixstasis brand theme for Docusaurus (Infima). */
+
+:root {
+  --ifm-color-primary: #087f92;
+  --ifm-color-primary-dark: #077284;
+  --ifm-color-primary-darker: #076c7c;
+  --ifm-color-primary-darkest: #055966;
+  --ifm-color-primary-light: #098ca0;
+  --ifm-color-primary-lighter: #0a92a8;
+  --ifm-color-primary-lightest: #0ba5be;
+  --ifm-background-color: #f4fbfd;
+  --ifm-font-color-base: #183242;
+  --ifm-code-font-size: 95%;
+  --ifm-color-content-secondary: #3d5a69;
+  --docusaurus-highlighted-code-line-bg: rgba(5, 127, 134, 0.1);
+  --nixstasis-inline-code: #065f67;
+  --brand-hero-border: rgba(5, 127, 134, 0.18);
+  --brand-hero-bg:
+    radial-gradient(circle at 18% 20%, rgba(56, 169, 244, 0.18), transparent 38%),
+    radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.28), transparent 34%),
+    rgba(255, 255, 255, 0.72);
+  --brand-hero-shadow: rgba(11, 75, 89, 0.14);
+  --brand-wordmark: #284150;
+  --brand-wordmark-strong: #102c3c;
+  --brand-tagline: #5e7a87;
+
+  /* Text-sized teal is one shade darker than the fill teal to keep 5:1 contrast. */
+  --ifm-link-color: var(--ifm-color-primary-dark);
+  --ifm-menu-color: var(--ifm-color-content-secondary);
+  --ifm-menu-color-active: var(--ifm-color-primary-dark);
+
+  --ifm-font-family-base: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ifm-heading-font-family: 'Sora Variable', 'IBM Plex Sans', system-ui, sans-serif;
+  --ifm-font-family-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ifm-heading-font-weight: 600;
+
+  --nixstasis-diagram-node: #ffffff;
+  --nixstasis-diagram-surface: #e6f5f7;
+  --nixstasis-diagram-accent: #087f92;
+  --nixstasis-diagram-line: #3d5a69;
+  --nixstasis-diagram-text: #183242;
+}
+
+html[data-theme='dark'] {
+  --ifm-color-primary: #4bded1;
+  --ifm-color-primary-dark: #30d8c9;
+  --ifm-color-primary-darker: #27cebf;
+  --ifm-color-primary-darkest: #20aa9e;
+  --ifm-color-primary-light: #66e4d9;
+  --ifm-color-primary-lighter: #6fe6dc;
+  --ifm-color-primary-lightest: #98ede6;
+  --ifm-background-color: #061322;
+  --ifm-background-surface-color: #081a2a;
+  --ifm-font-color-base: #d8edf6;
+  --ifm-color-content-secondary: #bcd6e3;
+  --docusaurus-highlighted-code-line-bg: rgba(72, 242, 191, 0.12);
+  --nixstasis-inline-code: #b7f7e7;
+  --brand-hero-border: rgba(72, 242, 191, 0.22);
+  --brand-hero-bg:
+    radial-gradient(circle at 18% 20%, rgba(46, 169, 244, 0.24), transparent 38%),
+    radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.2), transparent 34%),
+    rgba(6, 19, 34, 0.72);
+  --brand-hero-shadow: rgba(0, 0, 0, 0.28);
+  --brand-wordmark: #dbe8ee;
+  --brand-wordmark-strong: #ecf7fb;
+  --brand-tagline: #91aabd;
+
+  --ifm-link-color: var(--ifm-color-primary);
+  --ifm-menu-color-active: var(--ifm-color-primary);
+  --ifm-table-head-background: var(--ifm-background-surface-color);
+  --ifm-table-stripe-background: rgba(72, 242, 191, 0.04);
+  --ifm-table-border-color: #183846;
+
+  --nixstasis-diagram-node: #0d2433;
+  --nixstasis-diagram-surface: #081a2a;
+  --nixstasis-diagram-accent: #48f2bf;
+  --nixstasis-diagram-line: #91aabd;
+  --nixstasis-diagram-text: #d8edf6;
+}
+
+:not(pre) > code {
+  color: var(--nixstasis-inline-code);
+}
+
+/* Brand keyboard focus ring for every control. */
+:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+.table-of-contents__link--active {
+  color: var(--ifm-link-color);
+}
+
+/* Diagram expand control and dialog (src/clientModules/index.ts). */
+.docusaurus-mermaid-container {
+  position: relative;
+  overflow-x: auto;
+}
+
+@media (max-width: 996px) {
+  .docusaurus-mermaid-container > svg {
+    min-width: var(--nixstasis-diagram-min-width, 0);
+  }
+}
+
+.nixstasis-diagram-control {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--nixstasis-diagram-accent);
+  border-radius: 999px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  font: 500 0.8rem var(--ifm-font-family-base);
+  cursor: pointer;
+}
+
+.nixstasis-diagram-control:hover {
+  background: var(--nixstasis-diagram-surface);
+}
+
+.nixstasis-diagram-control:focus-visible {
+  outline: 2px solid var(--nixstasis-diagram-accent);
+  outline-offset: 2px;
+}
+
+.nixstasis-diagram-expand {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.docusaurus-mermaid-container:hover .nixstasis-diagram-expand,
+.nixstasis-diagram-expand:focus-visible {
+  opacity: 1;
+}
+
+.nixstasis-diagram-dialog {
+  width: min(96vw, 1600px);
+  height: min(92vh, 1100px);
+  padding: 0;
+  border: 1px solid var(--nixstasis-diagram-accent);
+  border-radius: 12px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+}
+
+.nixstasis-diagram-dialog::backdrop {
+  background: rgba(3, 10, 18, 0.7);
+}
+
+.nixstasis-diagram-dialog__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--ifm-background-color);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+
+.nixstasis-diagram-dialog__canvas {
+  padding: 1.5rem;
+  overflow: auto;
+  height: calc(100% - 3.5rem);
+}
+
+.nixstasis-diagram-dialog__canvas svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* Touch screens have no hover, so the control stays visible. */
+@media (hover: none) {
+  .nixstasis-diagram-expand {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nixstasis-diagram-expand {
+    transition: none;
+  }
+}
+
+/*
+ * Mermaid diagrams. Mermaid inlines ID-scoped theme styles into each SVG and its theme
+ * variables cannot differ per color mode, so brand colors are applied here with !important.
+ */
+.docusaurus-mermaid-container svg .node rect,
+.docusaurus-mermaid-container svg .node circle,
+.docusaurus-mermaid-container svg .node ellipse,
+.docusaurus-mermaid-container svg .node polygon,
+.docusaurus-mermaid-container svg .node path,
+.docusaurus-mermaid-container svg .actor rect,
+.docusaurus-mermaid-container svg .actor circle,
+.docusaurus-mermaid-container svg .actor ellipse,
+.docusaurus-mermaid-container svg .actor polygon,
+.docusaurus-mermaid-container svg .actor path,
+.docusaurus-mermaid-container svg .note rect,
+.docusaurus-mermaid-container svg .note circle,
+.docusaurus-mermaid-container svg .note ellipse,
+.docusaurus-mermaid-container svg .note polygon,
+.docusaurus-mermaid-container svg .note path,
+.docusaurus-mermaid-container svg .labelBox rect,
+.docusaurus-mermaid-container svg .labelBox circle,
+.docusaurus-mermaid-container svg .labelBox ellipse,
+.docusaurus-mermaid-container svg .labelBox polygon,
+.docusaurus-mermaid-container svg .labelBox path,
+.docusaurus-mermaid-container svg .stateGroup rect,
+.docusaurus-mermaid-container svg .stateGroup circle,
+.docusaurus-mermaid-container svg .stateGroup ellipse,
+.docusaurus-mermaid-container svg .stateGroup polygon,
+.docusaurus-mermaid-container svg .stateGroup path,
+.docusaurus-mermaid-container svg .statediagram-state rect,
+.docusaurus-mermaid-container svg .statediagram-state circle,
+.docusaurus-mermaid-container svg .statediagram-state ellipse,
+.docusaurus-mermaid-container svg .statediagram-state polygon,
+.docusaurus-mermaid-container svg .statediagram-state path,
+.docusaurus-mermaid-container svg rect.actor,
+.docusaurus-mermaid-container svg rect.note,
+.docusaurus-mermaid-container svg polygon.labelBox,
+.docusaurus-mermaid-container svg .activation0,
+.docusaurus-mermaid-container svg .activation1,
+.docusaurus-mermaid-container svg .activation2 {
+  fill: var(--nixstasis-diagram-node) !important;
+  stroke: var(--nixstasis-diagram-accent) !important;
+}
+
+.docusaurus-mermaid-container svg .cluster rect,
+.docusaurus-mermaid-container svg .statediagram-cluster rect,
+.docusaurus-mermaid-container svg .rect {
+  fill: var(--nixstasis-diagram-surface) !important;
+  stroke: var(--nixstasis-diagram-line) !important;
+}
+
+.docusaurus-mermaid-container svg .flowchart-link,
+.docusaurus-mermaid-container svg .edgePath .path,
+.docusaurus-mermaid-container svg .transition,
+.docusaurus-mermaid-container svg .messageLine0,
+.docusaurus-mermaid-container svg .messageLine1,
+.docusaurus-mermaid-container svg .loopLine,
+.docusaurus-mermaid-container svg .actor-line,
+.docusaurus-mermaid-container svg line {
+  stroke: var(--nixstasis-diagram-line) !important;
+}
+
+.docusaurus-mermaid-container svg marker path,
+.docusaurus-mermaid-container svg .arrowheadPath,
+.docusaurus-mermaid-container svg #arrowhead path,
+.docusaurus-mermaid-container svg #crosshead path,
+.docusaurus-mermaid-container svg .state-start,
+.docusaurus-mermaid-container svg .stateGroup .state-end {
+  fill: var(--nixstasis-diagram-line) !important;
+  stroke: var(--nixstasis-diagram-line) !important;
+}
+
+.docusaurus-mermaid-container svg text,
+.docusaurus-mermaid-container svg tspan,
+.docusaurus-mermaid-container svg .nodeLabel,
+.docusaurus-mermaid-container svg .edgeLabel,
+.docusaurus-mermaid-container svg .messageText,
+.docusaurus-mermaid-container svg .noteText,
+.docusaurus-mermaid-container svg .labelText,
+.docusaurus-mermaid-container svg .loopText {
+  fill: var(--nixstasis-diagram-text) !important;
+  color: var(--nixstasis-diagram-text) !important;
+}
+
+/* Sequence step numbers: accent circles with page-colored digits. */
+.docusaurus-mermaid-container svg marker circle,
+.docusaurus-mermaid-container svg #sequencenumber circle {
+  fill: var(--nixstasis-diagram-accent) !important;
+  stroke: var(--nixstasis-diagram-accent) !important;
+}
+
+.docusaurus-mermaid-container svg text.sequenceNumber {
+  fill: var(--ifm-background-color) !important;
+}
+
+.docusaurus-mermaid-container svg .edgeLabel,
+.docusaurus-mermaid-container svg .edgeLabel rect,
+.docusaurus-mermaid-container svg .edgeLabel p,
+.docusaurus-mermaid-container svg .edgeLabel span,
+.docusaurus-mermaid-container svg .edgeLabel div,
+.docusaurus-mermaid-container svg .labelBkg {
+  background-color: var(--ifm-background-color) !important;
+  fill: var(--ifm-background-color) !important;
+}
+
+
+.brand-hero {
+  --brand-wordmark-size: clamp(2.2rem, 4.6vw, 4.4rem);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 5vw, 52px);
+  margin: 10px 0 42px;
+  padding: clamp(18px, 5vw, 44px);
+  border: 1px solid var(--brand-hero-border);
+  border-radius: 28px;
+  background: var(--brand-hero-bg);
+  box-shadow: 0 24px 70px var(--brand-hero-shadow);
+}
+
+.brand-hero__logo {
+  width: clamp(120px, 24vw, 210px);
+  height: auto;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 22px rgba(72, 242, 191, 0.16));
+}
+
+.brand-hero__copy {
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+
+/* `.markdown` matches the specificity of Docusaurus's first-heading margin rule. */
+.markdown .brand-hero h1 {
+  display: inline-block;
+  margin: 0;
+  color: var(--brand-wordmark);
+  font-size: var(--brand-wordmark-size);
+  font-weight: 300;
+  line-height: 0.95;
+  letter-spacing: 0.05em;
+  /* Cancel the spacing after the last letter so the box ends at the final glyph. */
+  margin-inline-end: -0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brand-hero h1 strong {
+  color: var(--brand-wordmark-strong);
+  display: inline;
+  font-weight: 800;
+}
+
+.brand-hero h1 span {
+  display: inline;
+  font-weight: 300;
+}
+
+.brand-hero__tagline {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin: calc(var(--brand-wordmark-size) * 0.14) 0 0;
+  color: var(--brand-tagline);
+  font-size: max(0.75rem, calc(var(--brand-wordmark-size) * 0.269));
+  font-weight: 300;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  .brand-hero {
+    flex-direction: column;
+  }
+}

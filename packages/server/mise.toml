@@ -1,3 +1,4 @@
 [tools]
+# Keep Elixir and Erlang on the production image's major.minor (packages/server/Dockerfile).
 elixir = "1.19.5-otp-28"
 erlang = "28.5"

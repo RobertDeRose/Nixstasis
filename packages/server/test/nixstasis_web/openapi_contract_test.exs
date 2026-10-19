@@ -12,7 +12,7 @@ defmodule NixstasisWeb.OpenAPIContractTest do
   )
 
   test "report result OpenAPI declares operator authentication" do
-    path = Path.expand("../../../../docs/src/reference/openapi/report-api.yaml", __DIR__)
+    path = Path.expand("../../../../website/docs/reference/openapi/report-api.yaml", __DIR__)
     openapi = YamlElixir.read_from_file!(path)
     operation = get_in(openapi, ["paths", "/api/v1/reports/{id}/results", "get"])
 

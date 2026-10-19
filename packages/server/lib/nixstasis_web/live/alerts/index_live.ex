@@ -82,22 +82,19 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   Selects the active-alerts or rules tab and loads its data: active alerts are
   read as the device-data actor, and rules are filtered, sorted, and paginated
-  from the query parameters. Legacy `?tab=rules` links are patched to the rules
-  route, and rule editor routes redirect viewers who cannot manage rules.
+  from the query parameters. Rule editor routes redirect viewers who cannot
+  manage rules.
   """
   def handle_params(params, _url, socket) do
     cond do
       socket.assigns.live_action in [:new, :edit] and not can_manage_alert_rules?(socket) ->
         {:noreply, unauthorized_rule_route(socket)}
 
-      socket.assigns.live_action == :index and Map.get(params, "tab") == "rules" ->
-        {:noreply, push_patch(socket, to: rule_index_path_from_params(params))}
-
       true ->
         tab =
           case socket.assigns.live_action do
             action when action in [:rules, :new, :edit] -> "rules"
-            _ -> normalize_tab(Map.get(params, "tab"))
+            _ -> "active"
           end
 
         view_state = normalize_rule_view_state(params)
@@ -547,7 +544,7 @@ defmodule NixstasisWeb.AlertLive.Index do
                           class="tooltip tooltip-right inline-flex w-24 justify-start"
                           data-tip={rule.edit_disabled_reason}
                         >
-                          <span class="badge badge-warning badge-xs">Deprecated</span>
+                          <span class="badge badge-warning badge-xs">Out of date</span>
                         </span>
                       <% else %>
                         <span class="inline-flex w-24"></span>
@@ -1691,11 +1688,6 @@ defmodule NixstasisWeb.AlertLive.Index do
     end
   end
 
-  defp rule_index_path_from_params(params) do
-    state = normalize_rule_view_state(params)
-    rule_index_path_params(state["page"], state["filters"], state["sort_by"], state["sort_dir"])
-  end
-
   defp rule_index_path_from_assigns(page, filters, sort_by, sort_dir),
     do: rule_index_path_params(page, filters, sort_by, sort_dir)
 
@@ -1742,9 +1734,6 @@ defmodule NixstasisWeb.AlertLive.Index do
 
   defp tab_path("rules", _socket), do: "/alerts/rules"
   defp tab_path(_tab, _socket), do: "/alerts"
-
-  defp normalize_tab("rules"), do: "rules"
-  defp normalize_tab(_), do: "active"
 
   defp humanize_field_name(key) when is_binary(key) do
     key

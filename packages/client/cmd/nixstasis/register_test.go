@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json/v2"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,9 +20,7 @@ import (
 // file is removed, but a shared proof/identity path must retain the new credentials.
 // The test uses a local server and skips hosts without a usable MAC address.
 func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
-	if _, err := identity.GetPrimaryMAC(); err != nil {
-		t.Skipf("registration requires a network interface with a MAC address: %v", err)
-	}
+	identityInterface := testIdentityInterface(t)
 
 	const uuid = "550e8400-e29b-41d4-a716-446655440000"
 	for _, name := range []string{"separate paths", "shared path", "lexical alias"} {
@@ -64,12 +63,15 @@ func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := runRegisterWithClient(client); err != nil {
+			if err := runRegisterWithClient(client, func(string) (string, error) { return identity.GetPrimaryMAC(identityInterface) }); err != nil {
 				t.Fatal(err)
 			}
 			credentials, err := identity.NewStore(identityPath).Load()
 			if err != nil {
 				t.Fatalf("runtime identity was removed: %v", err)
+			}
+			if credentials.MACAddress == "" {
+				t.Fatal("registered MAC was not saved with the runtime credentials")
 			}
 			if credentials.UUID != uuid || len(credentials.Token) != 43 {
 				t.Fatal("runtime credentials were not persisted")
@@ -83,6 +85,8 @@ func TestSuccessfulRegistrationRetainsRuntimeCredentials(t *testing.T) {
 	}
 }
 
+// TestPrepareRegistrationPrefersRecoveryCredentials verifies that recovery
+// credentials supersede a stale runtime token and gain a replacement token.
 func TestPrepareRegistrationPrefersRecoveryCredentials(t *testing.T) {
 	const uuid = "550e8400-e29b-41d4-a716-446655440000"
 	dir := t.TempDir()
@@ -95,7 +99,7 @@ func TestPrepareRegistrationPrefersRecoveryCredentials(t *testing.T) {
 	if err := recoveryStore.Save(identity.Credentials{UUID: uuid, Token: "current-token"}); err != nil {
 		t.Fatal(err)
 	}
-	enrollment, err := prepareRegistration(runtimeStore, recoveryStore)
+	enrollment, err := prepareRegistration(runtimeStore, recoveryStore, detectMAC(firstMAC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,19 +111,25 @@ func TestPrepareRegistrationPrefersRecoveryCredentials(t *testing.T) {
 	}
 }
 
+// TestPrepareRegistrationPersistsCredentialsBeforeFirstRequest verifies that
+// enrollment secrets and the MAC remain unchanged across a process restart.
 func TestPrepareRegistrationPersistsCredentialsBeforeFirstRequest(t *testing.T) {
 	dir := t.TempDir()
 	runtimeStore := identity.NewStore(filepath.Join(dir, "id"))
 	recoveryStore := identity.NewStore(filepath.Join(dir, "registration"))
-	first, err := prepareRegistration(runtimeStore, recoveryStore)
+	first, err := prepareRegistration(runtimeStore, recoveryStore, detectMAC(firstMAC))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if first.MACAddress != firstMAC {
+		t.Fatalf("prepared MAC = %q; want %q", first.MACAddress, firstMAC)
 	}
 	if first.UUID != "" || len(first.Token) != 43 || len(first.ReplacementToken) != 43 || first.Token == first.ReplacementToken {
 		t.Fatal("initial credentials were not prepared correctly")
 	}
-	// A restart before receiving any response must use exactly the same secrets.
-	retry, err := prepareRegistration(runtimeStore, identity.NewStore(filepath.Join(dir, "registration")))
+	// A restart before receiving any response must use exactly the same secrets
+	// and MAC, even when detection would now select another interface.
+	retry, err := prepareRegistration(runtimeStore, identity.NewStore(filepath.Join(dir, "registration")), detectMAC(otherMAC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,12 +138,14 @@ func TestPrepareRegistrationPersistsCredentialsBeforeFirstRequest(t *testing.T) 
 	}
 }
 
+// TestRegistrationRetryAfterLostExchangeResponse verifies that a retry
+// recovers runtime credentials using the same durably prepared tokens.
 func TestRegistrationRetryAfterLostExchangeResponse(t *testing.T) {
 	const uuid = "550e8400-e29b-41d4-a716-446655440000"
 	dir := t.TempDir()
 	runtimeStore := identity.NewStore(filepath.Join(dir, "id"))
 	recoveryStore := identity.NewStore(filepath.Join(dir, "registration"))
-	first, err := prepareRegistration(runtimeStore, recoveryStore)
+	first, err := prepareRegistration(runtimeStore, recoveryStore, detectMAC(firstMAC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +180,7 @@ func TestRegistrationRetryAfterLostExchangeResponse(t *testing.T) {
 	if _, err := client.RegisterDeviceCredentials(context.Background(), device, first.Token, first.ReplacementToken); err == nil {
 		t.Fatal("expected a lost-response error")
 	}
-	retry, err := prepareRegistration(runtimeStore, recoveryStore)
+	retry, err := prepareRegistration(runtimeStore, recoveryStore, detectMAC(firstMAC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,13 +193,15 @@ func TestRegistrationRetryAfterLostExchangeResponse(t *testing.T) {
 	}
 }
 
+// TestPrepareRegistrationDoesNotOverwriteUnreadableRecoveryState verifies
+// that malformed enrollment data is preserved and stops registration.
 func TestPrepareRegistrationDoesNotOverwriteUnreadableRecoveryState(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "registration")
 	if err := os.WriteFile(path, []byte("interrupted-json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := prepareRegistration(identity.NewStore(filepath.Join(dir, "id")), identity.NewStore(path))
+	_, err := prepareRegistration(identity.NewStore(filepath.Join(dir, "id")), identity.NewStore(path), detectMAC(firstMAC))
 	if err == nil {
 		t.Fatal("expected invalid recovery state to stop registration")
 	}
@@ -200,14 +214,67 @@ func TestPrepareRegistrationDoesNotOverwriteUnreadableRecoveryState(t *testing.T
 	}
 }
 
+// TestPrepareRegistrationRejectsInvalidStatePath verifies that an unusable
+// enrollment storage path prevents registration.
 func TestPrepareRegistrationRejectsInvalidStatePath(t *testing.T) {
 	dir := t.TempDir()
 	parent := filepath.Join(dir, "not-a-directory")
 	if err := os.WriteFile(parent, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := prepareRegistration(identity.NewStore(filepath.Join(dir, "id")), identity.NewStore(filepath.Join(parent, "registration")))
+	_, err := prepareRegistration(identity.NewStore(filepath.Join(dir, "id")), identity.NewStore(filepath.Join(parent, "registration")), detectMAC(firstMAC))
 	if err == nil {
 		t.Fatal("expected invalid registration state path to stop registration")
+	}
+}
+
+// testIdentityInterface returns an up, non-loopback host interface with a MAC,
+// skipping the test when the host has none.
+func testIdentityInterface(t *testing.T) string {
+	t.Helper()
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		t.Skipf("list network interfaces: %v", err)
+	}
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagLoopback == 0 && iface.Flags&net.FlagUp != 0 && len(iface.HardwareAddr) > 0 {
+			return iface.Name
+		}
+	}
+	t.Skip("registration requires a network interface with a MAC address")
+	return ""
+}
+
+const (
+	firstMAC = "02:00:00:00:00:01"
+	otherMAC = "02:00:00:00:00:02"
+)
+
+// detectMAC mirrors identity.ResolveMAC without a configured interface: a saved
+// MAC wins, otherwise detection returns mac.
+func detectMAC(mac string) func(saved string) (string, error) {
+	return func(saved string) (string, error) {
+		if saved != "" {
+			return saved, nil
+		}
+		return mac, nil
+	}
+}
+
+// TestPrepareRegistrationReusesRuntimeIdentityMAC verifies that
+// re-registration retains the saved MAC when route detection would choose another.
+func TestPrepareRegistrationReusesRuntimeIdentityMAC(t *testing.T) {
+	const uuid = "550e8400-e29b-41d4-a716-446655440000"
+	dir := t.TempDir()
+	runtimeStore := identity.NewStore(filepath.Join(dir, "id"))
+	if err := runtimeStore.Save(identity.Credentials{UUID: uuid, Token: "runtime-token", MACAddress: firstMAC}); err != nil {
+		t.Fatal(err)
+	}
+	enrollment, err := prepareRegistration(runtimeStore, identity.NewStore(filepath.Join(dir, "registration")), detectMAC(otherMAC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enrollment.MACAddress != firstMAC {
+		t.Fatalf("re-registration MAC = %q; want registered %q", enrollment.MACAddress, firstMAC)
 	}
 }

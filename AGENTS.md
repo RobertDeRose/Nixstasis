@@ -2,6 +2,15 @@
 
 Start here when working in this repository.
 
+## Repository map
+
+- `website/docs/repository-structure.md` maps every package and top-level path; `website/docs/modules/` describes each
+  module's architecture.
+- `packages/server/AGENTS.md` and `packages/client/AGENTS.md` hold package-specific commands and conventions.
+- `packages/caddy` and `packages/frp` build the gateway images; `uv run packages/frp/bin/test_frps_render_config.py`
+  tests the FRPS config renderer.
+- Run repository validation with `mise run check` and deterministic fixes with `mise run fix`.
+
 ## Ground Rules
 
 - Prefer the smallest correct change.
@@ -11,6 +20,11 @@ Start here when working in this repository.
   names, review-pass notes, delivery or merge status, or validation run results. Beads (or Git history) owns that
   state. When editing a doc that already contains such state, remove it rather than updating it.
 - Do not treat a task as complete if the code and docs-driven feature docs disagree.
+- Nixstasis has no stability guarantee before `v1.0.0`. Any pre-1.0 release may break the client-server API,
+  configuration, client state files, and database contents; affected servers and devices are redeployed and
+  re-enrolled, not upgraded in place. Make breaking changes directly: add no data migrations for old state, legacy
+  aliases, compatibility shims, or deprecation periods. Ash schema migrations are still committed as described
+  below. Reviewers must not flag missing backward compatibility or upgrade paths as defects.
 
 ## Ash Codegen
 
@@ -96,19 +110,24 @@ Inspect selected work with `bd show <id> --json` and read structured metadata be
 
 - **Beads** owns executable work state, dependencies, priorities, claims, findings, evidence, and delivery history
   (PRs, commits, merge status, and validation runs).
-- **`docs/src/features/<slug>/design.md`** owns intended feature behavior, boundaries, decisions, validation, and documentation impact.
-- **Reader-facing pages under `docs/src/`** own current supported behavior.
-- **`docs/src/features/<slug>/index.md`** owns the durable record of what a delivered feature provides and how its
+- **`website/docs/features/<slug>/design.md`** owns intended feature behavior, boundaries, decisions, validation, and documentation impact.
+- **Reader-facing pages under `website/docs/`** own current supported behavior.
+- **`website/docs/features/<slug>/index.md`** owns the durable record of what a delivered feature provides and how its
   delivered behavior differs from its design; it does not record PRs, commits, or delivery status.
-- **`docs/src/planned-features.md`** is the human roadmap; Beads remains authoritative for live state.
+- **Beads** also owns planned work. The published docs describe delivered behavior only: the site build excludes a
+  feature's directory until its `index.md` exists, and no page records planned, in-progress, or deferred work.
 - **Code and tests** provide implementation evidence.
 
 Use Beads instead of Markdown TODO lists for executable work. Use `bd remember` for durable cross-feature knowledge.
 
+Track work in Beads when it spans sessions, has dependencies or acceptance criteria, belongs to a feature, or is
+deferred for later. A small, self-contained fix completed in one change needs no issue; its commit message is the
+record.
+
 Features use an immutable lowercase filesystem-safe slug, shared by the feature docs directory and branch:
 
 ```text
-docs/src/features/first-capability/
+website/docs/features/first-capability/
 feat/first-capability
 ```
 
@@ -126,7 +145,7 @@ timeboxed fact-finding with explicit exit criteria is `spike`; durable architect
 and maintenance is `chore`. Use `feature` for standalone enhancements outside a feature epic. Introduce `story` only when
 the repository actually manages a user-story backlog, and `milestone` only as a work-free aggregate.
 
-For each implementation task: claim it atomically, load only relevant design and documentation context, implement the smallest complete scope, update documentation in the same work unit, validate, run an isolated quality/security/maintainability review, record evidence, commit with the Beads ID, and close only after acceptance criteria pass. Use focused checks while iterating. Run the full repository suite once after review fixes stabilize and before commit; rerun it only after a failure or a later broad/shared fix.
+For each tracked implementation task: claim it atomically, load only relevant design and documentation context, implement the smallest complete scope, update documentation in the same work unit, validate, run an isolated quality/security/maintainability review, record evidence, commit with the Beads ID, and close only after acceptance criteria pass. Untracked fixes follow the same steps except claiming, recording evidence, referencing a Beads ID, and closing. Use focused checks while iterating. Run the full repository suite once after review fixes stabilize and before commit; rerun it only after a failure or a later broad/shared fix.
 
 ## Documentation placement
 
@@ -180,4 +199,4 @@ resolved review threads. Never push directly to `dev` and never create a merge c
 fast-forward only.
 
 `main` moves only through the Release workflow, which fast-forwards it to a validated `dev` commit and tags the
-release. Never push to `main` or create `v*` tags directly; see `docs/src/development/releasing.md`.
+release. Never push to `main` or create `v*` tags directly; see `website/docs/development/releasing.md`.

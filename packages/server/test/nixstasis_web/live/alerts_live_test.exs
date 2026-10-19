@@ -982,10 +982,6 @@ defmodule NixstasisWeb.AlertsLiveTest do
     assert has_element?(view, "#alert-rule-validation-error[role='alert']")
   end
 
-  test "tab query redirects to the canonical rules route", %{conn: conn} do
-    assert {:error, {:live_redirect, %{to: "/alerts/rules"}}} = live(conn, ~p"/alerts?tab=rules")
-  end
-
   test "stale nested rule pages preserve the editor route", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{
@@ -1147,9 +1143,9 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/alerts/rules")
 
-    assert render(view) =~ "Deprecated"
+    assert render(view) =~ "Out of date"
 
-    assert has_element?(view, "span.badge.badge-warning.badge-xs", "Deprecated")
+    assert has_element?(view, "span.badge.badge-warning.badge-xs", "Out of date")
     refute has_element?(view, "button[aria-label='Edit rule #{rule.id}']")
   end
 

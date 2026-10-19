@@ -32,11 +32,11 @@ Elixir/Phoenix, respectively.
 - `packages/caddy`: Caddy image and legacy packaging assets.
 - `packages/frp`: FRPS image build assets and shared FRP binary acquisition
   scripts used by server/client packaging flows.
-- `docs/src/features`: Documentation-first feature designs and delivery records.
+- `website/docs/features`: Documentation-first feature designs and delivery records.
 
 ## Development workflow
 
-Work is tracked in Beads, and feature designs and delivery records live under `docs/src/features`. Install the locked
+Work is tracked in Beads, and feature designs and delivery records live under `website/docs/features`. Install the locked
 developer tools and inspect ready work with:
 
 ```bash
@@ -45,7 +45,7 @@ bd ready --json
 ```
 
 Build the documentation with `mise run docs:build` and the complete quality contract with `mise run check`.
-See `AGENTS.md` for contribution rules and `docs/src/development/releasing.md` for releases.
+See `AGENTS.md` for contribution rules and `website/docs/development/releasing.md` for releases.
 
 ## Package READMEs
 
@@ -256,7 +256,7 @@ Files that make up this example journey:
 | Dashboard page           | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex`                                                                                            | Server                         | Runs/results/log visualization.                                    |
 | Migrations               | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server                         | Schema for runs/results and reliability hardening fields.          |
 | Seed script              | `packages/server/priv/e2e/seed.exs`                                                                                                                       | Server                         | Baseline data reset before run acceptance.                         |
-| E2E API docs             | `docs/src/modules/server-e2e.md`, `docs/src/client-server-interface.md`                                                                                   | Both                           | Contract reference for endpoints/payloads/errors.                  |
+| E2E API docs             | `website/docs/development/e2e/server.md`, `website/docs/client-server-interface.md`                                                                               | Both                           | Contract reference for endpoints/payloads/errors.                  |
 
 ## Architecture Overview
 

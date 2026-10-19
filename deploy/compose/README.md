@@ -356,4 +356,4 @@ deploy/compose/scripts/validate_stack.sh deploy/compose/.env
 
 Production backup and restore, secret rotation, health checks, incident response,
 upgrade and rollback, and HA boundary runbooks live in
-`docs/src/operations/`.
+`website/docs/operations/`.

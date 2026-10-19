@@ -260,7 +260,6 @@ defmodule Nixstasis.Devices.Device do
       argument :account_number, :string
       argument :ipv4_address, :string
       argument :schema_definition, :map
-      argument :schema, :map
       argument :metadata, :map
       argument :remote_access_requested, :boolean
       argument :registration_token, :string, sensitive?: true

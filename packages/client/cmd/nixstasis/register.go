@@ -31,26 +31,34 @@ func init() {
 	rootCmd.AddCommand(registerCmd)
 }
 
+// runRegister creates an API client and registers the device using the
+// configured interface, a saved MAC, or server route detection.
 func runRegister(cfg *config.Config) error {
 	client, err := transport.NewClient(cfg.API)
 	if err != nil {
 		return err
 	}
-	return runRegisterWithClient(client)
+	return runRegisterWithClient(client, func(saved string) (string, error) {
+		return identity.ResolveMAC(context.Background(), cfg.Identity.Interface, saved, cfg.API.URL)
+	})
 }
 
-func runRegisterWithClient(client *transport.Client) error {
+// runRegisterWithClient registers with the MAC from resolveMAC, which receives
+// the MAC saved by an interrupted enrollment or an existing runtime identity.
+func runRegisterWithClient(client *transport.Client, resolveMAC func(saved string) (string, error)) error {
 	slog.Info("Starting registration process")
 
-	// 1. Detect Identity
-	mac, err := identity.GetPrimaryMAC()
+	// 1. Load any proof from an interrupted enrollment or an existing runtime
+	// identity, and fix the identity MAC before the first request.
+	identityPath := config.IdentityPath()
+	registrationPath := config.RegistrationPath()
+	identityStore := identity.NewStore(identityPath)
+	registrationStore := identity.NewStore(registrationPath)
+	enrollment, err := prepareRegistration(identityStore, registrationStore, resolveMAC)
 	if err != nil {
-		slog.Error("Failed to detect MAC address", "error", err)
-		// We can't register without a MAC, so fatal exit
-		// But in a loop we might want to retry detection?
-		// For now, fail fast as hardware likely won't change in seconds.
-		return fmt.Errorf("failed to detect MAC address: %w", err)
+		return err
 	}
+	mac := enrollment.MACAddress
 
 	ip, err := identity.GetPrimaryIP(context.Background())
 	if err != nil {
@@ -64,16 +72,6 @@ func runRegisterWithClient(client *transport.Client) error {
 		Name:       identity.GenerateDeviceName(mac),
 	}
 	slog.Info("Device identity detected", "name", id.Name, "mac", mac, "ip", ip)
-
-	// 3. Load any proof from an interrupted enrollment or an existing runtime identity.
-	identityPath := config.IdentityPath()
-	registrationPath := config.RegistrationPath()
-	identityStore := identity.NewStore(identityPath)
-	registrationStore := identity.NewStore(registrationPath)
-	enrollment, err := prepareRegistration(identityStore, registrationStore)
-	if err != nil {
-		return err
-	}
 
 	// 4. Register with Retries (T015)
 	var credentials transport.DeviceCredentials
@@ -114,13 +112,13 @@ func runRegisterWithClient(client *transport.Client) error {
 	slog.Info("Registration successful", "uuid", credentials.UUID, "token_issued", credentials.Token != "")
 
 	// 5. Save runtime credentials and discard the one-time enrollment proof.
-	runtimeCredentials := identity.Credentials{UUID: credentials.UUID, Token: credentials.Token}
+	runtimeCredentials := identity.Credentials{UUID: credentials.UUID, Token: credentials.Token, MACAddress: mac}
 	if err := identityStore.Save(runtimeCredentials); err != nil {
 		// The server has already consumed the enrollment proof. Preserve the
 		// runtime token in the retry store so a later run can exchange it for a
 		// fresh token instead of retrying the stale proof.
 		if recoveryErr := registrationStore.SaveEnrollment(identity.Enrollment{
-			UUID: credentials.UUID, Token: credentials.Token,
+			UUID: credentials.UUID, Token: credentials.Token, MACAddress: mac,
 		}); recoveryErr != nil {
 			return fmt.Errorf("failed to save credentials and preserve retry credentials: %w", errors.Join(err, recoveryErr))
 		}
@@ -159,7 +157,10 @@ func removeRegistrationProof(identityPath, registrationPath string) error {
 	return nil
 }
 
-func prepareRegistration(identityStore, registrationStore *identity.Store) (identity.Enrollment, error) {
+// prepareRegistration prefers recovery state over runtime credentials,
+// resolves the identity MAC, and persists the enrollment proof and proposed
+// runtime token before registration can send a request.
+func prepareRegistration(identityStore, registrationStore *identity.Store, resolveMAC func(saved string) (string, error)) (identity.Enrollment, error) {
 	// Recovery state supersedes a readable but invalidated runtime identity.
 	enrollment, err := registrationStore.LoadEnrollment()
 	if err != nil && !errors.Is(err, identity.ErrNoIdentity) {
@@ -170,8 +171,13 @@ func prepareRegistration(identityStore, registrationStore *identity.Store) (iden
 		if loadErr != nil && !errors.Is(loadErr, identity.ErrNoIdentity) {
 			return identity.Enrollment{}, fmt.Errorf("failed to load runtime credentials: %w", loadErr)
 		}
-		enrollment = identity.Enrollment{UUID: credentials.UUID, Token: credentials.Token}
+		enrollment = identity.Enrollment{UUID: credentials.UUID, Token: credentials.Token, MACAddress: credentials.MACAddress}
 	}
+	mac, err := resolveMAC(enrollment.MACAddress)
+	if err != nil {
+		return identity.Enrollment{}, fmt.Errorf("failed to detect MAC address: %w", err)
+	}
+	enrollment.MACAddress = mac
 	if enrollment.Token == "" {
 		enrollment.Token = identity.NewToken()
 	}

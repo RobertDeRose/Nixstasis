@@ -71,8 +71,7 @@ func NormalizeFRPConfig(cfg *FRPConfig) {
 }
 
 // ResolveRouteProfile resolves a server reference against client-owned
-// configuration. A missing reference is the legacy token-only contract and
-// selects the built-in default profile.
+// configuration. A missing reference selects the built-in default profile.
 func ResolveRouteProfile(cfg FRPConfig, selection *RouteProfileSelection) (FRPRouteProfile, RouteProfileSelection, error) {
 	NormalizeFRPConfig(&cfg)
 

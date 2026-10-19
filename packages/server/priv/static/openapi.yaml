@@ -7688,12 +7688,6 @@ paths:
                           x-struct:
                           x-validate:
                         - type: 'null'
-                    schema:
-                      anyOf:
-                        - type: object
-                          x-struct:
-                          x-validate:
-                        - type: 'null'
                     schema_definition:
                       anyOf:
                         - type: object

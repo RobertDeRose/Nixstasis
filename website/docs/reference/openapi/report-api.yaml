@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: Nixstasis Report API
+  version: 1.0.0
+  description: >-
+    Runs a saved custom report and returns its fields and result rows. It needs a signed-in operator with permission
+    to view reports, and only includes devices that operator can access.
+paths:
+  /api/v1/reports/{id}/results:
+    get:
+      security:
+        - operatorBearer: []
+      summary: Fetch custom report result rows
+      description: Runs a custom report for a verified operator with report-view permission and returns its selected fields plus result rows. Telemetry rows are constrained to the operator's authorized device IDs before report filtering, sorting, and pagination. This remains a bespoke result-shaping endpoint for now because it executes report query construction rather than simple CustomReport CRUD.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Report result data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [fields, rows]
+                    properties:
+                      fields:
+                        type: array
+                        items:
+                          type: string
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+        "401":
+          description: Verified operator authentication is required
+        "403":
+          description: The authenticated operator cannot view reports
+        "404":
+          description: Report not found or report result unavailable
+components:
+  securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer
+      description: Trusted operator bearer claims admitted by the Caddy/AuthCrunch edge.

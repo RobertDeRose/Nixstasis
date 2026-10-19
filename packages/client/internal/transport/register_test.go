@@ -113,14 +113,19 @@ func TestRegisterDevice(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			deviceID, err := client.RegisterDevice(context.Background(), tt.device, identity.NewToken(), identity.NewToken())
+			credentials, err := client.RegisterDeviceCredentials(
+				context.Background(), tt.device, identity.NewToken(), identity.NewToken(),
+			)
+			if errors.Is(err, ErrDevicePendingApproval) {
+				err = nil
+			}
 
 			if (err != nil) != tt.expectErr {
-				t.Errorf("RegisterDevice() error = %v, expectErr %v", err, tt.expectErr)
+				t.Errorf("RegisterDeviceCredentials() error = %v, expectErr %v", err, tt.expectErr)
 				return
 			}
-			if deviceID != tt.wantID {
-				t.Errorf("RegisterDevice() id = %v, want %v", deviceID, tt.wantID)
+			if credentials.UUID != tt.wantID {
+				t.Errorf("RegisterDeviceCredentials() id = %v, want %v", credentials.UUID, tt.wantID)
 			}
 		})
 	}

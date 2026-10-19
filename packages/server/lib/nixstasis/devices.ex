@@ -245,8 +245,10 @@ defmodule Nixstasis.Devices do
     registration_token = runtime_param(attrs, :registration_token)
     replacement_token = if exchange?, do: runtime_param(attrs, :replacement_token)
 
+    # Public callers send the schema only as schema_definition; `schema` is the internal attribute name.
     with {:ok, safe_attrs} <-
            attrs
+           |> Map.drop(["schema", :schema])
            |> normalize_registration_attrs()
            |> validate_registration_attrs(:public),
          safe_attrs = sanitize_public_registration_attrs(safe_attrs),

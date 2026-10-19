@@ -516,7 +516,7 @@ func resolveInstallContent(payload *transport.CommandPayload) (string, error) {
 
 func resolveRunScriptContent(payload *transport.CommandPayload, payloadRef string) (string, error) {
 	if payload != nil {
-		if payload.ContentType != "" && payload.ContentType != "text/x-stary" && payload.ContentType != "text/stary" {
+		if payload.ContentType != "" && payload.ContentType != "text/x-stary" {
 			return "", fmt.Errorf("unsupported script payload content type: %s", payload.ContentType)
 		}
 		if payload.Data != "" {

@@ -132,7 +132,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
         "product_name" => approved.product_name,
         "registration_token" => old_token,
         "replacement_token" => String.duplicate("r", 43),
-        "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
+        "schema_definition" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}}
       }
     }
 
@@ -172,7 +172,7 @@ defmodule NixstasisWeb.DeviceRuntimeJSONAPITest do
   } do
     attrs = %{
       "mac_address" => approved.mac_address,
-      "schema" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}},
+      "schema_definition" => %{"product" => approved.product_name, "type" => "object", "properties" => %{}},
       "registration_token" => old_token,
       "replacement_token" => String.duplicate("r", 43),
       "metadata" => %{"must_not" => "persist"}

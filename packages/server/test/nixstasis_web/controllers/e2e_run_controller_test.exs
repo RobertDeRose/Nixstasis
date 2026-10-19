@@ -233,21 +233,6 @@ defmodule NixstasisWeb.E2ERunControllerTest do
     assert response(conn, 404)
   end
 
-  test "Given legacy version fields, when POST /e2e/runs, then request is rejected", %{conn: conn} do
-    params = %{
-      "suite_id" => "full",
-      "environment_label" => "local",
-      "trigger_source" => "manual",
-      "client_version" => "1.0.0",
-      "server_version" => "1.0.0"
-    }
-
-    conn = conn |> create_headers() |> post(~p"/e2e/runs", params)
-
-    assert %{"error" => %{"code" => "protocol_mismatch", "message" => message}} = json_response(conn, 422)
-    assert message =~ "Legacy fields client_version/server_version are no longer supported"
-  end
-
   test "Given unsupported protocol header, when POST /e2e/runs, then protocol mismatch is returned", %{conn: conn} do
     params = %{
       "suite_id" => "full",

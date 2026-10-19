@@ -190,16 +190,6 @@ type DeviceCredentials struct {
 	RegistrationToken string
 }
 
-// RegisterDevice registers the device with the Nixstasis API.
-// It returns the assigned UUID or an error.
-func (c *Client) RegisterDevice(ctx context.Context, id identity.DeviceIdentity, registrationTokens ...string) (string, error) {
-	credentials, err := c.RegisterDeviceCredentials(ctx, id, registrationTokens...)
-	if err != nil && !errors.Is(err, ErrDevicePendingApproval) {
-		return "", err
-	}
-	return credentials.UUID, nil
-}
-
 // RegisterDeviceCredentials registers the device and returns approved runtime credentials when available.
 // Callers must persist the proof (first token) before initial registration and
 // the proposed replacement (second token) before an approved exchange.

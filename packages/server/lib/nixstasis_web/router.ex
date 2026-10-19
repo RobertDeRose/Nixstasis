@@ -80,16 +80,6 @@ defmodule NixstasisWeb.Router do
   scope "/api/v1", NixstasisWeb do
     pipe_through(:api)
 
-    get("/builder-schemas", BuilderSchemaController, :index)
-
-    get(
-      "/builder-schemas/:schema_id/versions/:schema_version/options",
-      BuilderSchemaController,
-      :options
-    )
-
-    post("/builder-configurations/validate", BuilderConfigValidationController, :create)
-
     get("/devices", DeviceController, :index)
     post("/devices/register", DeviceController, :register)
     post("/devices/:device_id/heartbeat", HeartbeatController, :create)

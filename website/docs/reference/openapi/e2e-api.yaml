@@ -1,0 +1,408 @@
+openapi: 3.0.3
+info:
+  title: Nixstasis E2E API
+  version: 1.0.0
+  description: >-
+    The routes the end-to-end test harness uses to start runs, submit results, read logs, and cancel runs. The API is
+    off unless E2E is enabled, and every request needs the test runner's own ID and token. A runner can only see and
+    change the runs it created, and only one run can be active in an environment at a time.
+security:
+  - E2ERunnerBearer: []
+    E2ERunnerID: []
+paths:
+  /e2e/suites:
+    get:
+      summary: List configured E2E suites
+      description: Retained as a controller route because suite listing is gated by the E2E enablement plug and belongs to the harness workflow surface.
+      responses:
+        "200":
+          description: Suite list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        journey_ids:
+                          type: array
+                          items:
+                            type: string
+  /e2e/runs:
+    get:
+      summary: List E2E runs
+      description: Lists only runs owned by the authenticated E2E runner. Results are bounded to at most 100 most-recent runs.
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERun"
+    post:
+      summary: Create or reuse an E2E run
+      description: Retained as a controller route because run creation validates protocol headers, idempotency, environment locks, seed execution, action/expect pairs, and typed workflow errors.
+      parameters:
+        - in: header
+          name: X-E2E-Protocol-Version
+          required: true
+          schema:
+            type: string
+            example: "1"
+          description: Required E2E protocol version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/E2ERunCreateRequest"
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
+        "400":
+          description: Invalid request or action/expect pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+        "409":
+          description: Environment is locked by another active run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+        "422":
+          description: Protocol mismatch, seed failure, or persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+  /e2e/runs/{run_id}:
+    get:
+      summary: Fetch E2E run details
+      description: Retained as a controller route because run details are part of the gated E2E harness API and need to match controller result envelopes.
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
+        "404":
+          description: Run not found
+  /e2e/runs/{run_id}/cancel:
+    post:
+      summary: Cancel an in-progress E2E run
+      description: Retained as a controller route because cancellation is a workflow transition with typed persistence errors and harness gating.
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Cancellation accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/E2ERun"
+        "404":
+          description: Run not found
+        "422":
+          description: Persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+  /e2e/runs/{run_id}/results:
+    get:
+      summary: List journey results for a run
+      description: Retained as a controller route because result listing is tied to the E2E run lifecycle and gated harness semantics.
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Result list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERunResult"
+        "404":
+          description: Run not found
+    post:
+      summary: Submit journey results for a run
+      description: Retained as a controller route because result submission performs workflow ingestion, run status side effects, and typed error rendering.
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/E2ERunResultSubmit"
+      responses:
+        "202":
+          description: Results accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/E2ERunResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+        "404":
+          description: Run not found
+        "422":
+          description: Persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+  /e2e/runs/{run_id}/results/{journey_id}/log:
+    get:
+      summary: Fetch retained log content for one journey result
+      description: Retained as a controller route because log retrieval has retention, pruning, and log-unavailable semantics outside normal resource CRUD.
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: journey_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Log content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      run_id:
+                        type: string
+                      journey_id:
+                        type: string
+                      content:
+                        type: string
+        "404":
+          description: Run, result, or log not found
+        "410":
+          description: Log unavailable because it was pruned or missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypedErrorResponse"
+components:
+  securitySchemes:
+    E2ERunnerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque runner token
+      description: Dedicated E2E runner token. Browser/AuthCrunch sessions do not satisfy this credential.
+    E2ERunnerID:
+      type: apiKey
+      in: header
+      name: X-E2E-Runner-ID
+      description: Stable E2E runner principal identifier bound to created runs.
+  schemas:
+    E2ERunCreateRequest:
+      type: object
+      required: [suite_id, environment_label, trigger_source]
+      properties:
+        suite_id:
+          type: string
+        journey_ids:
+          type: array
+          items:
+            type: string
+        environment_label:
+          type: string
+        trigger_source:
+          type: string
+          enum: [manual, ci]
+        idempotency_key:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+    E2ERun:
+      type: object
+      properties:
+        id:
+          type: string
+        suite_id:
+          type: string
+        journey_ids:
+          type: array
+          items:
+            type: string
+        environment_label:
+          type: string
+        trigger_source:
+          $ref: "#/components/schemas/TriggerSource"
+        protocol_version:
+          type: string
+          example: "1"
+        status:
+          $ref: "#/components/schemas/E2ERunStatus"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+    E2ERunResultSubmit:
+      type: object
+      required: [journey_id, status]
+      properties:
+        journey_id:
+          type: string
+        status:
+          type: string
+        failure_step:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        log_ref:
+          type: string
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+    E2ERunResult:
+      type: object
+      properties:
+        id:
+          type: string
+        journey_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, passed, failed, cancelled, blocked, skipped]
+        failure_step:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        log_ref:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+    E2ERunStatus:
+      type: string
+      enum: [queued, running, passed, failed, cancelled, blocked]
+    TriggerSource:
+      type: string
+      enum: [manual, ci]
+    TypedErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - protocol_mismatch
+                - environment_locked
+                - invalid_action_expectation
+                - invalid_request
+                - seed_failed
+                - database_error
+                - log_unavailable
+            message:
+              type: string
+            details:
+              oneOf:
+                - type: string
+                - type: object
+                  additionalProperties: true

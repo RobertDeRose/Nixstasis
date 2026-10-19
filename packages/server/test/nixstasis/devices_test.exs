@@ -441,7 +441,7 @@ defmodule Nixstasis.DevicesTest do
         "mac_address" => "89:89:89:89:89:89",
         "product_name" => "public-device",
         "registration_token" => String.duplicate("p", 43),
-        "schema" => %{
+        "schema_definition" => %{
           "product" => "public-device",
           "type" => "object",
           "properties" => %{}
@@ -472,7 +472,7 @@ defmodule Nixstasis.DevicesTest do
       attrs = %{
         "mac_address" => "AA:BB:CC:DD:EE:A0",
         "product_name" => "public-thermostat",
-        "schema" => %{
+        "schema_definition" => %{
           "product" => "public-thermostat",
           "type" => "object",
           "properties" => %{}
@@ -504,7 +504,7 @@ defmodule Nixstasis.DevicesTest do
       attrs = %{
         "mac_address" => "AA:BB:CC:DD:EE:A6",
         "product_name" => "public-thermostat",
-        "schema" => %{
+        "schema_definition" => %{
           "product" => "public-thermostat",
           "type" => "object",
           "properties" => %{}
@@ -559,7 +559,7 @@ defmodule Nixstasis.DevicesTest do
       attrs = %{
         "mac_address" => "AA:BB:CC:DD:EE:A7",
         "product_name" => "public-thermostat",
-        "schema" => %{
+        "schema_definition" => %{
           "product" => "public-thermostat",
           "type" => "object",
           "properties" => %{}
@@ -594,7 +594,7 @@ defmodule Nixstasis.DevicesTest do
                Devices.register_public_device(%{
                  "mac_address" => "AA:BB:CC:DD:EE:A2",
                  "product_name" => "public-thermostat",
-                 "schema" => nil
+                 "schema_definition" => nil
                })
 
       assert Exception.message(error) =~ "product"
@@ -605,7 +605,7 @@ defmodule Nixstasis.DevicesTest do
                Devices.register_public_device(%{
                  "mac_address" => "AA:BB:CC:DD:EE:A3",
                  "product_name" => "public-thermostat",
-                 "schema" => %{}
+                 "schema_definition" => %{}
                })
 
       assert Exception.message(error) =~ "product"

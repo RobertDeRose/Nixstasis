@@ -66,25 +66,6 @@ func TestPathsCanBeOverriddenForLocalDevelopment(t *testing.T) {
 	}
 }
 
-func TestLoadMigratesLegacySystemScriptsDir(t *testing.T) {
-	configFile := filepath.Join(t.TempDir(), "client.yaml")
-	contents := `scripts:
-  dir: "/usr/libexec/nixstasis/scripts"
-`
-	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	t.Setenv("NIXSTASIS_CONFIG_FILE", configFile)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.Scripts.Dir != "/var/lib/nixstasis/scripts" {
-		t.Fatalf("migrated scripts dir = %q", cfg.Scripts.Dir)
-	}
-}
-
 func TestGetDefaultConfigDeclaresBoundedFRPProfiles(t *testing.T) {
 	cfg, err := GetDefaultConfig()
 	if err != nil {

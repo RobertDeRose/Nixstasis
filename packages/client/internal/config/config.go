@@ -16,7 +16,6 @@ const (
 	defaultConfigRoot         = "/etc/nixstasis"
 	defaultUserConfig         = "$HOME/.config/nixstasis"
 	defaultScriptsDir         = "/var/lib/nixstasis/scripts"
-	legacyScriptsDir          = "/usr/libexec/nixstasis/scripts"
 	defaultFRPCBinary         = "/usr/libexec/nixstasis/frpc"
 	defaultFRPCConfig         = "/usr/share/nixstasis/frpc.toml"
 	defaultSSHAuthoritySocket = "/run/nixstasis/ssh-authority.sock"
@@ -25,18 +24,26 @@ const (
 
 // Config holds the top-level configuration structure.
 type Config struct {
-	API     APIConfig     `mapstructure:"api"`
-	Poll    PollConfig    `mapstructure:"poll"`
-	Scripts ScriptsConfig `mapstructure:"scripts"`
-	FRP     FRPConfig     `mapstructure:"frp"`
-	Runtime RuntimeConfig `mapstructure:"runtime"`
-	Log     LogConfig     `mapstructure:"log"`
+	API      APIConfig      `mapstructure:"api"`
+	Identity IdentityConfig `mapstructure:"identity"`
+	Poll     PollConfig     `mapstructure:"poll"`
+	Scripts  ScriptsConfig  `mapstructure:"scripts"`
+	FRP      FRPConfig      `mapstructure:"frp"`
+	Runtime  RuntimeConfig  `mapstructure:"runtime"`
+	Log      LogConfig      `mapstructure:"log"`
 }
 
 // APIConfig holds configuration for the Nixstasis API.
 type APIConfig struct {
 	URL               string `mapstructure:"url"`
 	AllowLoopbackHTTP bool   `mapstructure:"allow_loopback_http"`
+}
+
+// IdentityConfig holds configuration for device identity detection.
+type IdentityConfig struct {
+	// Interface names the network interface whose MAC identifies the device.
+	// Empty detects the interface that routes to api.url, retrying with backoff.
+	Interface string `mapstructure:"interface"`
 }
 
 // PollConfig holds configuration for the polling loop.
@@ -84,12 +91,15 @@ type LogConfig struct {
 	Format string `mapstructure:"format"` // json or text
 }
 
+// setDefaults creates a fresh Viper instance with defaults for every
+// configuration section, including automatic identity interface detection.
 func setDefaults() *viper.Viper {
 	v := viper.New()
 
 	// Defaults
 	v.SetDefault("api.url", "https://localhost:4000")
 	v.SetDefault("api.allow_loopback_http", false)
+	v.SetDefault("identity.interface", "")
 	v.SetDefault("poll.interval", 10*time.Second)
 	v.SetDefault("scripts.dir", defaultScriptsDir)
 	v.SetDefault("frp.auth_token", "")
@@ -117,7 +127,6 @@ func GetDefaultConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal default config: %w", err)
 	}
 
-	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
 }
@@ -154,15 +163,8 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	normalizeScriptsConfig(&cfg.Scripts)
 	NormalizeFRPConfig(&cfg.FRP)
 	return &cfg, nil
-}
-
-func normalizeScriptsConfig(cfg *ScriptsConfig) {
-	if filepath.Clean(cfg.Dir) == legacyScriptsDir {
-		cfg.Dir = defaultScriptsDir
-	}
 }
 
 // IdentityPath returns the canonical identity file path.

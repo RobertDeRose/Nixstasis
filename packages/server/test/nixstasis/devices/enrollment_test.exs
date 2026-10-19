@@ -7,7 +7,7 @@ defmodule Nixstasis.Devices.EnrollmentTest do
     attrs = %{
       "mac_address" => "02:00:00:10:00:01",
       "product_name" => "enrollment-device",
-      "schema" => %{"product" => "enrollment-device", "type" => "object", "properties" => %{}},
+      "schema_definition" => %{"product" => "enrollment-device", "type" => "object", "properties" => %{}},
       "registration_token" => token(),
       "replacement_token" => token(),
       "metadata" => %{"request" => "initial"}

@@ -43,6 +43,8 @@ func init() {
 	rootCmd.AddCommand(pollCmd)
 }
 
+// runPoll loads the device credentials and resolves a stable MAC, then runs
+// heartbeats with failure backoff until a shutdown signal arrives.
 func runPoll(cfg *config.Config) error {
 	startTime := time.Now()
 	slog.Info("Starting polling service")
@@ -62,7 +64,13 @@ func runPoll(cfg *config.Config) error {
 	uuid := credentials.UUID
 	slog.Info("Device identity loaded", "uuid", uuid)
 
-	// 2. Setup Components
+	// 2. Resolve the identity MAC once so heartbeats keep reporting the registered MAC.
+	mac, err := resolvePollMAC(ctx, cfg, store, credentials)
+	if err != nil {
+		return err
+	}
+
+	// 3. Setup Components
 	client, err := transport.NewClient(cfg.API)
 	if err != nil {
 		return err
@@ -99,7 +107,7 @@ func runPoll(cfg *config.Config) error {
 	pollState := &remoteAccessPollState{}
 
 	// Run immediately once
-	if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+	if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, mac, startTime, pollState); err != nil {
 		slog.Error("Initial poll failed", "error", err)
 		consecutiveFailures++
 	}
@@ -113,7 +121,7 @@ func runPoll(cfg *config.Config) error {
 			slog.Info("Shutting down polling service", "reason", ctx.Err())
 			return nil
 		case <-timer.C:
-			if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, startTime, pollState); err != nil {
+			if err := pollOnce(ctx, cfg, client, &runtimeCfg, frpManager, cmdHandler, uuid, mac, startTime, pollState); err != nil {
 				consecutiveFailures++
 				slog.Error("Poll failed", "error", err, "consecutive_failures", consecutiveFailures)
 			} else {
@@ -264,15 +272,31 @@ func sendHeartbeat(ctx context.Context, client pollClient, uuid string, payload 
 	return client.Poll(ctx, uuid, payload, frpStatus)
 }
 
+// resolvePollMAC returns the identity MAC for heartbeats. Without a configured
+// interface it records the detected MAC on identities saved before the MAC was
+// recorded, so later restarts keep the first detection.
+func resolvePollMAC(ctx context.Context, cfg *config.Config, store *identity.Store, credentials identity.Credentials) (string, error) {
+	mac, err := identity.ResolveMAC(ctx, cfg.Identity.Interface, credentials.MACAddress, cfg.API.URL)
+	if err != nil {
+		return "", err
+	}
+	if credentials.MACAddress == "" && cfg.Identity.Interface == "" {
+		credentials.MACAddress = mac
+		if err := store.Save(credentials); err != nil {
+			return "", fmt.Errorf("failed to record identity MAC: %w", err)
+		}
+	}
+	return mac, nil
+}
+
+// pollOnce sends telemetry using the supplied identity MAC, executes server
+// commands, and reconciles remote access with the heartbeat response.
+//
 //nolint:gocyclo // Poll orchestration intentionally keeps telemetry, commands, and FRP decisions in one cycle.
-func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtimeCfg *script.RuntimeConfig, frpManager frpController, cmdHandler commandExecutor, uuid string, startTime time.Time, state *remoteAccessPollState) error {
+func pollOnce(ctx context.Context, cfg *config.Config, client pollClient, runtimeCfg *script.RuntimeConfig, frpManager frpController, cmdHandler commandExecutor, uuid, mac string, startTime time.Time, state *remoteAccessPollState) error {
 	pollStart := time.Now()
 
 	// Re-detect dynamic identity details (IP might change)
-	mac, err := identity.GetPrimaryMAC()
-	if err != nil {
-		slog.Warn("Failed to get primary MAC", "error", err)
-	}
 	ip, err := identity.GetPrimaryIP(ctx)
 	if err != nil {
 		slog.Warn("Failed to get primary IP", "error", err)
@@ -411,6 +435,9 @@ func startFRP(frpManager frpController, cfg *config.Config, uuid, authToken stri
 }
 
 func remoteAccessProfileKey(frpConfig config.FRPConfig, selection *config.RouteProfileSelection) (string, error) {
+	if selection == nil {
+		return "", errors.New("remote access response did not name a route profile")
+	}
 	_, resolved, err := config.ResolveRouteProfile(frpConfig, selection)
 	if err != nil {
 		return "", err

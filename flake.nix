@@ -47,7 +47,8 @@
             runHook postInstall
           '';
         };
-        nixstasis-client = pkgs.buildGoModule {
+        # go.mod requires Go 1.27, which nixpkgs does not yet ship as the default go.
+        nixstasis-client = (pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
           pname = "nixstasis-client";
           version = "0.0.0";
 

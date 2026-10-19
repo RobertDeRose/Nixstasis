@@ -315,6 +315,6 @@ goreleaser release --snapshot --clean
 
 ## Rewrite Status
 
-From `docs/src/features/go-client-rewrite/tasks.md`, the Go rewrite is largely complete. Remaining items:
+From `website/docs/features/go-client-rewrite/tasks.md`, the Go rewrite is largely complete. Remaining items:
 
 - T027: FRP lifecycle hooks for connection metadata
