@@ -7,6 +7,13 @@ import {undeliveredFeatureGlobs} from './src/features';
 
 const repoUrl = 'https://github.com/RobertDeRose/nixstasis';
 
+// The product page in the repository's site/ directory owns the Pages root; the docs live under docs/.
+const siteBaseUrl = '/nixstasis/';
+const baseUrl = `${siteBaseUrl}docs/`;
+// Docusaurus prefixes baseUrl to every root-relative link, so the product page is addressed as baseUrl's
+// parent; pathname:// keeps it a plain link instead of a client-side route.
+const productPageHref = `pathname://${baseUrl}../`;
+
 // Each spec in docs/reference/openapi renders into a generated, git-ignored
 // docs/reference/api/<name> directory; `npm run gen-api` regenerates them.
 const apiSpecs = ['device', 'e2e', 'report'];
@@ -26,8 +33,10 @@ const config: Config = {
   tagline: 'IoT monitoring and remote access',
   favicon: 'img/nixstasis-logo.svg',
   url: 'https://robertderose.github.io',
-  baseUrl: '/nixstasis/',
+  baseUrl,
   trailingSlash: false,
+  // The product page reads the same localStorage key, so the color mode carries between the two.
+  storage: {type: 'localStorage', namespace: false},
 
   // Rspack-based build; the OpenAPI theme does not bundle under webpack's module concatenation.
   // Rspack's persistent cache is off because concurrent builds (docs:serve plus the hk docs step)
@@ -86,7 +95,8 @@ const config: Config = {
         },
         blog: false,
         pages: {path: 'src/pages'},
-        theme: {customCss: './src/css/custom.css'},
+        // Brand tokens are shared with the product page in the repository's site/ directory.
+        theme: {customCss: ['../site/brand.css', './src/css/custom.css']},
       } satisfies Preset.Options,
     ],
   ],
@@ -108,8 +118,11 @@ const config: Config = {
     },
     navbar: {
       title: 'Nixstasis',
-      logo: {alt: 'Nixstasis logo', src: 'img/nixstasis-logo.svg'},
-      items: [{href: repoUrl, label: 'GitHub', position: 'right'}],
+      logo: {alt: 'Nixstasis logo', src: 'img/nixstasis-logo.svg', href: productPageHref, target: '_self'},
+      items: [
+        {to: '/', label: 'Docs', position: 'left', activeBaseRegex: '.*'},
+        {href: repoUrl, label: 'GitHub', position: 'right'},
+      ],
     },
     docs: {sidebar: {hideable: true}},
     languageTabs: [

@@ -5,8 +5,9 @@ is covered in [Client CLI](../modules/client-cli.md).
 
 ## Choose an install method
 
-Every method installs the `nixstasis` CLI and a matching `frpc` binary, so devices need no separate FRP package. Pick
-the one that fits how the device is managed:
+Every method installs the `nixstasis` CLI and a matching `frpc` binary, so devices need no separate FRP package. The
+browser terminal also needs an OpenSSH server and `sudo` on the device. The `.deb` and `.rpm` packages declare both as
+dependencies; with the `.run` installer, install them yourself first. Pick the one that fits how the device is managed:
 
 | Device                               | Use                                   |
 |--------------------------------------|---------------------------------------|
@@ -30,6 +31,9 @@ After installing, the package enables the registration and polling services. If 
 straight away.
 
 ### Self-extracting `.run` installer
+
+The installer does not install dependencies. Before running it, install `sudo` and an OpenSSH server, and make sure
+`sshd` is running, so the installer can validate and reload it with the Nixstasis SSH configuration.
 
 Run it with `sh`, because downloads from GitHub Releases lose their executable bit:
 
@@ -82,6 +86,9 @@ Set these in `/etc/nixstasis/config.yaml`, or with the matching environment vari
 - **`api.allow_loopback_http`** (`NIXSTASIS_API_ALLOW_LOOPBACK_HTTP`): `false` by default. Turn it on only to test
   against a local HTTP mock. It allows plain HTTP to `localhost` (connected to as `127.0.0.1`) or a loopback IP, and
   skips any configured proxy. It never allows plain HTTP to a LAN or Compose address.
+- **`frp.server_addr`** (`NIXSTASIS_FRP_SERVER_ADDR`): the FRPS host that remote access tunnels connect to, usually
+  `nixstasis.<base-domain>`. The server never sends it, so set it on every device; the default is
+  `nixstasis.example.com`. `frp.server_port` defaults to `7000`, matching the Compose `FRPS_BIND_PORT`.
 - **`identity.interface`** (`NIXSTASIS_IDENTITY_INTERFACE`): the network interface whose MAC identifies the device.
   Leave it empty to use the interface that routes to the server. Set it when that interface has no MAC, for example
   when the route to the server goes through a VPN tunnel. A named interface that is missing, or has no MAC, stops the

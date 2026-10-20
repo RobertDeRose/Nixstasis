@@ -21,8 +21,9 @@ docker compose --env-file .env up -d <service>
 
 ## AuthCrunch and OIDC settings
 
-`caddy` uses `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`,
-`NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, `NIXSTASIS_ADMIN_GROUPS`, and `JWT_KEY`.
+`caddy` uses `CLIENT_ID`, `CLIENT_SECRET`, `AUTHORIZED_ROLES`, `AUTHORIZED_GROUPS`, `NIXSTASIS_VIEWER_GROUPS`,
+`NIXSTASIS_OPERATOR_GROUPS`, `NIXSTASIS_ADMIN_GROUPS`, `JWT_KEY`, and any settings your identity provider's driver
+needs, such as `TENANT_ID` in the Microsoft Entra ID example.
 
 1. Make the change in your identity provider or AuthCrunch configuration first.
 2. Put the new values in `.env`.

@@ -24,9 +24,10 @@ Documentation commands still run through mise, and hk still blocks documentation
 
 ## Running it
 
-The Pages workflow builds the site with `mise run docs:build`, copies published E2E reports into
-`website/build/e2e-results`, and uploads `website/build`. Page addresses changed from mdBook's `*.html` paths to Docusaurus
-routes, under the same Pages base URL.
+The Pages workflow runs `mise run site:build`, which builds the site with `mise run docs:build` and assembles it under
+`docs/` of the Pages site, next to the product page. Published E2E reports are added under `docs/e2e-results/`. Page
+addresses changed from mdBook's `*.html` paths to Docusaurus routes; see
+[GitHub Pages Deployment](../../development/github-pages.md).
 
 ## Differences from the design
 

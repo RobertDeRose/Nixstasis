@@ -11,6 +11,23 @@ anyone forging identity headers.
 - The Caddy image with the AuthCrunch plugin, built from `packages/caddy`.
 - Mapping identity-provider groups to Nixstasis roles.
 
+## Identity provider
+
+AuthCrunch signs operators in through any OpenID Connect or OAuth 2.0 identity provider it supports. It has built-in
+drivers for Microsoft Entra ID (`azure`), Google, GitHub, GitLab, Okta, Meta (`facebook`), Amazon Cognito, Discord,
+LinkedIn, and Nextcloud, and a `generic` driver for other OpenID Connect providers.
+
+The production Caddyfile uses Microsoft Entra ID as its example. Its `oauth identity provider azure` block reads
+`CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID`, and the `nixstasis_portal` authentication portal enables it. To use
+another provider, register Nixstasis with that provider, using `https://auth.<base-domain>` for its callbacks, then
+replace the block with the provider's AuthCrunch configuration and enable it in the portal instead. Which settings a
+driver needs, such as Entra's tenant ID, is covered in the [AuthCrunch documentation](https://docs.authcrunch.com/).
+
+The role mapping and every other gateway rule stay the same whichever provider you use; the `entra_policy`
+authorization policy is named after the example, not tied to it. The role mapping matches the groups your provider
+puts in the user's claims, so for a provider that sends no groups, write `transform user` rules that match another
+claim, such as email.
+
 ## Entry points
 
 | Host                      | Purpose                                                                                           |

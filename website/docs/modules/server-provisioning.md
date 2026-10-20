@@ -30,7 +30,7 @@ remote-access permission for the target device.
    `127.0.0.1:8080` HTTP service through that route, rewriting the `Host` header to `localhost`. The route itself is
    defined on the device, not by the server.
 3. The server sends `HEAD /api/config` through the route until it gets a 2xx, or the 405 that endpoint normally
-   returns. This gives the device time to pick up the lease, since heartbeats arrive every 30 seconds by default. Each
+   returns. This gives the device time to pick up the lease, since heartbeats arrive every 30 seconds with the packaged config, or every 10 seconds when `poll.interval` is unset. Each
    probe times out after 30 seconds, and the server gives up after 60 seconds in total.
 4. It posts the artifact and then polls the AtomixOS job until it finishes, as described below.
 

@@ -58,13 +58,25 @@ them, is covered in [Documentation Conventions](documentation-conventions.md).
 - **Navigation** is defined in `website/sidebars.ts`. Add every new page there.
 - **Page format:** `.md` pages are plain CommonMark, so braces and angle brackets need no escaping. Use `.mdx` only
   when a page needs React components. Mermaid code fences render as diagrams.
-- **Styling:** brand styles are in `website/src/css/custom.css`. `website/src/clientModules/index.ts` loads the self-hosted fonts
-  and adds the Expand button on diagrams.
+- **Styling:** the shared color and font tokens are in `site/brand.css`, and the Docusaurus theme maps onto them in
+  `website/src/css/custom.css`. `website/src/clientModules/index.ts` loads the self-hosted fonts and adds the Expand button on
+  diagrams.
 - **API pages** are generated during the build from `website/docs/reference/openapi/*.yaml` into
   `website/docs/reference/api/`, which Git ignores.
 - **The build fails** on any broken link, anchor, or image.
 - **Dependencies** install from `website/package-lock.json` with `npm ci`. The docs hk step rebuilds the site whenever
   documentation or site files change.
+- **Base URL:** the docs build for `/nixstasis/docs/`, because the product page owns the Pages root.
+
+## Product page
+
+The product page at the Pages root is plain HTML, CSS, and JavaScript in `site/`, with no build step. It uses the
+docs' logo, fonts, and `site/brand.css` tokens, and its color mode toggle shares the docs' `theme` localStorage key and
+`html[data-theme]` attribute, so a choice made on either carries to the other.
+
+`mise run site:build` assembles both into `_site/nixstasis`, copying the fonts from the docs' npm packages.
+`mise run site:serve` builds and serves that folder at `http://127.0.0.1:3000/nixstasis/`, the same path as on
+GitHub Pages. Every claim on the page must match the code and the docs.
 
 ## Commit messages
 

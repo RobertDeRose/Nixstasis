@@ -1,4 +1,4 @@
-/* Nixstasis brand theme for Docusaurus (Infima). */
+/* Nixstasis brand theme for Docusaurus (Infima); base tokens come from site/brand.css. */
 
 :root {
   --ifm-color-primary: #087f92;
@@ -8,13 +8,14 @@
   --ifm-color-primary-light: #098ca0;
   --ifm-color-primary-lighter: #0a92a8;
   --ifm-color-primary-lightest: #0ba5be;
-  --ifm-background-color: #f4fbfd;
-  --ifm-font-color-base: #183242;
+  --ifm-background-color: var(--brand-bg);
+  --ifm-navbar-background-color: var(--brand-header);
+  --ifm-font-color-base: var(--brand-ink);
   --ifm-code-font-size: 95%;
-  --ifm-color-content-secondary: #3d5a69;
+  --ifm-color-content-secondary: var(--brand-ink-muted);
   --docusaurus-highlighted-code-line-bg: rgba(5, 127, 134, 0.1);
-  --nixstasis-inline-code: #065f67;
-  --brand-hero-border: rgba(5, 127, 134, 0.18);
+  --nixstasis-inline-code: var(--brand-code);
+  --brand-hero-border: var(--brand-line);
   --brand-hero-bg:
     radial-gradient(circle at 18% 20%, rgba(56, 169, 244, 0.18), transparent 38%),
     radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.28), transparent 34%),
@@ -24,21 +25,20 @@
   --brand-wordmark-strong: #102c3c;
   --brand-tagline: #5e7a87;
 
-  /* Text-sized teal is one shade darker than the fill teal to keep 5:1 contrast. */
-  --ifm-link-color: var(--ifm-color-primary-dark);
+  --ifm-link-color: var(--brand-accent-text);
   --ifm-menu-color: var(--ifm-color-content-secondary);
-  --ifm-menu-color-active: var(--ifm-color-primary-dark);
+  --ifm-menu-color-active: var(--brand-accent-text);
 
-  --ifm-font-family-base: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --ifm-heading-font-family: 'Sora Variable', 'IBM Plex Sans', system-ui, sans-serif;
-  --ifm-font-family-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ifm-font-family-base: var(--brand-font-body);
+  --ifm-heading-font-family: var(--brand-font-heading);
+  --ifm-font-family-monospace: var(--brand-font-mono);
   --ifm-heading-font-weight: 600;
 
   --nixstasis-diagram-node: #ffffff;
-  --nixstasis-diagram-surface: #e6f5f7;
-  --nixstasis-diagram-accent: #087f92;
-  --nixstasis-diagram-line: #3d5a69;
-  --nixstasis-diagram-text: #183242;
+  --nixstasis-diagram-surface: var(--brand-surface);
+  --nixstasis-diagram-accent: var(--brand-accent);
+  --nixstasis-diagram-line: var(--brand-ink-muted);
+  --nixstasis-diagram-text: var(--brand-ink);
 }
 
 html[data-theme='dark'] {
@@ -49,13 +49,12 @@ html[data-theme='dark'] {
   --ifm-color-primary-light: #66e4d9;
   --ifm-color-primary-lighter: #6fe6dc;
   --ifm-color-primary-lightest: #98ede6;
-  --ifm-background-color: #061322;
-  --ifm-background-surface-color: #081a2a;
-  --ifm-font-color-base: #d8edf6;
-  --ifm-color-content-secondary: #bcd6e3;
+  --ifm-background-color: var(--brand-bg);
+  --ifm-background-surface-color: var(--brand-surface);
+  --ifm-font-color-base: var(--brand-ink);
+  --ifm-color-content-secondary: var(--brand-ink-muted);
   --docusaurus-highlighted-code-line-bg: rgba(72, 242, 191, 0.12);
-  --nixstasis-inline-code: #b7f7e7;
-  --brand-hero-border: rgba(72, 242, 191, 0.22);
+  --brand-hero-border: var(--brand-line);
   --brand-hero-bg:
     radial-gradient(circle at 18% 20%, rgba(46, 169, 244, 0.24), transparent 38%),
     radial-gradient(circle at 88% 22%, rgba(72, 242, 191, 0.2), transparent 34%),
@@ -65,17 +64,13 @@ html[data-theme='dark'] {
   --brand-wordmark-strong: #ecf7fb;
   --brand-tagline: #91aabd;
 
-  --ifm-link-color: var(--ifm-color-primary);
-  --ifm-menu-color-active: var(--ifm-color-primary);
   --ifm-table-head-background: var(--ifm-background-surface-color);
   --ifm-table-stripe-background: rgba(72, 242, 191, 0.04);
   --ifm-table-border-color: #183846;
 
   --nixstasis-diagram-node: #0d2433;
-  --nixstasis-diagram-surface: #081a2a;
   --nixstasis-diagram-accent: #48f2bf;
   --nixstasis-diagram-line: #91aabd;
-  --nixstasis-diagram-text: #d8edf6;
 }
 
 :not(pre) > code {

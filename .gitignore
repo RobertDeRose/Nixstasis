@@ -80,3 +80,6 @@ mise.local.toml
 
 # Local editor and OS files
 .DS_Store
+
+# Assembled GitHub Pages site
+/_site/

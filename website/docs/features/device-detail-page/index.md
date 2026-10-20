@@ -7,6 +7,8 @@ open its web interface remotely, and start a terminal. The original plan is in t
 
 - Going back from a device returns you to the list as you left it, filters included.
 - Device information is split into tabs, opening on PCP monitoring.
+- An offline device keeps its details and telemetry history on screen under an offline notice; Remote Terminal and
+  Cockpit are disabled until it reconnects.
 - Missing devices, missing permissions, lost connections, and failed sessions each get a clear message and, where it
   makes sense, a retry, on both desktop and mobile.
 

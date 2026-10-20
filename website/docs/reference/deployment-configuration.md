@@ -26,17 +26,17 @@ described in [Deployment](../operations/deployment.md).
 
 ## Caddy and AuthCrunch
 
-| Variable                                                                         | Purpose                                                                                                           |
-|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `BASE_DOMAIN`                                                                    | Root domain for the `nixstasis`, `auth`, `frp-admin`, and device hostnames.                                       |
-| `BIND_HOST`                                                                      | Host address for the published Caddy and FRPS ports; `0.0.0.0` in production.                                     |
-| `CADDY_CONFIG`                                                                   | Caddyfile to mount: `./caddy/Caddyfile` in production.                                                            |
-| `ACME_EMAIL`                                                                     | Contact address for certificate issuance.                                                                         |
-| `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`                                        | The Entra application used for operator sign-in.                                                                  |
-| `JWT_KEY`                                                                        | AuthCrunch token signing key.                                                                                     |
-| `AUTHORIZED_ROLES`                                                               | Normalized roles allowed at the gateway, such as `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin`. |
-| `AUTHORIZED_GROUPS`                                                              | Identity-provider groups allowed at the gateway; keep it the union of the three group variables below.            |
-| `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, `NIXSTASIS_ADMIN_GROUPS` | Provider groups that Caddy maps to each `nixstasis/*` role.                                                       |
+| Variable                                                                         | Purpose                                                                                                                                                                                 |
+|----------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BASE_DOMAIN`                                                                    | Root domain for the `nixstasis`, `auth`, `frp-admin`, and device hostnames.                                                                                                             |
+| `BIND_HOST`                                                                      | Host address for the published Caddy and FRPS ports; `0.0.0.0` in production.                                                                                                           |
+| `CADDY_CONFIG`                                                                   | Caddyfile to mount: `./caddy/Caddyfile` in production.                                                                                                                                  |
+| `ACME_EMAIL`                                                                     | Contact address for certificate issuance.                                                                                                                                               |
+| `CLIENT_ID`, `CLIENT_SECRET`, `TENANT_ID`                                        | The identity-provider application used for operator sign-in; `TENANT_ID` is used by the Microsoft Entra ID example. See [Gateway Caddy](../modules/gateway-caddy.md#identity-provider). |
+| `JWT_KEY`                                                                        | AuthCrunch token signing key.                                                                                                                                                           |
+| `AUTHORIZED_ROLES`                                                               | Normalized roles allowed at the gateway, such as `nixstasis/viewer`, `nixstasis/operator`, and `nixstasis/admin`.                                                                       |
+| `AUTHORIZED_GROUPS`                                                              | Identity-provider groups allowed at the gateway; keep it the union of the three group variables below.                                                                                  |
+| `NIXSTASIS_VIEWER_GROUPS`, `NIXSTASIS_OPERATOR_GROUPS`, `NIXSTASIS_ADMIN_GROUPS` | Provider groups that Caddy maps to each `nixstasis/*` role.                                                                                                                             |
 
 ## FRPS
 

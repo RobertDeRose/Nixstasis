@@ -1,0 +1,41 @@
+/*
+ * Nixstasis brand tokens, shared by the product page and the Docusaurus docs
+ * (website/docusaurus.config.ts loads this file before website/src/css/custom.css).
+ * Both sites switch themes with html[data-theme]; any element with data-theme="dark" also takes the dark tokens.
+ */
+
+:root {
+  --brand-font-heading: 'Sora Variable', 'IBM Plex Sans', system-ui, sans-serif;
+  --brand-font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --brand-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Logo gradient stops. */
+  --brand-uplink-blue: #339cdf;
+  --brand-aperture-cyan: #44c8d3;
+  --brand-aurora-mint: #53ffc1;
+
+  --brand-bg: #f4fbfd;
+  --brand-surface: #e6f5f7;
+  --brand-header: #ffffff;
+  --brand-ink: #183242;
+  --brand-ink-muted: #3d5a69;
+  --brand-line: rgba(5, 127, 134, 0.18);
+  --brand-accent: #087f92;
+  /* Text-sized teal is one shade darker than the fill teal to keep 5:1 contrast. */
+  --brand-accent-text: #077284;
+  --brand-on-accent: #ffffff;
+  --brand-code: #065f67;
+}
+
+[data-theme='dark'] {
+  --brand-bg: #061322;
+  --brand-surface: #081a2a;
+  --brand-header: #081a2a;
+  --brand-ink: #d8edf6;
+  --brand-ink-muted: #bcd6e3;
+  --brand-line: rgba(72, 242, 191, 0.22);
+  --brand-accent: #4bded1;
+  --brand-accent-text: #4bded1;
+  --brand-on-accent: #061322;
+  --brand-code: #b7f7e7;
+}

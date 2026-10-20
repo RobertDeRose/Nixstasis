@@ -104,7 +104,7 @@ local linters = new Mapping<String, Step> {
     check = "uv run packages/frp/bin/test_frps_render_config.py"
   }
   ["docs"] = new Step {
-    glob = List("website/**/*.md", "website/**/*.mdx", "website/**/*.yaml", "website/*.ts", "website/package*.json", "website/src/**")
+    glob = List("website/**/*.md", "website/**/*.mdx", "website/**/*.yaml", "website/*.ts", "website/package*.json", "website/src/**", "site/brand.css")
     check = "mise run docs:build"
   }
   ["fix_smart_quotes"] = Builtins.fix_smart_quotes

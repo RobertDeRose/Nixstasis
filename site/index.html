@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-theme-choice="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nixstasis: every device in your fleet, one click away</title>
+  <meta name="description" content="Nixstasis watches your Linux devices, alerts you when something breaks, and opens a shell on any of them from your browser, without opening a port on the device.">
+  <link rel="icon" href="docs/img/nixstasis-logo.svg" type="image/svg+xml">
+  <script>
+    // Same storage key and attributes as the Docusaurus docs, so the color mode carries between them.
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('theme'); } catch (e) {}
+      var system = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', stored || system);
+      document.documentElement.setAttribute('data-theme-choice', stored || 'system');
+    })();
+  </script>
+  <link rel="stylesheet" href="brand.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="theme.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="./">
+      <img src="docs/img/nixstasis-logo.svg" alt="" width="32" height="34">
+      <span>Nixstasis</span>
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="docs/">Docs</a>
+      <a href="https://github.com/RobertDeRose/nixstasis">GitHub</a>
+      <button class="theme-toggle" type="button" aria-label="Switch between dark and light mode (currently system mode)" title="system mode">
+        <svg class="theme-icon theme-icon--light" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg>
+        <svg class="theme-icon theme-icon--dark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg>
+        <svg class="theme-icon theme-icon--system" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="hero__copy">
+        <h1>Every device in your fleet, one click away.</h1>
+        <p class="lede">
+          See what each device reports, get alerted when something breaks, and open a shell on any of them, even behind
+          NAT, without opening a port on the device.
+        </p>
+        <p class="lede lede--small">Nixstasis is a server you run and a small agent on each Linux device.</p>
+        <div class="actions">
+          <a class="button button--primary" href="#start">Get started</a>
+          <a class="button button--secondary" href="docs/">Read the docs</a>
+        </div>
+      </div>
+
+      <figure class="fleet">
+        <div class="fleet__map">
+          <svg viewBox="0 0 540 320" role="img" aria-labelledby="fleet-caption">
+            <defs>
+              <linearGradient id="fleet-gradient" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0" stop-color="#339cdf"/>
+                <stop offset="0.5" stop-color="#44c8d3"/>
+                <stop offset="1" stop-color="#53ffc1"/>
+              </linearGradient>
+            </defs>
+            <polygon class="hex hex--ok" style="--d: 2.55s" points="67.6,52.6 86.1,63.3 86.1,84.7 67.6,95.4 49.0,84.7 49.0,63.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.83s" points="109.1,52.6 127.7,63.3 127.7,84.7 109.1,95.4 90.6,84.7 90.6,63.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.40s" points="150.7,52.6 169.2,63.3 169.2,84.7 150.7,95.4 132.2,84.7 132.2,63.3"/>
+            <polygon class="hex hex--waiting" points="192.3,52.6 210.8,63.3 210.8,84.7 192.3,95.4 173.7,84.7 173.7,63.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.26s" points="233.8,52.6 252.4,63.3 252.4,84.7 233.8,95.4 215.3,84.7 215.3,63.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.10s" points="275.4,52.6 293.9,63.3 293.9,84.7 275.4,95.4 256.9,84.7 256.9,63.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.81s" points="46.8,88.6 65.3,99.3 65.3,120.7 46.8,131.4 28.3,120.7 28.3,99.3"/>
+            <polygon class="hex hex--offline" style="--d: 5.06s" points="88.4,88.6 106.9,99.3 106.9,120.7 88.4,131.4 69.8,120.7 69.8,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.44s" points="129.9,88.6 148.5,99.3 148.5,120.7 129.9,131.4 111.4,120.7 111.4,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.91s" points="171.5,88.6 190.0,99.3 190.0,120.7 171.5,131.4 153.0,120.7 153.0,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.87s" points="213.1,88.6 231.6,99.3 231.6,120.7 213.1,131.4 194.5,120.7 194.5,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.89s" points="254.6,88.6 273.2,99.3 273.2,120.7 254.6,131.4 236.1,120.7 236.1,99.3"/>
+            <polygon class="hex hex--alert" style="--d: 0.54s" points="296.2,88.6 314.7,99.3 314.7,120.7 296.2,131.4 277.7,120.7 277.7,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.68s" points="337.8,88.6 356.3,99.3 356.3,120.7 337.8,131.4 319.2,120.7 319.2,99.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.33s" points="26.0,124.6 44.5,135.3 44.5,156.7 26.0,167.4 7.5,156.7 7.5,135.3"/>
+            <polygon class="hex hex--offline" style="--d: 3.49s" points="67.6,124.6 86.1,135.3 86.1,156.7 67.6,167.4 49.0,156.7 49.0,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.61s" points="109.1,124.6 127.7,135.3 127.7,156.7 109.1,167.4 90.6,156.7 90.6,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.31s" points="150.7,124.6 169.2,135.3 169.2,156.7 150.7,167.4 132.2,156.7 132.2,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.63s" points="192.3,124.6 210.8,135.3 210.8,156.7 192.3,167.4 173.7,156.7 173.7,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.46s" points="233.8,124.6 252.4,135.3 252.4,156.7 233.8,167.4 215.3,156.7 215.3,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.98s" points="275.4,124.6 293.9,135.3 293.9,156.7 275.4,167.4 256.9,156.7 256.9,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.33s" points="317.0,124.6 335.5,135.3 335.5,156.7 317.0,167.4 298.5,156.7 298.5,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.68s" points="358.6,124.6 377.1,135.3 377.1,156.7 358.6,167.4 340.0,156.7 340.0,135.3"/>
+            <polygon class="hex hex--waiting" points="400.1,124.6 418.7,135.3 418.7,156.7 400.1,167.4 381.6,156.7 381.6,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.10s" points="441.7,124.6 460.2,135.3 460.2,156.7 441.7,167.4 423.2,156.7 423.2,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.03s" points="483.3,124.6 501.8,135.3 501.8,156.7 483.3,167.4 464.7,156.7 464.7,135.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.33s" points="46.8,160.6 65.3,171.3 65.3,192.7 46.8,203.4 28.3,192.7 28.3,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.58s" points="88.4,160.6 106.9,171.3 106.9,192.7 88.4,203.4 69.8,192.7 69.8,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.50s" points="129.9,160.6 148.5,171.3 148.5,192.7 129.9,203.4 111.4,192.7 111.4,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.04s" points="171.5,160.6 190.0,171.3 190.0,192.7 171.5,203.4 153.0,192.7 153.0,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.14s" points="213.1,160.6 231.6,171.3 231.6,192.7 213.1,203.4 194.5,192.7 194.5,171.3"/>
+            <polygon class="hex hex--alert" style="--d: 3.89s" points="254.6,160.6 273.2,171.3 273.2,192.7 254.6,203.4 236.1,192.7 236.1,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.05s" points="296.2,160.6 314.7,171.3 314.7,192.7 296.2,203.4 277.7,192.7 277.7,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.17s" points="337.8,160.6 356.3,171.3 356.3,192.7 337.8,203.4 319.2,192.7 319.2,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.19s" points="379.3,160.6 397.9,171.3 397.9,192.7 379.3,203.4 360.8,192.7 360.8,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.70s" points="420.9,160.6 439.4,171.3 439.4,192.7 420.9,203.4 402.4,192.7 402.4,171.3"/>
+            <polygon class="hex hex--offline" style="--d: 1.31s" points="462.5,160.6 481.0,171.3 481.0,192.7 462.5,203.4 443.9,192.7 443.9,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.22s" points="504.0,160.6 522.6,171.3 522.6,192.7 504.0,203.4 485.5,192.7 485.5,171.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.37s" points="67.6,196.6 86.1,207.3 86.1,228.7 67.6,239.4 49.0,228.7 49.0,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.99s" points="109.1,196.6 127.7,207.3 127.7,228.7 109.1,239.4 90.6,228.7 90.6,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.59s" points="150.7,196.6 169.2,207.3 169.2,228.7 150.7,239.4 132.2,228.7 132.2,207.3"/>
+            <polygon class="hex-ring" points="192.3,189.0 217.4,203.5 217.4,232.5 192.3,247.0 167.2,232.5 167.2,203.5"/>
+            <polygon class="hex hex--open" style="--d: 1.6s" points="192.3,196.6 210.8,207.3 210.8,228.7 192.3,239.4 173.7,228.7 173.7,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 5.24s" points="233.8,196.6 252.4,207.3 252.4,228.7 233.8,239.4 215.3,228.7 215.3,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.16s" points="275.4,196.6 293.9,207.3 293.9,228.7 275.4,239.4 256.9,228.7 256.9,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.93s" points="317.0,196.6 335.5,207.3 335.5,228.7 317.0,239.4 298.5,228.7 298.5,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.28s" points="358.6,196.6 377.1,207.3 377.1,228.7 358.6,239.4 340.0,228.7 340.0,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.66s" points="400.1,196.6 418.7,207.3 418.7,228.7 400.1,239.4 381.6,228.7 381.6,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 5.10s" points="441.7,196.6 460.2,207.3 460.2,228.7 441.7,239.4 423.2,228.7 423.2,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.08s" points="483.3,196.6 501.8,207.3 501.8,228.7 483.3,239.4 464.7,228.7 464.7,207.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.44s" points="88.4,232.6 106.9,243.3 106.9,264.7 88.4,275.4 69.8,264.7 69.8,243.3"/>
+            <polygon class="hex hex--alert" style="--d: 4.47s" points="129.9,232.6 148.5,243.3 148.5,264.7 129.9,275.4 111.4,264.7 111.4,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 4.90s" points="171.5,232.6 190.0,243.3 190.0,264.7 171.5,275.4 153.0,264.7 153.0,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.58s" points="213.1,232.6 231.6,243.3 231.6,264.7 213.1,275.4 194.5,264.7 194.5,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.25s" points="254.6,232.6 273.2,243.3 273.2,264.7 254.6,275.4 236.1,264.7 236.1,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.08s" points="296.2,232.6 314.7,243.3 314.7,264.7 296.2,275.4 277.7,264.7 277.7,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.36s" points="337.8,232.6 356.3,243.3 356.3,264.7 337.8,275.4 319.2,264.7 319.2,243.3"/>
+            <polygon class="hex hex--offline" style="--d: 0.29s" points="379.3,232.6 397.9,243.3 397.9,264.7 379.3,275.4 360.8,264.7 360.8,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.60s" points="420.9,232.6 439.4,243.3 439.4,264.7 420.9,275.4 402.4,264.7 402.4,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.20s" points="462.5,232.6 481.0,243.3 481.0,264.7 462.5,275.4 443.9,264.7 443.9,243.3"/>
+            <polygon class="hex hex--ok" style="--d: 2.98s" points="150.7,268.6 169.2,279.3 169.2,300.7 150.7,311.4 132.2,300.7 132.2,279.3"/>
+            <polygon class="hex hex--ok" style="--d: 0.67s" points="192.3,268.6 210.8,279.3 210.8,300.7 192.3,311.4 173.7,300.7 173.7,279.3"/>
+            <polygon class="hex hex--waiting" points="233.8,268.6 252.4,279.3 252.4,300.7 233.8,311.4 215.3,300.7 215.3,279.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.77s" points="275.4,268.6 293.9,279.3 293.9,300.7 275.4,311.4 256.9,300.7 256.9,279.3"/>
+            <polygon class="hex hex--ok" style="--d: 3.55s" points="317.0,268.6 335.5,279.3 335.5,300.7 317.0,311.4 298.5,300.7 298.5,279.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.57s" points="358.6,268.6 377.1,279.3 377.1,300.7 358.6,311.4 340.0,300.7 340.0,279.3"/>
+            <polygon class="hex hex--ok" style="--d: 1.81s" points="400.1,268.6 418.7,279.3 418.7,300.7 400.1,311.4 381.6,300.7 381.6,279.3"/>
+            <path class="fleet__halo" pathLength="1" d="M192.3 218 C 240 150, 300 118, 360 112"/>
+            <path class="fleet__tunnel" pathLength="1" d="M192.3 218 C 240 150, 300 118, 360 112"/>
+          </svg>
+          <div class="terminal" aria-hidden="true">
+            <div class="terminal__bar">
+              <span class="terminal__dots"><i></i><i></i><i></i></span>
+              <span class="terminal__title">pump-station-14</span>
+            </div>
+            <div class="terminal__body">
+              <code class="terminal__status">&#9679; tunnel open &middot; host key verified</code>
+              <code class="terminal__line"><span class="terminal__user">support@pump-station-14:~</span>$ <span class="terminal__typed">uptime</span></code>
+              <code class="terminal__output"> 14:02  up 41 days,  load 0.12</code>
+              <code class="terminal__prompt"><span class="terminal__user">support@pump-station-14:~</span>$ <span class="terminal__cursor">&#9612;</span></code>
+            </div>
+          </div>
+        </div>
+        <figcaption id="fleet-caption">
+          Each hexagon is a device. Open one, and its terminal comes to your browser through the connection the device
+          already made.
+        </figcaption>
+        <ul class="legend">
+          <li><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--ok" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Checking in</li>
+          <li><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--waiting" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Waiting for your approval</li>
+          <li><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--alert" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Alerting</li>
+          <li><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--offline" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Gone quiet</li>
+          <li><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--open" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Open in your browser</li>
+        </ul>
+      </figure>
+    </section>
+
+    <section class="abilities" aria-label="What you can do">
+      <div class="ability">
+        <p class="ability__verb"><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--waiting" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Approve</p>
+        <div>
+          <h2>Nothing joins your fleet on its own.</h2>
+          <p>Each device registers with an identity tied to the MAC address of the interface that reaches your server.
+            It stays pending until you approve it.</p>
+        </div>
+      </div>
+      <div class="ability">
+        <p class="ability__verb"><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--alert" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Watch</p>
+        <div>
+          <h2>Find out when something breaks.</h2>
+          <p>Every check-in carries telemetry from built-in inventory and the Starlark scripts you install. Your rules
+            turn it into alerts, a device that goes quiet raises one too, and alerts reach you by email or webhook.</p>
+        </div>
+      </div>
+      <div class="ability">
+        <p class="ability__verb"><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--ok" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Organize</p>
+        <div>
+          <h2>Find the devices you mean.</h2>
+          <p>Put devices in groups, filter the fleet down to the ones you care about, and build reports from their
+            telemetry.</p>
+        </div>
+      </div>
+      <div class="ability">
+        <p class="ability__verb"><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--ok" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Script</p>
+        <div>
+          <h2>Change devices without handing out a shell.</h2>
+          <p>Push Starlark scripts to devices and run them. A script can only run commands on an allowlist you control,
+            and you can push a new allowlist from the server.</p>
+        </div>
+      </div>
+      <div class="ability">
+        <p class="ability__verb"><svg class="glyph" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><polygon class="hex hex--open" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>Reach</p>
+        <div>
+          <h2>A shell when you need one, and only then.</h2>
+          <p>Open a device and you get an SSH terminal in your browser. The tunnel behind it exists only while you have
+            the device open.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="closed" data-theme="dark" aria-labelledby="closed-title">
+      <div class="closed__inner">
+        <h2 id="closed-title">No way in but yours</h2>
+        <ul>
+          <li><strong>No inbound ports to open on your devices.</strong> The agent and the tunnel both connect out, so devices
+            work behind NAT and firewalls that only allow outbound traffic.</li>
+          <li><strong>No shell commands from the server.</strong> The agent accepts a fixed set of actions, and scripts
+            can only run the commands you allowed.</li>
+          <li><strong>No shortcuts on TLS.</strong> The agent always checks the server's certificate and never follows
+            a redirect, so it only talks to the address you configured.</li>
+          <li><strong>Single sign-on with your identity provider.</strong> Operators sign in through any OpenID Connect or
+            OAuth 2.0 provider, such as Microsoft Entra ID, Google, GitHub, GitLab, Okta, or Meta, and you decide who
+            is a viewer, operator, or admin. The server ignores identity headers that don't carry the gateway's shared
+            secret.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="start" id="start" aria-labelledby="start-title">
+      <h2 id="start-title">From clone to first device</h2>
+      <p class="start__intro">You need a host with Docker for the server, and Linux devices on amd64 or arm64 with
+        systemd, or Nix.</p>
+      <ol class="steps">
+        <li>
+          <h3>Run the server</h3>
+          <p>In a clone of the repository, copy the environment template and fill in every required value. Then run the
+            migrations and start the stack.</p>
+          <pre tabindex="0"><code>cd deploy/compose
+cp .env.example .env
+docker compose --env-file .env run --rm nixstasis /app/bin/migrate
+docker compose --env-file .env up -d nixstasis caddy frps postgres</code></pre>
+          <p class="more"><a href="docs/operations/deployment">Deployment guide</a></p>
+        </li>
+        <li>
+          <h3>Install the agent</h3>
+          <p>Grab the package for your device from the
+            <a href="https://github.com/RobertDeRose/nixstasis/releases/latest">latest release</a>. It bundles
+            <code>frpc</code>, and the <code>.deb</code> and <code>.rpm</code> packages pull in OpenSSH and
+            <code>sudo</code>. Before using the <code>.run</code> installer, install OpenSSH and <code>sudo</code>
+            yourself and start the SSH server.</p>
+          <pre tabindex="0"><code># Debian, Ubuntu
+sudo apt install ./nixstasis_&lt;version&gt;_amd64.deb
+# Fedora, RHEL
+sudo dnf install ./nixstasis-&lt;version&gt;-1.x86_64.rpm
+# Any other Linux with systemd
+sudo sh nixstasis-&lt;version&gt;-linux-amd64.run</code></pre>
+          <p>On arm64, use the arm64 or aarch64 file. With Nix, run <code>nix build .#client</code>.</p>
+          <p class="more"><a href="docs/operations/client-installation">Client installation guide</a></p>
+        </li>
+        <li>
+          <h3>Point it at your server and approve it</h3>
+          <p>Set your server's address in <code>/etc/nixstasis/config.yaml</code>. The agent retries registration every
+            two minutes, or you can restart it now.</p>
+          <pre tabindex="0"><code>api:
+  url: "https://nixstasis.example.com"
+frp:
+  server_addr: "nixstasis.example.com"</code></pre>
+          <pre tabindex="0"><code>sudo systemctl restart nixstasis-registration.service</code></pre>
+          <p>The device shows up waiting for approval. Approve it, and it starts checking in.</p>
+        </li>
+      </ol>
+      <aside class="callout" aria-labelledby="pre-release-title">
+        <svg class="glyph" viewBox="0 0 20 20" width="24" height="24" aria-hidden="true"><polygon class="hex hex--alert" points="10.0,1.5 17.4,5.8 17.4,14.2 10.0,18.5 2.6,14.2 2.6,5.7"/></svg>
+        <div>
+          <p class="callout__title" id="pre-release-title">Expect breaking changes before 1.0</p>
+          <p>Nixstasis is still in active development, and releases before 1.0 can include breaking changes. Some won't
+            have a clean upgrade path, so you may need to redeploy the server and re-enroll your devices.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <nav aria-label="Footer">
+        <a href="docs/">Documentation</a>
+        <a href="https://github.com/RobertDeRose/nixstasis">Source on GitHub</a>
+        <a href="https://github.com/RobertDeRose/nixstasis/releases">Releases</a>
+      </nav>
+      <p class="credit">Made with <span role="img" aria-label="love">&#x1F49A;</span> by <a href="https://www.github.com/RobertDeRose">Robert DeRose</a></p>
+    </div>
+  </footer>
+</body>
+</html>

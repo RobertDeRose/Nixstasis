@@ -12,8 +12,8 @@ device reports as authoritative. The original plan is in the [design record](des
 ## What changed for users
 
 - Catalog commands and catalog categories can be selected alongside manual entries and categories.
-- The preview shows each device's status for each catalog command: `command_path_resolved`, `supported`,
-  `package_installed`, `missing_package`, `unsupported_os`, `stale_inventory`, or `conflict`.
+- The preview shows each device's status for each catalog command: `command path resolved`, `supported`,
+  `package installed`, `missing package`, `unsupported os`, `stale inventory`, or `conflict`.
 - A missing package comes with install guidance, but assigning a policy never installs anything.
 - Confirming checks compatibility again, with current data, before anything is queued.
 - Compatible devices receive exact absolute paths, in the usual policy format.

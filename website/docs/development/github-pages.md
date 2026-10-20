@@ -1,7 +1,8 @@
 # GitHub Pages Deployment
 
-The `Deploy docs to GitHub Pages` workflow (`.github/workflows/docs.yml`) publishes the documentation site, and is
-disabled until it is enabled here. Local documentation commands and pull-request validation
+The `Deploy site to GitHub Pages` workflow (`.github/workflows/pages.yml`) publishes the product page at the Pages
+root and the documentation under `docs/`, and is disabled until it is enabled here. It builds both with
+`mise run site:build`, adds published E2E reports under `docs/e2e-results/`, and uploads the assembled folder. Local documentation commands and pull-request validation
 do not require GitHub Pages.
 
 ## Enable deployment
@@ -24,7 +25,7 @@ always builds the documentation with `contents: read`, but its separate deployme
 
 Eligible workflow events are:
 
-- pushes to `main` that change documentation, E2E results, `mise.toml`, or the documentation workflow;
+- pushes to `main` that change documentation, the product page, E2E results, `mise.toml`, or the Pages workflow;
 - explicit manual dispatches; and
 - successful `E2E Suites Report` runs on `main`, which call the workflow after publishing their reports so the site
   includes them.
@@ -56,4 +57,4 @@ gh api repos/OWNER/REPO/pages --jq .html_url
 Use POST instead of PUT when the repository does not have an existing Pages site.
 
 If URL lookup fails after the variable is set, the repository may already be enabled; verify both settings before
-rerunning or dispatching the `Deploy docs to GitHub Pages` workflow.
+rerunning or dispatching the `Deploy site to GitHub Pages` workflow.

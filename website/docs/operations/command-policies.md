@@ -23,7 +23,8 @@ In the **Device Assignments** section:
 1. Select approved devices.
 2. Select any mix of manual entries, manual categories, catalog commands, and catalog categories.
 3. Preview the result. The preview shows the commands each device would get, and whether each catalog command can be
-   resolved on each device.
+   resolved on each device. Changing the selection afterwards discards the preview, so preview again before
+   confirming.
 4. Confirm once the preview shows no conflicts and every catalog command works on every selected device.
 
 The server sends the policy to each device as an `apply_command_policy` command on its next heartbeat. Even catalog
@@ -47,9 +48,9 @@ policy it confirmed until a new one is applied successfully.
 |------------------------------------|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
 | `pending/offline`                  | The device has not checked in or reported a result yet.                                                              | Wait for its next heartbeat.                                                                               |
 | `unsupported`                      | The client does not understand `apply_command_policy`.                                                               | Upgrade the client.                                                                                        |
-| `stale_inventory`                  | The device has not sent a recent inventory report.                                                                   | Wait for its next report.                                                                                  |
-| `unsupported_os`                   | The server has no package mapping for the device's OS family.                                                        | Use manual entries for that device instead.                                                                |
-| `missing_package`                  | The package that provides the catalog command is not installed.                                                      | Install it yourself, then wait for the next inventory report.                                              |
+| `stale inventory`                  | The device has not sent a recent inventory report.                                                                   | Wait for its next report.                                                                                  |
+| `unsupported os`                   | The server has no package mapping for the device's OS family.                                                        | Use manual entries for that device instead.                                                                |
+| `missing package`                  | The package that provides the catalog command is not installed.                                                      | Install it yourself, then wait for the next inventory report.                                              |
 | `conflict`                         | The device reports a different path than the server's mapping, or the client rejected the policy's order or content. | Resolve the mismatch before confirming.                                                                    |
-| `supported` or `package_installed` | The server knows the package is there, but not yet the command's path.                                               | Wait for the device to report the command path.                                                            |
+| `supported` or `package installed` | The server knows the package is there, but not yet the command's path.                                               | Wait for the device to report the command path.                                                            |
 | `persistence_failed`               | The client could not save the policy to disk.                                                                        | Check permissions on `/etc/nixstasis/command-policy.json`, or the path in `NIXSTASIS_COMMAND_POLICY_PATH`. |

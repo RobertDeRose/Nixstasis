@@ -142,12 +142,12 @@ jobs:
             kill "$(cat /tmp/nixstasis-server.pid)" || true
           fi
 
-  docs:
+  pages:
     # Publish the refreshed reports with the site. A called workflow keeps this
     # run's ref, which the github-pages environment requires to be main.
     if: github.ref == 'refs/heads/main'
     needs: e2e
-    uses: ./.github/workflows/docs.yml
+    uses: ./.github/workflows/pages.yml
     permissions:
       contents: read
       pages: write

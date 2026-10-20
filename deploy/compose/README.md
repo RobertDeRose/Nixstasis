@@ -104,8 +104,9 @@ mise run deploy:dev -- exec nixstasis /bin/bash
    the same way.
 2. Set `BIND_HOST=0.0.0.0`, keep `PHOENIX_BIND_HOST=127.0.0.1`, and set `CADDY_CONFIG=./caddy/Caddyfile`.
 3. Set image refs to digest-pinned GHCR references.
-4. Start: `docker compose --env-file .env up -d`
-5. Run migrations: `docker compose run --rm nixstasis /app/bin/migrate`
+4. Run migrations, which never run at startup:
+   `docker compose --env-file .env run --rm nixstasis /app/bin/migrate`
+5. Start the server services: `docker compose --env-file .env up -d nixstasis caddy frps postgres`
 
 For an external PostgreSQL instance, point `DATABASE_URL` at the managed
 database. The bundled PostgreSQL service will start but can be ignored or

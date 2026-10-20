@@ -18,9 +18,8 @@ Elixir/Phoenix, respectively.
 
 - **Client (Go)**: Lightweight agent that registers devices, polls telemetry plugins, and manages FRP tunnels.
 - **Server (Elixir/Phoenix + LiveView)**: API and web UI for device monitoring, approvals, alerts, and reporting.
-- **Packaging and Release**: OCI image builds for server/Caddy and a GoReleaser
-  client packaging flow are being introduced as the supported path for this
-  migration.
+- **Packaging and Release**: Releases publish OCI images for the server, Caddy, and FRPS to GHCR, and GoReleaser
+  client packages (`.deb`, `.rpm`, `.run`, and archives) to GitHub Releases.
 - **Infrastructure**: [`FRP`](https://gofrp.org/en/), [`Caddy`](https://caddyserver.com/), and
   [`AuthCrunch`](https://authcrunch.com) integrate to provide secure, on-demand remote access.
 
@@ -270,7 +269,7 @@ flowchart TB
         User["FS Agent"]
         Browser["Browser"]
         Shell["Terminal"]
-        AuthCrunch["Microsoft Entra ID"]
+        AuthCrunch["Identity provider (OIDC)"]
         Caddy["Caddy + AuthCrunch"]
   end
  subgraph Server["<b>Server Infrastructure</b>"]
@@ -373,12 +372,10 @@ current features.
 
 ## AuthCrunch
 
-`AuthCrunch` is a plugin for Caddy that provides Authentication, Authorization, and Accounting (AAA) via a highly
-flexible set of configuration options it adds to Caddy. The main feature used for Nixstasis is to provide authentication
-using Microsoft Entra ID. The current configuration just provides basic support for authentication. If the user is a
-valid user in the tenant, the user has permission to access Nixstasis.
+`AuthCrunch` is a plugin for Caddy that provides authentication, authorization, and accounting (AAA). Nixstasis uses it
+to sign operators in through any OpenID Connect or OAuth 2.0 identity provider it supports, such as Microsoft Entra ID,
+Google, GitHub, GitLab, Okta, or Meta. The production Caddyfile uses Microsoft Entra ID as its example.
 
-However, AuthCrunch provides the ability to do user transforms. It can be configured to translate Entra ID Groups into
-defined groups. Out of the box, those groups are `authp/admin`, `authp/user`, and `authp/guest`. These groups can be
-passed to the backend application, in this case Nixstasis's backend, to be used to modify the actions a user can take.
-This is left as a future TODO.
+AuthCrunch `transform user` rules map provider groups to the `nixstasis/viewer`, `nixstasis/operator`, and
+`nixstasis/admin` roles, which the server uses to decide what each operator can do. See
+[Gateway Caddy](website/docs/modules/gateway-caddy.md#identity-provider) for switching providers.

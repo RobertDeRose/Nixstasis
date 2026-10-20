@@ -71,3 +71,32 @@ depends = ["docs:install"]
 dir = "website"
 usage = 'arg "[port]" help="Port to serve on" default="3000"'
 run = 'npm run start -- --port "${usage_port:-3000}"'
+
+[tasks."site:build"]
+description = "Assemble the Pages site: the product page at the root and the docs under docs/"
+depends = ["docs:build"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The Pages site is served from /nixstasis/, so the output keeps that path for local previews.
+out=_site/nixstasis
+# The fonts come from the docs' npm packages, which docs:build installs through docs:install.
+fonts=website/node_modules/@fontsource
+rm -rf _site
+mkdir -p "$out/fonts"
+cp -R site/. "$out/"
+cp -R website/build "$out/docs"
+# GitHub Pages serves 404.html from the site root for every missing path.
+cp website/build/404.html "$out/404.html"
+cp "${fonts}-variable/sora/files/sora-latin-wght-normal.woff2" \
+  "$fonts"/ibm-plex-sans/files/ibm-plex-sans-latin-{400,600}-normal.woff2 \
+  "$fonts/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2" \
+  "$out/fonts/"
+'''
+
+[tasks."site:serve"]
+description = "Build the Pages site and serve it at http://127.0.0.1:<port>/nixstasis/"
+depends = ["site:build"]
+usage = 'arg "[port]" help="Port to serve on" default="3000"'
+run = 'python3 scripts/serve-pages.py _site --port "${usage_port:-3000}"'

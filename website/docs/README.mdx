@@ -23,7 +23,7 @@ to. It has three parts:
 
 - **The client, on each device.** It registers the device, reports telemetry gathered by Stary (Starlark) scripts, runs
   commands from operators, and opens an FRP tunnel when remote access is granted. Devices only ever connect outward,
-  so they need no open inbound ports.
+  so they need no open inbound ports; remote SSH reaches the device's own `sshd` through the tunnel.
 - **The server.** It keeps track of every device and runs the web UI, alerting, reporting, and the APIs devices and
   tools use.
 - **The gateway.** Caddy, with the AuthCrunch plugin, sits in front of the server and handles HTTPS and operator sign-in.

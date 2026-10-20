@@ -1,7 +1,8 @@
 # Architecture Overview
 
 Nixstasis has three parts: the client on each managed device, the server, and a gateway of Caddy and FRPS in front of
-the server. Devices always connect outward, so no inbound ports are opened on them.
+the server. Devices always connect outward, so no inbound ports are opened on them; remote SSH reaches each device's own `sshd`
+through its FRP tunnel.
 
 The server is written in Elixir with the Phoenix framework, so its pages and diagrams often call it Phoenix. The client
 is written in Go.

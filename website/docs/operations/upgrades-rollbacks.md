@@ -1,5 +1,11 @@
 # Upgrades And Rollbacks
 
+## Before 1.0
+
+Releases before `v1.0.0` carry no compatibility guarantee. Any of them may change the client-server API, configuration,
+client state files, and database contents, with no data migration from older state. When a release does, redeploy the
+server and re-enroll its devices instead of upgrading in place.
+
 Plan every upgrade so you can undo it. Pin images by digest in `.env`; a tag like `latest` can change under you, so
 never use one in production.
 

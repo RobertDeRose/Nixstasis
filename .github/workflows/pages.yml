@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
@@ -6,9 +6,10 @@ on:
       - main
     paths:
       - website/**
+      - site/**
       - e2e-results/**
       - mise.toml
-      - .github/workflows/docs.yml
+      - .github/workflows/pages.yml
   workflow_call:
   workflow_dispatch:
 
@@ -40,20 +41,21 @@ jobs:
       - name: Prepare E2E results page
         run: bash website/scripts/prepare_e2e_results.sh e2e-results website/docs/development/e2e/results.md
 
-      - name: Build docs
-        run: mise run docs:build
+      # The product page at the root, with the docs under docs/.
+      - name: Build site
+        run: mise run site:build
 
       - name: Include E2E reports
         run: |
           if [ -f e2e-results/runs.json ]; then
-            mkdir -p website/build/e2e-results
-            cp -R e2e-results/. website/build/e2e-results/
+            mkdir -p _site/nixstasis/docs/e2e-results
+            cp -R e2e-results/. _site/nixstasis/docs/e2e-results/
           fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # ratchet:actions/upload-pages-artifact@v5.0.0
         with:
-          path: ./website/build
+          path: ./_site/nixstasis
 
   deploy:
     if: vars.DOCS_DEPLOYMENT_ENABLED == 'true'
