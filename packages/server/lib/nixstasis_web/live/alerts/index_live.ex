@@ -518,82 +518,70 @@ defmodule NixstasisWeb.AlertLive.Index do
             </nav>
           </div>
 
-          <div class="overflow-x-auto">
-            <table class="table table-zebra table-fixed">
-              <thead>
-                <tr>
-                  <th class="w-[45%] min-w-[16rem]">
-                    <button type="button" phx-click="set_rule_sort" phx-value-by="name" class="link link-hover">
-                      Rule {sort_indicator(@rule_sort_by, @rule_sort_dir, "name")}
-                    </button>
-                  </th>
-                  <th class="w-[45%]">
-                    <button type="button" phx-click="set_rule_sort" phx-value-by="condition_field" class="link link-hover">
-                      Condition {sort_indicator(@rule_sort_by, @rule_sort_dir, "condition_field")}
-                    </button>
-                  </th>
-                  <th :if={@can_manage_alert_rules} class="w-[10%]">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={rule <- @rules} id={"alert-rule-#{rule.id}"}>
-                  <td class="w-[45%] min-w-[16rem]">
-                    <div class="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2">
-                      <%= if rule.edit_disabled_reason do %>
-                        <span
-                          class="tooltip tooltip-right inline-flex w-24 justify-start"
-                          data-tip={rule.edit_disabled_reason}
-                        >
-                          <span class="badge badge-warning badge-xs">Out of date</span>
-                        </span>
-                      <% else %>
-                        <span class="inline-flex w-24"></span>
-                      <% end %>
-                      <span class="truncate">
-                        <span class="block font-semibold">{rule.name}</span>
-                        <span class="block text-xs text-base-content/60">{rule.product_name}</span>
-                      </span>
-                    </div>
-                  </td>
-                  <td class="w-[45%]">
-                    <span class="truncate text-base-content/80">{condition_expression(rule)}</span>
-                  </td>
-                  <td :if={@can_manage_alert_rules} class="w-[10%]">
-                    <div class="grid grid-cols-[1.5rem_1.5rem] items-center gap-2">
-                      <%= if is_nil(rule.edit_disabled_reason) do %>
-                        <button
-                          id={"alert-edit-rule-#{rule.id}"}
-                          type="button"
-                          phx-click="edit_rule"
-                          phx-value-id={rule.id}
-                          class="btn btn-ghost btn-xs px-1 text-info hover:bg-info/10"
-                          aria-label={"Edit rule #{rule.id}"}
-                          title="Edit rule"
-                        >
-                          <.icon name="hero-pencil-square" class="size-4" />
-                        </button>
-                      <% else %>
-                        <span class="inline-flex h-6 w-6"></span>
-                      <% end %>
-                      <button
-                        type="button"
-                        phx-click="confirm_delete_rule"
-                        phx-value-id={rule.id}
-                        class="btn btn-ghost btn-xs px-1 text-error hover:bg-error/10"
-                        aria-label={"Delete rule #{rule.id}"}
-                        title="Delete rule"
-                      >
-                        <.icon name="hero-trash" class="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <.table
+            id="alert-rules"
+            rows={@rules}
+            row_id={&"alert-rule-#{&1.id}"}
+            class="table-zebra table-fixed"
+            sort_by={@rule_sort_by}
+            sort_dir={@rule_sort_dir}
+            sort_event="set_rule_sort"
+            sort_param="by"
+          >
+            <:col :let={rule} label="Rule" sort="name" class="w-[45%] min-w-[16rem]">
+              <div class="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2">
+                <%= if rule.edit_disabled_reason do %>
+                  <span
+                    class="tooltip tooltip-right inline-flex w-24 justify-start"
+                    data-tip={rule.edit_disabled_reason}
+                  >
+                    <span class="badge badge-warning badge-xs">Out of date</span>
+                  </span>
+                <% else %>
+                  <span class="inline-flex w-24"></span>
+                <% end %>
+                <span class="truncate">
+                  <span class="block font-semibold">{rule.name}</span>
+                  <span class="block text-xs text-base-content/70">{rule.product_name}</span>
+                </span>
+              </div>
+            </:col>
+            <:col :let={rule} label="Condition" sort="condition_field" class="w-[45%]">
+              <span class="truncate text-base-content/80">{condition_expression(rule)}</span>
+            </:col>
+            <:col :let={rule} :if={@can_manage_alert_rules} label="Actions" class="w-[10%]">
+              <div class="grid grid-cols-[1.5rem_1.5rem] items-center gap-2">
+                <%= if is_nil(rule.edit_disabled_reason) do %>
+                  <button
+                    id={"alert-edit-rule-#{rule.id}"}
+                    type="button"
+                    phx-click="edit_rule"
+                    phx-value-id={rule.id}
+                    class="btn btn-ghost btn-xs px-1 text-info hover:bg-info/10"
+                    aria-label={"Edit rule #{rule.id}"}
+                    title="Edit rule"
+                  >
+                    <.icon name="hero-pencil-square" class="size-4" />
+                  </button>
+                <% else %>
+                  <span class="inline-flex h-6 w-6"></span>
+                <% end %>
+                <button
+                  type="button"
+                  phx-click="confirm_delete_rule"
+                  phx-value-id={rule.id}
+                  class="btn btn-ghost btn-xs px-1 text-error hover:bg-error/10"
+                  aria-label={"Delete rule #{rule.id}"}
+                  title="Delete rule"
+                >
+                  <.icon name="hero-trash" class="size-4" />
+                </button>
+              </div>
+            </:col>
+          </.table>
 
           <%= if Enum.empty?(@rules) do %>
-            <div class="p-6 text-center text-base-content/50">No rules defined yet.</div>
+            <div class="p-6 text-center text-base-content/70">No rules defined yet.</div>
           <% end %>
         </div>
       </div>
@@ -778,24 +766,15 @@ defmodule NixstasisWeb.AlertLive.Index do
         </.simple_form>
       </.modal>
 
-      <.modal
+      <.confirm_modal
         :if={@can_manage_alert_rules and @rule_to_delete}
         id="delete-rule-modal"
-        show
+        title="Delete Rule"
+        on_confirm={JS.push("delete_rule")}
         on_cancel={JS.push("cancel_delete_rule")}
       >
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold">Delete Rule</h3>
-          <p>
-            Are you sure you want to delete this rule for <span class="font-bold">{@rule_to_delete.product_name}</span>?
-            This action cannot be undone.
-          </p>
-          <div class="flex justify-end gap-2">
-            <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_delete_rule">Cancel</button>
-            <button type="button" class="btn btn-error btn-sm" phx-click="delete_rule">Delete</button>
-          </div>
-        </div>
-      </.modal>
+        Delete this rule for <span class="font-bold">{@rule_to_delete.product_name}</span>?
+      </.confirm_modal>
 
       <.modal
         :if={@show_discard_confirm}
@@ -1536,14 +1515,6 @@ defmodule NixstasisWeb.AlertLive.Index do
     [rule.condition_field, rule.operator, rule.threshold_value]
     |> Enum.map(&to_string/1)
     |> Enum.join(" ")
-  end
-
-  defp sort_indicator(current_by, current_dir, expected_by) do
-    if current_by == expected_by do
-      if current_dir == "asc", do: "↑", else: "↓"
-    else
-      ""
-    end
   end
 
   defp list_rules_page(view_state) do

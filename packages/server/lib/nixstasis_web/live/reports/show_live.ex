@@ -23,8 +23,9 @@ defmodule NixstasisWeb.ReportLive.Show do
   @doc """
   Opens a report detail view using permissions from the trusted browser session.
 
-  Initializes fields, view preferences, and the operator's telemetry device
-  scope without loading result rows yet. Unauthorized operators are sent home;
+  Sets the page title to the report name and initializes fields, view
+  preferences, and the operator's telemetry device scope without loading result
+  rows yet. Unauthorized operators are sent home;
   internal E2E reports are redirected to the report list. Returns the mounted
   socket for subsequent parameter-driven result loading.
   """
@@ -50,6 +51,7 @@ defmodule NixstasisWeb.ReportLive.Show do
          |> assign(:can_view_reports, true)
          |> assign(:can_manage_reports, Permissions.can_manage_reports?(session))
          |> assign(:report, report)
+         |> assign(:page_title, report.name)
          |> assign(:fields, fields)
          |> assign(:field_type_by_column, field_type_by_column)
          |> assign(:results, [])
@@ -340,14 +342,6 @@ defmodule NixstasisWeb.ReportLive.Show do
   defp default_filter_operator(:string), do: "is"
   defp default_filter_operator(_), do: "is"
 
-  defp sort_indicator(sort_by, sort_dir, column) do
-    if sort_by == column do
-      if sort_dir == "asc", do: "↑", else: "↓"
-    else
-      ""
-    end
-  end
-
   defp e2e_report?(report) do
     source = report.config["source"] || report.config[:source]
     source == "e2e"
@@ -363,12 +357,12 @@ defmodule NixstasisWeb.ReportLive.Show do
   Shows notices when saved view preferences are unavailable or were reset, the
   report name with a back link and an edit link for report managers, the column,
   operator, and value filter form with a clear button, and the result table with
-  one sortable column per report field. An empty result set renders a no-data
-  message instead of rows.
+  one sortable column per report field. An empty result set shows a no-data
+  message below the column headers.
   """
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-6xl">
+    <div class="ui-page-shell">
       <div :if={!@preferences_enabled?} class="alert alert-soft alert-info mb-4" role="status">
         <span>Saved report view preferences are unavailable for this session.</span>
       </div>
@@ -377,19 +371,17 @@ defmodule NixstasisWeb.ReportLive.Show do
         <span>Saved report view preferences were invalid and have been reset to safe defaults.</span>
       </div>
 
-      <div class="mb-8 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold">{@report.name}</h1>
-        </div>
-        <div class="flex gap-3">
+      <.header>
+        {@report.name}
+        <:actions>
           <.link navigate={~p"/reports"} class={action_link_class(:view)}>
             Back to List
           </.link>
           <.link :if={@can_manage_reports} navigate={~p"/reports/#{@report.id}/edit"} class={action_link_class(:edit)}>
             Edit
           </.link>
-        </div>
-      </div>
+        </:actions>
+      </.header>
 
       <form id="report-result-filters" phx-change="apply_filters" class="mb-4 flex flex-wrap items-center gap-3">
         <select name="filter[column]" class="ui-select-sm-plain" value={@filter_column}>
@@ -411,40 +403,21 @@ defmodule NixstasisWeb.ReportLive.Show do
         <button type="button" phx-click="clear_filters" class="btn btn-sm btn-ghost">Clear</button>
       </form>
 
-      <div class="overflow-x-auto">
-        <table class="table table-zebra">
-          <thead>
-            <tr>
-              <%= for field <- @fields do %>
-                <th>
-                  <button
-                    type="button"
-                    phx-click="set_sort"
-                    phx-value-by={field_key(field)}
-                    class="link link-hover"
-                  >
-                    {field_key(field)} {sort_indicator(@sort_by, @sort_dir, field_key(field))}
-                  </button>
-                </th>
-              <% end %>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for row <- @results do %>
-              <tr>
-                <%= for field <- @fields do %>
-                  <td>
-                    {Map.get(row, field_key(field))}
-                  </td>
-                <% end %>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-        <%= if Enum.empty?(@results) do %>
-          <div class="p-6 text-center text-base-content/60">No data found matching report criteria.</div>
-        <% end %>
-      </div>
+      <.table
+        id="report-results"
+        rows={@results}
+        sort_by={@sort_by}
+        sort_dir={@sort_dir}
+        sort_event="set_sort"
+        sort_param="by"
+      >
+        <:col :let={row} :for={field <- @fields} label={field_key(field)} sort={field_key(field)}>
+          {Map.get(row, field_key(field))}
+        </:col>
+      </.table>
+      <%= if Enum.empty?(@results) do %>
+        <div class="p-6 text-center text-base-content/70">No data found matching report criteria.</div>
+      <% end %>
     </div>
     """
   end

@@ -35,7 +35,11 @@ defmodule NixstasisWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
-  Renders flash notices.
+  Renders a flash notice as a toast.
+
+  `:info` notices clear and hide themselves once mounted; `:device_success` and
+  `:error` notices stay until clicked. The inner block, when given, replaces the
+  message looked up from `flash` by `kind`.
 
   ## Examples
 
@@ -85,7 +89,7 @@ defmodule NixstasisWeb.CoreComponents do
         </div>
         <div class="flex-1" />
         <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
+          <.icon name="hero-x-mark" class="size-5 opacity-70 group-hover:opacity-100" />
         </button>
       </div>
     </div>
@@ -135,10 +139,12 @@ defmodule NixstasisWeb.CoreComponents do
   end
 
   @doc """
-  Returns consistent classes for inline action links in data tables.
+  Returns the classes for an inline action link in a data table: view and edit
+  links use the primary colour, delete links the error colour, and any other
+  action the default link colour.
   """
   def action_link_class(:view), do: "link link-primary font-semibold"
-  def action_link_class(:edit), do: "link link-accent font-semibold"
+  def action_link_class(:edit), do: "link link-primary font-semibold"
   def action_link_class(:delete), do: "link link-error font-semibold"
   def action_link_class(_), do: "link font-semibold"
 
@@ -336,7 +342,10 @@ defmodule NixstasisWeb.CoreComponents do
   end
 
   @doc """
-  Renders a header with title.
+  Renders a page header: an `h1` title with an optional subtitle and actions.
+
+  With an `id`, the title gets the id `"<id>-title"` so a dialog can reference it
+  with `aria-labelledby`. Actions wrap below the title on narrow screens.
   """
   attr(:id, :string, default: nil)
   slot(:inner_block, required: true)
@@ -345,9 +354,9 @@ defmodule NixstasisWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
+    <header class={[@actions != [] && "flex flex-wrap items-center justify-between gap-x-6 gap-y-3", "pb-4"]}>
       <div>
-        <h1 id={if @id, do: "#{@id}-title"} class="text-lg font-semibold leading-8">
+        <h1 id={if @id, do: "#{@id}-title"} class="text-2xl font-bold leading-9">
           {render_slot(@inner_block)}
         </h1>
         <p
@@ -358,19 +367,69 @@ defmodule NixstasisWeb.CoreComponents do
           {render_slot(@subtitle)}
         </p>
       </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
+      <div :if={@actions != []} class="flex flex-wrap items-center gap-2">{render_slot(@actions)}</div>
     </header>
     """
   end
 
   @doc """
+  Renders a sortable table header cell.
+
+  The label is a button so keyboard and screen-reader users can sort, and the
+  cell exposes the current direction through `aria-sort`. Pass the column's
+  direction (`:asc`/`"asc"` or `:desc`/`"desc"`) when it is the sorted column,
+  otherwise `nil`. Click bindings go on the button.
+
+  ## Examples
+
+      <.sort_header
+        direction={@sort_by == :name && @sort_order}
+        phx-click="sort"
+        phx-value-sort_by="name"
+      >
+        Name
+      </.sort_header>
+  """
+  attr(:direction, :any, default: nil)
+  attr(:class, :any, default: nil)
+  attr(:rest, :global)
+  slot(:inner_block, required: true)
+
+  def sort_header(assigns) do
+    assigns = assign(assigns, :aria_sort, aria_sort(assigns.direction))
+
+    ~H"""
+    <th class={@class} aria-sort={@aria_sort}>
+      <button type="button" class="ui-sortable-header inline-flex items-center gap-1" {@rest}>
+        {render_slot(@inner_block)}
+        <.icon :if={@aria_sort == "ascending"} name="hero-chevron-up-micro" class="size-4" />
+        <.icon :if={@aria_sort == "descending"} name="hero-chevron-down-micro" class="size-4" />
+      </button>
+    </th>
+    """
+  end
+
+  # Maps a sort direction to the aria-sort value; unsorted columns are "none".
+  defp aria_sort(direction) when direction in [:asc, "asc"], do: "ascending"
+  defp aria_sort(direction) when direction in [:desc, "desc"], do: "descending"
+  defp aria_sort(_direction), do: "none"
+
+  @doc """
   Renders a table with generic styling.
+
+  A column with a `sort` key renders its header as a `sort_header/1` button that
+  sends `sort_event` with the key under `sort_param`; `sort_by` and `sort_dir`
+  mark the sorted column.
 
   ## Examples
 
       <.table id="users" rows={@users}>
         <:col :let={user} label="id">{user.id}</:col>
         <:col :let={user} label="username">{user.username}</:col>
+      </.table>
+
+      <.table id="reports" rows={@reports} sort_by={@sort_by} sort_dir={@sort_dir} sort_event="set_sort" sort_param="by">
+        <:col :let={report} label="Name" sort="name">{report.name}</:col>
       </.table>
   """
   attr(:id, :string, required: true)
@@ -383,8 +442,16 @@ defmodule NixstasisWeb.CoreComponents do
     doc: "the function for mapping each row before calling the :col and :action slots"
   )
 
+  attr(:class, :any, default: "table-zebra", doc: "daisyUI table modifiers, such as table-sm or table-fixed")
+  attr(:sort_by, :any, default: nil, doc: "the sort key of the sorted column")
+  attr(:sort_dir, :any, default: nil, doc: "the sort direction: asc or desc")
+  attr(:sort_event, :string, default: nil, doc: "the event a sortable header sends")
+  attr(:sort_param, :string, default: "sort_by", doc: "the event value that carries the sort key")
+
   slot :col, required: true do
     attr(:label, :string)
+    attr(:class, :any, doc: "classes for the column's header and cells")
+    attr(:sort, :string, doc: "the column's sort key; makes the header a sort button")
   end
 
   slot(:action, doc: "the slot for showing user actions in the last table column")
@@ -397,10 +464,21 @@ defmodule NixstasisWeb.CoreComponents do
 
     ~H"""
     <div class="overflow-x-auto">
-      <table class="table table-zebra">
+      <table class={["table", @class]}>
         <thead>
           <tr>
-            <th :for={col <- @col}>{col[:label]}</th>
+            <%= for col <- @col do %>
+              <.sort_header
+                :if={col[:sort]}
+                class={col[:class]}
+                direction={to_string(@sort_by) == col.sort && @sort_dir}
+                phx-click={@sort_event}
+                {%{"phx-value-#{@sort_param}" => col.sort}}
+              >
+                {col[:label]}
+              </.sort_header>
+              <th :if={!col[:sort]} class={col[:class]}>{col[:label]}</th>
+            <% end %>
             <th :if={@action != []}>
               <span class="sr-only">{gettext("Actions")}</span>
             </th>
@@ -411,7 +489,7 @@ defmodule NixstasisWeb.CoreComponents do
             <td
               :for={col <- @col}
               phx-click={@row_click && @row_click.(row)}
-              class={@row_click && "hover:cursor-pointer"}
+              class={[col[:class], @row_click && "hover:cursor-pointer"]}
             >
               {render_slot(col, @row_item.(row))}
             </td>
@@ -491,16 +569,20 @@ defmodule NixstasisWeb.CoreComponents do
 
   ## JS Commands
 
+  @show_transition {"transition-all ease-out duration-300", "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+                    "opacity-100 translate-y-0 sm:scale-100"}
+
+  @doc """
+  Shows the element at `selector` with a 300 ms fade-and-rise transition.
+  """
   def show(js \\ %JS{}, selector) do
-    JS.show(js,
-      to: selector,
-      time: 300,
-      transition:
-        {"transition-all ease-out duration-300", "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
-         "opacity-100 translate-y-0 sm:scale-100"}
-    )
+    JS.show(js, to: selector, time: 300, transition: @show_transition)
   end
 
+  @doc """
+  Hides the element at `selector` with a fade-and-drop transition lasting `time`
+  milliseconds.
+  """
   def hide(js \\ %JS{}, selector, time \\ 200) do
     JS.hide(js,
       to: selector,
@@ -579,6 +661,16 @@ defmodule NixstasisWeb.CoreComponents do
   @doc """
   Renders a modal.
 
+  Render it under an `:if` with `show`, so it opens when mounted. Opening moves
+  focus to the first control in the content (after the close button), or to the
+  element whose id is `focus_target`, and Tab stays inside the dialog. When the server removes the
+  modal, the `ModalFocus` hook returns focus to the element whose id is
+  `focus_return_target`, or else to the element that had focus when it opened.
+
+  Escape and the close button run `on_cancel` and then hide the modal; with
+  `close_on_cancel={false}` only `on_cancel` runs, so the caller decides whether
+  to close.
+
   ## Examples
 
       <.modal id="confirm-modal">
@@ -598,8 +690,9 @@ defmodule NixstasisWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      phx-mounted={@show && show_modal(@id)}
+      phx-mounted={@show && @id |> show_modal() |> focus_initial(@focus_target)}
       phx-remove={hide_modal(@id)}
+      phx-hook="ModalFocus"
       data-cancel={cancel_behavior(@on_cancel, @close_on_cancel)}
       data-focus-target={@focus_target}
       data-focus-return-target={@focus_return_target}
@@ -612,20 +705,20 @@ defmodule NixstasisWeb.CoreComponents do
         class="fixed inset-0 bg-base-300/80 backdrop-blur-sm transition-opacity"
         aria-hidden="true"
       />
-      <div
+      <.focus_wrap
+        id={"#{@id}-container"}
         class="fixed inset-0 overflow-y-auto modal-dialog"
         aria-labelledby={"#{@id}-title"}
         aria-describedby={"#{@id}-description"}
         role="dialog"
         aria-modal="true"
-        tabindex="0"
       >
         <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
           <div class="w-full max-w-3xl overflow-hidden rounded-2xl bg-base-100 p-6 text-left align-middle shadow-xl transition-all">
             <button
               type="button"
               phx-click={JS.exec("data-cancel", to: "##{@id}")}
-              class="absolute right-5 top-5 -m-2.5 p-2.5 text-base-content/60 hover:text-base-content"
+              class="absolute right-5 top-5 -m-2.5 p-2.5 text-base-content/70 hover:text-base-content"
               aria-label={gettext("close")}
             >
               <.icon name="hero-x-mark" class="h-6 w-6" />
@@ -635,14 +728,72 @@ defmodule NixstasisWeb.CoreComponents do
             </div>
           </div>
         </div>
-      </div>
+      </.focus_wrap>
     </div>
     """
   end
 
+  @doc """
+  Renders a shown confirmation dialog for an irreversible action.
+
+  Focus starts on Cancel. `on_cancel` and `on_confirm` should clear the `:if`
+  condition so the server removes the dialog, which returns focus to the
+  control that opened it. Reversible actions use `data-confirm` instead.
+
+  ## Examples
+
+      <.confirm_modal
+        :if={@report_to_delete}
+        id="delete-report-modal"
+        title="Delete Report"
+        on_confirm={JS.push("delete_report")}
+        on_cancel={JS.push("cancel_delete")}
+      >
+        Delete <span class="font-bold">{@report_to_delete.name}</span>?
+      </.confirm_modal>
+  """
+  attr(:id, :string, required: true)
+  attr(:title, :string, required: true)
+  attr(:confirm_label, :string, default: "Delete")
+  attr(:on_confirm, JS, required: true)
+  attr(:on_cancel, JS, required: true)
+  slot(:inner_block, required: true)
+
+  def confirm_modal(assigns) do
+    ~H"""
+    <.modal id={@id} show on_cancel={@on_cancel} focus_target={"#{@id}-cancel"}>
+      <div class="space-y-4">
+        <h3 id={"#{@id}-title"} class="text-lg font-semibold">{@title}</h3>
+        <p id={"#{@id}-description"}>
+          {render_slot(@inner_block)} This action cannot be undone.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button
+            id={"#{@id}-cancel"}
+            type="button"
+            class="btn btn-ghost btn-sm"
+            phx-click={@on_cancel}
+          >
+            Cancel
+          </button>
+          <button id={"#{@id}-confirm"} type="button" class="btn btn-error btn-sm" phx-click={@on_confirm}>
+            {@confirm_label}
+          </button>
+        </div>
+      </div>
+    </.modal>
+    """
+  end
+
+  # The JS a modal runs on cancel: the caller's command, then the modal's own
+  # hide transition unless the caller keeps the modal open.
   defp cancel_behavior(on_cancel, true), do: JS.exec(on_cancel, "phx-remove")
   defp cancel_behavior(on_cancel, false), do: on_cancel
 
+  @doc """
+  Shows the modal with `id` and its backdrop, then focuses the first control in
+  its content.
+  """
   def show_modal(js \\ %JS{}, id) when is_binary(id) do
     js
     |> JS.show(to: "##{id}")
@@ -650,9 +801,14 @@ defmodule NixstasisWeb.CoreComponents do
       to: "##{id}-bg",
       transition: {"transition-all transform ease-out duration-300", "opacity-0", "opacity-100"}
     )
-    |> show("##{id}-content")
+    # Non-blocking, so the content is visible by the time the focus commands run.
+    |> JS.show(to: "##{id}-content", time: 300, transition: @show_transition, blocking: false)
+    |> JS.focus_first(to: "##{id}-content")
   end
 
+  @doc """
+  Hides the modal with `id` and its backdrop with exit transitions.
+  """
   def hide_modal(js \\ %JS{}, id) do
     js
     |> JS.hide(
@@ -662,4 +818,9 @@ defmodule NixstasisWeb.CoreComponents do
     |> hide("##{id}-content")
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
   end
+
+  # Moves focus to the requested element after show_modal/2 focused the first
+  # control; without a target the first control keeps focus.
+  defp focus_initial(js, nil), do: js
+  defp focus_initial(js, target), do: JS.focus(js, to: "##{target}")
 end

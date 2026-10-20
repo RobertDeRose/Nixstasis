@@ -28,6 +28,8 @@ import ApexChart from "./hooks/apex_charts"
 import IndeterminateCheckbox from "./hooks/indeterminate_checkbox"
 import TerminalHook from "./hooks/terminal"
 import Fullscreen from "./hooks/fullscreen"
+import Tablist from "./hooks/tablist"
+import ModalFocus from "./hooks/modal_focus"
 import CodeMirrorHook from "./hooks/code_mirror"
 
 const SchemaFieldInput = {
@@ -322,7 +324,9 @@ const AlertRuleBuilderKeyboard = {
 
     this.getVisibleModalRoots = () => {
       const roots = Array.from(document.querySelectorAll("[role='dialog'][aria-modal='true']"))
-        .map(dialog => dialog.closest("[id]"))
+        // The modal root carries data-cancel; the dialog element itself has an
+        // id of its own, so the nearest [id] is not the root.
+        .map(dialog => dialog.closest("[data-cancel]"))
         .filter(root => root && this.isVisible(root))
 
       return roots.filter((root, index) => roots.indexOf(root) === index)
@@ -517,6 +521,8 @@ const AlertRuleBuilderKeyboard = {
     const focusReturnId = this.modalRoot?.dataset.focusReturnTarget
     if (!focusReturnId) return
 
+    // The return target may still be hidden by the modal's exit transition, so
+    // try after the next frame and again after 80 ms.
     const restoreFocus = () => {
       const target = document.getElementById(focusReturnId)
       if (target && this.isVisible(target)) target.focus()
@@ -536,6 +542,8 @@ const liveSocket = new LiveSocket("/live", Socket, {
     ApexChart,
     TerminalHook,
     Fullscreen,
+    Tablist,
+    ModalFocus,
     CodeMirror: CodeMirrorHook,
     IndeterminateCheckbox,
     SchemaFieldInput,

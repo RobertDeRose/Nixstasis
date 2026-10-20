@@ -17,8 +17,9 @@ defmodule NixstasisWeb.SettingsLive do
 
     socket =
       socket
+      |> assign(:page_title, "Settings")
       |> assign(:settings_permissions, permissions)
-      |> assign(:palette_options, palette_options())
+      |> assign(:highlights, NixstasisWeb.Theme.highlights())
       |> assign(:offline_window, 10)
       |> assign(:webhook_configured, false)
       |> assign(:form, settings_form(10, %{}))
@@ -40,8 +41,42 @@ defmodule NixstasisWeb.SettingsLive do
     end
   end
 
+  attr(:label, :string, required: true)
+  attr(:value, :string, required: true)
+  attr(:class, :any, default: nil)
+
+  # One highlight swatch: a radio styled as a pill. The default shows the active
+  # palette's own colour; the others preview their highlight.
+  defp highlight_option(assigns) do
+    assigns = assign(assigns, :default?, assigns.value == NixstasisWeb.Theme.default_highlight())
+
+    ~H"""
+    <label data-highlight-preview={!@default? && @value} class={["block cursor-pointer", @class]}>
+      <input
+        type="radio"
+        name="highlight"
+        value={@value}
+        class="peer sr-only"
+        data-highlight-select
+        checked={@default?}
+      />
+      <span class="flex items-center gap-2 whitespace-nowrap rounded-full border border-base-300 py-1 pl-1 pr-3 text-sm peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary peer-focus-visible:outline-3 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-primary">
+        <span
+          class={["size-6 shrink-0 rounded-full", if(@default?, do: "bg-(--palette-primary)", else: "bg-primary")]}
+          aria-hidden="true"
+        ></span>
+        {@label}
+      </span>
+    </label>
+    """
+  end
+
   @doc """
   Renders the appearance, monitoring, and notification settings forms.
+
+  Appearance holds the palette picker and the highlight swatches. Both are
+  saved in the browser by the root layout script, not on the server, so they
+  render with `phx-update="ignore"`.
 
   A configured webhook is represented only by a status message and a removal
   control, not its secret-bearing URL. The replacement field starts blank so
@@ -60,21 +95,28 @@ defmodule NixstasisWeb.SettingsLive do
         <section class="ui-card-panel p-6">
           <h3 class="text-lg font-medium">Appearance</h3>
           <p class="mt-1 text-sm text-base-content/70">
-            Choose the app color palette. Light, dark, and system mode still use the theme toggle.
+            Saved in this browser. Light and dark mode are in the theme toggle; a highlight colour replaces the
+            palette's own accent. The High Contrast palette keeps its own colours.
           </p>
-          <div id="palette-select-wrapper" class="ui-fieldset mt-4" phx-update="ignore">
-            <label for="palette-select" class="ui-label">Color Palette</label>
-            <select id="palette-select" class="select w-full" data-palette-select>
-              <option
-                :for={{label, value} <- @palette_options}
-                value={value}
-                selected={value == "coherent-current"}
-              >
-                {label}
-              </option>
-            </select>
-            <p class="ui-help-text mt-2">Default: Coherent Current</p>
+          <%!-- The root layout script owns these choices, so the server must not patch over them. --%>
+          <div id="palette-picker" class="ui-fieldset mt-4" phx-update="ignore">
+            <label for="palette-select" class="ui-label-strong">Colour palette</label>
+            <Layouts.palette_select id="palette-select" class="select mt-2 w-full sm:w-64" />
           </div>
+          <fieldset id="highlight-picker" class="mt-4" phx-update="ignore">
+            <legend class="ui-label-strong">Highlight colour</legend>
+            <div class="mt-2 space-y-2">
+              <.highlight_option
+                :for={{label, value} <- Enum.take(@highlights, 1)}
+                label={label}
+                value={value}
+                class="w-fit"
+              />
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <.highlight_option :for={{label, value} <- Enum.drop(@highlights, 1)} label={label} value={value} />
+              </div>
+            </div>
+          </fieldset>
         </section>
 
         <div>
@@ -112,21 +154,6 @@ defmodule NixstasisWeb.SettingsLive do
       </div>
     </div>
     """
-  end
-
-  defp palette_options do
-    [
-      {"Coherent Current", "coherent-current"},
-      {"Glacier Console", "glacier-console"},
-      {"Signal Slate", "signal-slate"},
-      {"Deepwater Operations", "deepwater-operations"},
-      {"Mineral Glass", "mineral-glass"},
-      {"Northstar Amber", "northstar-amber"},
-      {"Electric Fjord", "electric-fjord"},
-      {"Quiet Instrument", "quiet-instrument"},
-      {"Aurora Control", "aurora-control"},
-      {"Maglev Neon", "maglev-neon"}
-    ]
   end
 
   @doc """

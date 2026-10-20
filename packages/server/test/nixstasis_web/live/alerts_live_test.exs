@@ -149,6 +149,19 @@ defmodule NixstasisWeb.AlertsLiveTest do
     refute has_element?(view, "#alerts tr", device.mac_address)
   end
 
+  test "rule columns sort from keyboard-reachable headers that expose the direction", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/alerts/rules")
+
+    assert has_element?(view, "th[aria-sort] button[phx-value-by='name']", "Rule")
+    assert has_element?(view, "th[aria-sort='none'] button[phx-value-by='condition_field']", "Condition")
+
+    view |> element("th button[phx-value-by='condition_field']") |> render_click()
+    assert has_element?(view, "th[aria-sort='ascending'] button[phx-value-by='condition_field']")
+
+    view |> element("th button[phx-value-by='condition_field']") |> render_click()
+    assert has_element?(view, "th[aria-sort='descending'] button[phx-value-by='condition_field']")
+  end
+
   test "viewer can read alert rules but cannot create, edit, or delete them", %{conn: conn} do
     {:ok, rule} =
       Domain.create_rule(%{
@@ -424,8 +437,6 @@ defmodule NixstasisWeb.AlertsLiveTest do
 
   test "older success flash timer does not clear a newer success message", %{conn: conn} do
     {:ok, view, _html} = live(conn, alert_new_path())
-    pid = view.pid
-    :erlang.trace(pid, true, [:receive])
 
     render_submit(element(view, "#alert-rule-form"), %{
       "schema_id" => "alert-schema-product",
@@ -456,9 +467,10 @@ defmodule NixstasisWeb.AlertsLiveTest do
     })
 
     assert render(view) =~ "Rule created successfully"
-    assert_receive {:trace, ^pid, :receive, {:clear_rule_success, 1}}, @success_flash_timeout_ms + 500
 
-    :sys.get_state(pid)
+    # Deliver the first rule's timer directly; waiting for the real timers races
+    # the second rule's own clear, which fires milliseconds later.
+    send(view.pid, {:clear_rule_success, 1})
     assert render(view) =~ "Rule created successfully"
   end
 

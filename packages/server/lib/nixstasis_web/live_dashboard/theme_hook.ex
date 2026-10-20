@@ -199,6 +199,9 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
     """
   end
 
+  # Styles LiveDashboard like the app: the shared E2E log viewer CSS, a fixed
+  # light colour set based on the default palette mapped onto LiveDashboard's
+  # tokens, and layout overrides.
   defp before_closing_head_tag(assigns) do
     assigns = assign(assigns, :shared_viewer_css, @shared_viewer_css)
 
@@ -211,15 +214,15 @@ defmodule NixstasisWeb.LiveDashboard.ThemeHook do
         --ow-dash-base-200: #e8f6f8;
         --ow-dash-base-300: #b6dce1;
         --ow-dash-base-content: #183242;
-        --ow-dash-primary: #087f92;
-        --ow-dash-secondary: #168fac;
+        --ow-dash-primary: #07717f;
+        --ow-dash-secondary: #0f6c82;
         --ow-dash-accent: #18b9aa;
         --ow-dash-primary-strong: #065f67;
         --ow-dash-selection-bg: #d7f0f2;
         --ow-dash-selection-border: #18b9aa;
         --ow-dash-selection-text: #065f67;
-        --primary: #087f92;
-        --secondary: #168fac;
+        --primary: #07717f;
+        --secondary: #0f6c82;
       }
 
       body {

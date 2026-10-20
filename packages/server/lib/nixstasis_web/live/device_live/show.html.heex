@@ -1,15 +1,4 @@
-<%= if @device_offline do %>
-  <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
-    <img src="/images/sad_little_toaster.png" alt="Sad Little Toaster" class="w-64 mb-8" />
-    <h1 class="text-3xl font-bold mb-4">Device Offline</h1>
-    <p class="text-xl text-base-content/70 mb-8">
-      It looks like your device is not feeling well, it appears to be offline.
-    </p>
-    <.link navigate={~p"/devices"} class="btn btn-primary">
-      Back to Device List
-    </.link>
-  </div>
-<% else %>
+<div class="ui-page-shell">
   <.header>
     Device {@device.mac_address}
     <:subtitle>
@@ -21,6 +10,19 @@
       <.link navigate={@return_to || ~p"/devices"} class="btn btn-ghost">Back to List</.link>
     </:actions>
   </.header>
+
+  <div
+    :if={@device_offline}
+    id="device-offline-banner"
+    role="status"
+    class="alert alert-warning mt-2"
+  >
+    <img src={~p"/images/sad_little_toaster_128.png"} alt="" class="size-12 shrink-0" />
+    <span>
+      This device is offline{if @device.last_seen_at, do: " since #{@device.last_seen_at}"}.
+      Its history stays available; Remote Terminal and Cockpit return when it reconnects.
+    </span>
+  </div>
 
   <div class="mt-4">
     <div class={["grid grid-cols-1 md:grid-cols-3 gap-4", @maximized? && "hidden"]}>
@@ -67,31 +69,34 @@
 
     <div id="tab-view" class={if(@maximized?, do: "mt-4", else: "mt-8")}>
       <div class="flex items-center justify-between gap-2 mb-3">
-        <div role="tablist" class="tabs tabs-lifted">
-          <a
+        <div
+          id="device-tablist"
+          role="tablist"
+          aria-label="Device views"
+          class="tabs tabs-lift"
+          phx-hook="Tablist"
+        >
+          <button
+            :for={
+              {tab, label} <- [
+                {"pcp", "Performance History"},
+                {"terminal", "Remote Terminal"},
+                {"overview", "Cockpit"}
+              ]
+            }
+            type="button"
             role="tab"
-            class={"tab #{@active_tab == "pcp" && "tab-active"}"}
+            id={"device-tab-#{tab}"}
+            aria-controls={"device-tabpanel-#{tab}"}
+            aria-selected={to_string(@active_tab == tab)}
+            tabindex={if @active_tab == tab, do: "0", else: "-1"}
+            disabled={@device_offline and tab != "pcp"}
+            class={["tab", @active_tab == tab && "tab-active"]}
             phx-click="change_tab"
-            phx-value-tab="pcp"
+            phx-value-tab={tab}
           >
-            Performance History
-          </a>
-          <a
-            role="tab"
-            class={"tab #{@active_tab == "terminal" && "tab-active"}"}
-            phx-click="change_tab"
-            phx-value-tab="terminal"
-          >
-            Remote Terminal
-          </a>
-          <a
-            role="tab"
-            class={"tab #{@active_tab == "overview" && "tab-active"}"}
-            phx-click="change_tab"
-            phx-value-tab="overview"
-          >
-            Cockpit
-          </a>
+            {label}
+          </button>
         </div>
         <div class="flex items-center gap-2">
           <div
@@ -101,6 +106,7 @@
             <button
               class="btn btn-sm btn-outline"
               phx-click="retry_session"
+              disabled={@device_offline}
               aria-label="Restart session"
             >
               <.icon name="fa-arrows-rotate" class="size-4" />
@@ -147,8 +153,14 @@
           if(@maximized?, do: "h-[calc(100vh-10rem)] flex flex-col", else: "")
         ]}
       >
-        <section class={if(@active_tab == "overview", do: "block flex-1 min-h-0", else: "hidden")}>
+        <section
+          id="device-tabpanel-overview"
+          role="tabpanel"
+          aria-labelledby="device-tab-overview"
+          class={if(@active_tab == "overview", do: "block flex-1 min-h-0", else: "hidden")}
+        >
           <iframe
+            :if={not @device_offline}
             id="cockpit-frame"
             src={@cockpit_url}
             title="Cockpit"
@@ -159,7 +171,12 @@
           ></iframe>
         </section>
 
-        <section class={if(@active_tab == "pcp", do: "block flex-1 min-h-0", else: "hidden")}>
+        <section
+          id="device-tabpanel-pcp"
+          role="tabpanel"
+          aria-labelledby="device-tab-pcp"
+          class={if(@active_tab == "pcp", do: "block flex-1 min-h-0", else: "hidden")}
+        >
           <div
             id="pcp-chart"
             phx-hook="ApexChart"
@@ -171,7 +188,12 @@
           </div>
         </section>
 
-        <section class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}>
+        <section
+          id="device-tabpanel-terminal"
+          role="tabpanel"
+          aria-labelledby="device-tab-terminal"
+          class={if(@active_tab == "terminal", do: "block flex-1 min-h-0 flex flex-col", else: "hidden")}
+        >
           <div
             :if={Devices.ssh_host_key_pending?(@device)}
             id="ssh-host-key-change-warning"
@@ -258,7 +280,7 @@
               ]}
             >
               <p class="text-lg">Opening remote session...</p>
-              <p class="mt-2 text-sm text-base-content/60">
+              <p class="mt-2 text-sm text-base-content/70">
                 Waiting for device authorization...
               </p>
             </div>
@@ -267,4 +289,4 @@
       </div>
     </div>
   </div>
-<% end %>
+</div>

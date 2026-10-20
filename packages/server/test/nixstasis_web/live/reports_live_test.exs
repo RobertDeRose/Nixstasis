@@ -52,6 +52,16 @@ defmodule NixstasisWeb.ReportsLiveTest do
     {:ok, permissions: %{"can_view" => true, "can_manage" => true}}
   end
 
+  test "report list sorts by name from a header that exposes the direction", %{conn: conn, permissions: permissions} do
+    conn = conn |> init_test_session(%{}) |> put_session("report_permissions", permissions)
+    {:ok, view, _html} = live(conn, ~p"/reports?sort_by=name&sort_dir=asc")
+
+    assert has_element?(view, "th[aria-sort='ascending'] button[phx-value-by='name']", "Name")
+
+    view |> element("th button[phx-value-by='name']") |> render_click()
+    assert has_element?(view, "th[aria-sort='descending'] button[phx-value-by='name']")
+  end
+
   test "schema option loading emits measured timing for the report builder", %{
     conn: conn,
     permissions: permissions
@@ -1416,7 +1426,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("button[phx-click='cancel_delete']")
+      |> element("#delete-report-modal-cancel")
       |> render_click()
 
     assert Reporting.get_custom_report!(report.id)
@@ -1428,7 +1438,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     _html =
       view
-      |> element("button[phx-click='delete_report']")
+      |> element("#delete-report-modal-confirm")
       |> render_click()
 
     assert_raise Ash.Error.Invalid, fn -> Reporting.get_custom_report!(report.id) end
@@ -1493,6 +1503,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
 
     assert html =~ "temp"
     assert ["35", "45", "100"] == report_result_values(html)
+    assert has_element?(view, "th[aria-sort='ascending'] button[phx-value-by='temp']")
 
     html =
       view
@@ -1500,6 +1511,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
       |> render_click()
 
     assert ["100", "45", "35"] == report_result_values(html)
+    assert has_element?(view, "th[aria-sort='descending'] button[phx-value-by='temp']")
   end
 
   test "report detail filters aliased columns by configured payload path", %{conn: conn, permissions: permissions} do
@@ -1914,7 +1926,7 @@ defmodule NixstasisWeb.ReportsLiveTest do
     assert restored_detail_html =~ "No CSRF Preference Report"
     assert restored_detail_html =~ "temp"
     assert restored_detail_html =~ "Saved report view preferences are unavailable for this session."
-    refute restored_detail_html =~ "temp ↓"
+    refute restored_detail_html =~ ~s(aria-sort="descending")
   end
 
   test "invalid restored state falls back safely", %{conn: conn} do
@@ -2008,10 +2020,12 @@ defmodule NixstasisWeb.ReportsLiveTest do
     end
   end
 
+  # The numeric cell values in the report results table, in display order.
   defp report_result_values(html) do
-    ~r/<td>\s*([^<]+)\s*<\/td>/
-    |> Regex.scan(html)
-    |> Enum.map(fn [_, value] -> String.trim(value) end)
+    html
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.query("#report-results td")
+    |> Enum.map(&(&1 |> LazyHTML.text() |> String.trim()))
     |> Enum.filter(&Regex.match?(~r/^\d+(\.\d+)?$/, &1))
   end
 

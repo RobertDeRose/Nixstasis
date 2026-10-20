@@ -57,10 +57,18 @@ defmodule NixstasisWeb.CommandPolicyLive.FormComponent do
     """
   end
 
+  @doc """
+  Builds the command entry form and loads the category options.
+
+  A persisted entry gets an update form prefilled with its name, path,
+  description, and current category IDs. A `nil` entry, as assigned for the
+  new-entry route, gets a blank create form. Category IDs are not entry
+  attributes; `save` reconciles them through the join resource.
+  """
   @impl true
   def update(%{entry: entry} = assigns, socket) do
     form =
-      if entry[:id] do
+      if entry && entry.id do
         entry
         |> AshPhoenix.Form.for_update(:update, domain: Domain, forms: [auto?: false], params: form_params(entry))
       else
@@ -127,10 +135,12 @@ defmodule NixstasisWeb.CommandPolicyLive.FormComponent do
     end
   end
 
+  # Destroy each entry-category join; the destroy action returns bare `:ok`.
+  # Stops at the first failure without restoring joins already destroyed.
   defp remove_categories(removals) do
     Enum.reduce_while(removals, :ok, fn join, :ok ->
       case Domain.destroy_command_allowlist_entry_category(join) do
-        {:ok, _} -> {:cont, :ok}
+        :ok -> {:cont, :ok}
         _ -> {:halt, {:error, :destroy_failed}}
       end
     end)

@@ -1629,15 +1629,15 @@ defmodule Nixstasis.Devices do
     end
   end
 
+  # The ids are selected once in a materialized CTE: PostgreSQL may re-run a
+  # LIMIT subquery inside UPDATE ... WHERE id IN (...), claiming more than the limit.
   defp claim_pending_command_ids(device_id) do
     now = DateTime.utc_now()
 
     %{rows: rows} =
       Repo.query!(
         """
-        UPDATE pending_commands
-        SET status = 'delivered', delivered_at = $2, updated_at = $2
-        WHERE id IN (
+        WITH claimed AS MATERIALIZED (
           SELECT id
           FROM pending_commands
           WHERE device_id = $1::uuid AND status = 'queued'
@@ -1645,7 +1645,11 @@ defmodule Nixstasis.Devices do
           LIMIT $3
           FOR UPDATE SKIP LOCKED
         )
-        RETURNING id
+        UPDATE pending_commands
+        SET status = 'delivered', delivered_at = $2, updated_at = $2
+        FROM claimed
+        WHERE pending_commands.id = claimed.id
+        RETURNING pending_commands.id
         """,
         [Ecto.UUID.dump!(device_id), now, @default_pending_command_limit]
       )

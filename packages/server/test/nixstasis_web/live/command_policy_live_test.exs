@@ -35,6 +35,78 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     assert filtered_html =~ entry.name
   end
 
+  test "deleting a category asks for confirmation first", %{conn: conn} do
+    {:ok, temporary} = Domain.create_command_allowlist_category(%{slug: "temporary", display_name: "Temporary"})
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    view |> element("button[phx-click='request_delete_category'][phx-value-id='#{temporary.id}']") |> render_click()
+    assert has_element?(view, "#delete-category-modal", "Temporary")
+
+    view |> element("#delete-category-modal-cancel") |> render_click()
+    refute has_element?(view, "#delete-category-modal")
+    assert {:ok, _} = Domain.get_command_allowlist_category(temporary.id)
+
+    view |> element("button[phx-click='request_delete_category'][phx-value-id='#{temporary.id}']") |> render_click()
+    html = view |> element("#delete-category-modal-confirm") |> render_click()
+
+    assert html =~ "Category deleted"
+    refute has_element?(view, "button[phx-value-id='#{temporary.id}']")
+    assert {:error, _} = Domain.get_command_allowlist_category(temporary.id)
+  end
+
+  test "assignment pickers are labelled checkbox lists that count selections", %{
+    conn: conn,
+    category: category,
+    entry: entry
+  } do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    assert has_element?(view, "#assignment-entry_ids legend", "Command entries · 0 selected")
+
+    view
+    |> element("#assignment-form")
+    |> render_change(%{"assignment" => %{"entry_ids" => ["", entry.id], "category_ids" => ["", category.id]}})
+
+    assert has_element?(view, "#assignment-entry_ids legend", "1 selected")
+    assert has_element?(view, "#assignment-entry_ids input[type='checkbox'][value='#{entry.id}'][checked]")
+    assert has_element?(view, "#assignment-category_ids legend", "1 selected")
+  end
+
+  test "command entry actions form a labelled icon action bar", %{conn: conn, entry: entry} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+
+    assert has_element?(view, "#command-entries [role='group'][aria-label='Actions for #{entry.name}']")
+
+    for label <- ["Copy path", "Assign", "Edit", "Duplicate", "Disable"] do
+      assert has_element?(view, "#command-entries [aria-label='#{label} #{entry.name}'][data-tip='#{label}']")
+    end
+  end
+
+  test "edit dialogs open for an existing entry and category", %{conn: conn, category: category, entry: entry} do
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/#{entry.id}/edit")
+    assert has_element?(view, "#command-entry-form input[value='#{entry.command_path}']")
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/categories/#{category.id}/edit")
+    assert has_element?(view, "input[value='#{category.display_name}']")
+  end
+
+  test "editing an entry removes every unselected category", %{conn: conn, category: network, entry: entry} do
+    {:ok, storage} = Domain.create_command_allowlist_category(%{slug: "storage", display_name: "Storage"})
+    {:ok, _} = Domain.create_command_allowlist_entry_category(%{command_entry_id: entry.id, category_id: storage.id})
+
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies/#{entry.id}/edit")
+
+    view
+    |> element("#command-entry-form")
+    |> render_submit(%{"form" => %{"name" => entry.name, "command_path" => entry.command_path, "category_ids" => []}})
+
+    assert_patch(view)
+
+    {:ok, joins} = Domain.list_command_allowlist_entry_categories()
+    assert Enum.filter(joins, &(&1.command_entry_id == entry.id)) == []
+    assert {:ok, _} = Domain.get_command_allowlist_category(network.id)
+  end
+
   test "redirects without command policy detail permission", %{conn: conn} do
     conn =
       put_session(conn, "command_policy_permissions", %{
@@ -67,6 +139,12 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
       assignment: %{device_ids: [device.id], entry_ids: [entry.id], category_ids: []}
     )
     |> render_submit()
+
+    # A manual-only preview lists the commands in a table, with no empty catalog table.
+    assert has_element?(view, "#manual-preview td", entry.name)
+    assert has_element?(view, "#manual-preview td code", entry.command_path)
+    refute has_element?(view, "#catalog-preview")
+    assert has_element?(view, "#assignment-preview details summary", "Raw policy payload")
 
     assert render(view) =~ "Confirm and queue"
     render_click(element(view, "button", "Confirm and queue"))
@@ -161,14 +239,14 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
         active: true
       })
 
-    {:ok, _view, html} = live(conn, ~p"/scripts/command-policies?search=disk")
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies?search=disk")
 
-    assert html =~ "df · catalog"
-    refute html =~ "uname · catalog"
+    assert has_element?(view, "#assignment-catalog_command_ids label", "df")
+    refute has_element?(view, "#assignment-catalog_command_ids label", "uname")
 
-    {:ok, _view, category_html} = live(conn, ~p"/scripts/command-policies?search=diagnostics")
-    assert category_html =~ "df · catalog"
-    refute category_html =~ "uname · catalog"
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies?search=diagnostics")
+    assert has_element?(view, "#assignment-catalog_command_ids label", "df")
+    refute has_element?(view, "#assignment-catalog_command_ids label", "uname")
   end
 
   test "catalog preview shows per-device compatibility blockers", %{conn: conn} do
@@ -186,8 +264,8 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     inventory!(unsupported, os_release: %{"ID" => "alpine"}, package_installed: true, command_path: "/bin/df")
     inventory!(conflict, package_installed: true, command_path: "/custom/df")
 
-    {:ok, view, html} = live(conn, ~p"/scripts/command-policies")
-    assert html =~ "df · catalog"
+    {:ok, view, _html} = live(conn, ~p"/scripts/command-policies")
+    assert has_element?(view, "#assignment-catalog_command_ids label", "df")
 
     view
     |> form("form[phx-submit='preview_assignment']",
@@ -202,11 +280,11 @@ defmodule NixstasisWeb.CommandPolicyLiveTest do
     |> render_submit()
 
     html = render(view)
-    assert html =~ "command_path_resolved"
+    assert html =~ "command path resolved"
     assert html =~ ">supported</span>"
-    assert html =~ "missing_package"
+    assert html =~ "missing package"
     assert html =~ "Install: apt install coreutils"
-    assert html =~ "unsupported_os"
+    assert html =~ "unsupported os"
     assert html =~ "conflict"
     assert html =~ "incompatible catalog commands detected"
     refute html =~ "Confirm and queue"

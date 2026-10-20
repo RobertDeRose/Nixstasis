@@ -48,10 +48,17 @@ defmodule NixstasisWeb do
     end
   end
 
+  @doc """
+  Returns the `use` block for LiveViews: the app layout, the
+  `NixstasisWeb.CurrentPath` hook that tells the navigation which page is
+  current, and the shared HTML helpers.
+  """
   def live_view do
     quote do
       use Phoenix.LiveView,
         layout: {NixstasisWeb.Layouts, :app}
+
+      on_mount(NixstasisWeb.CurrentPath)
 
       unquote(html_helpers())
     end

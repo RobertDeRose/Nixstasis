@@ -43,10 +43,17 @@ defmodule NixstasisWeb.CommandPolicyLive.CategoryFormComponent do
     """
   end
 
+  @doc """
+  Builds the category form from the parent's assigns.
+
+  A persisted category gets an update form prefilled with its slug, display
+  name, and description. A `nil` category, as assigned for the new-category
+  route, gets a blank create form.
+  """
   @impl true
   def update(%{category: category} = assigns, socket) do
     form =
-      if category[:id] do
+      if category && category.id do
         AshPhoenix.Form.for_update(category, :update, domain: Domain, params: form_params(category))
       else
         AshPhoenix.Form.for_create(Category, :create, domain: Domain, params: %{})

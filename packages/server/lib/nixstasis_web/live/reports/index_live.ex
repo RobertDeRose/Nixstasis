@@ -315,14 +315,6 @@ defmodule NixstasisWeb.ReportLive.Index do
     source == "e2e"
   end
 
-  defp sort_indicator(sort_by, sort_dir, column) do
-    if sort_by == column do
-      if sort_dir == "asc", do: "↑", else: "↓"
-    else
-      ""
-    end
-  end
-
   defp authorized_socket?(socket) do
     socket.assigns[:can_view_reports] == true
   end
@@ -571,61 +563,54 @@ defmodule NixstasisWeb.ReportLive.Index do
         </nav>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="table table-zebra table-fixed">
-          <thead>
-            <tr>
-              <th class="w-1/2 min-w-[20rem]">
-                <button type="button" phx-click="set_sort" phx-value-by="name" class="link link-hover">
-                  Name {sort_indicator(@sort_by, @sort_dir, "name")}
-                </button>
-              </th>
-              <th class="w-1/2">Schema Fields</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :for={row <- @reports} id={"report-#{row["id"]}"}>
-              <td class="w-1/2 min-w-[20rem]">
-                <div class="flex items-center gap-2">
-                  <button
-                    :if={@can_manage_reports}
-                    type="button"
-                    phx-click="confirm_delete"
-                    phx-value-id={row["id"]}
-                    class="btn btn-ghost btn-xs px-1 text-error hover:bg-error/10"
-                    aria-label={"Delete report #{row["name"]}"}
-                    title="Delete report"
-                  >
-                    <.icon name="hero-trash" class="size-4" />
-                  </button>
-                  <.link
-                    :if={@can_manage_reports}
-                    patch={report_edit_path(row["id"], @sort_by, @sort_dir, @filters, @page)}
-                    class="btn btn-ghost btn-xs px-1 text-info hover:bg-info/10"
-                    aria-label={"Edit report #{row["name"]}"}
-                    title="Edit report"
-                  >
-                    <.icon name="hero-pencil-square" class="size-4" />
-                  </.link>
-                  <.link navigate={~p"/reports/#{row["id"]}"} class="link link-primary font-bold">
-                    {row["name"]}
-                  </.link>
-                </div>
-              </td>
-              <td class="w-1/2">
-                <div class="flex max-w-full flex-wrap gap-1.5">
-                  <span :for={field <- row["field_labels"]} class="badge badge-ghost badge-sm">
-                    {field}
-                  </span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <.table
+        id="reports"
+        rows={@reports}
+        row_id={&"report-#{&1["id"]}"}
+        class="table-zebra table-fixed"
+        sort_by={@sort_by}
+        sort_dir={@sort_dir}
+        sort_event="set_sort"
+        sort_param="by"
+      >
+        <:col :let={row} label="Name" sort="name" class="w-1/2 min-w-[20rem]">
+          <div class="flex items-center gap-2">
+            <button
+              :if={@can_manage_reports}
+              type="button"
+              phx-click="confirm_delete"
+              phx-value-id={row["id"]}
+              class="btn btn-ghost btn-xs px-1 text-error hover:bg-error/10"
+              aria-label={"Delete report #{row["name"]}"}
+              title="Delete report"
+            >
+              <.icon name="hero-trash" class="size-4" />
+            </button>
+            <.link
+              :if={@can_manage_reports}
+              patch={report_edit_path(row["id"], @sort_by, @sort_dir, @filters, @page)}
+              class="btn btn-ghost btn-xs px-1 text-info hover:bg-info/10"
+              aria-label={"Edit report #{row["name"]}"}
+              title="Edit report"
+            >
+              <.icon name="hero-pencil-square" class="size-4" />
+            </.link>
+            <.link navigate={~p"/reports/#{row["id"]}"} class="link link-primary font-bold">
+              {row["name"]}
+            </.link>
+          </div>
+        </:col>
+        <:col :let={row} label="Schema Fields" class="w-1/2">
+          <div class="flex max-w-full flex-wrap gap-1.5">
+            <span :for={field <- row["field_labels"]} class="badge badge-ghost badge-sm">
+              {field}
+            </span>
+          </div>
+        </:col>
+      </.table>
 
       <%= if Enum.empty?(@reports) do %>
-        <div class="p-6 text-center text-base-content/60">
+        <div class="p-6 text-center text-base-content/70">
           No reports found. Create one to get started.
         </div>
       <% end %>
@@ -646,19 +631,15 @@ defmodule NixstasisWeb.ReportLive.Index do
         />
       </.modal>
 
-      <.modal :if={@report_to_delete} id="delete-report-modal" show on_cancel={JS.push("cancel_delete")}>
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold">Delete Report</h3>
-          <p>
-            Are you sure you want to delete <span class="font-bold">{@report_to_delete.name}</span>?
-            This action cannot be undone.
-          </p>
-          <div class="flex justify-end gap-2">
-            <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_delete">Cancel</button>
-            <button type="button" class="btn btn-error btn-sm" phx-click="delete_report">Delete</button>
-          </div>
-        </div>
-      </.modal>
+      <.confirm_modal
+        :if={@report_to_delete}
+        id="delete-report-modal"
+        title="Delete Report"
+        on_confirm={JS.push("delete_report")}
+        on_cancel={JS.push("cancel_delete")}
+      >
+        Delete <span class="font-bold">{@report_to_delete.name}</span>?
+      </.confirm_modal>
     </div>
     """
   end

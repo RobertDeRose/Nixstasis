@@ -115,6 +115,8 @@ defmodule NixstasisWeb.DashboardLiveTest do
       assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-desc", "Offline: 0")
       assert has_element?(view, "a[href='/devices?approval_status=pending'] .stat-value", "1")
       assert has_element?(view, "a[href='/alerts?status=active'] .stat-value", "1")
+      assert has_element?(view, "a[href='/alerts?status=active'] .stat-value.text-error", "1")
+      assert has_element?(view, "a[href='/devices?approval_status=pending'] .stat-value.text-warning", "1")
 
       send(view.pid, {:device_registered, other_online_device})
       send(view.pid, {:alert_created, other_alert})
@@ -147,20 +149,29 @@ defmodule NixstasisWeb.DashboardLiveTest do
       assert has_element?(view, "a[href='/devices?connectivity_status=online'] .stat-value", "0")
       assert has_element?(view, "a[href='/devices?approval_status=pending'] .stat-value", "0")
       assert has_element?(view, "a[href='/alerts?status=active'] .stat-value", "0")
+
+      # Each card keeps its colour band and icon; zero counts are not highlighted as good or bad news.
+      assert has_element?(view, "a[href='/alerts?status=active'] .stats.border-t-error .stat-figure .hero-bell-alert")
+      assert has_element?(view, "a[href='/devices?approval_status=pending'] .stats.border-t-warning")
+
+      refute has_element?(view, ".stat-value.text-success")
+      refute has_element?(view, ".stat-value.text-warning")
+      refute has_element?(view, ".stat-value.text-error")
     end
 
-    test "renders navigation links", %{conn: conn} do
-      # Given: User is on the dashboard
-      {:ok, _view, html} = live(conn, "/")
+    test "summary cards are the only workflow links", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
 
-      # Then: They see the navigation buttons
-      assert html =~ "Manage Devices"
-      assert html =~ "Pending Approvals"
-      assert html =~ "View Alerts"
-      assert html =~ "Reports"
-      assert html =~ "href=\"/devices\""
-      assert html =~ "href=\"/devices?connectivity_status=online\""
-      assert html =~ "href=\"/devices?approval_status=pending\""
+      for href <- [
+            "/devices",
+            "/devices?connectivity_status=online",
+            "/devices?approval_status=pending",
+            "/alerts?status=active"
+          ] do
+        assert has_element?(view, "main a[href='#{href}'] .stat")
+      end
+
+      refute has_element?(view, "main a.btn")
     end
   end
 end

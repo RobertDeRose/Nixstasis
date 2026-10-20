@@ -809,7 +809,51 @@ defmodule NixstasisWeb.ScriptLive.Show do
     )
   end
 
+  # The client command results recorded for one test or deployment run.
   defp client_actions(client_actions, kind, run_id), do: Map.get(client_actions, {kind, run_id}, [])
+
+  attr(:id, :string, required: true)
+  attr(:runs, :list, required: true)
+  attr(:kind, :atom, required: true, values: [:test, :deploy])
+  attr(:client_actions, :map, required: true)
+  attr(:devices, :list, required: true)
+
+  # Test and deployment runs share one history table: status, targets,
+  # timing, and each client's command result.
+  defp run_history(assigns) do
+    ~H"""
+    <.table id={@id} rows={@runs} class="table-sm">
+      <:col :let={run} label="Status">
+        <span class={"badge #{status_badge_class(run.status)}"}>{run.status}</span>
+      </:col>
+      <:col :let={run} label="Targets" class="text-sm">{run.target_device_count} device(s)</:col>
+      <:col :let={run} label="Started" class="text-sm">
+        {Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M")}
+      </:col>
+      <:col :let={run} label="Completed" class="text-sm">
+        {if run.completed_at, do: Calendar.strftime(run.completed_at, "%Y-%m-%d %H:%M"), else: "—"}
+      </:col>
+      <:col :let={run} label="Clients" class="text-xs">
+        <div
+          :for={action <- client_actions(@client_actions, @kind, run.id)}
+          class="mb-2 rounded border border-base-300 bg-base-100 p-2"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-medium">{device_label(@devices, action.device_id)}</span>
+            <span class={"badge badge-xs #{status_badge_class(action.status)}"}>{action.status}</span>
+          </div>
+          <div class="mt-1 text-xs text-base-content/70">
+            command: {action.command_ref || "pending"} · payload: {action.payload_ref || "—"}
+          </div>
+          <pre
+            :if={action.result_payload != %{}}
+            class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-base-300 bg-base-200 p-2 text-xs"
+          >{inspect(action.result_payload, pretty: true)}</pre>
+        </div>
+      </:col>
+    </.table>
+    """
+  end
 
   defp device_label(devices, id) do
     case Enum.find(devices, &(to_string(&1.id) == to_string(id))) do

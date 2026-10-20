@@ -1,7 +1,7 @@
-<div class="p-4">
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold">Devices</h1>
-    <div class="flex flex-1 flex-wrap justify-end gap-2">
+<div class="ui-page-shell">
+  <.header>
+    Devices
+    <:actions>
       <.form
         id="device-search"
         for={%{}}
@@ -15,48 +15,43 @@
           name="search"
           value={@search}
           placeholder="Search devices..."
+          aria-label="Search devices"
           class="ui-input w-full sm:w-auto"
           phx-debounce="300"
         />
       </.form>
-      <div :if={@can_view_device_details?} class="flex flex-wrap gap-1">
+      <nav :if={@can_view_device_details?} aria-label="Device status filters" class="flex flex-wrap gap-1">
         <.link
-          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "approved")}"}
-          class={"btn btn-sm #{@filter_approval_status == "approved" && "btn-active"}"}
+          :for={
+            {key, value, label} <- [
+              {"approval_status", "approved", "Approved"},
+              {"approval_status", "pending", "Pending"},
+              {"approval_status", "rejected", "Rejected"},
+              {"connectivity_status", "online", "Online"},
+              {"connectivity_status", "offline", "Offline"}
+            ]
+          }
+          patch={~p"/devices?#{Map.put(@current_params, key, value)}"}
+          class={["btn btn-sm", @current_params[key] == value && "btn-active"]}
+          aria-current={@current_params[key] == value && "true"}
         >
-          Approved
-        </.link>
-        <.link
-          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "pending")}"}
-          class={"btn btn-sm #{@filter_approval_status == "pending" && "btn-active"}"}
-        >
-          Pending
-        </.link>
-        <.link
-          patch={~p"/devices?#{Map.put(@current_params, "approval_status", "rejected")}"}
-          class={"btn btn-sm #{@filter_approval_status == "rejected" && "btn-active"}"}
-        >
-          Rejected
-        </.link>
-        <.link
-          patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "online")}"}
-          class={"btn btn-sm #{@filter_connectivity_status == "online" && "btn-active"}"}
-        >
-          Online
-        </.link>
-        <.link
-          patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "offline")}"}
-          class={"btn btn-sm #{@filter_connectivity_status == "offline" && "btn-active"}"}
-        >
-          Offline
+          {label}
         </.link>
         <.link
           patch={~p"/devices?#{Map.drop(@current_params, ["approval_status", "connectivity_status"])}"}
-          class={"btn btn-sm #{is_nil(@filter_approval_status) && is_nil(@filter_connectivity_status) && "btn-active"}"}
+          class={[
+            "btn btn-sm",
+            !Map.has_key?(@current_params, "approval_status") &&
+              !Map.has_key?(@current_params, "connectivity_status") && "btn-active"
+          ]}
+          aria-current={
+            !Map.has_key?(@current_params, "approval_status") &&
+              !Map.has_key?(@current_params, "connectivity_status") && "true"
+          }
         >
           All
         </.link>
-      </div>
+      </nav>
       <button
         :if={@can_view_device_details?}
         id="manage-device-groups"
@@ -75,8 +70,8 @@
       >
         Add Device
       </.link>
-    </div>
-  </div>
+    </:actions>
+  </.header>
 
   <section
     :if={@group_panel_open?}
@@ -90,7 +85,7 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Fleet map</p>
         <h2 id="device-group-heading" class="text-lg font-bold">Device groups</h2>
-        <p class="text-sm text-base-content/65">Manual organization only; device behavior stays unchanged.</p>
+        <p class="text-sm text-base-content/70">Manual organization only; device behavior stays unchanged.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button
@@ -119,7 +114,7 @@
 
     <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
       <div class="space-y-2" aria-live="polite" aria-busy={to_string(@groups_loading?)}>
-        <div :if={@groups_loading?} class="flex items-center gap-2 py-6 text-sm text-base-content/65">
+        <div :if={@groups_loading?} class="flex items-center gap-2 py-6 text-sm text-base-content/70">
           <span class="loading loading-spinner loading-sm" aria-hidden="true"></span> Loading groups…
         </div>
 
@@ -133,7 +128,7 @@
               do: "No active groups yet",
               else: "No groups are visible for your device scope"}
           </p>
-          <p class="mt-1 text-sm text-base-content/60">
+          <p class="mt-1 text-sm text-base-content/70">
             {if NixstasisWeb.Permissions.can_manage_all_devices?(@device_permissions),
               do: "Create a group to begin organizing this fleet.",
               else: "Groups appear after an accessible device is assigned."}
@@ -154,7 +149,7 @@
                 {row.visible_device_count} visible {if row.visible_device_count == 1, do: "device", else: "devices"}
               </span>
             </div>
-            <p :if={row.group.description not in [nil, ""]} class="mt-1 text-sm text-base-content/65">
+            <p :if={row.group.description not in [nil, ""]} class="mt-1 text-sm text-base-content/70">
               {row.group.description}
             </p>
           </div>
@@ -317,7 +312,7 @@
           Remove from group
         </button>
       </.form>
-      <p :if={@device_groups == []} class="ml-auto text-sm text-base-content/60">
+      <p :if={@device_groups == []} class="ml-auto text-sm text-base-content/70">
         No visible groups are available for membership changes.
       </p>
     </div>
@@ -351,6 +346,7 @@
         Continue without group filter
       </.link>
     </div>
+    <%!-- Not the core table component: the selection column header holds the select-all checkbox. --%>
     <table :if={@can_view_device_details?} class="table table-zebra">
       <thead>
         <tr>
@@ -358,6 +354,7 @@
             <input
               type="checkbox"
               id="select-all-checkbox"
+              aria-label="Select all visible devices"
               class="checkbox checkbox-sm"
               phx-click="toggle_all"
               phx-hook="IndeterminateCheckbox"
@@ -365,46 +362,22 @@
               data-total-count={@total_count}
             />
           </th>
-          <th
+          <.sort_header
+            :for={
+              {field, label} <- [
+                mac_address: "MAC Address",
+                product_name: "Product",
+                account_number: "Account #",
+                ipv4_address: "IPv4",
+                approval_status: "Status"
+              ]
+            }
+            direction={@sort_by == field && @sort_order}
             phx-click="sort"
-            phx-value-sort_by="mac_address"
-            class="ui-sortable-header"
+            phx-value-sort_by={field}
           >
-            MAC Address {if @sort_by == :mac_address,
-              do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
-          <th
-            phx-click="sort"
-            phx-value-sort_by="product_name"
-            class="ui-sortable-header"
-          >
-            Product {if @sort_by == :product_name,
-              do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
-          <th
-            phx-click="sort"
-            phx-value-sort_by="account_number"
-            class="ui-sortable-header"
-          >
-            Account # {if @sort_by == :account_number,
-              do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
-          <th
-            phx-click="sort"
-            phx-value-sort_by="ipv4_address"
-            class="ui-sortable-header"
-          >
-            IPv4 {if @sort_by == :ipv4_address,
-              do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
-          <th
-            phx-click="sort"
-            phx-value-sort_by="approval_status"
-            class="ui-sortable-header"
-          >
-            Status {if @sort_by == :approval_status,
-              do: if(@sort_order == :asc, do: "▲", else: "▼")}
-          </th>
+            {label}
+          </.sort_header>
           <th>Online</th>
           <th data-group-summary-heading class="hidden lg:table-cell">Groups</th>
         </tr>
@@ -422,52 +395,22 @@
               phx-click="toggle_selection"
               phx-value-id={device.id}
               checked={device.id in @selected_ids}
+              aria-label={"Select device #{device.mac_address}"}
             />
           </td>
           <td class="font-mono">
-            <button
-              class="link link-hover"
-              phx-click="open_device_details"
-              phx-value-id={device.id}
-            >
+            <.link navigate={~p"/devices/#{device.id}"} class="link link-hover font-semibold">
               {device.mac_address}
-            </button>
+            </.link>
           </td>
           <td>
-            <%= if is_nil(device.product_name) or device.product_name == "" do %>
-              <span class="text-base-content/60">N/A</span>
-            <% else %>
-              <.link
-                patch={~p"/devices?#{Map.put(@current_params, "product", to_string(device.product_name))}"}
-                class="link link-hover text-left"
-              >
-                {device.product_name}
-              </.link>
-            <% end %>
+            <.filter_link params={@current_params} key="product" value={device.product_name} label="product" />
           </td>
           <td class="font-mono">
-            <%= if is_nil(device.account_number) or device.account_number == "" do %>
-              <span class="text-base-content/60">N/A</span>
-            <% else %>
-              <.link
-                patch={~p"/devices?#{Map.put(@current_params, "account_number", to_string(device.account_number))}"}
-                class="link link-hover text-left"
-              >
-                {device.account_number}
-              </.link>
-            <% end %>
+            <.filter_link params={@current_params} key="account_number" value={device.account_number} label="account" />
           </td>
           <td class="font-mono">
-            <%= if is_nil(device.ipv4_address) or device.ipv4_address == "" do %>
-              <span class="text-base-content/60">N/A</span>
-            <% else %>
-              <.link
-                patch={~p"/devices?#{Map.put(@current_params, "ipv4_address", to_string(device.ipv4_address))}"}
-                class="link link-hover text-left"
-              >
-                {device.ipv4_address}
-              </.link>
-            <% end %>
+            <.filter_link params={@current_params} key="ipv4_address" value={device.ipv4_address} label="IPv4 address" />
           </td>
           <td>
             <.link
@@ -492,7 +435,7 @@
             <% else %>
               <.link
                 patch={~p"/devices?#{Map.put(@current_params, "connectivity_status", "offline")}"}
-                class="badge badge-error w-24"
+                class="badge badge-neutral w-24"
               >
                 offline
               </.link>
@@ -500,7 +443,7 @@
           </td>
           <td class="hidden lg:table-cell" data-device-group-summary={device.id}>
             <% groups = active_device_groups(device) %>
-            <span :if={groups == []} class="text-sm text-base-content/50">—</span>
+            <span :if={groups == []} class="text-sm text-base-content/70">—</span>
             <div :if={groups != []} class="flex max-w-64 flex-wrap gap-1">
               <.link
                 :for={group <- Enum.take(groups, 2)}

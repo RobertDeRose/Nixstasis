@@ -6,7 +6,16 @@
 @import "../vendor/material-darker.min.css";
 
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;600;700&display=swap');
+
+/* Noto Sans (SIL OFL 1.1, see priv/static/fonts/noto-sans/OFL.txt) is served by the app so pages
+   make no third-party requests. One variable file covers every weight for the Latin range. */
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/noto-sans/noto-sans-latin-wght-normal.woff2") format("woff2");
+}
 
 @theme {
   --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -30,8 +39,8 @@
 
 /* daisyUI theme plugin. You can update this file by fetching the latest version with:
   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
-  Themes follow the Nixstasis documentation brand palette while preserving semantic
-  status colors for app UI. Build your own at: https://daisyui.com/theme-generator/ */
+  Themes derive from the documentation brand palette, darkened where needed to meet WCAG AA,
+  and keep semantic status colors for app UI. Build your own at: https://daisyui.com/theme-generator/ */
 @plugin "../vendor/daisyui-theme" {
   name: "dark";
   default: false;
@@ -63,7 +72,7 @@
   --color-neutral-content: #bcd6e3;
 
   --color-info: #2e9cc2;
-  --color-info-content: #ffffff;
+  --color-info-content: #061322;
 
   --color-success: #22c55e;
   --color-success-content: #052e16;
@@ -99,31 +108,31 @@
   --color-base-content: #183242;
 
   /* primary action / links */
-  --color-primary: #087f92;
+  --color-primary: #007a81;
   --color-primary-content: #ffffff;
 
   /* secondary action */
-  --color-secondary: #168fac;
+  --color-secondary: #0f6c82;
   --color-secondary-content: #ffffff;
 
   /* accent / selected */
   --color-accent: #18b9aa;
-  --color-accent-content: #ffffff;
+  --color-accent-content: #062a2a;
 
   /* muted */
   --color-neutral: #8aa3ad;
   --color-neutral-content: #183242;
 
-  --color-info: #168fac;
+  --color-info: #0f6c82;
   --color-info-content: #ffffff;
 
-  --color-success: #16a34a;
+  --color-success: #14733a;
   --color-success-content: #ffffff;
 
-  --color-warning: #ca8a04;
+  --color-warning: #8d5a05;
   --color-warning-content: #ffffff;
 
-  --color-error: #dc2626;
+  --color-error: #c21d1d;
   --color-error-content: #ffffff;
 
   --radius-selector: 0.25rem;
@@ -136,710 +145,308 @@
   --noise: 0;
 }
 
-/* Palette overrides selected from Settings. Keep in sync with SettingsLive.palette_options/0. */
-
-:root[data-palette="coherent-current"][data-theme="light"],
-:root[data-palette="coherent-current"]:not([data-theme]) {
-    --color-base-100: #f4fbfd;
-    --color-base-200: #e8f6f8;
-    --color-base-300: #b6dce1;
-    --color-base-content: #183242;
-    --color-primary: #087f92;
-    --color-primary-content: #ffffff;
-    --color-secondary: #168fac;
-    --color-secondary-content: #ffffff;
-    --color-accent: #18b9aa;
-    --color-accent-content: #ffffff;
-    --color-neutral: #8aa3ad;
-    --color-neutral-content: #183242;
-    --color-info: #168fac;
-    --color-info-content: #ffffff;
-    --color-success: #16a34a;
-    --color-success-content: #ffffff;
-    --color-warning: #ca8a04;
-    --color-warning-content: #ffffff;
-    --color-error: #dc2626;
-    --color-error-content: #ffffff;
+/* Each palette's own primary, kept separate from --color-primary so the Settings "Palette default"
+   swatch can show it while a highlight overrides the primary. Matches the daisyUI theme above. */
+:root {
+  --palette-primary: light-dark(#007a81, #4bded1);
 }
 
-:root[data-palette="coherent-current"][data-theme="dark"] {
-    --color-base-100: #061322;
-    --color-base-200: #0b1f2c;
-    --color-base-300: #1d4c5a;
-    --color-base-content: #d8edf6;
-    --color-primary: #4bded1;
-    --color-primary-content: #061322;
-    --color-secondary: #38a9f4;
-    --color-secondary-content: #061322;
-    --color-accent: #48f2bf;
-    --color-accent-content: #061322;
-    --color-neutral: #183846;
-    --color-neutral-content: #bcd6e3;
-    --color-info: #2e9cc2;
-    --color-info-content: #ffffff;
-    --color-success: #22c55e;
-    --color-success-content: #052e16;
-    --color-warning: #facc15;
-    --color-warning-content: #422006;
-    --color-error: #f87171;
-    --color-error-content: #450a0a;
+/* Palettes other than the default Coherent Current replace the theme tokens; the list lives in
+   NixstasisWeb.Theme. light-dark() follows the color-scheme each daisyUI theme sets, so one block
+   covers the light, dark, and system modes. Each palette keeps its original colours except where
+   a pair fell below WCAG AA; those were moved just past 4.5:1 in lightness, keeping their hue.
+   Each primary is the colour its name suggests, at the most vivid shade that keeps 4.6:1. */
+:root[data-palette="glacier-console"] {
+  --color-base-100: light-dark(#f7fbfc, #07111c);
+  --color-base-200: light-dark(#eef6f8, #0e2230);
+  --color-base-300: light-dark(#c8dfe5, #25495a);
+  --color-base-content: light-dark(#122b38, #d9eef5);
+  --palette-primary: light-dark(#047895, #42d5fa);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #06111a);
+  --color-secondary: light-dark(#2875a1, #6cbdf2);
+  --color-secondary-content: light-dark(#ffffff, #06111a);
+  --color-accent: light-dark(#008379, #34d399);
+  --color-accent-content: light-dark(#ffffff, #06111a);
+  --color-neutral: light-dark(#7b949e, #8ca9b7);
+  --color-neutral-content: light-dark(#122b38, #07111c);
+  --color-info: light-dark(#2875a1, #6cbdf2);
+  --color-info-content: light-dark(#ffffff, #06111a);
+  --color-success: light-dark(#137e48, #4ade80);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#986404, #fbbf24);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#c24141, #fb7185);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="glacier-console"][data-theme="light"],
-:root[data-palette="glacier-console"]:not([data-theme]) {
-    --color-base-100: #f7fbfc;
-    --color-base-200: #eef6f8;
-    --color-base-300: #c8dfe5;
-    --color-base-content: #122b38;
-    --color-primary: #006f89;
-    --color-primary-content: #ffffff;
-    --color-secondary: #2f89bd;
-    --color-secondary-content: #ffffff;
-    --color-accent: #00a99d;
-    --color-accent-content: #ffffff;
-    --color-neutral: #657f8a;
-    --color-neutral-content: #122b38;
-    --color-info: #2f89bd;
-    --color-info-content: #ffffff;
-    --color-success: #168f52;
-    --color-success-content: #ffffff;
-    --color-warning: #b77905;
-    --color-warning-content: #ffffff;
-    --color-error: #c24141;
-    --color-error-content: #ffffff;
+:root[data-palette="signal-slate"] {
+  --color-base-100: light-dark(#f8fafb, #0b1118);
+  --color-base-200: light-dark(#eef3f5, #14202a);
+  --color-base-300: light-dark(#cbd7dd, #304554);
+  --color-base-content: light-dark(#1d2f3a, #dbe7ee);
+  --palette-primary: light-dark(#3b6eb1, #8cadd9);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #06221e);
+  --color-secondary: light-dark(#2563eb, #93c5fd);
+  --color-secondary-content: light-dark(#ffffff, #071527);
+  --color-accent: light-dark(#077f9c, #67e8f9);
+  --color-accent-content: light-dark(#ffffff, #06212a);
+  --color-neutral: light-dark(#8998a0, #94a8b3);
+  --color-neutral-content: light-dark(#1d2f3a, #0b1118);
+  --color-info: light-dark(#077792, #67e8f9);
+  --color-info-content: light-dark(#ffffff, #06212a);
+  --color-success: light-dark(#147d3b, #86efac);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#9c5f07, #fde047);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#b91c1c, #fca5a5);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="glacier-console"][data-theme="dark"] {
-    --color-base-100: #07111c;
-    --color-base-200: #0e2230;
-    --color-base-300: #25495a;
-    --color-base-content: #d9eef5;
-    --color-primary: #66e5de;
-    --color-primary-content: #06111a;
-    --color-secondary: #6cbdf2;
-    --color-secondary-content: #06111a;
-    --color-accent: #34d399;
-    --color-accent-content: #06111a;
-    --color-neutral: #8ca9b7;
-    --color-neutral-content: #07111c;
-    --color-info: #6cbdf2;
-    --color-info-content: #06111a;
-    --color-success: #4ade80;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #fb7185;
-    --color-error-content: #450a0a;
+:root[data-palette="deepwater-operations"] {
+  --color-base-100: light-dark(#f3f8f9, #03101d);
+  --color-base-200: light-dark(#ffffff, #071d2d);
+  --color-base-300: light-dark(#c5d9df, #17445d);
+  --color-base-content: light-dark(#18313f, #d6f2fb);
+  --palette-primary: light-dark(#0073c5, #3daeff);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #04131b);
+  --color-secondary: light-dark(#0e7490, #38bdf8);
+  --color-secondary-content: light-dark(#ffffff, #04131b);
+  --color-accent: light-dark(#0b8278, #2dd4bf);
+  --color-accent-content: light-dark(#ffffff, #04131b);
+  --color-neutral: light-dark(#859aa3, #89adbd);
+  --color-neutral-content: light-dark(#18313f, #03101d);
+  --color-info: light-dark(#0e7490, #38bdf8);
+  --color-info-content: light-dark(#ffffff, #04131b);
+  --color-success: light-dark(#15803d, #34d399);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#b45309, #f59e0b);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#be123c, #f54966);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="signal-slate"][data-theme="light"],
-:root[data-palette="signal-slate"]:not([data-theme]) {
-    --color-base-100: #f8fafb;
-    --color-base-200: #eef3f5;
-    --color-base-300: #cbd7dd;
-    --color-base-content: #1d2f3a;
-    --color-primary: #0f766e;
-    --color-primary-content: #ffffff;
-    --color-secondary: #2563eb;
-    --color-secondary-content: #ffffff;
-    --color-accent: #0891b2;
-    --color-accent-content: #ffffff;
-    --color-neutral: #6a7b84;
-    --color-neutral-content: #1d2f3a;
-    --color-info: #0891b2;
-    --color-info-content: #ffffff;
-    --color-success: #15803d;
-    --color-success-content: #ffffff;
-    --color-warning: #a16207;
-    --color-warning-content: #ffffff;
-    --color-error: #b91c1c;
-    --color-error-content: #ffffff;
+:root[data-palette="mineral-glass"] {
+  --color-base-100: light-dark(#f5fbfa, #081515);
+  --color-base-200: light-dark(#ebf5f4, #102626);
+  --color-base-300: light-dark(#bddbd8, #28524f);
+  --color-base-content: light-dark(#173238, #def3f0);
+  --palette-primary: light-dark(#127d4b, #4ce69e);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #061514);
+  --color-secondary: light-dark(#357494, #8ccbea);
+  --color-secondary-content: light-dark(#ffffff, #061014);
+  --color-accent: light-dark(#1a8461, #7ee2b8);
+  --color-accent-content: light-dark(#ffffff, #06150f);
+  --color-neutral: light-dark(#839b9d, #91aaa7);
+  --color-neutral-content: light-dark(#173238, #081515);
+  --color-info: light-dark(#357494, #8ccbea);
+  --color-info-content: light-dark(#ffffff, #061014);
+  --color-success: light-dark(#177d4e, #6ee7a8);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#996200, #f6c453);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#cd303e, #ff8793);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="signal-slate"][data-theme="dark"] {
-    --color-base-100: #0b1118;
-    --color-base-200: #14202a;
-    --color-base-300: #304554;
-    --color-base-content: #dbe7ee;
-    --color-primary: #5eead4;
-    --color-primary-content: #06221e;
-    --color-secondary: #93c5fd;
-    --color-secondary-content: #071527;
-    --color-accent: #67e8f9;
-    --color-accent-content: #06212a;
-    --color-neutral: #94a8b3;
-    --color-neutral-content: #0b1118;
-    --color-info: #67e8f9;
-    --color-info-content: #06212a;
-    --color-success: #86efac;
-    --color-success-content: #052e16;
-    --color-warning: #fde047;
-    --color-warning-content: #422006;
-    --color-error: #fca5a5;
-    --color-error-content: #450a0a;
+:root[data-palette="northstar-amber"] {
+  --color-base-100: light-dark(#fbfcf8, #0d1214);
+  --color-base-200: light-dark(#f0f6f4, #162423);
+  --color-base-300: light-dark(#cbded8, #344d49);
+  --color-base-content: light-dark(#1d312f, #e2f1ed);
+  --palette-primary: light-dark(#9e6004, #faa82e);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #081614);
+  --color-secondary: light-dark(#1976a4, #7dd3fc);
+  --color-secondary-content: light-dark(#ffffff, #07141a);
+  --color-accent: light-dark(#b06105, #f59e0b);
+  --color-accent-content: light-dark(#ffffff, #1f1300);
+  --color-neutral: light-dark(#889a95, #9aaba6);
+  --color-neutral-content: light-dark(#1d312f, #0d1214);
+  --color-info: light-dark(#1976a4, #7dd3fc);
+  --color-info-content: light-dark(#ffffff, #07141a);
+  --color-success: light-dark(#167f3b, #74d99f);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#b35209, #fbbf24);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#b4233a, #fb7185);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="deepwater-operations"][data-theme="light"],
-:root[data-palette="deepwater-operations"]:not([data-theme]) {
-    --color-base-100: #f3f8f9;
-    --color-base-200: #ffffff;
-    --color-base-300: #c5d9df;
-    --color-base-content: #18313f;
-    --color-primary: #075985;
-    --color-primary-content: #ffffff;
-    --color-secondary: #0e7490;
-    --color-secondary-content: #ffffff;
-    --color-accent: #0d9488;
-    --color-accent-content: #ffffff;
-    --color-neutral: #687f89;
-    --color-neutral-content: #18313f;
-    --color-info: #0e7490;
-    --color-info-content: #ffffff;
-    --color-success: #15803d;
-    --color-success-content: #ffffff;
-    --color-warning: #b45309;
-    --color-warning-content: #ffffff;
-    --color-error: #be123c;
-    --color-error-content: #ffffff;
+:root[data-palette="electric-fjord"] {
+  --color-base-100: light-dark(#f3fcff, #050d18);
+  --color-base-200: light-dark(#e7f8ff, #0c1b2c);
+  --color-base-300: light-dark(#b3ddeb, #22476b);
+  --color-base-content: light-dark(#0f2d3d, #dff4ff);
+  --palette-primary: light-dark(#2a61fa, #6a91fb);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #04121a);
+  --color-secondary: light-dark(#2454d6, #8ab4ff);
+  --color-secondary-content: light-dark(#ffffff, #050e1c);
+  --color-accent: light-dark(#00845f, #48f2bf);
+  --color-accent-content: light-dark(#ffffff, #041711);
+  --color-neutral: light-dark(#7398a6, #95afc0);
+  --color-neutral-content: light-dark(#0f2d3d, #050d18);
+  --color-info: light-dark(#2454d6, #8ab4ff);
+  --color-info-content: light-dark(#ffffff, #050e1c);
+  --color-success: light-dark(#0c7e46, #5cff9c);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#9c6200, #ffd166);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#d02e4a, #ff6b8a);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="deepwater-operations"][data-theme="dark"] {
-    --color-base-100: #03101d;
-    --color-base-200: #071d2d;
-    --color-base-300: #17445d;
-    --color-base-content: #d6f2fb;
-    --color-primary: #22d3ee;
-    --color-primary-content: #04131b;
-    --color-secondary: #38bdf8;
-    --color-secondary-content: #04131b;
-    --color-accent: #2dd4bf;
-    --color-accent-content: #04131b;
-    --color-neutral: #89adbd;
-    --color-neutral-content: #03101d;
-    --color-info: #38bdf8;
-    --color-info-content: #04131b;
-    --color-success: #34d399;
-    --color-success-content: #052e16;
-    --color-warning: #f59e0b;
-    --color-warning-content: #422006;
-    --color-error: #f43f5e;
-    --color-error-content: #450a0a;
+:root[data-palette="quiet-instrument"] {
+  --color-base-100: light-dark(#f6f8f8, #101618);
+  --color-base-200: light-dark(#edf2f2, #1a2528);
+  --color-base-300: light-dark(#ced9da, #334247);
+  --color-base-content: light-dark(#233336, #dbe7e8);
+  --palette-primary: light-dark(#40766d, #95c6be);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #0c1819);
+  --color-secondary: light-dark(#457289, #9ecbe2);
+  --color-secondary-content: light-dark(#ffffff, #0c171b);
+  --color-accent: light-dark(#398172, #9bd8c1);
+  --color-accent-content: light-dark(#ffffff, #0c1816);
+  --color-neutral: light-dark(#8e9c9f, #95a3a5);
+  --color-neutral-content: light-dark(#233336, #101618);
+  --color-info: light-dark(#457289, #9ecbe2);
+  --color-info-content: light-dark(#ffffff, #0c171b);
+  --color-success: light-dark(#3c7851, #95d6aa);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#896719, #e3c26b);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#a9444f, #e58a96);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="mineral-glass"][data-theme="light"],
-:root[data-palette="mineral-glass"]:not([data-theme]) {
-    --color-base-100: #f5fbfa;
-    --color-base-200: #ebf5f4;
-    --color-base-300: #bddbd8;
-    --color-base-content: #173238;
-    --color-primary: #0f7c80;
-    --color-primary-content: #ffffff;
-    --color-secondary: #3b82a6;
-    --color-secondary-content: #ffffff;
-    --color-accent: #21a67a;
-    --color-accent-content: #ffffff;
-    --color-neutral: #667f81;
-    --color-neutral-content: #173238;
-    --color-info: #3b82a6;
-    --color-info-content: #ffffff;
-    --color-success: #198754;
-    --color-success-content: #ffffff;
-    --color-warning: #bf7a00;
-    --color-warning-content: #ffffff;
-    --color-error: #cf3341;
-    --color-error-content: #ffffff;
+:root[data-palette="aurora-control"] {
+  --color-base-100: light-dark(#f3fbf7, #071411);
+  --color-base-200: light-dark(#e7f6ef, #0f241f);
+  --color-base-300: light-dark(#b9dacd, #285045);
+  --color-base-content: light-dark(#16322b, #dbf3eb);
+  --palette-primary: light-dark(#8944ea, #b488f2);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #051511);
+  --color-secondary: light-dark(#13759c, #67c7ee);
+  --color-secondary-content: light-dark(#ffffff, #051118);
+  --color-accent: light-dark(#24854e, #86efac);
+  --color-accent-content: light-dark(#ffffff, #06150a);
+  --color-neutral: light-dark(#7d9c93, #8fb0a5);
+  --color-neutral-content: light-dark(#16322b, #071411);
+  --color-info: light-dark(#13759c, #67c7ee);
+  --color-info-content: light-dark(#ffffff, #051118);
+  --color-success: light-dark(#127d47, #4ade80);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#956319, #fbbf24);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#c53030, #f87171);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="mineral-glass"][data-theme="dark"] {
-    --color-base-100: #081515;
-    --color-base-200: #102626;
-    --color-base-300: #28524f;
-    --color-base-content: #def3f0;
-    --color-primary: #65e4dc;
-    --color-primary-content: #061514;
-    --color-secondary: #8ccbea;
-    --color-secondary-content: #061014;
-    --color-accent: #7ee2b8;
-    --color-accent-content: #06150f;
-    --color-neutral: #91aaa7;
-    --color-neutral-content: #081515;
-    --color-info: #8ccbea;
-    --color-info-content: #061014;
-    --color-success: #6ee7a8;
-    --color-success-content: #052e16;
-    --color-warning: #f6c453;
-    --color-warning-content: #422006;
-    --color-error: #ff8793;
-    --color-error-content: #450a0a;
+:root[data-palette="maglev-neon"] {
+  --color-base-100: light-dark(#f7fbfd, #080f1f);
+  --color-base-200: light-dark(#edf5fa, #111b31);
+  --color-base-300: light-dark(#c5d8e4, #30405f);
+  --color-base-content: light-dark(#172c3c, #e0ecfa);
+  --palette-primary: light-dark(#c015c0, #f288f2);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-secondary: light-dark(#4f46e5, #a5b4fc);
+  --color-secondary-content: light-dark(#ffffff, #0b1028);
+  --color-accent: light-dark(#a21caf, #f0abfc);
+  --color-accent-content: light-dark(#ffffff, #2a0530);
+  --color-neutral: light-dark(#8195a4, #9aadc4);
+  --color-neutral-content: light-dark(#172c3c, #080f1f);
+  --color-info: light-dark(#4f46e5, #a5b4fc);
+  --color-info-content: light-dark(#ffffff, #0b1028);
+  --color-success: light-dark(#117f3a, #86efac);
+  --color-success-content: light-dark(#ffffff, #052e16);
+  --color-warning: light-dark(#946503, #fde047);
+  --color-warning-content: light-dark(#ffffff, #422006);
+  --color-error: light-dark(#d62323, #fda4af);
+  --color-error-content: light-dark(#ffffff, #450a0a);
 }
 
-:root[data-palette="northstar-amber"][data-theme="light"],
-:root[data-palette="northstar-amber"]:not([data-theme]) {
-    --color-base-100: #fbfcf8;
-    --color-base-200: #f0f6f4;
-    --color-base-300: #cbded8;
-    --color-base-content: #1d312f;
-    --color-primary: #0a7c78;
-    --color-primary-content: #ffffff;
-    --color-secondary: #1b7fb0;
-    --color-secondary-content: #ffffff;
-    --color-accent: #d97706;
-    --color-accent-content: #ffffff;
-    --color-neutral: #6c7f7a;
-    --color-neutral-content: #1d312f;
-    --color-info: #1b7fb0;
-    --color-info-content: #ffffff;
-    --color-success: #16803c;
-    --color-success-content: #ffffff;
-    --color-warning: #b45309;
-    --color-warning-content: #ffffff;
-    --color-error: #b4233a;
-    --color-error-content: #ffffff;
+/* An optional highlight colour overrides the palette's primary and accent; the list lives in
+   NixstasisWeb.Theme. Each light primary keeps 4.6:1 on every palette's light backgrounds and with
+   white text; dark primaries are bright tints. A data-highlight-preview element shows its
+   highlight regardless of the active one, for the Settings swatches. */
+:root[data-highlight="teal"],
+[data-highlight-preview="teal"] {
+  --color-primary: light-dark(#00787f, #4bded1);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #4bded1;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="northstar-amber"][data-theme="dark"] {
-    --color-base-100: #0d1214;
-    --color-base-200: #162423;
-    --color-base-300: #344d49;
-    --color-base-content: #e2f1ed;
-    --color-primary: #5eead4;
-    --color-primary-content: #081614;
-    --color-secondary: #7dd3fc;
-    --color-secondary-content: #07141a;
-    --color-accent: #f59e0b;
-    --color-accent-content: #1f1300;
-    --color-neutral: #9aaba6;
-    --color-neutral-content: #0d1214;
-    --color-info: #7dd3fc;
-    --color-info-content: #07141a;
-    --color-success: #74d99f;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #fb7185;
-    --color-error-content: #450a0a;
+:root[data-highlight="deep-blue"],
+[data-highlight-preview="deep-blue"] {
+  --color-primary: light-dark(#006fbe, #5ab5f6);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #5ab5f6;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="electric-fjord"][data-theme="light"],
-:root[data-palette="electric-fjord"]:not([data-theme]) {
-    --color-base-100: #f3fcff;
-    --color-base-200: #e7f8ff;
-    --color-base-300: #b3ddeb;
-    --color-base-content: #0f2d3d;
-    --color-primary: #007c99;
-    --color-primary-content: #ffffff;
-    --color-secondary: #2454d6;
-    --color-secondary-content: #ffffff;
-    --color-accent: #00a878;
-    --color-accent-content: #ffffff;
-    --color-neutral: #557886;
-    --color-neutral-content: #0f2d3d;
-    --color-info: #2454d6;
-    --color-info-content: #ffffff;
-    --color-success: #0f9f58;
-    --color-success-content: #ffffff;
-    --color-warning: #c27a00;
-    --color-warning-content: #ffffff;
-    --color-error: #d12f4b;
-    --color-error-content: #ffffff;
+:root[data-highlight="cyan"],
+[data-highlight-preview="cyan"] {
+  --color-primary: light-dark(#007693, #42d3f0);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #42d3f0;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="electric-fjord"][data-theme="dark"] {
-    --color-base-100: #050d18;
-    --color-base-200: #0c1b2c;
-    --color-base-300: #22476b;
-    --color-base-content: #dff4ff;
-    --color-primary: #41e4ff;
-    --color-primary-content: #04121a;
-    --color-secondary: #8ab4ff;
-    --color-secondary-content: #050e1c;
-    --color-accent: #48f2bf;
-    --color-accent-content: #041711;
-    --color-neutral: #95afc0;
-    --color-neutral-content: #050d18;
-    --color-info: #8ab4ff;
-    --color-info-content: #050e1c;
-    --color-success: #5cff9c;
-    --color-success-content: #052e16;
-    --color-warning: #ffd166;
-    --color-warning-content: #422006;
-    --color-error: #ff6b8a;
-    --color-error-content: #450a0a;
+:root[data-highlight="green"],
+[data-highlight-preview="green"] {
+  --color-primary: light-dark(#077d46, #4eda94);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #4eda94;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="quiet-instrument"][data-theme="light"],
-:root[data-palette="quiet-instrument"]:not([data-theme]) {
-    --color-base-100: #f6f8f8;
-    --color-base-200: #edf2f2;
-    --color-base-300: #ced9da;
-    --color-base-content: #233336;
-    --color-primary: #286c72;
-    --color-primary-content: #ffffff;
-    --color-secondary: #47758c;
-    --color-secondary-content: #ffffff;
-    --color-accent: #3f8f7f;
-    --color-accent-content: #ffffff;
-    --color-neutral: #6f7f82;
-    --color-neutral-content: #233336;
-    --color-info: #47758c;
-    --color-info-content: #ffffff;
-    --color-success: #3f7f56;
-    --color-success-content: #ffffff;
-    --color-warning: #9a741c;
-    --color-warning-content: #ffffff;
-    --color-error: #a9444f;
-    --color-error-content: #ffffff;
+:root[data-highlight="amber"],
+[data-highlight-preview="amber"] {
+  --color-primary: light-dark(#9d5e00, #faaf2e);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #faaf2e;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="quiet-instrument"][data-theme="dark"] {
-    --color-base-100: #101618;
-    --color-base-200: #1a2528;
-    --color-base-300: #334247;
-    --color-base-content: #dbe7e8;
-    --color-primary: #8bd9d2;
-    --color-primary-content: #0c1819;
-    --color-secondary: #9ecbe2;
-    --color-secondary-content: #0c171b;
-    --color-accent: #9bd8c1;
-    --color-accent-content: #0c1816;
-    --color-neutral: #95a3a5;
-    --color-neutral-content: #101618;
-    --color-info: #9ecbe2;
-    --color-info-content: #0c171b;
-    --color-success: #95d6aa;
-    --color-success-content: #052e16;
-    --color-warning: #e3c26b;
-    --color-warning-content: #422006;
-    --color-error: #e58a96;
-    --color-error-content: #450a0a;
+:root[data-highlight="magenta"],
+[data-highlight-preview="magenta"] {
+  --color-primary: light-dark(#bc1bbc, #f288f2);
+  --color-primary-content: light-dark(#ffffff, #061322);
+  --color-accent: #f288f2;
+  --color-accent-content: #05121a;
 }
 
-:root[data-palette="aurora-control"][data-theme="light"],
-:root[data-palette="aurora-control"]:not([data-theme]) {
-    --color-base-100: #f3fbf7;
-    --color-base-200: #e7f6ef;
-    --color-base-300: #b9dacd;
-    --color-base-content: #16322b;
-    --color-primary: #047d6b;
-    --color-primary-content: #ffffff;
-    --color-secondary: #147aa3;
-    --color-secondary-content: #ffffff;
-    --color-accent: #2ca25f;
-    --color-accent-content: #ffffff;
-    --color-neutral: #5d7a72;
-    --color-neutral-content: #16322b;
-    --color-info: #147aa3;
-    --color-info-content: #ffffff;
-    --color-success: #128049;
-    --color-success-content: #ffffff;
-    --color-warning: #b7791f;
-    --color-warning-content: #ffffff;
-    --color-error: #c53030;
-    --color-error-content: #ffffff;
-}
-
-:root[data-palette="aurora-control"][data-theme="dark"] {
-    --color-base-100: #071411;
-    --color-base-200: #0f241f;
-    --color-base-300: #285045;
-    --color-base-content: #dbf3eb;
-    --color-primary: #5eead4;
-    --color-primary-content: #051511;
-    --color-secondary: #67c7ee;
-    --color-secondary-content: #051118;
-    --color-accent: #86efac;
-    --color-accent-content: #06150a;
-    --color-neutral: #8fb0a5;
-    --color-neutral-content: #071411;
-    --color-info: #67c7ee;
-    --color-info-content: #051118;
-    --color-success: #4ade80;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #f87171;
-    --color-error-content: #450a0a;
-}
-
-:root[data-palette="maglev-neon"][data-theme="light"],
-:root[data-palette="maglev-neon"]:not([data-theme]) {
-    --color-base-100: #f7fbfd;
-    --color-base-200: #edf5fa;
-    --color-base-300: #c5d8e4;
-    --color-base-content: #172c3c;
-    --color-primary: #087f92;
-    --color-primary-content: #ffffff;
-    --color-secondary: #4f46e5;
-    --color-secondary-content: #ffffff;
-    --color-accent: #a21caf;
-    --color-accent-content: #ffffff;
-    --color-neutral: #637989;
-    --color-neutral-content: #172c3c;
-    --color-info: #4f46e5;
-    --color-info-content: #ffffff;
-    --color-success: #16a34a;
-    --color-success-content: #ffffff;
-    --color-warning: #ca8a04;
-    --color-warning-content: #ffffff;
-    --color-error: #dc2626;
-    --color-error-content: #ffffff;
-}
-
-:root[data-palette="maglev-neon"][data-theme="dark"] {
-    --color-base-100: #080f1f;
-    --color-base-200: #111b31;
-    --color-base-300: #30405f;
-    --color-base-content: #e0ecfa;
-    --color-primary: #4bded1;
-    --color-primary-content: #061322;
-    --color-secondary: #a5b4fc;
-    --color-secondary-content: #0b1028;
-    --color-accent: #f0abfc;
-    --color-accent-content: #2a0530;
-    --color-neutral: #9aadc4;
-    --color-neutral-content: #080f1f;
-    --color-info: #a5b4fc;
-    --color-info-content: #0b1028;
-    --color-success: #86efac;
-    --color-success-content: #052e16;
-    --color-warning: #fde047;
-    --color-warning-content: #422006;
-    --color-error: #fda4af;
-    --color-error-content: #450a0a;
-}
-
-@media (prefers-color-scheme: dark) {
-
-  :root[data-palette="coherent-current"]:not([data-theme="light"]) {
-    --color-base-100: #061322;
-    --color-base-200: #0b1f2c;
-    --color-base-300: #1d4c5a;
-    --color-base-content: #d8edf6;
-    --color-primary: #4bded1;
-    --color-primary-content: #061322;
-    --color-secondary: #38a9f4;
-    --color-secondary-content: #061322;
-    --color-accent: #48f2bf;
-    --color-accent-content: #061322;
-    --color-neutral: #183846;
-    --color-neutral-content: #bcd6e3;
-    --color-info: #2e9cc2;
-    --color-info-content: #ffffff;
-    --color-success: #22c55e;
-    --color-success-content: #052e16;
-    --color-warning: #facc15;
-    --color-warning-content: #422006;
-    --color-error: #f87171;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="glacier-console"]:not([data-theme="light"]) {
-    --color-base-100: #07111c;
-    --color-base-200: #0e2230;
-    --color-base-300: #25495a;
-    --color-base-content: #d9eef5;
-    --color-primary: #66e5de;
-    --color-primary-content: #06111a;
-    --color-secondary: #6cbdf2;
-    --color-secondary-content: #06111a;
-    --color-accent: #34d399;
-    --color-accent-content: #06111a;
-    --color-neutral: #8ca9b7;
-    --color-neutral-content: #07111c;
-    --color-info: #6cbdf2;
-    --color-info-content: #06111a;
-    --color-success: #4ade80;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #fb7185;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="signal-slate"]:not([data-theme="light"]) {
-    --color-base-100: #0b1118;
-    --color-base-200: #14202a;
-    --color-base-300: #304554;
-    --color-base-content: #dbe7ee;
-    --color-primary: #5eead4;
-    --color-primary-content: #06221e;
-    --color-secondary: #93c5fd;
-    --color-secondary-content: #071527;
-    --color-accent: #67e8f9;
-    --color-accent-content: #06212a;
-    --color-neutral: #94a8b3;
-    --color-neutral-content: #0b1118;
-    --color-info: #67e8f9;
-    --color-info-content: #06212a;
-    --color-success: #86efac;
-    --color-success-content: #052e16;
-    --color-warning: #fde047;
-    --color-warning-content: #422006;
-    --color-error: #fca5a5;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="deepwater-operations"]:not([data-theme="light"]) {
-    --color-base-100: #03101d;
-    --color-base-200: #071d2d;
-    --color-base-300: #17445d;
-    --color-base-content: #d6f2fb;
-    --color-primary: #22d3ee;
-    --color-primary-content: #04131b;
-    --color-secondary: #38bdf8;
-    --color-secondary-content: #04131b;
-    --color-accent: #2dd4bf;
-    --color-accent-content: #04131b;
-    --color-neutral: #89adbd;
-    --color-neutral-content: #03101d;
-    --color-info: #38bdf8;
-    --color-info-content: #04131b;
-    --color-success: #34d399;
-    --color-success-content: #052e16;
-    --color-warning: #f59e0b;
-    --color-warning-content: #422006;
-    --color-error: #f43f5e;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="mineral-glass"]:not([data-theme="light"]) {
-    --color-base-100: #081515;
-    --color-base-200: #102626;
-    --color-base-300: #28524f;
-    --color-base-content: #def3f0;
-    --color-primary: #65e4dc;
-    --color-primary-content: #061514;
-    --color-secondary: #8ccbea;
-    --color-secondary-content: #061014;
-    --color-accent: #7ee2b8;
-    --color-accent-content: #06150f;
-    --color-neutral: #91aaa7;
-    --color-neutral-content: #081515;
-    --color-info: #8ccbea;
-    --color-info-content: #061014;
-    --color-success: #6ee7a8;
-    --color-success-content: #052e16;
-    --color-warning: #f6c453;
-    --color-warning-content: #422006;
-    --color-error: #ff8793;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="northstar-amber"]:not([data-theme="light"]) {
-    --color-base-100: #0d1214;
-    --color-base-200: #162423;
-    --color-base-300: #344d49;
-    --color-base-content: #e2f1ed;
-    --color-primary: #5eead4;
-    --color-primary-content: #081614;
-    --color-secondary: #7dd3fc;
-    --color-secondary-content: #07141a;
-    --color-accent: #f59e0b;
-    --color-accent-content: #1f1300;
-    --color-neutral: #9aaba6;
-    --color-neutral-content: #0d1214;
-    --color-info: #7dd3fc;
-    --color-info-content: #07141a;
-    --color-success: #74d99f;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #fb7185;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="electric-fjord"]:not([data-theme="light"]) {
-    --color-base-100: #050d18;
-    --color-base-200: #0c1b2c;
-    --color-base-300: #22476b;
-    --color-base-content: #dff4ff;
-    --color-primary: #41e4ff;
-    --color-primary-content: #04121a;
-    --color-secondary: #8ab4ff;
-    --color-secondary-content: #050e1c;
-    --color-accent: #48f2bf;
-    --color-accent-content: #041711;
-    --color-neutral: #95afc0;
-    --color-neutral-content: #050d18;
-    --color-info: #8ab4ff;
-    --color-info-content: #050e1c;
-    --color-success: #5cff9c;
-    --color-success-content: #052e16;
-    --color-warning: #ffd166;
-    --color-warning-content: #422006;
-    --color-error: #ff6b8a;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="quiet-instrument"]:not([data-theme="light"]) {
-    --color-base-100: #101618;
-    --color-base-200: #1a2528;
-    --color-base-300: #334247;
-    --color-base-content: #dbe7e8;
-    --color-primary: #8bd9d2;
-    --color-primary-content: #0c1819;
-    --color-secondary: #9ecbe2;
-    --color-secondary-content: #0c171b;
-    --color-accent: #9bd8c1;
-    --color-accent-content: #0c1816;
-    --color-neutral: #95a3a5;
-    --color-neutral-content: #101618;
-    --color-info: #9ecbe2;
-    --color-info-content: #0c171b;
-    --color-success: #95d6aa;
-    --color-success-content: #052e16;
-    --color-warning: #e3c26b;
-    --color-warning-content: #422006;
-    --color-error: #e58a96;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="aurora-control"]:not([data-theme="light"]) {
-    --color-base-100: #071411;
-    --color-base-200: #0f241f;
-    --color-base-300: #285045;
-    --color-base-content: #dbf3eb;
-    --color-primary: #5eead4;
-    --color-primary-content: #051511;
-    --color-secondary: #67c7ee;
-    --color-secondary-content: #051118;
-    --color-accent: #86efac;
-    --color-accent-content: #06150a;
-    --color-neutral: #8fb0a5;
-    --color-neutral-content: #071411;
-    --color-info: #67c7ee;
-    --color-info-content: #051118;
-    --color-success: #4ade80;
-    --color-success-content: #052e16;
-    --color-warning: #fbbf24;
-    --color-warning-content: #422006;
-    --color-error: #f87171;
-    --color-error-content: #450a0a;
-  }
-
-  :root[data-palette="maglev-neon"]:not([data-theme="light"]) {
-    --color-base-100: #080f1f;
-    --color-base-200: #111b31;
-    --color-base-300: #30405f;
-    --color-base-content: #e0ecfa;
-    --color-primary: #4bded1;
-    --color-primary-content: #061322;
-    --color-secondary: #a5b4fc;
-    --color-secondary-content: #0b1028;
-    --color-accent: #f0abfc;
-    --color-accent-content: #2a0530;
-    --color-neutral: #9aadc4;
-    --color-neutral-content: #080f1f;
-    --color-info: #a5b4fc;
-    --color-info-content: #0b1028;
-    --color-success: #86efac;
-    --color-success-content: #052e16;
-    --color-warning: #fde047;
-    --color-warning-content: #422006;
-    --color-error: #fda4af;
-    --color-error-content: #450a0a;
-  }
-
+/* High contrast targets WCAG AAA (7:1) for text. It comes after the highlights so it ignores them. */
+:root[data-palette="high-contrast"] {
+  --color-base-100: light-dark(#ffffff, #000000);
+  --color-base-200: light-dark(#f6f8f9, #0b1116);
+  --color-base-300: light-dark(#d5dce0, #26323b);
+  --color-base-content: light-dark(#05121a, #ffffff);
+  --palette-primary: light-dark(#00505c, #7ff3ea);
+  --color-primary: var(--palette-primary);
+  --color-primary-content: light-dark(#ffffff, #000000);
+  --color-secondary: light-dark(#003f73, #a3d5ff);
+  --color-secondary-content: light-dark(#ffffff, #000000);
+  --color-accent: light-dark(#005c4d, #8ff5c8);
+  --color-accent-content: light-dark(#ffffff, #000000);
+  --color-neutral: light-dark(#3a4850, #c5d1d8);
+  --color-neutral-content: light-dark(#ffffff, #000000);
+  --color-info: light-dark(#003f73, #a3d5ff);
+  --color-info-content: light-dark(#ffffff, #000000);
+  --color-success: light-dark(#0b5a26, #8ef0a8);
+  --color-success-content: light-dark(#ffffff, #000000);
+  --color-warning: light-dark(#6b3f00, #ffd75e);
+  --color-warning-content: light-dark(#ffffff, #000000);
+  --color-error: light-dark(#990000, #ff9e9e);
+  --color-error-content: light-dark(#ffffff, #000000);
 }
 
 /* Add variants based on LiveView classes */
@@ -935,9 +542,42 @@
 }
 
 
+@layer base {
+  /* Tailwind's preflight renders placeholders at 50% of the text colour, which fails
+     WCAG AA; 70% matches the muted-text level used across the app. */
+  ::placeholder {
+    color: color-mix(in oklab, currentcolor 70%, transparent);
+  }
+}
+
+/* daisyUI renders these labels at 40-60% of the text colour, below WCAG AA in light mode. */
 @layer utilities {
-  .modal-dialog :is(button, input, select, textarea, a[href]):focus-visible {
-    outline: 3px solid var(--color-accent);
+  .table :where(thead, tfoot),
+  .stat-title,
+  .stat-desc,
+  .fieldset-label,
+  .menu-title {
+    color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+  }
+
+  /* daisyUI shows a tooltip when something inside it has keyboard focus; also show it when
+     the focused control is the tooltip itself, as in the table action bars. */
+  .tooltip[data-tip]:focus-visible::before,
+  .tooltip[data-tip]:focus-visible::after {
+    opacity: 100%;
+    --tt-pos: 0rem;
+  }
+
+  /* The current navigation item takes a tint of the palette's primary colour instead of grey. */
+  :root .menu {
+    --menu-active-bg: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --menu-active-fg: var(--color-base-content);
+  }
+}
+
+@layer utilities {
+  :where(button, input, select, textarea, summary, a[href], [tabindex]:not(.modal-dialog)):focus-visible {
+    outline: 3px solid var(--color-primary);
     outline-offset: 3px;
   }
 

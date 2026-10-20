@@ -10,4 +10,6 @@ extend-exclude = [
   ".beads/interactions.jsonl",
   "website/mermaid.min.js",
   "packages/server/priv/static/codemirror/codemirror.min.js",
+  # Third-party font licence, kept verbatim.
+  "packages/server/priv/static/fonts/",
 ]

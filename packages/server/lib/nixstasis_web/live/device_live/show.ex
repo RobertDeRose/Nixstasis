@@ -14,6 +14,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
 
   @terminal_authorization_poll_interval_ms 100
   @terminal_authorization_timeout_ms 15_000
+  # Tabs that need a live connection to the device.
+  @remote_tabs ~w(terminal overview)
 
   @impl true
   def mount(_params, session, socket) do
@@ -49,13 +51,16 @@ defmodule NixstasisWeb.DeviceLive.Show do
     end
   end
 
+  # Shows a device the operator may view: an online device gets the full view,
+  # including a remote access lease; an offline one keeps its details and
+  # telemetry history without remote access. Missing devices redirect back.
   defp handle_authorized_device(socket, id, return_to) do
     case safe_get_device(id) do
       {:ok, device} ->
         view =
           if Devices.online?(device),
             do: setup_device_view(socket, device, return_to),
-            else: assign_device_view(socket, device, return_to)
+            else: socket |> assign_device_view(device, return_to) |> ensure_view_assigns(device)
 
         {:noreply, view}
 
@@ -67,7 +72,30 @@ defmodule NixstasisWeb.DeviceLive.Show do
     end
   end
 
+  @doc """
+  Handles the device page's events.
+
+    * `"change_tab"`: switch tabs; the Remote Terminal and Cockpit tabs are
+      refused while the device is offline, even if the disabled button is
+      bypassed. Switching to Remote Terminal starts the SSH session and
+      switching to Performance History refreshes its chart.
+    * `"retry_session"`: rebuild the remote view for an online device.
+    * `"trust_pending_ssh_host_key"`: accept the device's pending SSH host key.
+    * `"toggle_maximized"`: maximize or restore the tab panel.
+    * `"start_ssh_session"`, `"close_remote_access"`: open the terminal session,
+      or close remote access and stop reopening it automatically.
+    * `"terminal_authorized"`, `"terminal_closed"`: terminal hook callbacks for
+      the current session; events for other sessions are ignored.
+
+  Retrying the session, trusting a host key, and starting an SSH session
+  require remote access permission for the device.
+  """
   @impl true
+  def handle_event("change_tab", %{"tab" => tab}, %{assigns: %{device_offline: true}} = socket)
+      when tab in @remote_tabs do
+    {:noreply, socket}
+  end
+
   def handle_event("change_tab", %{"tab" => tab}, socket) do
     socket =
       socket
@@ -522,12 +550,14 @@ defmodule NixstasisWeb.DeviceLive.Show do
     |> assign(:pcp_chart, pcp_chart_config(device))
   end
 
+  # Re-renders after a device update: closes the lease if it went offline, opens
+  # one if it came online, and clears the terminal state of an offline device.
   defp refresh_device_view(socket, device) do
     socket
     |> maybe_close_remote_access_lease(device)
     |> maybe_open_remote_access_lease(device)
     |> assign_device_view(device, socket.assigns.return_to)
-    |> ensure_online_view_assigns(device)
+    |> ensure_view_assigns(device)
     |> maybe_clear_ssh_assigns(device)
   end
 
@@ -571,6 +601,8 @@ defmodule NixstasisWeb.DeviceLive.Show do
     end
   end
 
+  # Opens a remote access lease for a connected view of an online device when
+  # the operator may use remote access, has not closed it, and holds no lease.
   defp maybe_open_remote_access_lease(socket, device) do
     if connected?(socket) and Devices.online?(device) and socket.assigns.can_remote_access_device? and
          Map.get(socket.assigns, :remote_access_auto_open?, true) and
@@ -589,26 +621,30 @@ defmodule NixstasisWeb.DeviceLive.Show do
     end
   end
 
-  defp ensure_online_view_assigns(socket, device) do
-    if Devices.online?(device) do
-      latest_pcp = latest_pcp_sample(device.id)
+  # Telemetry history stays visible while a device is offline; only the remote
+  # tabs need a live connection, so an offline device falls back to PCP.
+  defp ensure_view_assigns(socket, device) do
+    latest_pcp = latest_pcp_sample(device.id)
 
-      socket
-      |> assign_new(:active_tab, fn -> "pcp" end)
-      |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["var(--color-primary)"]))
-      |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["var(--color-success)"]))
-      |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["var(--color-warning)"]))
-      |> assign(:pcp_chart, pcp_chart_config(device))
-      |> assign_new(:ssh_session_started, fn -> false end)
-      |> assign_new(:ssh_authorize_command_id, fn -> nil end)
-      |> assign_new(:ssh_token, fn -> nil end)
-      |> assign_new(:terminal_socket_token, fn -> nil end)
-      |> assign_new(:terminal_authorization_timer, fn -> nil end)
-      |> assign_new(:terminal_authorization_deadline, fn -> nil end)
-      |> assign_new(:terminal_closed?, fn -> false end)
-    else
-      socket
-    end
+    socket
+    |> assign(:active_tab, available_tab(socket.assigns[:active_tab], device))
+    |> assign(:cpu_chart, chart_config("CPU Load", [latest_pcp.load_1m], ["var(--color-primary)"]))
+    |> assign(:memory_chart, chart_config("Memory Used %", [latest_pcp.memory_used_pct], ["var(--color-success)"]))
+    |> assign(:disk_chart, chart_config("Disk Full %", [latest_pcp.disk_full_pct], ["var(--color-warning)"]))
+    |> assign(:pcp_chart, pcp_chart_config(device))
+    |> assign_new(:ssh_session_started, fn -> false end)
+    |> assign_new(:ssh_authorize_command_id, fn -> nil end)
+    |> assign_new(:ssh_token, fn -> nil end)
+    |> assign_new(:terminal_socket_token, fn -> nil end)
+    |> assign_new(:terminal_authorization_timer, fn -> nil end)
+    |> assign_new(:terminal_authorization_deadline, fn -> nil end)
+    |> assign_new(:terminal_closed?, fn -> false end)
+  end
+
+  # The tab to show: PCP for a new view or when a remote tab needs a device
+  # that is offline, otherwise the requested tab.
+  defp available_tab(tab, device) do
+    if tab in @remote_tabs and not Devices.online?(device), do: "pcp", else: tab || "pcp"
   end
 
   defp page_title(device) do

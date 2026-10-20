@@ -22,6 +22,13 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   @collection_limit 250
   @entry_category_limit 2_500
 
+  @doc """
+  Opens the Command Policies page for operators who may view command policy
+  details; others get an error and a redirect home.
+
+  Lists start empty and are loaded by `handle_params/3`. A connected view
+  refreshes the policy data every 15 seconds.
+  """
   @impl true
   def mount(_params, session, socket) do
     can_view = Permissions.can_view_command_policy_details?(session)
@@ -41,6 +48,7 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
       |> assign(:selected_assignment_entry_id, nil)
       |> assign(:entry, nil)
       |> assign(:category, nil)
+      |> assign(:category_to_delete, nil)
 
     if can_view do
       if connected?(socket), do: Process.send_after(self(), :refresh_command_policies, 15_000)
@@ -87,6 +95,28 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     end
   end
 
+  @doc """
+  Handles the page's events.
+
+    * `"filter"`, `"refresh"`, `"clear_filters"`: patch the URL with the entry
+      filters; clearing keeps a pending command entry assign shortcut but
+      drops a category one.
+    * `"archive_entry"`, `"duplicate_entry"`: disable a command entry, or copy
+      it with its categories and open the copy for editing.
+    * `"assign_shortcut"`, `"assign_category_shortcut"`: preselect an entry or
+      category in the assignment form.
+    * `"change_assignment"`: store the form and discard any preview, so a stale
+      preview cannot be confirmed.
+    * `"preview_assignment"`, `"confirm_assignment"`: build the preview, then
+      rebuild it on confirm and queue the assignments only when it has no
+      conflicts or catalog blockers.
+    * `"retry_assignment"`, `"revoke_all"`, `"toggle_drift_warning"`: act on an
+      assignment or device the operator may see.
+    * `"request_delete_category"`, `"cancel_delete_category"`,
+      `"delete_category"`: open, dismiss, and confirm the category delete
+      dialog. Deleting refuses categories with active assignments, removes the
+      category's entry tags, and emits a `:category_deleted` audit event.
+  """
   @impl true
   def handle_event("filter", params, socket) do
     merged =
@@ -156,6 +186,10 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
   def handle_event("assign_category_shortcut", %{"id" => id}, socket) do
     params = Map.put(socket.assigns.current_params, "assign_category_id", id)
     {:noreply, push_patch(socket, to: ~p"/scripts/command-policies?#{params}")}
+  end
+
+  def handle_event("change_assignment", %{"assignment" => attrs}, socket) do
+    {:noreply, assign(socket, assignment_form: normalize_assignment_attrs(attrs), assignment_preview: nil)}
   end
 
   def handle_event("preview_assignment", %{"assignment" => attrs}, socket) do
@@ -236,31 +270,40 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     end
   end
 
-  def handle_event("delete_category", %{"id" => id}, socket) do
-    category = Enum.find(socket.assigns.categories, &(&1.id == id))
-    active_assignment_count = category_assignment_count(id)
+  def handle_event("request_delete_category", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :category_to_delete, Enum.find(socket.assigns.categories, &(&1.id == id)))}
+  end
+
+  def handle_event("cancel_delete_category", _params, socket) do
+    {:noreply, assign(socket, :category_to_delete, nil)}
+  end
+
+  def handle_event("delete_category", _params, %{assigns: %{category_to_delete: nil}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("delete_category", _params, socket) do
+    category = socket.assigns.category_to_delete
+    socket = assign(socket, :category_to_delete, nil)
 
     cond do
       not socket.assigns.can_manage ->
         {:noreply, put_flash(socket, :error, "Not authorized")}
 
-      active_assignment_count > 0 ->
+      category_assignment_count(category.id) > 0 ->
         {:noreply, put_flash(socket, :error, "Category has active assignments")}
 
-      category ->
-        remove_category_tags(id)
+      true ->
+        remove_category_tags(category.id)
 
         case Domain.destroy_command_allowlist_category(category) do
-          {:ok, _} ->
-            Audit.emit(:category_deleted, %{category_id: id, slug: category.slug})
-            {:noreply, put_flash(socket, :info, "Category deleted")}
+          :ok ->
+            Audit.emit(:category_deleted, %{category_id: category.id, slug: category.slug})
+            {:noreply, socket |> refresh_policy_assigns() |> put_flash(:info, "Category deleted")}
 
           _ ->
-            {:noreply, put_flash(socket, :error, "Failed to delete category")}
+            {:noreply, socket |> refresh_policy_assigns() |> put_flash(:error, "Failed to delete category")}
         end
-
-      true ->
-        {:noreply, put_flash(socket, :error, "Category not found")}
     end
   end
 
@@ -315,11 +358,98 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     |> List.first()
   end
 
+  # The page title for each live action.
   defp title(:new), do: "New Command Entry"
   defp title(:edit), do: "Edit Command Entry"
   defp title(:new_category), do: "New Category"
   defp title(:edit_category), do: "Edit Category"
   defp title(_), do: "Command Policies"
+
+  attr(:icon, :string, required: true)
+  attr(:label, :string, required: true, doc: "the action, shown as a tooltip")
+  attr(:target, :string, required: true, doc: "what the action applies to, for the accessible name")
+  attr(:danger, :boolean, default: false)
+  attr(:rest, :global, include: ~w(onclick))
+
+  # One icon button in a row's action bar; the daisyUI tooltip shows its label on hover and keyboard focus.
+  defp bar_button(assigns) do
+    ~H"""
+    <button type="button" class={bar_button_class(@danger)} data-tip={@label} aria-label={"#{@label} #{@target}"} {@rest}>
+      <.icon name={@icon} class="size-4" />
+    </button>
+    """
+  end
+
+  # Joined square button classes; destructive actions use the error colour.
+  defp bar_button_class(danger?) do
+    [
+      "btn btn-sm btn-square join-item tooltip tooltip-left border-base-300 bg-base-100 font-normal",
+      danger? && "text-error"
+    ]
+  end
+
+  attr(:name, :string, required: true, doc: "the assignment field the checked values submit as")
+  attr(:legend, :string, required: true)
+  attr(:options, :list, required: true, doc: "{value, label} pairs")
+  attr(:selected, :list, required: true)
+
+  # A labelled checkbox list for one assignment source; the hidden input submits
+  # an empty list when nothing is checked.
+  defp assignment_picker(assigns) do
+    ~H"""
+    <%!-- min-w-0 overrides the fieldset's min-content width so long labels truncate. --%>
+    <fieldset id={"assignment-#{@name}"} class="min-w-0 rounded-box border border-base-300 p-3">
+      <legend class="px-1 text-sm font-semibold">
+        {@legend} <span class="font-normal text-base-content/70">· {length(@selected)} selected</span>
+      </legend>
+      <input type="hidden" name={"assignment[#{@name}][]"} value="" />
+      <p :if={@options == []} class="text-sm text-base-content/70">None available</p>
+      <div :if={@options != []} class="max-h-40 overflow-y-auto">
+        <label
+          :for={{value, label} <- @options}
+          class="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-base-200"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm"
+            name={"assignment[#{@name}][]"}
+            value={value}
+            checked={to_string(value) in @selected}
+          />
+          <span class="truncate">{label}</span>
+        </label>
+      </div>
+    </fieldset>
+    """
+  end
+
+  # The label of a device in the operator's device list, or its id when the
+  # device is not listed.
+  defp device_name(devices, device_id) do
+    case Enum.find(devices, &(&1.id == device_id)) do
+      nil -> device_id
+      device -> device_label(device)
+    end
+  end
+
+  # A catalog compatibility status as shown on screen, e.g. :missing_package
+  # becomes "missing package".
+  defp catalog_status_text(status), do: status |> to_string() |> String.replace("_", " ")
+
+  # Only a resolved command path is ready; every other status is a warning.
+  defp catalog_status_badge(:command_path_resolved), do: "badge-success"
+  defp catalog_status_badge(_status), do: "badge-warning"
+
+  # Several devices can share a product name, so the MAC address tells them apart.
+  defp device_label(%{product_name: name, mac_address: mac}) when name not in [nil, ""], do: "#{name} · #{mac}"
+  defp device_label(device), do: device.mac_address
+
+  # One row per device and catalog command in an assignment preview.
+  defp catalog_preview_rows(catalog) do
+    for {device_id, device_preview} <- catalog.devices,
+        {name, result} <- device_preview.commands,
+        do: %{device_id: device_id, name: name, result: result}
+  end
 
   defp list_command_policy_categories do
     Category
@@ -443,7 +573,9 @@ defmodule NixstasisWeb.CommandPolicyLive.Index do
     }
   end
 
-  defp list_param(values) when is_list(values), do: values
+  # A submitted id field as a list, without the empty value an assignment
+  # picker's hidden input submits.
+  defp list_param(values) when is_list(values), do: Enum.reject(values, &(&1 == ""))
   defp list_param(value) when is_binary(value) and value != "", do: [value]
   defp list_param(nil), do: []
   defp list_param(value), do: [value]

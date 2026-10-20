@@ -162,6 +162,26 @@ defmodule NixstasisWeb.DeviceLive.Index do
     |> assign(:device, nil)
   end
 
+  @doc """
+  Handles the device list's events.
+
+    * Group panel: `"toggle_group_panel"`, `"close_group_panel"`, and
+      `"group_panel_keydown"` (Escape dismisses a pending delete first, then the
+      panel).
+    * Group metadata, for operators who may manage groups: `"new_group"`,
+      `"edit_group"`, `"cancel_group_form"`, `"save_group"`, `"archive_group"`,
+      `"restore_group"`, `"toggle_archived_groups"`, and the delete flow
+      `"request_group_delete"`, `"cancel_group_delete"`,
+      `"confirm_group_delete"`; only archived groups can be deleted.
+    * Group membership: `"select_membership_group"`, `"add_selected_to_group"`,
+      `"remove_selected_from_group"` apply to the selected devices.
+    * List state: `"search"`, `"filter"`, `"add_filter"`, `"remove_filter"`,
+      `"clear_filters"`, and `"sort"` patch the URL; sorting the sorted column
+      again reverses it.
+    * Selection and approval, for device managers: `"toggle_selection"`,
+      `"toggle_all"` (selects every visible device, or clears the selection
+      when all of them are selected), `"bulk_approve"`, and `"bulk_reject"`.
+  """
   @impl true
   def handle_event("toggle_group_panel", _params, socket) do
     if socket.assigns.can_view_device_details? and socket.assigns.group_authorization do
@@ -404,37 +424,6 @@ defmodule NixstasisWeb.DeviceLive.Index do
       |> Map.put("sort_order", order)
 
     {:noreply, push_patch(socket, to: ~p"/devices?#{params}")}
-  end
-
-  def handle_event("open_device_details", %{"id" => id}, socket) do
-    if Permissions.can_view_device_details?(socket.assigns.device_permissions, id) do
-      %Device{} = Devices.get_device!(id)
-
-      :telemetry.execute(
-        [:nixstasis, :devices, :details_open],
-        %{count: 1},
-        %{result: :ok, source: :devices_index, device_id: id}
-      )
-
-      {:noreply, push_navigate(socket, to: ~p"/devices/#{id}")}
-    else
-      :telemetry.execute(
-        [:nixstasis, :devices, :details_open],
-        %{count: 1},
-        %{result: :unauthorized, source: :devices_index, device_id: id}
-      )
-
-      {:noreply, put_flash(socket, :error, "You are not authorized to view device details.")}
-    end
-  rescue
-    _ ->
-      :telemetry.execute(
-        [:nixstasis, :devices, :details_open],
-        %{count: 1},
-        %{result: :error, source: :devices_index, device_id: id}
-      )
-
-      {:noreply, put_flash(socket, :error, "Unable to open device details")}
   end
 
   def handle_event("toggle_selection", %{"id" => id}, socket) do
@@ -1064,6 +1053,8 @@ defmodule NixstasisWeb.DeviceLive.Index do
     )
   end
 
+  # A device's unarchived groups sorted by name, or none when its groups were
+  # not loaded.
   defp active_device_groups(%{device_groups: groups}) when is_list(groups) do
     groups
     |> Enum.filter(&is_nil(&1.archived_at))
@@ -1071,4 +1062,30 @@ defmodule NixstasisWeb.DeviceLive.Index do
   end
 
   defp active_device_groups(_device), do: []
+
+  attr(:params, :map, required: true)
+  attr(:key, :string, required: true)
+  attr(:value, :any, required: true)
+  attr(:label, :string, required: true)
+
+  # A table cell value that narrows the list to rows sharing it, keeping the
+  # other filters; empty values show "N/A". The funnel and accessible name tell
+  # it apart from the MAC address link that opens a device.
+  defp filter_link(assigns) do
+    ~H"""
+    <span :if={@value in [nil, ""]} class="text-base-content/70">N/A</span>
+    <.link
+      :if={@value not in [nil, ""]}
+      patch={~p"/devices?#{Map.put(@params, @key, to_string(@value))}"}
+      class="group link link-hover inline-flex items-center gap-1 text-left"
+      aria-label={"Filter by #{@label} #{@value}"}
+    >
+      {@value}
+      <.icon
+        name="hero-funnel-micro"
+        class="size-3 opacity-0 group-hover:opacity-70 group-focus-visible:opacity-70"
+      />
+    </.link>
+    """
+  end
 end

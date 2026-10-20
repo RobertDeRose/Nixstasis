@@ -30,11 +30,13 @@ defmodule NixstasisWeb.ScriptLiveTest do
     end
   end
 
+  # Expands the front matter section and switches it to the schema editor.
   defp open_schema_tab(view) do
     open_front_matter_section(view)
     render_click(element(view, "input[phx-value-tab='schema']"))
   end
 
+  # Expands the front matter section and switches it to the preview.
   defp open_front_matter_preview(view) do
     open_front_matter_section(view)
     render_click(element(view, "input[phx-value-tab='preview']"))
@@ -96,9 +98,13 @@ defmodule NixstasisWeb.ScriptLiveTest do
           notes: %{}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/scripts/#{draft.id}")
+      {:ok, view, html} = live(conn, ~p"/scripts/#{draft.id}")
       assert html =~ ~s(phx-value-tab="deploy")
       refute html =~ "Validate and pass a test before deploying"
+
+      view |> element("#script-tab-test") |> render_click()
+      assert has_element?(view, "#test-runs tr td .badge", "passed")
+      assert has_element?(view, "#test-runs tr td", "0 device(s)")
     end
 
     test "redirects script detail without script view permission", %{conn: conn, draft: draft} do
@@ -136,6 +142,11 @@ defmodule NixstasisWeb.ScriptLiveTest do
 
       render_click(element(view, "button[phx-value-tab='validate']"))
       assert render(view) =~ "Validate script"
+
+      assert has_element?(view, "#script-tablist[phx-hook='Tablist']")
+      assert has_element?(view, "#script-tab-validate[aria-selected='true'][tabindex='0']")
+      assert has_element?(view, "#script-tab-editor[aria-selected='false'][tabindex='-1']")
+      refute has_element?(view, "#script-tab-editor[aria-controls]")
 
       render_click(element(view, "button[phx-value-tab='test']"))
       assert render(view) =~ "Test on selected devices"

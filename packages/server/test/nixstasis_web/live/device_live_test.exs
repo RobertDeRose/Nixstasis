@@ -62,6 +62,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
     device
   end
 
+  # A device-managing authorization limited to device_ids, or covering every
+  # device when device_ids is nil.
   defp group_authorization(device_ids) do
     %Nixstasis.Devices.GroupAuthorization{
       actor_id: "test-operator",
@@ -111,7 +113,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       Process.sleep(25)
       assert render(view) =~ "Device created successfully"
-      assert eventually_cleared?(view, 80)
+      assert eventually_cleared?(view, "Device created successfully", 80)
       refute render(view) =~ "Device created successfully"
     end
 
@@ -576,7 +578,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
         assert has_element?(view, "a[href*='group_id=#{group.id}']", label)
       end
 
-      view |> element("th[phx-value-sort_by='account_number']") |> render_click()
+      assert has_element?(view, "th[aria-sort='ascending'] button[phx-value-sort_by='mac_address']")
+      view |> element("th button[phx-value-sort_by='account_number']") |> render_click()
 
       routed_params =
         params
@@ -584,6 +587,8 @@ defmodule NixstasisWeb.DeviceLiveTest do
         |> Map.put("sort_order", :asc)
 
       assert_patch(view, ~p"/devices?#{routed_params}")
+      assert has_element?(view, "th[aria-sort='ascending'] button[phx-value-sort_by='account_number']")
+      assert has_element?(view, "th[aria-sort='none'] button[phx-value-sort_by='mac_address']")
 
       assert has_element?(
                view,
@@ -731,14 +736,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       device = create_device!(%{mac_address: "DD:DD:DD:DD:DD:DD"})
       {:ok, view, _html} = live(conn, ~p"/devices")
 
-      view
-      |> element(
-        "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
-        "DD:DD:DD:DD:DD:DD"
-      )
-      |> render_click()
+      assert {:error, {:live_redirect, %{to: to}}} =
+               view
+               |> element("a[href='/devices/#{device.id}']", "DD:DD:DD:DD:DD:DD")
+               |> render_click()
 
-      assert_redirect(view, "/devices/#{device.id}")
+      assert to == "/devices/#{device.id}"
     end
 
     test "device details navigation is blocked for unauthorized sessions", %{conn: conn} do
@@ -754,10 +757,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       refute has_element?(view, "#devices-stream tr")
       assert render(view) =~ "not authorized to view devices"
 
-      refute has_element?(
-               view,
-               "button[phx-click='open_device_details'][phx-value-id='#{device.id}']"
-             )
+      refute has_element?(view, "a[href='/devices/#{device.id}']")
     end
 
     test "device refresh events do not expose inventory to unauthorized sessions", %{conn: conn} do
@@ -945,14 +945,11 @@ defmodule NixstasisWeb.DeviceLiveTest do
           {:ok, view, _html} = live(conn, ~p"/devices")
           start = System.monotonic_time(:millisecond)
 
-          view
-          |> element(
-            "button[phx-click='open_device_details'][phx-value-id='#{device.id}']",
-            "AB:AB:AB:AB:AB:AB"
-          )
-          |> render_click()
+          assert {:error, {:live_redirect, %{to: "/devices/" <> _}}} =
+                   view
+                   |> element("a[href='/devices/#{device.id}']", "AB:AB:AB:AB:AB:AB")
+                   |> render_click()
 
-          assert_redirect(view, "/devices/#{device.id}")
           System.monotonic_time(:millisecond) - start
         end
 
@@ -1046,7 +1043,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       %{remote_access_lease_ref: lease_ref, ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
@@ -1122,12 +1119,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       html =
         view
-        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> element("button[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ ~s(id="terminal-container")
@@ -1171,7 +1168,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       %{ssh_authorize_command_id: command_id, ssh_token: session_ref} =
@@ -1190,7 +1187,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       %{ssh_authorize_command_id: command_id, ssh_token: session_ref, terminal_socket_token: socket_token} =
@@ -1237,7 +1234,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
@@ -1261,12 +1258,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       _html =
         view
-        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> element("button[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       [command] = Nixstasis.Domain.list_pending_commands!()
@@ -1290,12 +1287,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       html =
         view
-        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> element("button[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ "Invalid SSH authorization TTL configuration"
@@ -1310,7 +1307,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert :ok = Devices.delete_device(device)
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       assert :sys.get_state(SshKeyManager.TerminalSessions).sessions == before
@@ -1321,7 +1318,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       %{ssh_token: token} = :sys.get_state(view.pid).socket.assigns
@@ -1364,7 +1361,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       first_socket = start_terminal_from_view(view, device.id)
@@ -1384,7 +1381,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       assert Devices.get_device!(device.id).remote_access_requested == true
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       second_socket = start_terminal_from_view(view, device.id)
@@ -1404,12 +1401,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       html =
         view
-        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> element("button[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ "not authorized to start remote access"
@@ -1430,12 +1427,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
       refute Devices.get_device!(device.id).remote_access_requested
 
       view
-      |> element("a[phx-value-tab='terminal']", "Terminal")
+      |> element("button[phx-value-tab='terminal']", "Terminal")
       |> render_click()
 
       html =
         view
-        |> element("a[phx-value-tab='terminal']", "Terminal")
+        |> element("button[phx-value-tab='terminal']", "Terminal")
         |> render_click()
 
       assert html =~ "not authorized to start remote access"
@@ -1446,13 +1443,32 @@ defmodule NixstasisWeb.DeviceLiveTest do
       device = create_device!(%{mac_address: "E6:E6:E6:E6:E6:E6", last_seen_at: nil})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
-      assert render(view) =~ "Device Offline"
+      assert has_element?(view, "#device-offline-banner[role='status']", "This device is offline")
+      assert has_element?(view, "#device-offline-banner img[src='/images/sad_little_toaster_128.png'][alt='']")
+      assert has_element?(view, "#pcp-chart")
+      refute has_element?(view, "#cockpit-frame")
+      assert has_element?(view, "button#device-tab-terminal[disabled]")
+      assert has_element?(view, "button#device-tab-overview[disabled]")
+      refute has_element?(view, "button#device-tab-pcp[disabled]")
 
       {:ok, device} = Devices.get_device(device.id)
       {:ok, _updated} = Devices.update_device(device, %{last_seen_at: DateTime.utc_now()})
 
-      assert eventually_rendered?(view, ~s|id="pcp-chart"|)
-      refute render(view) =~ "Device Offline"
+      assert eventually_cleared?(view, ~s|id="device-offline-banner"|)
+      refute has_element?(view, "button#device-tab-terminal[disabled]")
+      assert has_element?(view, "#cockpit-frame")
+    end
+
+    test "offline devices refuse the remote tabs", %{conn: conn} do
+      device = create_device!(%{mac_address: "E6:E6:E6:E6:E6:E8", last_seen_at: nil})
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
+
+      for tab <- ["terminal", "overview"] do
+        render_click(view, "change_tab", %{"tab" => tab})
+        assert has_element?(view, "button#device-tab-pcp[aria-selected='true']")
+      end
+
+      refute Devices.get_device!(device.id).remote_access_requested
     end
 
     test "device detail refreshes when ordinary device attributes change while mounted", %{conn: conn} do
@@ -1478,14 +1494,14 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, _updated} =
         Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
 
-      assert eventually_rendered?(view, "Device Offline")
+      assert eventually_rendered?(view, ~s|id="device-offline-banner"|)
       assert Devices.get_device!(device.id).remote_access_requested == false
     end
 
     test "offline transition clears the active terminal session", %{conn: conn} do
       device = create_device!(%{mac_address: "E7:E7:E7:E7:E7:E8"})
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
-      _ = view |> element("a[phx-value-tab='terminal']", "Terminal") |> render_click()
+      _ = view |> element("button[phx-value-tab='terminal']", "Terminal") |> render_click()
 
       %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns
       {:ok, loaded_device} = Devices.get_device(device.id)
@@ -1493,7 +1509,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, _updated} =
         Devices.update_device(loaded_device, %{last_seen_at: DateTime.add(DateTime.utc_now(), -10, :minute)})
 
-      assert eventually_rendered?(view, "Device Offline")
+      assert eventually_rendered?(view, ~s|id="device-offline-banner"|)
       assert {:error, :not_found} = SshKeyManager.fetch_terminal_session(session_ref, device.id)
     end
 
@@ -1543,9 +1559,12 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
       html =
         view
-        |> element("a[phx-value-tab='pcp']", "Performance History")
+        |> element("button[phx-value-tab='pcp']", "Performance History")
         |> render_click()
 
+      assert has_element?(view, "button#device-tab-pcp[role='tab'][aria-selected='true'][tabindex='0']")
+      assert has_element?(view, "button#device-tab-terminal[role='tab'][aria-selected='false'][tabindex='-1']")
+      assert has_element?(view, "#device-tabpanel-pcp[role='tabpanel'][aria-labelledby='device-tab-pcp']")
       assert html =~ "PCP Metrics"
       assert html =~ "phx-update=\"ignore\""
       assert html =~ "Load 1m"
@@ -1558,7 +1577,7 @@ defmodule NixstasisWeb.DeviceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}")
 
       view
-      |> element("a[phx-value-tab='pcp']", "Performance History")
+      |> element("button[phx-value-tab='pcp']", "Performance History")
       |> render_click()
 
       {:ok, _event} =
@@ -1644,22 +1663,27 @@ defmodule NixstasisWeb.DeviceLiveTest do
 
   defp eventually_rendered?(_view, _text, 0), do: false
 
-  # Polls the rendered view up to `attempts` times, 5 ms apart, until the
-  # "Device created successfully" flash is gone. Returns false if it persists.
-  defp eventually_cleared?(view, attempts) when attempts > 0 do
-    if render(view) =~ "Device created successfully" do
+  # Polls the rendered view up to `attempts` times, 5 ms apart, until `text`
+  # is gone. Returns false if it persists.
+  defp eventually_cleared?(view, text, attempts \\ 20)
+
+  defp eventually_cleared?(view, text, attempts) when attempts > 0 do
+    if render(view) =~ text do
       Process.sleep(5)
-      eventually_cleared?(view, attempts - 1)
+      eventually_cleared?(view, text, attempts - 1)
     else
       true
     end
   end
 
-  defp eventually_cleared?(_view, 0), do: false
+  defp eventually_cleared?(_view, _text, 0), do: false
 
+  # Opens the Remote Terminal tab, acknowledges the SSH authorize command, and
+  # joins the terminal channel with the view's session token. Returns the
+  # joined channel socket.
   defp start_terminal_from_view(view, device_id) do
     view
-    |> element("a[phx-value-tab='terminal']", "Terminal")
+    |> element("button[phx-value-tab='terminal']", "Terminal")
     |> render_click()
 
     %{ssh_token: session_ref} = :sys.get_state(view.pid).socket.assigns

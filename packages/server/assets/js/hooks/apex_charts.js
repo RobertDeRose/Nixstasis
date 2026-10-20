@@ -1,10 +1,23 @@
 import ApexCharts from "../../vendor/apexcharts"
 
+// Resolve a theme colour to hex through the cascade. Reading the custom property
+// directly returns its raw text, such as light-dark(...), which ApexCharts cannot parse.
 const cssColor = (name, fallback) => {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value || fallback
+  const probe = document.createElement("span")
+  probe.style.display = "none"
+  probe.style.color = `var(${name}, ${fallback})`
+  document.body.appendChild(probe)
+  const channels = getComputedStyle(probe).color.match(/\d+(\.\d+)?/g)
+  probe.remove()
+
+  if (!channels) {
+    return fallback
+  }
+
+  return `#${channels.slice(0, 3).map((n) => Math.round(Number(n)).toString(16).padStart(2, "0")).join("")}`
 }
 
+// Resolves a var(--token) colour to hex; any other colour passes through.
 const resolveColor = (color) => {
   const match = typeof color === "string" && color.match(/^var\((--[^)]+)\)$/)
   return match ? cssColor(match[1], color) : color
@@ -205,6 +218,8 @@ export default {
       console.error("Error updating ApexChart:", e)
     }
   },
+  // Re-renders the chart when the root element's theme, palette, or highlight
+  // changes, so its colours follow the operator's choice.
   observeTheme() {
     if (this.themeObserver) {
       return
@@ -213,7 +228,7 @@ export default {
     this.themeObserver = new MutationObserver(() => this.updated())
     this.themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"]
+      attributeFilter: ["data-theme", "data-palette", "data-highlight"]
     })
   }
 }

@@ -435,6 +435,12 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 
+  @doc """
+  Renders the report builder: the report name (fixed once the report exists),
+  the script schema and version it reads, the column rows, and the filter rows.
+  A filter on a field that is not shown as a column gets a warning and a button
+  that adds the field as a column. Submitting sends `"save"`.
+  """
   @impl true
   def render(assigns) do
     ~H"""
@@ -566,7 +572,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                         <option value={key} selected={field.path == key}>{label}</option>
                       <% end %>
                     </select>
-                    <p class="mt-1 text-xs text-base-content/60">
+                    <p class="mt-1 text-xs text-base-content/70">
                       {column_field_type_hint(schema_option_types(@schema_options), field.path)}
                     </p>
                   </div>
@@ -640,7 +646,7 @@ defmodule NixstasisWeb.ReportLive.FormComponent do
                         <option value={key} selected={filter.field == key}>{label}</option>
                       <% end %>
                     </select>
-                    <p class="mt-1 text-xs text-base-content/60">
+                    <p class="mt-1 text-xs text-base-content/70">
                       {filter_field_type_hint(schema_option_types(@schema_options), filter.field)}
                     </p>
                     <%= if filter_field_hidden?(@fields, filter.field) do %>
