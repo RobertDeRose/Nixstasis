@@ -373,8 +373,8 @@ configuration rather than bypassing OpenSSH with direct shell access.
 Each reader-facing page has one explicit purpose. Pages marked **verify** are
 checked for stale claims but are not changed when their boundary is unaffected.
 
-| Page                                                       | Purpose                                                                 | Ownership                               |
-|------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------|
+| Page                                                           | Purpose                                                                 | Ownership                               |
+|----------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------|
 | `website/docs/client-server-interface.md`                      | Wire shape, acknowledgement, and failure behavior for terminal commands | Update                                  |
 | `website/docs/data-flow.md`                                    | Browser-to-device sequence, IPC lookup, and revoke flow                 | Update                                  |
 | `website/docs/runtime-boundaries.md`                           | Server/client/OpenSSH/FRP authority boundaries                          | Update                                  |
@@ -389,9 +389,9 @@ checked for stale claims but are not changed when their boundary is unaffected.
 | `website/docs/features/index.md`                               | Delivered-feature discoverability                                       | Update at close-out                     |
 | `website/docs/features/in-memory-ssh-authorized-keys/index.md` | Implementation evidence and audit history                               | Create at close-out                     |
 | `website/docs/SUMMARY.md`                                      | mdBook navigation for design and delivered record                       | Update at close-out                     |
-| `packages/client/README.md`                                | Native client installation and support-account behavior                 | Update                                  |
-| `deploy/compose/README.md`                                 | Compose SSH account and operator flow                                   | Update                                  |
-| `packages/server/README.md`                                | Confirm no feature-specific server contract is documented there         | Verify                                  |
+| `packages/client/README.md`                                    | Native client installation and support-account behavior                 | Update                                  |
+| `deploy/compose/README.md`                                     | Compose SSH account and operator flow                                   | Update                                  |
+| `packages/server/README.md`                                    | Confirm no feature-specific server contract is documented there         | Verify                                  |
 | `website/docs/planned-features.md`                             | Roadmap status and scope                                                | Update as implementation status changes |
 
 Product documentation must stand alone; readers must not need to open the

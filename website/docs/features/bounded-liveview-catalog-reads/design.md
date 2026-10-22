@@ -182,8 +182,8 @@ Operators will see bounded, searchable pages rather than an entire catalog. Larg
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                                  | Create or update        | Planned change                                                                                           | Owning Beads task                             |
-|----------------------------|-------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| Documentation concern      | Exact page                                                      | Create or update        | Planned change                                                                                           | Owning Beads task                             |
+|----------------------------|-----------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------|-----------------------------------------------|
 | Architecture               | `website/docs/modules/server-devices.md`                        | Update                  | Document compact authorized script-target reads and selected-target reload ownership.                    | `nixstasis-mol-594.1`                         |
 | Architecture               | `website/docs/modules/server-web.md`                            | Update                  | Document canonical `/alerts/rules` routes and bounded LiveView collection behavior.                      | `nixstasis-mol-594.2` / `nixstasis-mol-594.4` |
 | Architecture               | `website/docs/README.md`                                        | Update                  | Update route/module inventory for canonical `/alerts/rules` and removed duplicate module.                | `nixstasis-mol-594.2`                         |

@@ -255,7 +255,7 @@ Files that make up this example journey:
 | Dashboard page           | `packages/server/lib/nixstasis_web/live_dashboard/e2e_page.ex`                                                                                            | Server                         | Runs/results/log visualization.                                    |
 | Migrations               | `packages/server/priv/repo/migrations/20260209235459_create_e2e_runs.exs`, `packages/server/priv/repo/migrations/20260212163000_harden_e2e_contracts.exs` | Server                         | Schema for runs/results and reliability hardening fields.          |
 | Seed script              | `packages/server/priv/e2e/seed.exs`                                                                                                                       | Server                         | Baseline data reset before run acceptance.                         |
-| E2E API docs             | `website/docs/development/e2e/server.md`, `website/docs/client-server-interface.md`                                                                               | Both                           | Contract reference for endpoints/payloads/errors.                  |
+| E2E API docs             | `website/docs/development/e2e/server.md`, `website/docs/client-server-interface.md`                                                                       | Both                           | Contract reference for endpoints/payloads/errors.                  |
 
 ## Architecture Overview
 
