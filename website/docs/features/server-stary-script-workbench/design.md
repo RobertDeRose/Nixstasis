@@ -298,8 +298,8 @@ collection policy, while the in-process PubSub event is not durable.
 
 ## User-Facing Documentation Impact
 
-| Documentation concern      | Exact page                                                 | Create or update        | Planned change                                                                                                                     |
-|----------------------------|------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| Documentation concern      | Exact page                                                     | Create or update        | Planned change                                                                                                                     |
+|----------------------------|----------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | Development / operations   | `website/docs/operations/script-workbench.md`                  | Create                  | Document authoring, validation, target authorization, audit, rollout, retries, cancellation, and failure handling.                 |
 | Architecture               | `website/docs/modules/server-scripts.md`                       | Create                  | Document Phoenix authoring/orchestration, Ash persistence, command delivery, and the client execution boundary.                    |
 | Architecture               | `website/docs/architecture.md`                                 | Update                  | Add the server authoring/client execution boundary and script-workbench flow.                                                      |

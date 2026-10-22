@@ -147,8 +147,8 @@ Introduce a catalog layer above the existing command allowlist runtime contract.
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                                          | Create or update        | Planned change                                                                                                   |
-|----------------------------|---------------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------|
+| Documentation concern      | Exact page                                                              | Create or update        | Planned change                                                                                                   |
+|----------------------------|-------------------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------|
 | Architecture               | `website/docs/data-flow.md`                                             | Update                  | Document heartbeat inventory and catalog-backed policy resolution flow.                                          |
 | Architecture               | `website/docs/modules/server-domain.md`                                 | Update                  | Add catalog resources, inventory snapshots, and resolver statuses.                                               |
 | Architecture               | `website/docs/modules/client-starlark-runtime.md`                       | Update                  | Clarify unchanged absolute-path enforcement after catalog resolution.                                            |

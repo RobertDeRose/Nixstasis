@@ -59,14 +59,14 @@ applicable.
 Name exact pages, not only sections. Mark whether each page exists or must be created. Every new durable page must be
 registered in `website/sidebars.ts`.
 
-| Documentation concern      | Exact page                                      | Create or update                   | Planned change                      | Owning Beads task |
-|----------------------------|-------------------------------------------------|------------------------------------|-------------------------------------|-------------------|
-| Introduction               |                                                 |                                    |                                     |                   |
-| Architecture               |                                                 |                                    |                                     |                   |
-| Usage / Operations         |                                                 |                                    |                                     |                   |
-| Development                |                                                 |                                    |                                     |                   |
-| Reference                  |                                                 |                                    |                                     |                   |
-| Navigation                 | `website/sidebars.ts`                              | Update if pages are added or moved |                                     |                   |
+| Documentation concern      | Exact page                                          | Create or update                   | Planned change                      | Owning Beads task |
+|----------------------------|-----------------------------------------------------|------------------------------------|-------------------------------------|-------------------|
+| Introduction               |                                                     |                                    |                                     |                   |
+| Architecture               |                                                     |                                    |                                     |                   |
+| Usage / Operations         |                                                     |                                    |                                     |                   |
+| Development                |                                                     |                                    |                                     |                   |
+| Reference                  |                                                     |                                    |                                     |                   |
+| Navigation                 | `website/sidebars.ts`                               | Update if pages are added or moved |                                     |                   |
 | Implemented Feature Record | `website/docs/features/{{ feature_slug }}/index.md` | Create during close-out            | Preserve delivery and audit history |                   |
 
 Remove non-applicable rows or mark them `Not applicable` with a brief reason.

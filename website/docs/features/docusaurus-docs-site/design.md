@@ -118,15 +118,15 @@ The docs build needs Node from mise and network access for `npm ci`. Pages deplo
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                        | Create or update        | Planned change                                       | Owning Beads task |
-|----------------------------|---------------------------------------------------|-------------------------|------------------------------------------------------|-------------------|
+| Documentation concern      | Exact page                                            | Create or update        | Planned change                                       | Owning Beads task |
+|----------------------------|-------------------------------------------------------|-------------------------|------------------------------------------------------|-------------------|
 | Architecture               | `website/docs/repository-structure.md`                | Update                  | Describe the Docusaurus `website/` layout            | `nixstasis-pdk.5` |
 | Development                | `website/docs/development/tooling.md`                 | Update                  | Docs commands, tools, and checks                     | `nixstasis-pdk.5` |
 | Development                | `website/docs/development/feature-lifecycle.md`       | Update                  | Register pages in `sidebars.ts`                      | `nixstasis-pdk.5` |
 | Development                | `website/docs/features/_template/design.md`           | Update                  | Navigation registration wording                      | `nixstasis-pdk.5` |
 | Reference                  | `website/docs/reference/tooling.md`                   | Update                  | Files table and docs workflow                        | `nixstasis-pdk.5` |
 | Reference                  | `website/docs/reference/openapi/index.md`             | Update                  | Link the rendered API reference                      | `nixstasis-pdk.3` |
-| Navigation                 | `website/sidebars.ts`                                | Create                  | Replace `website/docs/SUMMARY.md`                        | `nixstasis-pdk.2` |
+| Navigation                 | `website/sidebars.ts`                                 | Create                  | Replace `website/docs/SUMMARY.md`                    | `nixstasis-pdk.2` |
 | Implemented Feature Record | `website/docs/features/docusaurus-docs-site/index.md` | Create during close-out | Delivered capability and deviations from this design | `nixstasis-pdk`   |
 
 ## Validation Strategy

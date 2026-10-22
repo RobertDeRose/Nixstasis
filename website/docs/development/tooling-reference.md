@@ -16,9 +16,9 @@
 | `scripts/enable-docs-deployment.py` | Configures workflow-built Pages through external `gh`.                                                                       |
 | `scripts/serve-pages.py`            | Serves the assembled Pages site locally, resolving paths the way GitHub Pages does.                                          |
 | `.github/workflows/validate.yml`    | Runs locked `mise run check` and the test suites on pull requests and releases.                                              |
-| `website/docusaurus.config.ts`         | Configures the Docusaurus site, Markdown parsing, Mermaid, search, and OpenAPI generation.                                   |
-| `website/sidebars.ts`                  | Defines documentation navigation; every durable page is registered here.                                                     |
-| `website/package-lock.json`            | Locks the documentation site's npm dependencies; commit it.                                                                  |
+| `website/docusaurus.config.ts`      | Configures the Docusaurus site, Markdown parsing, Mermaid, search, and OpenAPI generation.                                   |
+| `website/sidebars.ts`               | Defines documentation navigation; every durable page is registered here.                                                     |
+| `website/package-lock.json`         | Locks the documentation site's npm dependencies; commit it.                                                                  |
 | `site/`                             | The product page served at the Pages root, and `brand.css`, the color and font tokens the docs share.                        |
 | `.github/workflows/pages.yml`       | Builds the gated Pages site on pushes to `main`, when a successful E2E report run on `main` calls it, or on manual dispatch. |
 
@@ -84,7 +84,7 @@ subsystem here, update `AGENTS.md` to match, and run `cog check`.
 | `fix`                                                                                                                                 | root                             | Apply deterministic hk fixes.                                                                                            |
 | `lock`                                                                                                                                | root                             | Regenerate every `mise.lock`; `--bump` upgrades to the latest versions.                                                  |
 | `docs:install`                                                                                                                        | root                             | Install site dependencies with `npm ci` when the npm lock changes.                                                       |
-| `docs:build`                                                                                                                          | root                             | Build the site into `website/build`.                                                                                        |
+| `docs:build`                                                                                                                          | root                             | Build the site into `website/build`.                                                                                     |
 | `docs:serve`                                                                                                                          | root                             | Serve the site with hot reload on port 3000 or a supplied port.                                                          |
 | `site:build`                                                                                                                          | root                             | Build the docs and assemble the Pages site into `_site/nixstasis`: the product page at the root, the docs under `docs/`. |
 | `site:serve`                                                                                                                          | root                             | Build the Pages site and serve it at `http://127.0.0.1:3000/nixstasis/` or a supplied port.                              |

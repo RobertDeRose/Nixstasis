@@ -222,14 +222,14 @@ structured audit logs and existing application observability.
 
 ## Documentation Impact
 
-| Documentation concern      | Exact page                                           | Create or update | Planned change                                                        | Owning Beads task               |
-|----------------------------|------------------------------------------------------|------------------|-----------------------------------------------------------------------|---------------------------------|
+| Documentation concern      | Exact page                                               | Create or update | Planned change                                                        | Owning Beads task               |
+|----------------------------|----------------------------------------------------------|------------------|-----------------------------------------------------------------------|---------------------------------|
 | Introduction               | `website/docs/README.md`                                 | Update           | Mention manual fleet organization in the operator capability summary  | `nixstasis-vpu.7.8`             |
 | Architecture               | `website/docs/architecture.md`                           | Update           | Record group ownership, scope, and preserved device invariants        | `nixstasis-vpu.7.8`             |
 | Usage / Operations         | `website/docs/operations/device-groups.md`               | Create           | Explain lifecycle, memberships, filters, scoped counts, and conflicts | `nixstasis-vpu.7.8`             |
 | Module reference           | `website/docs/modules/server-devices.md`                 | Update           | Document resource, context, permission, and audit interfaces          | `nixstasis-vpu.7.8`             |
-| Development                | Not applicable                                       | —                | Existing server development guidance remains sufficient               | —                               |
-| Reference                  | Not applicable                                       | —                | No public API or configuration contract is added                      | —                               |
+| Development                | Not applicable                                           | —                | Existing server development guidance remains sufficient               | —                               |
+| Reference                  | Not applicable                                           | —                | No public API or configuration contract is added                      | —                               |
 | Navigation                 | `website/docs/SUMMARY.md`                                | Update           | Register design now; add operations page and delivered record later   | `nixstasis-vpu.1`, `.7.8`, `.8` |
 | Implemented Feature Record | `website/docs/features/dashboard-device-groups/index.md` | Create close-out | Preserve delivery and audit history and add to Implemented Features   | `nixstasis-vpu.8`               |
 
