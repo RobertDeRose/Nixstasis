@@ -19,7 +19,7 @@
 | `website/docusaurus.config.ts`         | Configures the Docusaurus site, Markdown parsing, Mermaid, search, and OpenAPI generation.                                   |
 | `website/sidebars.ts`                  | Defines documentation navigation; every durable page is registered here.                                                     |
 | `website/package-lock.json`            | Locks the documentation site's npm dependencies; commit it.                                                                  |
-| `site/`                             | The product page served at the Pages root, and `brand.css`, the color and font tokens the docs share.                        |
+| `site/`                             | The Pages-root product page, `brand.css` (tokens the docs share), and `social-preview.png`, the sites' share image.          |
 | `.github/workflows/pages.yml`       | Builds the gated Pages site on pushes to `main`, when a successful E2E report run on `main` calls it, or on manual dispatch. |
 
 ## Checks

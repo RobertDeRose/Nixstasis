@@ -109,6 +109,16 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // The product page publishes the wide share image; the docs reuse it.
+    image: 'https://robertderose.github.io/nixstasis/social-preview.png',
+    metadata: [
+      {property: 'og:site_name', content: 'Nixstasis'},
+      {
+        property: 'og:image:alt',
+        content:
+          'Nixstasis: Every device in your fleet, one click away, beside a hexagon map of devices with a terminal open on one of them.',
+      },
+    ],
     colorMode: {respectPrefersColorScheme: true},
     // Brand colors are applied in src/css/custom.css; base themes keep Mermaid's palette neutral.
     // Mermaid sizes boxes with this font, so it must match the site's body font.
