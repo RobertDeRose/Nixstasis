@@ -14,7 +14,7 @@ built, tested, and released on their own.
 | `packages/shared/e2e_log_viewer`                  | The E2E log viewer shared by the static report export and LiveDashboard.                                                     |
 | `deploy/compose`                                  | The supported deployment: the Compose file, Caddyfiles, `frps.toml`, environment templates, and validation scripts.          |
 | `website`                                         | The Docusaurus site: `docs/` holds the content, `sidebars.ts` the navigation, and `src/` the styles, fonts, and client code. |
-| `site`                                            | The product page at the GitHub Pages root, and the brand tokens it shares with the docs.                                     |
+| `site`                                            | The product page at the GitHub Pages root, the brand tokens it shares with the docs, and the share image both sites use.     |
 | `scripts`                                         | Repository scripts, such as enabling GitHub Pages deployment and previewing the Pages site.                                  |
 | `.github/workflows`                               | Validation, release, image build, E2E report, and GitHub Pages workflows.                                                    |
 | `mise.toml`, `hk.pkl`, `cog.toml`, `package.json` | Tool versions and tasks, Git hooks and checks, changelog and commit rules.                                                   |
